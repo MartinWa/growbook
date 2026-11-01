@@ -22,6 +22,6 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
-# Browser tests opt in through --browser; no private host configuration is read.
+# Optional browser-test debug settings; no private host configuration is read.
 if os.environ.get("GROWBOOK_BROWSER_TESTS") == "1":
     DEBUG = True

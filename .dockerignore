@@ -1,5 +1,6 @@
 .git
 .pi
+.playwright-cli
 .venv
 node_modules
 local

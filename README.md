@@ -16,18 +16,18 @@ The interface defaults to Swedish, with English available.
 - Retry-safe creation and visible errors without silently accepting partial photo saves.
 - Operational database/photo backup, verification, clean-instance restore and orphan cleanup.
 
-**Early development, not a complete release.** Growing-area/crop/variety registers,
-planting plans, diary editing/links and portable data export are not implemented
-yet. The automated suite runs against synthetic data on a development machine,
-and the Linux/amd64 image has passed a local build and a private-server synthetic
-capture/access-control and backup/restore trial. That trial used an explicit
-address override; normal private hostname routing, actual iPhone capture and
-scheduled/off-host backup checks remain pending. Use disposable data until the
-remaining checks pass.
+## Scope and limitations
 
-This documentation describes the code as it is on `main`: the features that exist,
-what deliberately does not exist yet, and how to run, test, build and operate it.
-There is no roadmap or changelog.
+- The diary is shared within an installation: every active account can read all
+  entries, photos and original downloads. There are no per-user diaries.
+- Entries can be created and read, but not edited or deleted. Growing-area, crop
+  and variety registers, planting plans, diary links and portable data import/export
+  are not provided.
+- Uploads are limited to 10 photos per entry, 20 MiB per photo, 80 MiB in total and
+  50 million decoded pixels per photo. Animated and multi-image files are rejected.
+- Deployments are intended for private LAN/VPN access over HTTPS, not public
+  Internet exposure. Verify backup and clean-instance recovery before recording
+  real data.
 
 ## Requirements
 
@@ -131,16 +131,16 @@ $env:GROWBOOK_BROWSER_CHANNEL = "chrome"
 uv run python tools/run_tests.py -q -m browser
 ```
 
-These tests exercise the real browser/form interaction; they do not verify the
-iPhone's native camera/library picker or the production private-network route.
+These tests exercise Chromium and real browser/form interaction. They do not
+verify a phone's native camera/library picker or a deployment's private-network
+routing; check those on the intended devices and installation.
 
 ## Build and run with Docker
 
-**The image has been built and tested on Linux/amd64**, locally and in a private
-server trial with disposable data. Non-root/read-only startup, authenticated HTTPS
-capture and clean-instance backup/restore passed. Ordinary private DNS routing,
-the actual phone and scheduled/off-host backups still need checks before real use.
-A running Docker daemon is required.
+The Dockerfile builds a Linux production image with Waitress. The supplied Compose
+configuration runs one application process with two threads behind an existing
+private HTTPS reverse proxy. A running Docker daemon is required; verify the build
+and deployment on your target platform.
 
 ### Build an image
 
@@ -218,10 +218,10 @@ Production settings deliberately leave HSTS include-subdomains/preload disabled;
 control of sibling domains or enroll in public preload. Other security warnings
 need investigation.
 
-The private-server trial already covered non-root/read-only startup, authenticated
-capture and a clean-instance restore. Ordinary private DNS routing, the actual
-phone capture flow and scheduled/off-host backups still need checks before using
-genuine garden observations.
+Before recording real data, verify login/logout, text/photo capture and denial of
+anonymous access through the configured HTTPS hostname on the intended devices.
+Create a backup, keep an independent copy and verify a clean-instance restore.
+Repeat these checks after changes to routing, storage or media handling.
 
 ## Backup and recovery
 
@@ -274,8 +274,9 @@ storage. Keep backups outside live media storage.
 | `third_party/` | Dependency licenses, notices and native build provenance. |
 
 `.venv/`, `local/`, `staticfiles/`, `.env`, databases and live media/backups are
-ignored by Git. Migrations, dependency locks, source translations and synthetic
-fixtures belong in source control.
+ignored by Git. Private material and local tool/browser state are excluded from
+Git and container build contexts. Migrations, dependency locks, source translations
+and synthetic fixtures belong in source control.
 
 ## License
 

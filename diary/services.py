@@ -92,7 +92,7 @@ def create_entry(*, author, date, body, uploads, submission_key):
         try:
             photos = stage_uploads(uploads, staging)
             fingerprint = payload_fingerprint(date, body, photos)
-            # Recognize an immutable original request even after later entry edits.
+            # Match retries against the receipt, not mutable entry fields.
             with transaction.atomic():
                 if not User.objects.filter(pk=author.pk, is_active=True).exists():
                     raise PermissionDenied

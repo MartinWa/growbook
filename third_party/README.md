@@ -31,9 +31,7 @@ licenses in `third_party/libheif` and `third_party/libde265`. Users must remain 
 to replace/relink those libraries; do not apply Growbook's noncommercial terms to
 them or restrict reverse engineering required for debugging their modifications.
 
-The Linux/amd64 image has now passed a local build and runtime trial.
-Linked-library inspection confirmed that the source-built wrapper uses
-libheif/libde265 without x265. Before publishing any binaries/images, still
-verify the complete linked-library inventory, notices/corresponding sources,
-and LGPL compliance. This checklist is not a legal opinion or a claim that
-source metadata or a successful build alone proves compatibility.
+Before publishing binaries/images, verify the complete linked-library inventory,
+notices/corresponding sources, library replacement/relinking behavior and LGPL
+compliance. This checklist is not a legal opinion or a claim that source metadata
+or a successful build alone proves compatibility.

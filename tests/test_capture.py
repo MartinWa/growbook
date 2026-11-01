@@ -234,7 +234,7 @@ def test_same_key_cannot_be_reused_by_another_author(user, django_user_model):
 
 def test_retry_uses_immutable_receipt_not_later_edits(user):
     first = capture(user)
-    # Simulate a later edit; there is no edit operation or UI yet.
+    # Mutate the row to prove retries use the receipt; the application has no edit writer.
     with transaction.atomic(), validated_write():
         first.entry.body = "Later edited text"
         first.entry.save()
@@ -248,7 +248,7 @@ def test_retry_uses_immutable_receipt_not_later_edits(user):
 def test_deleted_receipt_prevents_resurrection(user):
     first = capture(user)
     key = first.entry.submission_key
-    # Simulate future explicit deletion while retaining its tombstone.
+    # Remove the row to exercise the receipt's missing-entry safeguard.
     with transaction.atomic(), validated_write():
         first.entry.delete()
     assert DiarySubmission.objects.get(key=key).entry_id is None

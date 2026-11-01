@@ -27,15 +27,15 @@ Do not implement a feature outside this scope without agreeing it with the
 maintainer first. Maintained documentation describes the code as it exists:
 current behavior, deliberate limitations, and how to run, test, build and operate
 it. Do not add roadmap documents, milestone identifiers, changelogs or claims about
-verification that has not been performed.
+verification that has not been performed. Keep local plans and work/verification
+logs in ignored private material, not maintained documentation.
 
 ## Language and publication
 
 - Code, comments, identifiers, migrations, database table names and maintained
   documentation are in **English**.
 - Swedish is the default interface locale; English is available. Use English source
-  messages with the translation catalogs. Do not translate stored crop, variety,
-  area or note text.
+  messages with the translation catalogs. Do not translate stored user-entered text.
 - This repository is public. Keep personal garden records, exports, photos,
   credentials, hostnames, volume paths, proxy names and user/group IDs out of
   committed files. Use synthetic fixtures and generic examples.
@@ -49,7 +49,7 @@ verification that has not been performed.
 
 ## Database and integrity
 
-- SQLite WAL is suitable for the initial small installation **on a filesystem local
+- SQLite WAL is suitable for small, private installations **on a filesystem local
   to the application host**, not SMB/NFS storage mounted elsewhere.
 - One application worker is the deployment default, not a SQLite correctness
   guarantee. Threads and management commands can contend too. Keep transactions
@@ -114,6 +114,6 @@ contention checks.
 Cover at least: text-only, photo-only and multi-photo entries, photo failures and
 retries, upload limits, authorization for pages/media/downloads, overlapping writes,
 and clean-instance restore. Browser tests cover real form interaction; they do not
-verify an iPhone's native picker or a private production route, so do not present
-them as device evidence. Template styling does not need brittle snapshot tests, but
-interactive behavior and accessibility do need checks.
+verify device-native photo pickers or a deployment's private-network routing, so do
+not present them as device evidence. Template styling does not need brittle
+snapshot tests, but interactive behavior and accessibility do need checks.

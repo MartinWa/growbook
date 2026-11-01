@@ -78,6 +78,16 @@ def test_english_locale_is_available(client, user):
     assert "Save observation" in response.text
 
 
+def test_empty_diary_copy_describes_supported_capture(client, user):
+    client.force_login(user)
+    response = client.get("/")
+    assert "Börja med det du vill dokumentera." in response.text
+    client.cookies["django_language"] = "en"
+    response = client.get("/")
+    assert "A photo, a short note, or both. Start with what you want to record." in response.text
+    assert "You can add details later" not in response.text
+
+
 def test_garden_local_today_is_default(client, user, monkeypatch):
     monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 1, 2, tzinfo=UTC))
     client.force_login(user)
@@ -297,7 +307,7 @@ def test_photo_viewer_escapes_caption_and_does_not_accept_an_external_return_url
 
     photo = entry(user, [image_upload()]).photos.get()
     photo.caption = '<script>alert("x")</script>'
-    # Caption editing is not supported yet; exercise escaping without adding a writer.
+    # Exercise escaping without adding an unsupported caption writer.
     monkeypatch.setattr(views, "get_object_or_404", lambda *args, **kwargs: photo)
     client.force_login(user)
     response = client.get(photo.get_absolute_url(), {"next": "https://example.com/"})

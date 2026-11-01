@@ -5,7 +5,7 @@ from .models import DiaryEntry
 
 @admin.register(DiaryEntry)
 class DiaryEntryAdmin(admin.ModelAdmin):
-    """Read-only: there is no validated edit/delete operation yet."""
+    """Read-only: validated creation is supported, editing and deletion are not."""
 
     list_display = ["date", "author", "created_at"]
     readonly_fields = [field.name for field in DiaryEntry._meta.fields]

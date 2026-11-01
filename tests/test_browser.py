@@ -1,4 +1,4 @@
-"""Real browser checks of the reusable path; not evidence of iOS native pickers."""
+"""Real Chromium/form checks; not evidence of device-native photo pickers."""
 
 import os
 import re

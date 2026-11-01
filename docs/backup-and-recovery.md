@@ -4,13 +4,6 @@ Detailed notes for the backup, verification, restore and cleanup commands. The
 [main README](../README.md#backup-and-recovery) summarizes them; this page is the
 complete procedure.
 
-**Status:** the commands are integration-tested on disposable local data, including
-a fresh process that logs in and displays restored photos. A Linux/amd64 image
-build and a private-server trial with disposable data also covered non-root/read-only
-startup, authenticated HTTPS capture and a clean-instance restore. Those runs do not
-prove ordinary private hostname routing, scheduled/off-host storage, encryption or
-real-device use.
-
 This is an **operational backup** for disaster recovery, not a portable export of
 garden data. It contains accounts and password hashes, sessions, garden records,
 private originals and operator-selected recovery configuration: treat it as
@@ -75,7 +68,7 @@ version and compatible image settings, point its data directory at the restored
 path, and supply its private secret/host/proxy configuration. Do not start both
 instances against the same live directory.
 
-A clean-instance trial must verify:
+For each deployment, verify that:
 
 - Existing accounts can authenticate, and deactivated accounts stay inactive.
 - Dates, notes, authorship and creation receipts are preserved.
@@ -83,8 +76,8 @@ A clean-instance trial must verify:
 - Anonymous clients cannot read entries, media or original downloads.
 - New validated saves work with the restored database's WAL configuration.
 
-Repeat the trial whenever the schema or media handling changes. Do not use genuine
-observations until these checks pass.
+Verify recovery before storing real observations, and repeat these checks whenever
+the schema or media handling changes.
 
 ## Orphan cleanup
 
@@ -102,7 +95,6 @@ database commit may leave an orphan; a successful save must not leave a committe
 photo row pointing at a file that has not yet been published.
 
 Creation retries compare the original immutable payload fingerprint and author
-against the stored receipt, not the entry's later content. A reused key with
-different content conflicts; a receipt whose entry no longer exists is treated as
-a deleted submission and does not silently recreate it. There is currently no
-entry edit/delete operation or UI.
+against the stored receipt, not the entry's mutable fields. A reused key with
+different content conflicts. If the receipt's entry is missing, the retry fails
+instead of recreating it. The application has no entry edit/delete operation or UI.

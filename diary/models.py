@@ -25,7 +25,7 @@ class DiaryEntry(ValidatedModel):
 
 
 class DiarySubmission(ValidatedModel):
-    """Immutable creation receipt, retained as a tombstone after eventual deletion."""
+    """Immutable creation receipt, retained when its entry is removed."""
 
     key = models.UUIDField(primary_key=True, editable=False)
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)

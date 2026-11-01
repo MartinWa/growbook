@@ -1,6 +1,6 @@
 # libde265 1.1.3
 
-HEVC decoding shared-library input for the proposed production image. This is a
+HEVC decoding shared-library input for the production Docker image. This is a
 separately licensed LGPLv3 dependency, not Growbook application code.
 
 - Source: <https://github.com/strukturag/libde265/releases/download/v1.1.3/libde265-1.1.3.tar.gz>
@@ -11,4 +11,4 @@ separately licensed LGPLv3 dependency, not Growbook application code.
 - Corresponding source retained in the built image's `/opt/native/share/sources`.
 
 Verify the actual built artifacts, their notices, and replacement/relink behavior
-before binary publication. No native image build has yet been tested here.
+before binary publication.

@@ -40,7 +40,7 @@ msgstr "Din administratör skapar konton. Det finns ingen öppen registrering."
 msgid "Start with one observation"
 msgstr "Börja med en observation"
 
-msgid "A photo, a short note, or both. You can add details later."
+msgid "A photo, a short note, or both. Start with what you want to record."
 msgstr "En bild, en kort anteckning eller båda. Börja med det du vill dokumentera."
 
 msgid "Observation photo"
