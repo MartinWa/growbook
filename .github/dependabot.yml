@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    allow:
+      - dependency-type: all
+    ignore:
+      # Stay on Django 5.2 LTS; larger upgrades require an explicit review.
+      - dependency-name: django
+        versions: [">=5.3"]
+    # requirements.txt is exported from uv.lock, not maintained independently.
+    exclude-paths:
+      - requirements.txt
+      - requirements-build.txt
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 1
+    ignore:
+      # Keep the Python series aligned with .python-version and pyproject.toml.
+      - dependency-name: python
+        update-types: [version-update:semver-major, version-update:semver-minor]

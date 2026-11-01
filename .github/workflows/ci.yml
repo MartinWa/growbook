@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "23 6 * * 1"
 
 permissions:
   contents: read
@@ -18,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  UV_VERSION: "0.11.12"
+  UV_VERSION: "0.13.6"
   UV_LOCKED: "true"
   DOCKER_BUILD_RECORD_UPLOAD: "false"
 
@@ -45,7 +47,7 @@ jobs:
           uv run python tools/bootstrap_sqlite.py
       - name: Check Docker requirements match the lockfile
         run: |
-          uv export --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
+          uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
           git diff --exit-code -- requirements.txt
       - name: Lint and check formatting
         run: |
@@ -101,6 +103,16 @@ jobs:
             "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color
+      - name: Set up uv for dependency auditing
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+      - name: Audit locked Python and build dependencies
+        run: |
+          uv export --locked --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/audit-requirements.txt"
+          uvx --from pip-audit==2.10.1 pip-audit --disable-pip --strict \
+            --progress-spinner off -r "$RUNNER_TEMP/audit-requirements.txt" -r requirements-build.txt
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build production image without publishing
@@ -135,3 +147,14 @@ jobs:
           assert {issue.id for issue in issues} <= {\"security.W005\", \"security.W021\"}, issues
           "
             '
+      - name: Audit production image
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz \
+            --output "$RUNNER_TEMP/trivy.tar.gz"
+          printf '%s  %s\n' \
+            'c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0' \
+            "$RUNNER_TEMP/trivy.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/trivy.tar.gz" -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" image --scanners vuln --severity HIGH,CRITICAL \
+            --ignore-unfixed --exit-code 1 --timeout 10m growbook:ci

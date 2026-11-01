@@ -153,6 +153,31 @@ def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(
     assert page.evaluate("Object.keys(localStorage).length") == 0
 
 
+def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server, user):
+    login(page, live_server, user)
+    filename = '<img src=x onerror="window.previewExecuted=true">.svg'
+    page.locator("#id_library").set_input_files(
+        {
+            "name": filename,
+            "mimeType": "image/svg+xml",
+            "buffer": b'<svg xmlns="http://www.w3.org/2000/svg" '
+            b'onload="window.previewExecuted=true"><script>'
+            b"window.previewExecuted=true</script></svg>",
+        }
+    )
+    preview = page.locator("#photo-previews figure")
+    expect(preview).to_have_count(1)
+    expect(preview.locator("figcaption")).to_have_text(filename)
+    expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
+    expect(preview.locator("img")).to_have_attribute("alt", filename)
+    preview.locator("img").evaluate("image => image.decode()")
+    assert preview.locator("img").count() == 1
+    assert preview.locator("script, svg, [onerror], [onload]").count() == 0
+    assert page.evaluate("window.previewExecuted === undefined")
+    preview.get_by_role("button", name=f"Ta bort: {filename}", exact=True).click()
+    expect(page.locator("#photo-previews figure")).to_have_count(0)
+
+
 def test_validation_preserves_text_photos_and_submission_key(page, live_server, user, image_upload):
     login(page, live_server, user)
     page.locator("#id_library").set_input_files(upload(image_upload()))
