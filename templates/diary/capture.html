@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'New observation' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel capture-panel">
+  <h1>{% translate 'New observation' %}</h1>
+  <p class="muted">{% translate 'A photo, a note, or both. Nothing else is required.' %}</p>
+  <form id="capture-form" method="post" enctype="multipart/form-data" hx-post="{% url 'diary:capture' %}" hx-encoding="multipart/form-data" hx-target="#capture-errors" hx-swap="innerHTML"
+        data-uploading="{% translate 'Uploading photos…' %}"
+        data-processing="{% translate 'Processing photos and saving…' %}"
+        data-network-error="{% translate 'The connection failed. Keep this form open and retry; your save key prevents duplicates.' %}"
+        data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
+        data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}"
+        data-conflict="{% translate 'This submission has already been used with different content. Follow the saved entry or start a new observation.' %}"
+        data-photos-selected="{% translate 'Photos selected:' %}"
+        data-remove="{% translate 'Remove' %}"
+        data-preview-unavailable="{% translate 'Preview unavailable; the original photo will still be uploaded.' %}">
+    {% csrf_token %}
+    {{ form.submission_key }}
+    <div id="capture-errors" role="alert" tabindex="-1">{% include 'diary/capture_errors.html' %}</div>
+    {% if failed %}<p role="alert">{% translate 'Your note and date were kept. Select your photos again before retrying.' %}</p>{% endif %}
+    <div class="field">{{ form.date.label_tag }}{{ form.date }}{{ form.date.errors }}</div>
+    <div class="field">{{ form.body.label_tag }}{{ form.body }}{{ form.body.errors }}</div>
+    <fieldset class="photo-picker">
+      <legend>{% translate 'Photos (optional)' %}</legend>
+      <div class="field">{{ form.camera.label_tag }}{{ form.camera }}{{ form.camera.errors }}</div>
+      <div class="field">{{ form.library.label_tag }}{{ form.library }}{{ form.library.errors }}</div>
+      <p class="muted">{% translate 'JPEG, PNG, WebP and HEIC. Up to 10 photos, 20 MiB each, 80 MiB in total.' %}</p>
+      <p id="photo-count" aria-live="polite"></p>
+      <div id="photo-previews" class="photo-grid"></div>
+    </fieldset>
+    <p id="capture-status" role="status" aria-live="polite"></p>
+    <progress id="capture-progress" max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
+    <div class="form-actions">
+      <button type="submit" id="save-entry">{% translate 'Save observation' %}</button>
+      <a href="{% url 'diary:list' %}">{% translate 'Cancel' %}</a>
+    </div>
+    <noscript><p>{% translate 'Without JavaScript, select all library photos at once. A failed save requires selecting the photos again.' %}</p></noscript>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Observation photo' %} · growbook{% endblock %}
+{% block page_class %}page photo-page{% endblock %}
+{% block content %}
+<a href="{{ photo.entry.get_absolute_url }}">← {% translate 'Back to observation' %}</a>
+<section aria-labelledby="photo-heading">
+  <div class="page-heading">
+    <h1 id="photo-heading">{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %}{% endif %}</h1>
+    <a href="{{ photo.original_url }}">{% translate 'Download original' %}</a>
+  </div>
+  <figure class="photo-viewer">
+    <img src="{{ photo.display_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}">
+  </figure>
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Diary' %} · growbook{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div><p class="eyebrow">growbook</p><h1>{% translate 'Diary' %}</h1></div>
+  <a class="button" href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
+</div>
+{% for entry in page_obj %}
+<article class="panel diary-card">
+  <header class="entry-heading">
+    <h2><a href="{{ entry.get_absolute_url }}"><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time></a></h2>
+    <span class="muted">{{ entry.author.get_username }}</span>
+  </header>
+  {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
+  {% if entry.photos.all %}
+  <div class="photo-grid">
+    {% for photo in entry.photos.all %}
+    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% empty %}
+<section class="panel empty-state">
+  <h2>{% translate 'Start with one observation' %}</h2>
+  <p>{% translate 'A photo, a short note, or both. You can add details later.' %}</p>
+  <a class="button" href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
+</section>
+{% endfor %}
+{% if page_obj.has_other_pages %}
+<nav class="pagination" aria-label="{% translate 'Diary pages' %}">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">{% translate 'Newer entries' %}</a>{% endif %}
+  <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">{% translate 'Older entries' %}</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

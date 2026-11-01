@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Log in' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel login-panel">
+  <h1>{% translate 'Log in' %}</h1>
+  <p>{% translate 'Your private garden diary.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+    <div class="field">
+      {{ field.label_tag }}
+      {{ field }}
+      {{ field.errors }}
+    </div>
+    {% endfor %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit">{% translate 'Log in' %}</button>
+  </form>
+  <p class="muted">{% translate 'Accounts are provided by your administrator. There is no public signup.' %}</p>
+</section>
+{% endblock %}

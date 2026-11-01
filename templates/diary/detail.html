@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ entry.date }} · growbook{% endblock %}
+{% block content %}
+<a href="{% url 'diary:list' %}">← {% translate 'Back to diary' %}</a>
+<article class="panel diary-card">
+  <header class="entry-heading">
+    <h1><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time></h1>
+    <span class="muted">{{ entry.author.get_username }}</span>
+  </header>
+  {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
+  {% for photo in entry.photos.all %}
+  <figure class="large-photo">
+    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.display_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}"></a>
+    <figcaption>
+      {% if photo.caption %}{{ photo.caption }} · {% endif %}
+      <a href="{{ photo.original_url }}">{% translate 'Download original' %}</a>
+    </figcaption>
+  </figure>
+  {% endfor %}
+</article>
+{% endblock %}

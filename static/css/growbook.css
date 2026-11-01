@@ -1,0 +1,80 @@
+:root {
+  color-scheme: light;
+  --paper: #f5f5ee;
+  --surface: #fff;
+  --ink: #202d24;
+  --muted: #5c695f;
+  --green: #2c593a;
+  --line: #d8dfd6;
+  --error: #8c2424;
+  font: 17px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+a { color: var(--green); text-underline-offset: .15em; }
+button, input, select, textarea { font: inherit; }
+button, .button {
+  display: inline-block; border: 1px solid var(--green); border-radius: .45rem;
+  padding: .55rem 1rem; background: var(--green); color: #fff; cursor: pointer;
+  text-decoration: none; min-height: 44px;
+}
+button:disabled { opacity: .65; cursor: wait; }
+button.quiet { background: transparent; color: var(--green); }
+button:hover:not(:disabled), .button:hover { filter: brightness(.9); }
+:focus-visible { outline: 3px solid #ba791d; outline-offset: 3px; }
+.site-header { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2rem;
+  padding: .8rem 1.5rem; border-bottom: 1px solid var(--line); background: var(--surface); }
+.brand { font-weight: 800; font-size: 1.5rem; text-decoration: none; }
+.site-header nav { display: flex; gap: 1rem; }
+.account-controls { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+.language-form { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; font-size: .85rem; }
+.page { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: .75rem;
+  padding: 1.5rem; margin: 1rem 0; }
+.login-panel, .capture-panel { max-width: 700px; margin: 1rem auto; }
+h1 { font-size: 1.8rem; line-height: 1.3; margin: 0 0 .6rem; }
+h2 { font-size: 1.2rem; margin: 0; }
+.eyebrow { font-size: .8rem; font-weight: 700; letter-spacing: .08em; margin: 0; color: var(--muted); }
+.page-heading, .entry-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.entry-heading { margin-bottom: 1rem; }
+.entry-body { overflow-wrap: anywhere; margin-bottom: 1.2rem; }
+.muted { color: var(--muted); font-size: .9rem; }
+.field { margin-bottom: 1.1rem; }
+.field label { display: block; font-weight: 600; margin-bottom: .3rem; }
+input:not([type=hidden]), select, textarea { max-width: 100%; border: 1px solid #87998a;
+  border-radius: .35rem; padding: .4rem .6rem; color: var(--ink); background: white; }
+textarea, .login-panel input { width: 100%; }
+textarea { resize: vertical; }
+input[type=file] { width: 100%; }
+input::file-selector-button { padding: .35rem .6rem; margin-right: .6rem; }
+.photo-picker { border: 1px solid var(--line); border-radius: .5rem; padding: 1rem; }
+.photo-picker legend { font-weight: 600; }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem; }
+.photo-grid img { display: block; width: 100%; height: 160px; object-fit: cover; border-radius: .4rem; }
+.photo-grid figure { margin: 0; min-width: 0; }
+.photo-grid figcaption { overflow-wrap: anywhere; font-size: .8rem; }
+.photo-grid button { min-height: 44px; padding: .3rem .6rem; margin-top: .35rem; font-size: .85rem; }
+.large-photo { margin: 1.2rem 0; }
+.large-photo img { max-width: 100%; height: auto; border-radius: .4rem; }
+.large-photo figcaption { font-size: .9rem; }
+.photo-page { max-width: none; }
+.photo-page h1 { overflow-wrap: anywhere; }
+.photo-viewer { margin: 1.2rem 0; }
+.photo-viewer img { display: block; max-width: 100%; width: auto; height: auto; margin: 0 auto; }
+.form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.2rem; }
+.save-confirmation { background: #e4f2e4; border: 1px solid #668266; border-radius: .4rem; padding: .6rem 1rem; }
+.errorlist, .error-summary { color: var(--error); }
+.error-summary:not(:empty) { border-left: 4px solid var(--error); padding: .3rem .7rem; margin-bottom: 1rem; }
+#capture-progress { width: 100%; accent-color: var(--green); }
+.pagination { display: flex; justify-content: center; gap: 1.5rem; padding: 1rem; }
+.skip-link { position: fixed; left: 1rem; top: -10rem; z-index: 10; background: #fff; padding: .5rem; }
+.skip-link:focus { top: .5rem; }
+[hidden] { display: none !important; }
+@media (max-width: 650px) {
+  .site-header { padding: .7rem 1rem; gap: .7rem; }
+  .account-controls { width: 100%; margin-left: 0; justify-content: space-between; }
+  .page { margin-top: 1rem; }
+  .panel { padding: 1rem; }
+  .page-heading { align-items: flex-start; flex-wrap: wrap; }
+  h1 { font-size: 1.6rem; }
+}

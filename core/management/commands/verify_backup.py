@@ -1,0 +1,17 @@
+from django.core.management.base import BaseCommand, CommandError
+
+from core.backups import BackupError, verify_backup
+
+
+class Command(BaseCommand):
+    help = "Verify an operational backup's checksums, photo references and SQLite integrity."
+
+    def add_arguments(self, parser):
+        parser.add_argument("backup")
+
+    def handle(self, *args, **options):
+        try:
+            manifest = verify_backup(options["backup"])
+        except BackupError as exc:
+            raise CommandError(str(exc)) from exc
+        self.stdout.write(self.style.SUCCESS(f"Backup verified: {len(manifest['files'])} files."))

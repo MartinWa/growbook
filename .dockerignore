@@ -1,0 +1,21 @@
+.git
+.pi
+.venv
+node_modules
+local
+pytest-of-*
+data
+media
+staticfiles
+backups
+exports
+planning
+baserow export
+.env
+.env.*
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+**/__pycache__
+.pytest_cache
+.ruff_cache

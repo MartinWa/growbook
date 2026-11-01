@@ -1,0 +1,212 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: growbook 0.1\n"
+"Language: sv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Skip to content"
+msgstr "Hoppa till innehåll"
+
+msgid "Main navigation"
+msgstr "Huvudmeny"
+
+msgid "Diary"
+msgstr "Dagbok"
+
+msgid "New observation"
+msgstr "Ny observation"
+
+msgid "Language"
+msgstr "Språk"
+
+msgid "Change"
+msgstr "Byt"
+
+msgid "Log out"
+msgstr "Logga ut"
+
+msgid "Log in"
+msgstr "Logga in"
+
+msgid "Your private garden diary."
+msgstr "Din privata trädgårdsdagbok."
+
+msgid "Accounts are provided by your administrator. There is no public signup."
+msgstr "Din administratör skapar konton. Det finns ingen öppen registrering."
+
+msgid "Start with one observation"
+msgstr "Börja med en observation"
+
+msgid "A photo, a short note, or both. You can add details later."
+msgstr "En bild, en kort anteckning eller båda. Börja med det du vill dokumentera."
+
+msgid "Observation photo"
+msgstr "Bild till observation"
+
+msgid "Diary pages"
+msgstr "Sidor i dagboken"
+
+msgid "Newer entries"
+msgstr "Nyare inlägg"
+
+msgid "Older entries"
+msgstr "Äldre inlägg"
+
+msgid "Back to diary"
+msgstr "Tillbaka till dagboken"
+
+msgid "Back to observation"
+msgstr "Tillbaka till observationen"
+
+msgid "Download original"
+msgstr "Ladda ner original"
+
+msgid "A photo, a note, or both. Nothing else is required."
+msgstr "En bild, en anteckning eller båda. Inget mer krävs."
+
+msgid "Uploading photos…"
+msgstr "Laddar upp bilder…"
+
+msgid "Processing photos and saving…"
+msgstr "Bearbetar bilder och sparar…"
+
+msgid "The connection failed. Keep this form open and retry; your save key prevents duplicates."
+msgstr "Anslutningen misslyckades. Behåll formuläret öppet och försök igen; sparnyckeln förhindrar dubbletter."
+
+msgid "Your session expired. Log in in another tab, then retry without closing this form."
+msgstr "Din session har gått ut. Logga in på en annan flik och försök igen utan att stänga formuläret."
+
+msgid "The save failed. Keep this form open and retry."
+msgstr "Det gick inte att spara. Behåll formuläret öppet och försök igen."
+
+msgid "This submission has already been used with different content. Follow the saved entry or start a new observation."
+msgstr "Den här sparnyckeln har redan använts med annat innehåll. Öppna det sparade inlägget eller börja en ny observation."
+
+msgid "Photos selected:"
+msgstr "Valda bilder:"
+
+msgid "Remove"
+msgstr "Ta bort"
+
+msgid "Preview unavailable; the original photo will still be uploaded."
+msgstr "Förhandsvisning saknas; originalbilden kommer ändå att laddas upp."
+
+msgid "Your note and date were kept. Select your photos again before retrying."
+msgstr "Din anteckning och ditt datum har behållits. Välj bilderna igen innan du försöker på nytt."
+
+msgid "Photos (optional)"
+msgstr "Bilder (valfritt)"
+
+msgid "JPEG, PNG, WebP and HEIC. Up to 10 photos, 20 MiB each, 80 MiB in total."
+msgstr "JPEG, PNG, WebP och HEIC. Högst 10 bilder, 20 MiB per bild och 80 MiB totalt."
+
+msgid "Upload progress"
+msgstr "Uppladdningsförlopp"
+
+msgid "Save observation"
+msgstr "Spara observation"
+
+msgid "Cancel"
+msgstr "Avbryt"
+
+msgid "Without JavaScript, select all library photos at once. A failed save requires selecting the photos again."
+msgstr "Utan JavaScript behöver alla biblioteksbilder väljas samtidigt. Om sparandet misslyckas måste bilderna väljas igen."
+
+msgid "Your form could not be verified"
+msgstr "Formuläret kunde inte verifieras"
+
+msgid "No new save was accepted by this request. Log in again if necessary, then retry from the original form. Keep your note and photos until the save is confirmed."
+msgstr "Den här begäran sparade inget nytt. Logga in igen vid behov och försök från det ursprungliga formuläret. Behåll anteckningen och bilderna tills sparandet har bekräftats."
+
+msgid "Log in in a new tab"
+msgstr "Logga in på en ny flik"
+
+msgid "Date"
+msgstr "Datum"
+
+msgid "Note"
+msgstr "Anteckning"
+
+msgid "Caption"
+msgstr "Bildtext"
+
+msgid "Take a photo"
+msgstr "Ta en bild"
+
+msgid "Choose photos"
+msgstr "Välj bilder"
+
+msgid "Observation saved."
+msgstr "Observationen har sparats."
+
+msgid "Observation already saved."
+msgstr "Observationen har redan sparats."
+
+msgid "Diary entry"
+msgstr "Dagboksinlägg"
+
+msgid "Diary entries"
+msgstr "Dagboksinlägg"
+
+msgid "Write a note or add at least one photo."
+msgstr "Skriv en anteckning eller lägg till minst en bild."
+
+msgid "Select no more than %(count)s photos."
+msgstr "Välj högst %(count)s bilder."
+
+msgid "A photo is too large. The per-photo limit is 20 MiB."
+msgstr "En bild är för stor. Gränsen per bild är 20 MiB."
+
+msgid "The selected photos exceed the total upload limit."
+msgstr "De valda bilderna överskrider den totala uppladdningsgränsen."
+
+msgid "An empty photo file was rejected."
+msgstr "En tom bildfil avvisades."
+
+msgid "Use a JPEG, PNG, WebP or HEIC still photo."
+msgstr "Använd en stillbild i JPEG-, PNG-, WebP- eller HEIC-format."
+
+msgid "Animated and multi-image files are not supported."
+msgstr "Animerade filer och filer med flera bilder stöds inte."
+
+msgid "This photo exceeds the decoded pixel limit."
+msgstr "Den här bilden överskrider pixelgränsen efter avkodning."
+
+msgid "This photo has an unreadable color profile."
+msgstr "Den här bilden har en färgprofil som inte kan läsas."
+
+msgid "A photo could not be decoded safely. No entry was saved."
+msgstr "En bild kunde inte avkodas säkert. Inget inlägg sparades."
+
+msgid "Too many photos were selected. No entry was saved."
+msgstr "För många bilder valdes. Inget inlägg sparades."
+
+msgid "A photo exceeds the per-photo upload limit. No entry was saved."
+msgstr "En bild överskrider uppladdningsgränsen per bild. Inget inlägg sparades."
+
+msgid "The photos exceed the total upload limit. No entry was saved."
+msgstr "Bilderna överskrider den totala uppladdningsgränsen. Inget inlägg sparades."
+
+msgid "Your session expired. Log in in another tab, then retry. Keep this form open so your selected photos are not lost."
+msgstr "Din session har gått ut. Logga in på en annan flik och försök igen. Behåll formuläret öppet så att valda bilder inte går förlorade."
+
+msgid "This save key belongs to a different submission. Start a new entry instead; nothing was overwritten."
+msgstr "Den här sparnyckeln hör till en annan observation. Börja ett nytt inlägg; inget skrevs över."
+
+msgid "This entry was already deleted. It was not recreated."
+msgstr "Det här inlägget har redan tagits bort. Det skapades inte på nytt."
+
+msgid "Choose a valid entry date."
+msgstr "Välj ett giltigt datum för inlägget."
+
+msgid "The save key is invalid. Reload the capture form."
+msgstr "Sparnyckeln är ogiltig. Ladda om formuläret."
+
+msgid "An unexpected photo field was submitted. No entry was saved."
+msgstr "Ett oväntat bildfält skickades. Inget inlägg sparades."
+
+msgid "The save could not be completed. Keep this form open and retry; the same submission will not create a duplicate."
+msgstr "Det gick inte att slutföra sparandet. Behåll formuläret öppet och försök igen; samma observation skapar ingen dubblett."

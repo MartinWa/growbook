@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<section class="panel">
+  <h1>{% translate 'Your form could not be verified' %}</h1>
+  <p>{% translate 'No new save was accepted by this request. Log in again if necessary, then retry from the original form. Keep your note and photos until the save is confirmed.' %}</p>
+  <a href="{% url 'login' %}" target="_blank" rel="noopener">{% translate 'Log in in a new tab' %}</a>
+</section>
+{% endblock %}

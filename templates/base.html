@@ -1,0 +1,49 @@
+{% load i18n static %}
+{% get_current_language as language %}
+<!doctype html>
+<html lang="{{ language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"historyCacheSize":0,"selfRequestsOnly":true}'>
+  <title>{% block title %}growbook{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'icons/favicon.svg' %}">
+  <link rel="stylesheet" href="{% static 'css/growbook.css' %}">
+  <script src="{% static 'js/htmx-2.0.11.min.js' %}" defer></script>
+  <script src="{% static 'js/capture.js' %}" defer></script>
+</head>
+<body hx-history="false">
+  <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
+  <header class="site-header">
+    <a class="brand" href="{% url 'diary:list' %}">growbook</a>
+    {% if user.is_authenticated %}
+    <nav aria-label="{% translate 'Main navigation' %}">
+      <a href="{% url 'diary:list' %}">{% translate 'Diary' %}</a>
+      <a href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
+    </nav>
+    {% endif %}
+    <div class="account-controls">
+      <form method="post" action="{% url 'set_language' %}" class="language-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <label for="language">{% translate 'Language' %}</label>
+        <select id="language" name="language">
+          <option value="sv" {% if language == 'sv' %}selected{% endif %}>Svenska</option>
+          <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
+        </select>
+        <button type="submit">{% translate 'Change' %}</button>
+      </form>
+      {% if user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="quiet">{% translate 'Log out' %}</button>
+      </form>
+      {% endif %}
+    </div>
+  </header>
+  <main id="main" class="{% block page_class %}page{% endblock %}" tabindex="-1">
+    {% for message in messages %}<p class="save-confirmation" role="status">{{ message }}</p>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
