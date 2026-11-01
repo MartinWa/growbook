@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.12"
+  UV_LOCKED: "true"
+  DOCKER_BUILD_RECORD_UPLOAD: "false"
+
+jobs:
+  checks:
+    name: Checks (Windows)
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      DJANGO_SETTINGS_MODULE: growbook.settings.test
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+      - name: Install locked dependencies and fixed SQLite
+        run: |
+          uv sync --locked --managed-python
+          uv run python tools/bootstrap_sqlite.py
+      - name: Check Docker requirements match the lockfile
+        run: |
+          uv export --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
+          git diff --exit-code -- requirements.txt
+      - name: Lint and check formatting
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Check translations, database configuration, and migrations
+        run: |
+          uv run python tools/compile_translations.py
+          uv run python manage.py check --database default
+          uv run python manage.py makemigrations --check --dry-run
+      - name: Run application tests
+        run: uv run python tools/run_tests.py -q
+
+  browser:
+    name: Browser (Chromium)
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+      - name: Install locked dependencies and fixed SQLite
+        run: |
+          uv sync --locked --managed-python
+          uv run python tools/bootstrap_sqlite.py
+      - name: Install Chromium
+        run: uv run python -m playwright install chromium --no-shell
+      - name: Run browser tests
+        run: uv run python tools/run_tests.py -q -m browser
+
+  container:
+    name: Container (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate GitHub Actions workflows
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/actionlint.tar.gz"
+          printf '%s  %s\n' \
+            '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' \
+            "$RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build production image without publishing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          push: false
+          provenance: false
+          tags: growbook:ci
+          cache-from: type=gha,scope=ci-production
+          cache-to: type=gha,scope=ci-production,mode=max
+          github-token: ""
+      - name: Check migrations and non-root WSGI initialization
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --tmpfs /data:mode=1777 --tmpfs /tmp \
+            --env GROWBOOK_SECRET_KEY=synthetic-ci-container-key-not-for-runtime-000000000000000000 \
+            --env GROWBOOK_ALLOWED_HOSTS=ci.invalid \
+            --env GROWBOOK_TRUST_PROXY=false \
+            growbook:ci sh -ec '
+              python manage.py migrate --noinput
+              python manage.py check --deploy --database default
+              python -c "
+          import os
+          from growbook.wsgi import application
+          from django.core.checks import run_checks
+          assert os.geteuid() != 0
+          assert application
+          issues = run_checks(include_deployment_checks=True, databases=[\"default\"])
+          assert {issue.id for issue in issues} <= {\"security.W005\", \"security.W021\"}, issues
+          "
+            '

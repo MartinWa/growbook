@@ -135,6 +135,17 @@ These tests exercise Chromium and real browser/form interaction. They do not
 verify a phone's native camera/library picker or a deployment's private-network
 routing; check those on the intended devices and installation.
 
+### GitHub Actions
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pull requests,
+pushes to `main`, and manual dispatch. Windows jobs check locked dependencies,
+the generated Docker requirements, Ruff, translations, database/migration checks,
+and the application and Chromium suites using the fixed SQLite helper. The Linux
+job validates workflow syntax, builds the production image, and checks migrations,
+deployment settings and non-root WSGI initialization with disposable storage.
+Unexpected deployment-check issues fail CI; W005/W021 remain visible. CI does not
+publish images, upload test state or deploy the application.
+
 ## Build and run with Docker
 
 The Dockerfile builds a Linux production image with Waitress. The supplied Compose
