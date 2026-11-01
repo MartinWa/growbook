@@ -34,6 +34,8 @@ The interface defaults to Swedish, with English available.
 - [uv](https://docs.astral.sh/uv/) for dependency management. `.python-version`
   pins Python 3.14.10; `uv.lock` pins the dependency set, including Django 5.2 LTS.
   Use uv 0.13.6 or newer to obtain this Python runtime; CI pins uv 0.13.6.
+  `requires-python` allows 3.14.9 for dependency tooling compatibility, but the
+  development and production runtime pins remain 3.14.10 for its security fixes.
 - A local filesystem for SQLite and photos, with a fixed SQLite runtime as
   described [below](#sqlite-runtime). SMB/NFS-mounted databases are not supported.
 - Docker with Linux-container support and Compose v2 for the optional
@@ -154,8 +156,10 @@ CI does not publish images, upload test state or deploy the application.
 
 [`.github/dependabot.yml`](.github/dependabot.yml) requests weekly updates for uv,
 GitHub Actions and the Docker base image. Updates require review and passing CI;
-Django stays on 5.2 LTS and Python stays on the current minor series. After a uv
-update, regenerate the Docker requirements on the PR branch before merging:
+Django stays on 5.2 LTS and Python stays on the current minor series. Dependabot
+resolves with its bundled Python 3.14.9; CI and containers use the pinned 3.14.10
+runtime. After a uv update, regenerate the Docker requirements on the PR branch
+before merging:
 
 ```sh
 uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
@@ -172,8 +176,10 @@ Linux/amd64 image to `ghcr.io/martinwa/growbook` when a stable GitHub Release is
 published. Use a `vX.Y.Z` tag matching `pyproject.toml` on a commit from `main` whose
 push CI run has passed. The workflow rebuilds, smoke-checks and audits the image
 before pushing its `X.Y.Z` tag, then attaches provenance and SBOM attestations.
-Existing image version tags are not overwritten; prereleases are skipped. There
-is no `latest` tag or automatic deployment.
+Only after those steps succeed does the current stable release update `:latest`
+to the same image digest. Existing image version tags are not overwritten;
+prereleases and older release reruns do not update `:latest`. There is no automatic
+deployment. Use version tags or digests when you need reproducible deployments.
 
 No release image is provided until a release workflow completes successfully.
 After the first push, explicitly make the GHCR package public in its settings;
@@ -206,9 +212,9 @@ docker build --tag growbook:local .
 The multi-stage Dockerfile pins the Python base image by digest, verifies native
 source checksums, installs hash-pinned Python dependencies, compiles translations
 and collects static assets. It builds SQLite and a decoder-only HEIC library
-chain; pip is removed from the final runtime image. Build-time checks also initialize WSGI as the default non-root user to
-catch unreadable collected assets. No local databases, photos, `.env` files or
-virtual environments enter the build context.
+chain; pip is removed from the final runtime image. Build-time checks also initialize
+WSGI as the default non-root user to catch unreadable collected assets. No local
+databases, photos, `.env` files or virtual environments enter the build context.
 
 **HEIC packaging:** upstream `pillow-heif` development wheels bundle the GPL x265
 encoder. The production image instead builds its BSD wrapper from source against
