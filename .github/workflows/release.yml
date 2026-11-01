@@ -135,3 +135,18 @@ jobs:
           sbom-path: ${{ runner.temp }}/sbom.spdx.json
           push-to-registry: true
           create-storage-record: false
+      - name: Update latest for the current stable release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ steps.release.outputs.image }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          latest_release=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if [ "$latest_release" = "$RELEASE_TAG" ]; then
+            # Retag the attested manifest, not a rebuilt image or a new image index.
+            docker buildx imagetools create --prefer-index=false --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+            printf 'latest now points to %s@%s\n' "$IMAGE" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Skipping latest: $RELEASE_TAG is not the current stable release."
+          fi
