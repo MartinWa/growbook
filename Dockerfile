@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Build native dependencies from checksum-pinned sources. Do not ship the GPL x265 wheel.
-FROM python:3.14.4-slim-bookworm@sha256:fc74d22ffd0d5ac395a4b7bdda75a4539758862c49ebf3005647084631e63789 AS native-build
+FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527 AS native-build
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake pkg-config ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -38,7 +38,8 @@ RUN cmake -S /tmp/libheif-1.23.6 -B /tmp/heif-build \
     && cmake --install /tmp/heif-build
 # Retain corresponding LGPL sources/licenses for any distribution of native binaries.
 RUN mkdir -p /opt/native/share/sources \
-    && cp /tmp/libheif.tar.gz /tmp/libde265.tar.gz /opt/native/share/sources/
+    && cp /tmp/libheif.tar.gz /tmp/libde265.tar.gz /opt/native/share/sources/ \
+    && chmod 644 /opt/native/share/sources/*.tar.gz
 
 FROM native-build AS python-build
 ENV LD_LIBRARY_PATH=/opt/native/lib LIBHEIF_ROOT=/opt/native
@@ -50,8 +51,9 @@ RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements-b
     && python -m pip install --no-cache-dir --require-hashes --no-build-isolation \
       --no-binary=pillow-heif --prefix=/opt/python -r /tmp/requirements.txt
 
-FROM python:3.14.4-slim-bookworm@sha256:fc74d22ffd0d5ac395a4b7bdda75a4539758862c49ebf3005647084631e63789
+FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
+    && python -m pip uninstall --yes pip \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     LD_LIBRARY_PATH=/opt/native/lib \
@@ -71,6 +73,9 @@ RUN python -c 'import sqlite3; assert sqlite3.sqlite_version_info >= (3,51,3)' \
        GROWBOOK_ALLOWED_HOSTS=build.invalid python manage.py collectstatic --noinput \
     && rm -rf /tmp/build-data && mkdir -p /data && chown -R 1000:1000 /data
 USER 1000:1000
+# Native sources and notices must also be readable by recipients running as non-root.
+RUN sha256sum /opt/native/share/sources/*.tar.gz \
+    && test -r third_party/libheif/COPYING && test -r third_party/libde265/COPYING
 # Catch build-time static permissions that would prevent a non-root WSGI startup.
 RUN GROWBOOK_DATA_DIR=/tmp/build-data GROWBOOK_SECRET_KEY=build-only-synthetic-key-not-for-runtime-000000000000000000 \
     GROWBOOK_ALLOWED_HOSTS=build.invalid python -c "from growbook.wsgi import application; assert application"

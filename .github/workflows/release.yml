@@ -1,0 +1,137 @@
+name: Release image
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-image
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Keep the first publishing path small: stable releases and one tested architecture.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a versioned, tested commit from main
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git merge-base --is-ancestor HEAD origin/main
+          version=${RELEASE_TAG#v}
+          python3 -c 'import os, tomllib; from pathlib import Path; version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]; assert version == os.environ["RELEASE_TAG"][1:], (version, os.environ["RELEASE_TAG"])'
+          conclusion=$(gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" \
+            --branch main --event push --limit 1 --json conclusion --jq '.[0].conclusion')
+          if [ "$conclusion" != success ]; then
+            echo "The release commit must have a successful CI push run on main." >&2
+            exit 1
+          fi
+          printf 'image=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Refuse to overwrite an existing version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          owner=${GITHUB_REPOSITORY%/*}
+          package=${GITHUB_REPOSITORY#*/}
+          if gh api --paginate "users/$owner/packages/container/${package,,}/versions" \
+            --jq '.[].metadata.container.tags[]' > "$RUNNER_TEMP/image-tags" 2> "$RUNNER_TEMP/registry-error"; then
+            if grep -Fxq "$VERSION" "$RUNNER_TEMP/image-tags"; then
+              echo "Image version already exists; create a new release instead." >&2
+              exit 1
+            fi
+          else
+            # Before the first publication, the package does not exist yet.
+            grep -Fq '(HTTP 404)' "$RUNNER_TEMP/registry-error"
+          fi
+      - name: Build release image locally before publishing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          tags: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+          cache-from: type=gha,scope=ci-production
+          github-token: ""
+      - name: Check release image and generate its SBOM
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
+        run: |
+          docker run --rm --network none --read-only "$IMAGE" python -c \
+            'import os; from PIL import Image; import pillow_heif; assert os.geteuid() != 0; pillow_heif.register_heif_opener(); image = Image.open("tests/fixtures/synthetic.heic"); image.load(); assert image.size == (80, 60)'
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz \
+            --output "$RUNNER_TEMP/trivy.tar.gz"
+          printf '%s  %s\n' \
+            'c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0' \
+            "$RUNNER_TEMP/trivy.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/trivy.tar.gz" -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" image --scanners vuln --severity HIGH,CRITICAL \
+            --ignore-unfixed --exit-code 1 --timeout 10m "$IMAGE"
+          "$RUNNER_TEMP/trivy" image --format spdx-json --output "$RUNNER_TEMP/sbom.spdx.json" "$IMAGE"
+      - name: Publish the tested image
+        id: push
+        shell: bash
+        env:
+          IMAGE: ${{ steps.release.outputs.image }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          docker push "$IMAGE:$VERSION"
+          digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:$VERSION")
+          printf 'digest=%s\n' "${digest#*@}" >> "$GITHUB_OUTPUT"
+          printf 'Published %s\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.release.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest the image SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.release.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/sbom.spdx.json
+          push-to-registry: true
+          create-storage-record: false

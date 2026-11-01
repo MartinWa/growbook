@@ -32,7 +32,8 @@ The interface defaults to Swedish, with English available.
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) for dependency management. `.python-version`
-  pins Python 3.14.4; `uv.lock` pins the dependency set, including Django 5.2 LTS.
+  pins Python 3.14.10; `uv.lock` pins the dependency set, including Django 5.2 LTS.
+  Use uv 0.13.6 or newer to obtain this Python runtime; CI pins uv 0.13.6.
 - A local filesystem for SQLite and photos, with a fixed SQLite runtime as
   described [below](#sqlite-runtime). SMB/NFS-mounted databases are not supported.
 - Docker with Linux-container support and Compose v2 for the optional
@@ -138,13 +139,56 @@ routing; check those on the intended devices and installation.
 ### GitHub Actions
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on pull requests,
-pushes to `main`, and manual dispatch. Windows jobs check locked dependencies,
+pushes to `main`, manual dispatch, and weekly. Windows jobs check locked dependencies,
 the generated Docker requirements, Ruff, translations, database/migration checks,
 and the application and Chromium suites using the fixed SQLite helper. The Linux
 job validates workflow syntax, builds the production image, and checks migrations,
 deployment settings and non-root WSGI initialization with disposable storage.
-Unexpected deployment-check issues fail CI; W005/W021 remain visible. CI does not
-publish images, upload test state or deploy the application.
+Unexpected deployment-check issues fail CI; W005/W021 remain visible. Python audits
+check all locked application/development and build-only dependencies with `pip-audit`.
+Trivy checks the final image and fails on fixable high/critical vulnerabilities.
+These checks do not prove that custom-built native libraries are vulnerability-free.
+CI does not publish images, upload test state or deploy the application.
+
+### Dependency updates
+
+[`.github/dependabot.yml`](.github/dependabot.yml) requests weekly updates for uv,
+GitHub Actions and the Docker base image. Updates require review and passing CI;
+Django stays on 5.2 LTS and Python stays on the current minor series. After a uv
+update, regenerate the Docker requirements on the PR branch before merging:
+
+```sh
+uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
+```
+
+Review `requirements-build.txt`, the pinned uv/audit tools, checksum-pinned native
+sources and vendored HTMX manually. Base-image Python patch updates must also stay
+aligned with `.python-version` and `pyproject.toml`.
+
+### Release images
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) publishes a
+Linux/amd64 image to `ghcr.io/martinwa/growbook` when a stable GitHub Release is
+published. Use a `vX.Y.Z` tag matching `pyproject.toml` on a commit from `main` whose
+push CI run has passed. The workflow rebuilds, smoke-checks and audits the image
+before pushing its `X.Y.Z` tag, then attaches provenance and SBOM attestations.
+Existing image version tags are not overwritten; prereleases are skipped. There
+is no `latest` tag or automatic deployment.
+
+No release image is provided until a release workflow completes successfully.
+After the first push, explicitly make the GHCR package public in its settings;
+GitHub initially creates packages as private. Verify anonymous pulls and the
+attestation before recommending an image. Keep deployment configuration private
+and pin the published digest rather than a moving tag. `compose.yaml` continues
+to build locally unless deliberately overridden.
+
+```sh
+gh attestation verify oci://ghcr.io/martinwa/growbook:X.Y.Z --repo MartinWa/growbook
+```
+
+Review the [native distribution requirements](third_party/README.md) before each
+release. The SBOM and vulnerability scan are useful evidence, not a complete
+licensing or security guarantee.
 
 ## Build and run with Docker
 
@@ -162,7 +206,7 @@ docker build --tag growbook:local .
 The multi-stage Dockerfile pins the Python base image by digest, verifies native
 source checksums, installs hash-pinned Python dependencies, compiles translations
 and collects static assets. It builds SQLite and a decoder-only HEIC library
-chain. Build-time checks also initialize WSGI as the default non-root user to
+chain; pip is removed from the final runtime image. Build-time checks also initialize WSGI as the default non-root user to
 catch unreadable collected assets. No local databases, photos, `.env` files or
 virtual environments enter the build context.
 
@@ -288,6 +332,12 @@ storage. Keep backups outside live media storage.
 ignored by Git. Private material and local tool/browser state are excluded from
 Git and container build contexts. Migrations, dependency locks, source translations
 and synthetic fixtures belong in source control.
+
+## Security
+
+Report vulnerabilities through the private channel described in
+[SECURITY.md](SECURITY.md). Use synthetic examples in public issues and PRs;
+never attach real photos, backups, credentials or private configuration.
 
 ## License
 
