@@ -21,7 +21,13 @@ The interface defaults to Swedish, with English available.
   crop/variety/descendant-area histories, including archived associations.
 - Repeated planting events with independent planned/actual dates across calendar
   years, simple cumulative evaluation text and private planting photos.
-- Dated text-only, photo-only and text-plus-photo entries, with chronological paging.
+- Dated text-only, photo-only and text-plus-photo entries, with chronological paging,
+  note search and combined year, area, crop, variety and planting filters.
+- Explicit links from an entry to growing areas, crops, varieties or plantings.
+  Linked records show their observations, and derived filters follow plantings and
+  area descendants.
+- Authors edit and delete their own entries; active staff administrators can edit and
+  delete any entry. Photo captions, ordering, addition and removal are editable too.
 - Separate camera and photo-library inputs, multiple photos, previews and upload feedback.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped
   WebP display images/thumbnails. Received originals are retained privately.
@@ -34,10 +40,21 @@ The interface defaults to Swedish, with English available.
 ## Scope and limitations
 
 - The garden is shared within an installation: every active account can read all
-  records, photos and original downloads, and maintain registers, plantings and
-  events. There are no per-user gardens or read-only member roles.
-- Diary entries can be created and read, but not edited or deleted. Diary links,
-  structured harvest accounting and portable data import/export are not provided.
+  entries, records, photos and original downloads, and maintain registers, plantings
+  and events. Diary writes are narrower: the author or an active staff administrator
+  may edit or delete an entry. There are no per-user gardens or read-only member roles.
+- Diary links are chosen in the edit form. There is no capture-time link shortcut or
+  automatic matching, and structured harvest accounting and portable data
+  import/export are not provided.
+- Entry deletion is permanent and removes the note, links and photos, including
+  private originals; linked registers and plantings are kept. Creation receipts
+  remain only to reject stale capture retries.
+- Diary search matches the note text as a literal, Unicode casefolded substring.
+  Diacritics remain significant (`Å` is not `A`, `å` is not `a`), and captions,
+  author names and linked record names are not searched.
+- Filters combine with AND. A planting match also matches its crop, variety and
+  area; an area filter includes descendant areas. Archived records remain visible
+  through existing links and filters, but cannot be chosen for a new link.
 - Planting histories use current area assignments and nesting, not immutable past
   layouts or movement history. Evaluation is cumulative, not a per-year assessment.
 - Uploads are limited to 10 photos per diary entry, variety, area or planting,
@@ -89,7 +106,7 @@ uv run python manage.py runserver 127.0.0.1:8000
 
 Open **http://127.0.0.1:8000/**. Use **`/operator/`** to create or deactivate other
 accounts. There are no seeded credentials. Diary/photo/register/planting admin
-screens are read-only; use the capture page for observations, **Registers** for
+screens are read-only; use the diary pages for observations, **Registers** for
 garden records and **Plantings** for plans and milestones.
 
 `manage.py` defaults to development settings with loopback-only allowed hosts,
@@ -178,7 +195,41 @@ Each planting has one current area. Correcting that assignment or reparenting an
 area changes past-year results too. For an established plant that moves, prefer
 ending the old planting and creating a new one at the destination. This preserves
 year-level presence, not exact movement dates, lineage or historical layouts.
-Diary observations are currently separate and cannot yet be linked to plantings.
+
+### Diary
+
+Open **Diary** to browse observations newest first. The search field matches the
+note text only; the year, area, crop, variety and planting controls combine in one
+form. Clear all filters to return to every year. A planting filter also matches its
+crop, variety and area; an area filter includes descendant areas. Results are
+deduplicated, and paging preserves the active filters.
+
+- Search is a literal substring match after Unicode NFC normalization and casefolding,
+  so uppercase and lowercase match but diacritics do not: `Ångström` finds
+  `ångström`, while `Angstrom` does not. Photo captions and linked record names are
+  not searched.
+- Open an observation to read its note, links and photos. The author may edit or
+  delete it; an active staff administrator may edit or delete any entry. Other active
+  accounts can read it. The diary list shows **Edit and tag** on entries the signed-in
+  account may change. A deactivated author cannot write, even while already signed in.
+- Edit changes the date, note, garden links and photos. A planting link also matches
+  its crop, variety and area. Each link points to exactly one area, crop, variety or
+  planting, and the same record can be linked only once. New links must target active
+  records; existing links to archived records remain selected and filterable. An
+  entry with no links shows **Add garden links** on its page, and the edit form opens
+  the link picker by default.
+- Edits use the entry's version token. A stale form is rejected instead of
+  overwriting a newer change; reload the observation to see the saved values. With
+  JavaScript, only errors are replaced and the form stays open. Without it, the date,
+  note and link selections are kept, but reselect photos before retrying.
+- Delete requires confirmation and permanently removes the note, links and photos,
+  including private originals. Linked registers, plantings and their photos are kept.
+  A stale deletion is rejected and asks you to reload.
+- On an entry's photo page, the author or an administrator can change the caption and
+  order, or delete the photo with confirmation. A photo-only observation must keep at
+  least one photo; add a note before removing its last one.
+- Record details and histories show the latest linked observations with a count and a
+  link to the filtered diary.
 
 ### SQLite runtime
 
@@ -210,8 +261,9 @@ uv run python manage.py makemigrations --check --dry-run
 Use `tools/run_tests.py`, especially on Windows: it activates SQLite before test
 plugins can import it, compiles translations and keeps temporary artifacts under
 ignored `local/`. Tests use a real file-backed SQLite/WAL database and synthetic
-images, covering capture, image failures, authorization, retries, concurrency
-and clean-instance recovery. Browser tests are excluded from the default run.
+images, covering capture, observation editing and deletion, permissions, links and
+derived filters, Unicode search, image failures, authorization, retries,
+concurrency and clean-instance recovery. Browser tests are excluded from the default run.
 
 For UI-copy changes, update the English source messages and
 `locale/sv/LC_MESSAGES/django.po`, then recompile with
@@ -477,7 +529,7 @@ recovery, not portable data import/export.
 |---|---|
 | `growbook/` | Project settings, routing, runtime bootstrap and WSGI server. |
 | `core/` | Users, private photos, security, SQLite configuration and operational commands. |
-| `diary/` | Diary models, forms, views and validated creation operations. |
+| `diary/` | Diary models, forms, views, filtering and validated create/edit/delete operations. |
 | `garden/` | Registers, plantings/events, year/history queries, forms and validated writes. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |

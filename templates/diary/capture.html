@@ -21,6 +21,7 @@
     {% if failed %}<p role="alert">{% translate 'Your note and date were kept. Select your photos again before retrying.' %}</p>{% endif %}
     <div class="field">{{ form.date.label_tag }}{{ form.date }}{{ form.date.errors }}</div>
     <div class="field">{{ form.body.label_tag }}{{ form.body }}{{ form.body.errors }}</div>
+    <p class="muted">{% translate 'Garden links are added after saving: open the observation and choose Edit observation.' %}</p>
     <fieldset class="photo-picker">
       <legend>{% translate 'Photos (optional)' %}</legend>
       <div class="field">{{ form.camera.label_tag }}{{ form.camera }}{{ form.camera.errors }}</div>

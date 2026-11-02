@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete observation' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel capture-panel">
+  <h1>{% translate 'Delete observation' %}: {{ entry.date }}</h1>
+  <p>{% translate 'Deletion is permanent. This removes the note, its links and its photos, including private originals. Linked plantings and registers are kept.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'diary/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete observation' %}</button><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}

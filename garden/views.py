@@ -13,15 +13,16 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from core.forms import DeleteForm
 from core.media import MediaBusy
 from core.models import Photo
+from diary.queries import observation_count, observations_for
 
 from . import services
 from .forms import (
     ArchiveForm,
     AreaForm,
     CropForm,
-    DeleteForm,
     PlantingEventForm,
     PlantingFilterForm,
     PlantingForm,
@@ -97,6 +98,9 @@ def _detail_context(kind, pk):
         archive_url=reverse(f"garden:{kind}-archive", args=[pk]),
         delete_url=reverse(f"garden:{kind}-delete", args=[pk]),
         history_url=reverse(f"garden:{kind}-history", args=[pk]),
+        observations=observations_for(kind, record),
+        observation_count=observation_count(kind, record),
+        observations_url=reverse("diary:list") + "?" + urlencode({kind: record.pk}),
     )
     return context
 
@@ -411,6 +415,13 @@ def planting_list(request, history=False, kind=None, pk=None):
     all_years_data.pop("year", None)
     overview_data = data.copy()
     overview_data["year"] = str(year or timezone.localdate().year)
+    observations = []
+    observation_total = 0
+    observations_url = ""
+    if scope:
+        observations = observations_for(kind, scope)
+        observation_total = observation_count(kind, scope)
+        observations_url = reverse("diary:list") + "?" + urlencode({kind: scope.pk})
     return render(
         request,
         "garden/planting_list.html",
@@ -423,6 +434,9 @@ def planting_list(request, history=False, kind=None, pk=None):
             "kind": kind or "planting",
             "locked_filters": locked,
             "history": history,
+            "observations": observations,
+            "observation_count": observation_total,
+            "observations_url": observations_url,
             "create_url": reverse("garden:planting-create")
             + ("?" + urlencode(create) if create else ""),
             "previous_url": previous_url,
@@ -445,7 +459,14 @@ def _planting_context(pk):
     events = record.events.annotate(event_date=Coalesce("actual_date", "planned_date")).order_by(
         "event_date", "id"
     )
-    return {"kind": "planting", "record": record, "events": events}
+    return {
+        "kind": "planting",
+        "record": record,
+        "events": events,
+        "observations": observations_for("planting", record),
+        "observation_count": observation_count("planting", record),
+        "observations_url": reverse("diary:list") + "?" + urlencode({"planting": record.pk}),
+    }
 
 
 @require_GET

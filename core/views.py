@@ -8,6 +8,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_safe
 from django.views.decorators.vary import vary_on_headers
 
+from diary.permissions import can_edit_entry
+
 from .images import FORMATS
 from .media import private_path
 from .models import Photo
@@ -25,7 +27,14 @@ def photo_detail(request, pk):
     photo = get_object_or_404(
         Photo.objects.select_related("entry", "area", "variety__crop", "planting__crop"), pk=pk
     )
-    return render(request, "core/photo.html", {"photo": photo})
+    return render(
+        request,
+        "core/photo.html",
+        {
+            "photo": photo,
+            "can_edit": bool(photo.entry_id and can_edit_entry(request.user, photo.entry)),
+        },
+    )
 
 
 @require_GET

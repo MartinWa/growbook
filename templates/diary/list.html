@@ -6,6 +6,22 @@
   <div><p class="eyebrow">growbook</p><h1>{% translate 'Diary' %}</h1></div>
   <a class="button" href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
 </div>
+
+<form method="get" class="filter-form panel" role="search">
+  <div class="field">{{ form.q.label_tag }}{{ form.q }}{{ form.q.errors }}</div>
+  <div class="field">{{ form.year.label_tag }}{{ form.year }}{{ form.year.errors }}</div>
+  <div class="field">{{ form.area.label_tag }}{{ form.area }}{{ form.area.errors }}</div>
+  <div class="field">{{ form.crop.label_tag }}{{ form.crop }}{{ form.crop.errors }}</div>
+  <div class="field">{{ form.variety.label_tag }}{{ form.variety }}{{ form.variety.errors }}</div>
+  <div class="field">{{ form.planting.label_tag }}{{ form.planting }}{{ form.planting.errors }}</div>
+  <div class="form-actions">
+    <button type="submit">{% translate 'Filter' %}</button>
+    <a href="{% url 'diary:list' %}">{% translate 'Clear filters' %}</a>
+  </div>
+  {% if form.non_field_errors %}<div role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <p class="muted">{% translate 'Filters combine. A planting match also includes its crop, variety and area; an area filter includes subareas.' %}</p>
+</form>
+
 {% for entry in page_obj %}
 <article class="panel diary-card">
   <header class="entry-heading">
@@ -13,6 +29,10 @@
     <span class="muted">{{ entry.author.get_username }}</span>
   </header>
   {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
+  {% include 'diary/_links.html' with entry=entry %}
+  {% if entry.can_edit %}
+  <p class="muted"><a href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit and tag' %}</a></p>
+  {% endif %}
   {% if entry.photos.all %}
   <div class="photo-grid">
     {% for photo in entry.photos.all %}
@@ -23,16 +43,27 @@
 </article>
 {% empty %}
 <section class="panel empty-state">
+  {% if not valid_filter %}
+  <h2>{% translate 'Check the filters' %}</h2>
+  <p>{% translate 'Choose a valid value, or clear the filters and try again.' %}</p>
+  <a class="button" href="{% url 'diary:list' %}">{% translate 'Clear filters' %}</a>
+  {% elif diary_has_entries %}
+  <h2>{% translate 'No observations match these filters.' %}</h2>
+  <p>{% translate 'Try clearing a filter or searching for a different word.' %}</p>
+  <a class="button" href="{% url 'diary:list' %}">{% translate 'Clear filters' %}</a>
+  {% else %}
   <h2>{% translate 'Start with one observation' %}</h2>
   <p>{% translate 'A photo, a short note, or both. Start with what you want to record.' %}</p>
   <a class="button" href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
+  {% endif %}
 </section>
 {% endfor %}
+
 {% if page_obj.has_other_pages %}
 <nav class="pagination" aria-label="{% translate 'Diary pages' %}">
-  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">{% translate 'Newer entries' %}</a>{% endif %}
+  {% if page_obj.has_previous %}<a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">{% translate 'Newer entries' %}</a>{% endif %}
   <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">{% translate 'Older entries' %}</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">{% translate 'Older entries' %}</a>{% endif %}
 </nav>
 {% endif %}
 {% endblock %}
