@@ -39,10 +39,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]
           git merge-base --is-ancestor HEAD origin/main
           version=${RELEASE_TAG#v}
-          python3 -c 'import os, tomllib; from pathlib import Path; version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]; assert version == os.environ["RELEASE_TAG"][1:], (version, os.environ["RELEASE_TAG"])'
+          VERSION="$version" python3 -c 'import os, tomllib; from pathlib import Path; version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]; assert version == os.environ["VERSION"], (version, os.environ["VERSION"])'
           conclusion=$(gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" \
             --branch main --event push --limit 1 --json conclusion --jq '.[0].conclusion')
           if [ "$conclusion" != success ]; then

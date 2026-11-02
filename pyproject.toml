@@ -1,6 +1,6 @@
 [project]
 name = "growbook"
-version = "0.1.1"
+version = "0.1.2"
 description = "A private, self-hosted garden diary with text and photos."
 readme = "README.md"
 # Dependency resolution also supports Dependabot's Python 3.14.9; run on the pinned runtime.

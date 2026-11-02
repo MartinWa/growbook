@@ -218,10 +218,11 @@ aligned with `.python-version` and `pyproject.toml`.
 
 [`.github/workflows/release.yml`](.github/workflows/release.yml) publishes a
 Linux/amd64 image to `ghcr.io/martinwa/growbook` when a stable GitHub Release is
-published. Use a `vX.Y.Z` tag matching `pyproject.toml` on a commit from `main` whose
-push CI run has passed. The workflow rebuilds, smoke-checks and audits the image
-before pushing its `X.Y.Z` tag, then attaches provenance and SBOM attestations.
-Only after those steps succeed does the current stable release update `:latest`
+published. Use a tag matching the `pyproject.toml` version (`X.Y.Z`, without a
+`v` prefix) on a commit from `main` whose push CI run has passed; the earlier
+`vX.Y.Z` form is still accepted. The workflow rebuilds, smoke-checks and audits
+the image before pushing its `X.Y.Z` tag, then attaches provenance and SBOM
+attestations. Only after those steps succeed does the current stable release update `:latest`
 to the same image digest. Existing image version tags are not overwritten;
 prereleases and older release reruns do not update `:latest`. There is no automatic
 deployment. Use version tags or digests when you need reproducible deployments.
