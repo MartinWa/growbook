@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete photo' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel capture-panel">
+  <h1>{% translate 'Delete photo' %}</h1>
+  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %}{% endif %}"></a>
+  <p>{% translate 'This permanently removes this photo and its private original. The observation is kept.' %}</p>
+  <p class="muted">{% translate 'A photo-only observation keeps at least one photo.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'diary/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete photo' %}</button><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}

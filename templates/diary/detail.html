@@ -9,14 +9,28 @@
     <span class="muted">{{ entry.author.get_username }}</span>
   </header>
   {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
+  {% include 'diary/_links.html' with entry=entry %}
+  {% if can_edit and not entry.links.all %}
+  <p class="muted">{% translate 'No garden links yet.' %} <a href="{% url 'diary:edit' entry.pk %}">{% translate 'Add garden links' %}</a></p>
+  {% endif %}
   {% for photo in entry.photos.all %}
   <figure class="large-photo">
     <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.display_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}"></a>
     <figcaption>
       {% if photo.caption %}{{ photo.caption }} · {% endif %}
       <a href="{{ photo.original_url }}">{% translate 'Download original' %}</a>
+      {% if can_edit %}
+      <a href="{% url 'diary:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
+      <a href="{% url 'diary:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
+      {% endif %}
     </figcaption>
   </figure>
   {% endfor %}
+  {% if can_edit %}
+  <div class="form-actions">
+    <a class="button" href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit observation' %}</a>
+    <a href="{% url 'diary:delete' entry.pk %}">{% translate 'Delete observation' %}</a>
+  </div>
+  {% endif %}
 </article>
 {% endblock %}

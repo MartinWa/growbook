@@ -24,6 +24,20 @@ def user(django_user_model):
 
 
 @pytest.fixture
+def other_user(django_user_model):
+    return django_user_model.objects.create_user(
+        username="other-gardener", password="Synthetic-password-42"
+    )
+
+
+@pytest.fixture
+def staff_user(django_user_model):
+    return django_user_model.objects.create_user(
+        username="garden-admin", password="Synthetic-password-42", is_staff=True
+    )
+
+
+@pytest.fixture
 def image_upload():
     def make(*, format="JPEG", size=(80, 60), color=(35, 110, 50), exif=None, **options):
         if format == "HEIF":

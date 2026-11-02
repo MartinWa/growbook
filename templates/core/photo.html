@@ -12,5 +12,11 @@
   <figure class="photo-viewer">
     <img src="{{ photo.display_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}">
   </figure>
+  {% if photo.entry_id and can_edit %}
+  <div class="form-actions">
+    <a class="button" href="{% url 'diary:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
+    <a href="{% url 'diary:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
+  </div>
+  {% endif %}
 </section>
 {% endblock %}

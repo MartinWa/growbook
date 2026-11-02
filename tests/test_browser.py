@@ -2,10 +2,14 @@
 
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlsplit
 
 import pytest
+from django.db import close_old_connections, connection
 from playwright.sync_api import expect, sync_playwright
+
+from garden.services import create_crop
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
@@ -37,6 +41,19 @@ def login(page, live_server, user):
 
 def upload(file, name="synthetic.jpg"):
     return {"name": name, "mimeType": "image/jpeg", "buffer": file.read()}
+
+
+def open_entry_edit(page, live_server, user, photos=()):
+    login(page, live_server, user)
+    page.locator("#id_body").fill("Synthetic saved observation")
+    if photos:
+        page.locator("#id_library").set_input_files(photos)
+    page.locator("#save-entry").click()
+    expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    entry_url = page.url
+    page.goto(entry_url + "edit/")
+    expect(page.locator("#entry-form")).to_be_visible()
+    return entry_url
 
 
 def test_favicon_is_available_without_login(page, live_server):
@@ -241,5 +258,213 @@ def test_session_expiry_and_new_tab_login_keep_draft_and_rotate_csrf(
     expect(other).to_have_url(live_server.url + "/")
     page.locator("#save-entry").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    expect(page.locator(".large-photo")).to_have_count(1)
+    other.close()
+
+
+def test_edit_links_filter_and_delete_round_trip(page, live_server, user):
+    def create_browser_crop():
+        close_old_connections()
+        try:
+            actor = type(user).objects.get(pk=user.pk)
+            return create_crop(actor=actor, name="Synthetic browser crop").record.pk
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        crop_pk = executor.submit(create_browser_crop).result(timeout=20)
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    login(page, live_server, user)
+    page.locator("#id_body").fill("Before browser edit")
+    page.locator("#save-entry").click()
+    expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    entry_url = page.url
+
+    page.locator('a[href$="/edit/"]').first.click()
+    expect(page.locator("#entry-form")).to_be_visible()
+    page.locator("#id_body").fill("Browser edited observation")
+    expect(page.locator("#id_link_crops")).to_be_visible()
+    page.locator("#id_link_crops").select_option(label="Synthetic browser crop")
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-body")).to_contain_text("Browser edited observation")
+    expect(page.locator(".link-tags")).to_contain_text("Synthetic browser crop")
+
+    page.goto(f"{live_server.url}/?crop={crop_pk}")
+    expect(page.locator(".entry-body")).to_contain_text("Browser edited observation")
+    page.locator(".diary-card .entry-heading a").click()
+    expect(page).to_have_url(entry_url)
+
+    page.locator('a[href$="/delete/"]').click()
+    page.locator("#id_confirm").check()
+    page.locator("button.danger").click()
+    expect(page).to_have_url(live_server.url + "/")
+    expect(page.locator(".diary-card")).to_have_count(0)
+    expect(page.get_by_text("Browser edited observation")).to_have_count(0)
+    assert errors == []
+
+
+def test_edit_validation_preserves_draft_and_photo_changes_then_retry_saves(
+    page, live_server, user, image_upload
+):
+    script_errors = []
+    page.on("pageerror", lambda error: script_errors.append(str(error)))
+    entry_url = open_entry_edit(
+        page,
+        live_server,
+        user,
+        [upload(image_upload(), "first.jpg"), upload(image_upload(), "second.jpg")],
+    )
+    form = page.locator("#entry-form")
+    errors = page.locator("#entry-errors")
+    version = page.locator("#id_expected_updated_at").input_value()
+    removal = form.locator('input[name="remove_photos"]').first
+    removal.check()
+    page.locator("#id_body").fill("Keep the edited note and photo changes")
+    page.locator("#id_photos").set_input_files(upload(image_upload(), "replacement.jpg"))
+    form.evaluate("form => form.noValidate = true")
+    page.locator("#id_date").evaluate(
+        "input => { input.type = 'text'; input.value = 'invalid-date'; }"
+    )
+
+    with page.expect_response(
+        lambda response: response.url == entry_url + "edit/" and response.request.method == "POST"
+    ) as rejected:
+        form.locator("button[type=submit]").click()
+
+    assert rejected.value.status == 422
+    expect(errors).not_to_be_empty()
+    expect(errors).to_be_focused()
+    expect(page.locator("#id_body")).to_have_value("Keep the edited note and photo changes")
+    expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    expect(removal).to_be_checked()
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+    expect(page.locator("#id_photos")).to_be_enabled()
+    expect(form.locator("button[type=submit]")).to_be_enabled()
+
+    page.locator("#id_date").fill("2026-06-01")
+    form.locator("button[type=submit]").click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-body")).to_contain_text("Keep the edited note and photo changes")
+    expect(page.locator(".large-photo")).to_have_count(2)
+    assert script_errors == []
+
+
+def test_edit_conflict_is_visible_and_preserves_the_unsaved_draft(
+    page, live_server, user, image_upload
+):
+    entry_url = open_entry_edit(page, live_server, user)
+    version = page.locator("#id_expected_updated_at").input_value()
+    page.locator("#id_body").fill("Unsaved stale edit")
+    page.locator("#id_photos").set_input_files(upload(image_upload()))
+    other = page.context.new_page()
+    other.goto(entry_url + "edit/")
+    other.locator("#id_body").fill("Saved in another tab")
+    other.locator("#entry-form button[type=submit]").click()
+    expect(other).to_have_url(entry_url)
+
+    with page.expect_response(
+        lambda response: response.url == entry_url + "edit/" and response.request.method == "POST"
+    ) as rejected:
+        page.locator("#entry-form button[type=submit]").click()
+
+    assert rejected.value.status == 409
+    expect(page.locator("#entry-errors")).not_to_be_empty()
+    expect(page.locator("#entry-errors")).to_be_focused()
+    expect(page.locator("#id_body")).to_have_value("Unsaved stale edit")
+    expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+    expect(page.locator("#entry-form button[type=submit]")).to_be_enabled()
+    other.reload()
+    expect(other.locator(".entry-body")).to_have_text("Saved in another tab")
+    expect(other.locator(".large-photo")).to_have_count(0)
+    other.close()
+
+
+@pytest.mark.parametrize("failure", [503, "network"])
+def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
+    page, live_server, user, image_upload, failure
+):
+    entry_url = open_entry_edit(page, live_server, user)
+    form = page.locator("#entry-form")
+    save = form.locator("button[type=submit]")
+    page.locator("#id_body").fill("Retry the edited observation")
+    page.locator("#id_photos").set_input_files(upload(image_upload()))
+    version = page.locator("#id_expected_updated_at").input_value()
+    pending = []
+
+    def hold_post(route):
+        if route.request.method == "POST":
+            pending.append(route)
+        else:
+            route.continue_()
+
+    page.route(entry_url + "edit/", hold_post)
+    save.click()
+    expect(form).to_have_attribute("aria-busy", "true")
+    expect(save).to_be_disabled()
+    expect(page.locator("#id_photos")).to_be_disabled()
+    expect(page.locator("#id_link_crops")).to_be_disabled()
+    expect(page.locator("#id_body")).not_to_be_editable()
+    assert len(pending) == 1
+    if failure == 503:
+        pending[0].fulfill(
+            status=503,
+            content_type="text/html",
+            body='<div class="error-summary">Synthetic temporary save failure</div>',
+        )
+    else:
+        pending[0].abort()
+
+    expect(page.locator("#entry-errors")).not_to_be_empty()
+    expect(page.locator("#entry-errors")).to_be_focused()
+    if failure == 503:
+        expect(page.locator("#entry-errors")).to_contain_text("Synthetic temporary save failure")
+    expect(save).to_be_enabled()
+    expect(page.locator("#id_photos")).to_be_enabled()
+    expect(page.locator("#id_body")).to_be_editable()
+    expect(page.locator("#id_body")).to_have_value("Retry the edited observation")
+    expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+
+    page.unroute(entry_url + "edit/")
+    save.click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-body")).to_have_text("Retry the edited observation")
+    expect(page.locator(".large-photo")).to_have_count(1)
+
+
+def test_edit_session_recovery_keeps_draft_and_refreshes_csrf(
+    page, live_server, user, image_upload
+):
+    entry_url = open_entry_edit(page, live_server, user)
+    page.locator("#id_body").fill("Edit after logging in again")
+    page.locator("#id_photos").set_input_files(upload(image_upload()))
+    version = page.locator("#id_expected_updated_at").input_value()
+    other = page.context.new_page()
+    other.goto(live_server.url + "/")
+    other.get_by_role("button", name="Logga ut", exact=True).click()
+
+    with page.expect_response(
+        lambda response: response.url == entry_url + "edit/" and response.request.method == "POST"
+    ) as rejected:
+        page.locator("#entry-form button[type=submit]").click()
+
+    assert rejected.value.status == 401
+    expect(page.locator("#entry-errors")).to_contain_text("session")
+    expect(page.locator("#entry-errors")).to_be_focused()
+    expect(page.locator("#id_body")).to_have_value("Edit after logging in again")
+    expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+    expect(page.locator("#entry-form button[type=submit]")).to_be_enabled()
+
+    other.locator("#id_username").fill(user.username)
+    other.locator("#id_password").fill("Synthetic-password-42")
+    other.get_by_role("button", name="Logga in", exact=True).click()
+    expect(other).to_have_url(live_server.url + "/")
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-body")).to_have_text("Edit after logging in again")
     expect(page.locator(".large-photo")).to_have_count(1)
     other.close()

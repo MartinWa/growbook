@@ -59,4 +59,10 @@
   {% empty %}<tbody><tr><td colspan="7">{% translate 'No plantings match these filters.' %}</td></tr></tbody>{% endfor %}
 </table>
 </div>
+{% if scope %}
+<section class="panel diary-observations" aria-labelledby="history-observations">
+  <h2 id="history-observations">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>
+  {% include 'diary/_observations.html' %}
+</section>
+{% endif %}
 {% endblock %}

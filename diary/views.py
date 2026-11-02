@@ -1,7 +1,7 @@
 import logging
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import OperationalError
 from django.http import HttpResponse
@@ -9,33 +9,291 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods
 
+from core.forms import DeleteForm
 from core.media import MediaBusy
+from core.models import Photo
 
-from .forms import CaptureForm
+from .forms import CaptureForm, DiaryFilterForm, EntryEditForm, EntryPhotoForm
 from .models import DiaryEntry
-from .services import SubmissionConflict, SubmissionDeleted, create_entry
+from .permissions import can_edit_entry
+from .queries import diary_years, filter_entries
+from .services import (
+    EntryConflict,
+    SubmissionConflict,
+    SubmissionDeleted,
+    create_entry,
+    delete_entry,
+    delete_entry_photo,
+    update_entry,
+    update_entry_photo,
+)
 
 logger = logging.getLogger(__name__)
+
+ENTRY_RELATIONS = (
+    "photos",
+    "links__area",
+    "links__crop",
+    "links__variety__crop",
+    "links__planting__crop",
+)
+
+
+def _form_error(form, error):
+    if hasattr(error, "error_dict"):
+        for field, errors in error.error_dict.items():
+            form.add_error(field if field in form.fields else None, errors)
+    else:
+        form.add_error(None, error)
+
+
+def _valid_post(request, form, photo_fields=()):
+    valid = form.is_valid()
+    if getattr(request, "photo_upload_error", None):
+        form.add_error(None, request.photo_upload_error)
+        valid = False
+    if set(request.FILES) - set(photo_fields):
+        form.add_error(None, _("An unexpected photo field was submitted. Nothing was saved."))
+        valid = False
+    return valid
+
+
+def _editable_entry(request, pk):
+    entry = get_object_or_404(
+        DiaryEntry.objects.select_related("author").prefetch_related(*ENTRY_RELATIONS), pk=pk
+    )
+    if not can_edit_entry(request.user, entry):
+        raise PermissionDenied
+    return entry
 
 
 @require_GET
 def entry_list(request):
-    entries = DiaryEntry.objects.select_related("author").prefetch_related("photos")
+    data = request.GET.copy()
+    form = DiaryFilterForm(data, years=diary_years())
+    valid = form.is_valid()
+    page_obj = None
+    if valid:
+        entries = (
+            filter_entries(**form.cleaned_data)
+            .select_related("author")
+            .prefetch_related(*ENTRY_RELATIONS)
+        )
+        page_obj = Paginator(entries, 20).get_page(data.get("page"))
+    else:
+        page_obj = Paginator(DiaryEntry.objects.none(), 20).get_page(1)
+    query = data.copy()
+    query.pop("page", None)
+    for entry in page_obj.object_list:
+        entry.can_edit = can_edit_entry(request.user, entry)
     return render(
         request,
         "diary/list.html",
         {
-            "page_obj": Paginator(entries, 20).get_page(request.GET.get("page")),
+            "form": form,
+            "page_obj": page_obj,
+            "querystring": query.urlencode(),
+            "valid_filter": valid,
+            "diary_has_entries": DiaryEntry.objects.exists(),
         },
+        status=200 if valid else 422,
     )
 
 
 @require_GET
 def entry_detail(request, pk):
     entry = get_object_or_404(
-        DiaryEntry.objects.select_related("author").prefetch_related("photos"), pk=pk
+        DiaryEntry.objects.select_related("author").prefetch_related(*ENTRY_RELATIONS), pk=pk
     )
-    return render(request, "diary/detail.html", {"entry": entry})
+    return render(
+        request,
+        "diary/detail.html",
+        {"entry": entry, "can_edit": can_edit_entry(request.user, entry)},
+    )
+
+
+@require_http_methods(["GET", "POST"])
+def entry_edit(request, pk):
+    entry = _editable_entry(request, pk)
+    links = entry.links.all()
+    initial = {
+        "expected_updated_at": entry.updated_at,
+        "date": entry.date,
+        "body": entry.body,
+        "link_areas": [link.area_id for link in links if link.area_id],
+        "link_crops": [link.crop_id for link in links if link.crop_id],
+        "link_varieties": [link.variety_id for link in links if link.variety_id],
+        "link_plantings": [link.planting_id for link in links if link.planting_id],
+    }
+    form = EntryEditForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        entry=entry,
+        initial=initial,
+    )
+    context = {
+        "entry": entry,
+        "form": form,
+        "title": _("Edit observation"),
+        "action": request.path,
+    }
+    if request.method == "POST":
+        valid = _valid_post(request, form, photo_fields={"photos"})
+        status = 422
+        if valid:
+            values = form.cleaned_data
+            try:
+                update_entry(
+                    actor=request.user,
+                    pk=entry.pk,
+                    date=values["date"],
+                    body=values["body"],
+                    links=[
+                        *values["link_areas"],
+                        *values["link_crops"],
+                        *values["link_varieties"],
+                        *values["link_plantings"],
+                    ],
+                    uploads=values["photos"],
+                    remove_photo_ids=values["remove_photos"],
+                    expected_updated_at=values["expected_updated_at"],
+                )
+            except EntryConflict as exc:
+                _form_error(form, exc)
+                status = 409
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except MediaBusy, OperationalError, OSError:
+                logger.exception("Entry edit failed; keep the form open for a retry.")
+                form.add_error(
+                    None,
+                    _(
+                        "The save could not be completed. Keep this form open and retry; "
+                        "your note and selections are preserved."
+                    ),
+                )
+                status = 503
+            else:
+                messages.success(request, _("Observation saved."))
+                if request.headers.get("HX-Request") == "true":
+                    response = HttpResponse(status=204)
+                    response["HX-Redirect"] = entry.get_absolute_url()
+                    return response
+                return redirect(entry)
+        if request.headers.get("HX-Request") == "true":
+            return render(request, "diary/form_errors.html", {"form": form}, status=status)
+        context["failed"] = True
+        return render(request, "diary/edit.html", context, status=status)
+    return render(request, "diary/edit.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def entry_delete(request, pk):
+    entry = _editable_entry(request, pk)
+    form = DeleteForm(
+        request.POST if request.method == "POST" else None,
+        initial={"expected_updated_at": entry.updated_at},
+    )
+    context = {"entry": entry, "form": form}
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                delete_entry(
+                    actor=request.user,
+                    pk=entry.pk,
+                    expected_updated_at=form.cleaned_data["expected_updated_at"],
+                )
+            except EntryConflict as exc:
+                _form_error(form, exc)
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except MediaBusy, OperationalError, OSError:
+                form.add_error(
+                    None, _("Deletion could not be confirmed. Reload the entry before retrying.")
+                )
+                return render(request, "diary/delete.html", context, status=503)
+            else:
+                messages.success(request, _("Observation deleted."))
+                return redirect("diary:list")
+        return render(request, "diary/delete.html", context, status=422)
+    return render(request, "diary/delete.html", context)
+
+
+def _editable_photo(request, pk):
+    photo = get_object_or_404(Photo.objects.select_related("entry__author"), pk=pk)
+    if photo.entry_id is None or not can_edit_entry(request.user, photo.entry):
+        raise PermissionDenied
+    return photo
+
+
+@require_http_methods(["GET", "POST"])
+def photo_edit(request, pk):
+    photo = _editable_photo(request, pk)
+    form = EntryPhotoForm(
+        request.POST if request.method == "POST" else None,
+        initial={
+            "expected_updated_at": photo.entry.updated_at,
+            "caption": photo.caption,
+            "position": photo.position,
+        },
+    )
+    context = {"photo": photo, "entry": photo.entry, "form": form}
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                update_entry_photo(
+                    actor=request.user,
+                    pk=photo.pk,
+                    caption=form.cleaned_data["caption"],
+                    position=form.cleaned_data["position"],
+                    expected_updated_at=form.cleaned_data["expected_updated_at"],
+                )
+            except EntryConflict as exc:
+                _form_error(form, exc)
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except OperationalError:
+                form.add_error(
+                    None, _("The action could not be confirmed. Reload the entry before retrying.")
+                )
+                return render(request, "diary/photo_edit.html", context, status=503)
+            else:
+                messages.success(request, _("Photo details saved."))
+                return redirect(photo.entry)
+        return render(request, "diary/photo_edit.html", context, status=422)
+    return render(request, "diary/photo_edit.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def photo_delete(request, pk):
+    photo = _editable_photo(request, pk)
+    form = DeleteForm(
+        request.POST if request.method == "POST" else None,
+        initial={"expected_updated_at": photo.entry.updated_at},
+    )
+    context = {"photo": photo, "entry": photo.entry, "form": form}
+    if request.method == "POST":
+        if form.is_valid():
+            try:
+                delete_entry_photo(
+                    actor=request.user,
+                    pk=photo.pk,
+                    expected_updated_at=form.cleaned_data["expected_updated_at"],
+                )
+            except EntryConflict as exc:
+                _form_error(form, exc)
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except MediaBusy, OperationalError, OSError:
+                form.add_error(
+                    None, _("Deletion could not be confirmed. Reload the entry before retrying.")
+                )
+                return render(request, "diary/photo_delete.html", context, status=503)
+            else:
+                messages.success(request, _("Photo deleted."))
+                return redirect(photo.entry)
+        return render(request, "diary/photo_delete.html", context, status=422)
+    return render(request, "diary/photo_delete.html", context)
 
 
 @require_http_methods(["GET", "POST"])

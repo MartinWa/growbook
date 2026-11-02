@@ -48,4 +48,8 @@
     </form>
     <a href="{{ delete_url }}">{% translate 'Delete' %}</a>
   </div>
+  <section class="diary-observations" aria-labelledby="diary-observations-{{ kind }}-{{ record.pk }}">
+    <h2 id="diary-observations-{{ kind }}-{{ record.pk }}">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>
+    {% include 'diary/_observations.html' %}
+  </section>
 </section>

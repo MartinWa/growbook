@@ -5,23 +5,10 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from core.forms import MultipleFileField, MultipleFileInput
+from core.forms import MultipleFileField, MultipleFileInput, VersionField
 
 from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 from .queries import area_paths, descendant_ids
-
-
-class VersionField(forms.DateTimeField):
-    """Preserve microseconds/timezone in the optimistic-concurrency token."""
-
-    def __init__(self, **kwargs):
-        kwargs.setdefault("label", _("Record version"))
-        widget = forms.HiddenInput()
-        widget.supports_microseconds = True
-        super().__init__(widget=widget, **kwargs)
-
-    def prepare_value(self, value):
-        return value.isoformat() if hasattr(value, "isoformat") else value
 
 
 class CropForm(forms.Form):
@@ -294,11 +281,6 @@ class ArchiveForm(forms.Form):
         choices=[("true", "true"), ("false", "false")],
         coerce=lambda value: value == "true",
     )
-
-
-class DeleteForm(forms.Form):
-    expected_updated_at = VersionField()
-    confirm = forms.BooleanField(label=_("I confirm this deletion."))
 
 
 class RegisterPhotoForm(forms.Form):

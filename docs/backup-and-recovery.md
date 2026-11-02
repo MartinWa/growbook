@@ -123,9 +123,12 @@ twice. A reused key with different content conflicts; a missing receipt target
 fails instead of recreating a deleted record. Matching planting receipts are
 checked before current association eligibility. Register forms retain the
 [crop/parent retry limitation](../README.md#registers) described in the README.
-The application has no diary-entry edit/delete operation or UI.
+Diary edits use version checks and reject stale writes; an uncertain edit may
+already have committed, so follow the conflict message and reload the observation
+to check the saved state before submitting further changes. See the
+[diary guide](../README.md#diary) for editing and deletion.
 
-Allowed register, planting or photo deletion commits database changes before
-removing live file bundles, using the same media-operation lock as backups. A
-failed file cleanup leaves an unreferenced bundle for `cleanup_media`; it does not
-invalidate an independent completed backup.
+Allowed deletion of diary entries, registers, plantings or photos commits database
+changes before removing live file bundles, using the same media-operation lock as
+backups. A failed file cleanup leaves an unreferenced bundle for `cleanup_media`;
+it does not invalidate an independent completed backup.

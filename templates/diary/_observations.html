@@ -1,0 +1,15 @@
+{% load i18n %}
+{% if observations %}
+<ul class="observation-list">
+  {% for observation in observations %}
+  <li>
+    <a href="{{ observation.get_absolute_url }}"><time datetime="{{ observation.date|date:'Y-m-d' }}">{{ observation.date }}</time></a>
+    {% if observation.body %}<span>{{ observation.body|truncatechars:140 }}</span>{% endif %}
+    <span class="muted">{{ observation.author.get_username }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>{% translate 'No linked observations yet.' %}</p>
+{% endif %}
+<a href="{{ observations_url }}">{% translate 'View all observations' %}</a>

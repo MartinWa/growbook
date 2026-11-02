@@ -761,3 +761,177 @@ msgstr "Försök ladda sortval igen"
 
 msgid "Saving…"
 msgstr "Sparar…"
+
+msgid "A photo-only observation keeps at least one photo."
+msgstr "En observation med bara bild måste behålla minst en bild."
+
+msgid "A planting link also matches its crop, variety and area. Select several with Ctrl or Cmd; nothing else is required."
+msgstr "En odlingslänk matchar även dess gröda, sort och odlingsyta. Markera flera med Ctrl eller Cmd; inget annat krävs."
+
+msgid "A record can only be linked once."
+msgstr "En post kan bara länkas en gång."
+
+msgid "A selected photo is no longer available. Reload the entry."
+msgstr "En vald bild finns inte längre. Ladda om observationen."
+
+msgid "A selected photo no longer belongs to this entry. Reload it before saving."
+msgstr "En vald bild tillhör inte längre den här observationen. Ladda om den innan du sparar."
+
+msgid "All areas"
+msgstr "Alla odlingsytor"
+
+msgid "All crops"
+msgstr "Alla grödor"
+
+msgid "All plantings"
+msgstr "Alla odlingar"
+
+msgid "All varieties"
+msgstr "Alla sorter"
+
+msgid "An entry can have no more than %(count)s photos."
+msgstr "En observation kan inte ha fler än %(count)s bilder."
+
+msgid "Archived records stay selectable only when this entry already links to them."
+msgstr "Arkiverade poster går bara att välja när observationen redan länkar till dem."
+
+msgid "Area"
+msgstr "Odlingsyta"
+
+msgid "Choose a valid record to link."
+msgstr "Välj en giltig post att länka."
+
+msgid "Choose an active record for a new link."
+msgstr "Välj en aktiv post för en ny länk."
+
+msgid "Clear filters"
+msgstr "Rensa filter"
+
+msgid "Delete observation"
+msgstr "Radera observation"
+
+msgid "Deletion could not be confirmed. Reload the entry before retrying."
+msgstr "Borttagningen kunde inte bekräftas. Ladda om observationen innan du försöker igen."
+
+msgid "Deletion is permanent. This removes the note, its links and its photos, including private originals. Linked plantings and registers are kept."
+msgstr "Borttagningen är permanent. Detta tar bort anteckningen, dess länkar och bilder, inklusive privata original. Länkade odlingar och register behålls."
+
+msgid "Diary link"
+msgstr "Dagbokslänk"
+
+msgid "Diary links"
+msgstr "Dagbokslänkar"
+
+msgid "Diary observations"
+msgstr "Dagboksobservationer"
+
+msgid "Edit observation"
+msgstr "Redigera observation"
+
+msgid "Enter a caption, or leave it blank."
+msgstr "Ange en bildtext, eller lämna den tom."
+
+msgid "Enter a nonnegative whole number for the order."
+msgstr "Ange ett icke-negativt heltal för ordningen."
+
+msgid "Enter text, or leave the note blank."
+msgstr "Ange text, eller lämna anteckningen tom."
+
+msgid "Existing photos"
+msgstr "Befintliga bilder"
+
+msgid "Filter"
+msgstr "Filtrera"
+
+msgid "Filters combine. A planting match also includes its crop, variety and area; an area filter includes subareas."
+msgstr "Filtren kombineras. En odlingsmatchning omfattar även dess gröda, sort och odlingsyta; ett filter för odlingsyta omfattar underytor."
+
+msgid "JPEG, PNG, WebP and HEIC. Up to 10 photos per entry, 20 MiB each, 80 MiB in total."
+msgstr "JPEG, PNG, WebP och HEIC. Upp till 10 bilder per observation, 20 MiB vardera, 80 MiB totalt."
+
+msgid "Keep at least one photo when the note is empty."
+msgstr "Behåll minst en bild när anteckningen är tom."
+
+msgid "Link to garden records (optional)"
+msgstr "Länka till odlingsposter (valfritt)"
+
+msgid "Linked garden records"
+msgstr "Länkade odlingsposter"
+
+msgid "No linked observations yet."
+msgstr "Inga länkade observationer än."
+
+msgid "No observations match these filters."
+msgstr "Inga observationer matchar dessa filter."
+
+msgid "No photos yet."
+msgstr "Inga bilder än."
+
+msgid "Observation deleted."
+msgstr "Observationen har raderats."
+
+msgid "Photo %(number)s"
+msgstr "Bild %(number)s"
+
+msgid "Remove photos"
+msgstr "Ta bort bilder"
+
+msgid "Removed photos are deleted from private storage."
+msgstr "Borttagna bilder raderas från den privata lagringen."
+
+msgid "Search"
+msgstr "Sök"
+
+msgid "The action could not be confirmed. Reload the entry before retrying."
+msgstr "Åtgärden kunde inte bekräftas. Ladda om observationen innan du försöker igen."
+
+msgid "The author never changes. Only the author or an administrator can save these changes."
+msgstr "Författaren ändras aldrig. Endast författaren eller en administratör kan spara ändringarna."
+
+msgid "The save could not be completed. Keep this form open and retry; your note and selections are preserved."
+msgstr "Sparningen kunde inte slutföras. Håll formuläret öppet och försök igen; din anteckning och dina val finns kvar."
+
+msgid "This observation changed while the form was open. Reload it before saving again."
+msgstr "Observationen ändrades medan formuläret var öppet. Ladda om den innan du sparar igen."
+
+msgid "This observation changed while the form was open. Reload it first."
+msgstr "Observationen ändrades medan formuläret var öppet. Ladda om den först."
+
+msgid "This observation no longer exists. Reload the diary."
+msgstr "Observationen finns inte längre. Ladda om dagboken."
+
+msgid "This permanently removes this photo and its private original. The observation is kept."
+msgstr "Detta tar permanent bort bilden och dess privata original. Observationen behålls."
+
+msgid "Try clearing a filter or searching for a different word."
+msgstr "Prova att rensa ett filter eller söka efter ett annat ord."
+
+msgid "View all observations"
+msgstr "Visa alla observationer"
+
+msgid "Write a note or keep at least one photo."
+msgstr "Skriv en anteckning eller behåll minst en bild."
+
+msgid "Year"
+msgstr "År"
+
+msgid "Your date, note and link selections were kept. Select any photos again before retrying."
+msgstr "Datum, anteckning och länkval behölls. Välj bilderna igen innan du försöker spara."
+
+msgid "Check the filters"
+msgstr "Kontrollera filtren"
+
+msgid "Choose a valid value, or clear the filters and try again."
+msgstr "Välj ett giltigt värde, eller rensa filtren och försök igen."
+
+msgid "Garden links are added after saving: open the observation and choose Edit observation."
+msgstr "Odlingslänkar läggs till efter sparningen: öppna observationen och välj Redigera observation."
+
+msgid "No garden links yet."
+msgstr "Inga odlingslänkar än."
+
+msgid "Add garden links"
+msgstr "Lägg till odlingslänkar"
+
+msgid "Edit and tag"
+msgstr "Redigera och tagga"

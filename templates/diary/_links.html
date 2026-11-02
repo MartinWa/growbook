@@ -1,0 +1,8 @@
+{% load i18n %}
+{% if entry.links.all %}
+<ul class="link-tags" aria-label="{% translate 'Linked garden records' %}">
+  {% for link in entry.links.all %}
+  <li>{% if link.area %}<a class="tag" href="{{ link.area.get_absolute_url }}">{% translate 'Area' %}: {{ link.area.name }}</a>{% elif link.crop %}<a class="tag" href="{{ link.crop.get_absolute_url }}">{% translate 'Crop' %}: {{ link.crop.name }}</a>{% elif link.variety %}<a class="tag" href="{{ link.variety.get_absolute_url }}">{% translate 'Variety' %}: {{ link.variety.name }}</a>{% elif link.planting %}<a class="tag" href="{{ link.planting.get_absolute_url }}">{% translate 'Planting' %}: {{ link.planting }}</a>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endif %}
