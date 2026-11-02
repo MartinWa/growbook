@@ -60,6 +60,36 @@ def assert_current_schema():
         )
 
 
+def migrate_on_start():
+    """Apply pending migrations under a data-directory lock, then verify the schema."""
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+    from django.db import connections
+    from filelock import FileLock, Timeout
+
+    database = Path(connections["default"].settings_dict["NAME"])
+    data_directory = database.parent
+    if not data_directory.is_dir():
+        raise ImproperlyConfigured(
+            f"Data directory {data_directory} does not exist. Create it before starting the server."
+        )
+    lock = FileLock(
+        data_directory / ".migrate.lock",
+        timeout=settings.MIGRATION_LOCK_TIMEOUT,
+        mode=0o600,
+    )
+    try:
+        with lock:
+            call_command("migrate", interactive=False, verbosity=1)
+    except Timeout as exc:
+        raise ImproperlyConfigured(
+            f"Timed out waiting for another process to migrate {database}."
+        ) from exc
+    except CommandError as exc:
+        raise ImproperlyConfigured(f"Database migration failed for {database}: {exc}") from exc
+    assert_current_schema()
+
+
 def main():
     from .wsgi import application
 
@@ -67,8 +97,12 @@ def main():
         raise ImproperlyConfigured("Run the production application as a non-root user.")
     if settings.DEBUG:
         raise ImproperlyConfigured("The production server must not use development settings.")
-    assert_current_schema()
-    serve(application, **server_options())
+    options = server_options()
+    if settings.MIGRATE_ON_START:
+        migrate_on_start()
+    else:
+        assert_current_schema()
+    serve(application, **options)
 
 
 if __name__ == "__main__":

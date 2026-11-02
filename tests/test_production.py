@@ -11,6 +11,7 @@ from growbook.server import server_options
 
 def environment(tmp_path):
     values = os.environ.copy()
+    values.pop("GROWBOOK_MIGRATE_ON_START", None)
     values.update(
         DJANGO_SETTINGS_MODULE="growbook.settings.production",
         GROWBOOK_SECRET_KEY="synthetic-production-test-key-" * 3,
@@ -42,6 +43,7 @@ from django.conf import settings
 assert settings.DEBUG is False
 assert settings.SESSION_COOKIE_SECURE and settings.CSRF_COOKIE_SECURE
 assert settings.SECURE_SSL_REDIRECT
+assert settings.MIGRATE_ON_START is True
 assert settings.ALLOWED_HOSTS == ['garden.example.internal']
 assert not hasattr(settings, 'SECURE_PROXY_SSL_HEADER') or settings.SECURE_PROXY_SSL_HEADER is None
 print('secure settings')
@@ -112,7 +114,7 @@ django.setup()
 from growbook.server import assert_current_schema
 assert_current_schema()
 """
-    result = run_settings(tmp_path, check)
+    result = run_settings(tmp_path, check, GROWBOOK_MIGRATE_ON_START="false")
     assert result.returncode != 0
     assert "does not exist" in result.stderr
     assert "manage.py migrate" in result.stderr
@@ -133,7 +135,7 @@ except Exception as error:
 else:
     raise SystemExit("expected an outdated database to be refused")
 """
-    result = run_settings(tmp_path, outdated)
+    result = run_settings(tmp_path, outdated, GROWBOOK_MIGRATE_ON_START="false")
     assert result.returncode == 0, result.stderr
     assert "ImproperlyConfigured" in result.stdout
     assert "core.0003_register_photo_owners" in result.stdout
@@ -147,9 +149,49 @@ from growbook.server import assert_current_schema
 assert_current_schema()
 print("schema current")
 """
-    result = run_settings(tmp_path, upgraded)
+    result = run_settings(tmp_path, upgraded, GROWBOOK_MIGRATE_ON_START="false")
     assert result.returncode == 0, result.stderr
     assert "schema current" in result.stdout
+
+
+def test_startup_migration_can_be_disabled(tmp_path):
+    result = run_settings(
+        tmp_path,
+        """
+from django.conf import settings
+assert settings.MIGRATE_ON_START is False
+print("manual migrations")
+""",
+        GROWBOOK_MIGRATE_ON_START="false",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "manual migrations" in result.stdout
+
+
+def test_server_applies_pending_migrations_by_default(tmp_path):
+    (tmp_path / "state").mkdir()
+    result = run_settings(
+        tmp_path,
+        """
+import django
+django.setup()
+from django.core.management import call_command
+call_command("migrate", "core", "0002", verbosity=0, interactive=False)
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute("PRAGMA table_info(core_photo)")
+    assert "area_id" not in [row[1] for row in cursor.fetchall()]
+from growbook.server import assert_current_schema, migrate_on_start
+migrate_on_start()
+assert_current_schema()
+with connection.cursor() as cursor:
+    cursor.execute("PRAGMA table_info(core_photo)")
+    assert "area_id" in [row[1] for row in cursor.fetchall()]
+print("auto-migrated")
+""",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "auto-migrated" in result.stdout
 
 
 def test_server_checks_the_schema_before_serving(monkeypatch):
@@ -157,12 +199,27 @@ def test_server_checks_the_schema_before_serving(monkeypatch):
 
     calls = []
     monkeypatch.setattr(server.settings, "DEBUG", False)
+    monkeypatch.setattr(server.settings, "MIGRATE_ON_START", False)
     monkeypatch.setattr(server, "assert_current_schema", lambda: calls.append("schema"))
     monkeypatch.setattr(server, "serve", lambda application, **options: calls.append("serve"))
 
     server.main()
 
     assert calls == ["schema", "serve"]
+
+
+def test_server_migrates_before_serving_by_default(monkeypatch):
+    import growbook.server as server
+
+    calls = []
+    monkeypatch.setattr(server.settings, "DEBUG", False)
+    monkeypatch.setattr(server.settings, "MIGRATE_ON_START", True)
+    monkeypatch.setattr(server, "migrate_on_start", lambda: calls.append("migrate"))
+    monkeypatch.setattr(server, "serve", lambda application, **options: calls.append("serve"))
+
+    server.main()
+
+    assert calls == ["migrate", "serve"]
 
 
 def test_waitress_proxy_trust_is_off_by_default(monkeypatch):
