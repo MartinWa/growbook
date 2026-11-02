@@ -2,6 +2,7 @@
 
 import ipaddress
 import os
+from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -32,6 +33,33 @@ def server_options():
     return options
 
 
+def pending_migrations(connection):
+    """Return the migration plan required by the code loaded in this process."""
+    from django.db.migrations.executor import MigrationExecutor
+
+    executor = MigrationExecutor(connection)
+    return executor.migration_plan(executor.loader.graph.leaf_nodes())
+
+
+def assert_current_schema():
+    """Refuse a missing or outdated database instead of serving broken pages."""
+    from django.db import connections
+
+    database = Path(connections["default"].settings_dict["NAME"])
+    if not database.is_file():
+        raise ImproperlyConfigured(
+            f"Database {database} does not exist. Initialize this instance with "
+            "`python manage.py migrate` before starting the server."
+        )
+    plan = pending_migrations(connections["default"])
+    if plan:
+        names = ", ".join(f"{migration.app_label}.{migration.name}" for migration, _ in plan)
+        raise ImproperlyConfigured(
+            f"Database {database} is out of date. Run `python manage.py migrate` "
+            f"before starting the server. Migration plan: {names}."
+        )
+
+
 def main():
     from .wsgi import application
 
@@ -39,6 +67,7 @@ def main():
         raise ImproperlyConfigured("Run the production application as a non-root user.")
     if settings.DEBUG:
         raise ImproperlyConfigured("The production server must not use development settings.")
+    assert_current_schema()
     serve(application, **server_options())
 
 

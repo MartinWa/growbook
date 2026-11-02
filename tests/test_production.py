@@ -105,6 +105,66 @@ def test_production_refuses_missing_or_placeholder_configuration(tmp_path, key, 
     assert "ImproperlyConfigured" in result.stderr
 
 
+def test_server_refuses_missing_or_outdated_database(tmp_path):
+    check = """
+import django
+django.setup()
+from growbook.server import assert_current_schema
+assert_current_schema()
+"""
+    result = run_settings(tmp_path, check)
+    assert result.returncode != 0
+    assert "does not exist" in result.stderr
+    assert "manage.py migrate" in result.stderr
+    assert not (tmp_path / "state").exists()
+
+    (tmp_path / "state").mkdir()
+    outdated = """
+import django
+django.setup()
+from django.core.management import call_command
+call_command("migrate", "core", "0002", verbosity=0, interactive=False)
+from growbook.server import assert_current_schema
+try:
+    assert_current_schema()
+except Exception as error:
+    print(type(error).__name__)
+    print(error)
+else:
+    raise SystemExit("expected an outdated database to be refused")
+"""
+    result = run_settings(tmp_path, outdated)
+    assert result.returncode == 0, result.stderr
+    assert "ImproperlyConfigured" in result.stdout
+    assert "core.0003_register_photo_owners" in result.stdout
+
+    upgraded = """
+import django
+django.setup()
+from django.core.management import call_command
+call_command("migrate", verbosity=0, interactive=False)
+from growbook.server import assert_current_schema
+assert_current_schema()
+print("schema current")
+"""
+    result = run_settings(tmp_path, upgraded)
+    assert result.returncode == 0, result.stderr
+    assert "schema current" in result.stdout
+
+
+def test_server_checks_the_schema_before_serving(monkeypatch):
+    import growbook.server as server
+
+    calls = []
+    monkeypatch.setattr(server.settings, "DEBUG", False)
+    monkeypatch.setattr(server, "assert_current_schema", lambda: calls.append("schema"))
+    monkeypatch.setattr(server, "serve", lambda application, **options: calls.append("serve"))
+
+    server.main()
+
+    assert calls == ["schema", "serve"]
+
+
 def test_waitress_proxy_trust_is_off_by_default(monkeypatch):
     monkeypatch.delenv("GROWBOOK_TRUST_PROXY", raising=False)
     options = server_options()

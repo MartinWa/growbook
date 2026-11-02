@@ -225,6 +225,8 @@ attestations. Only after those steps succeed does the current stable release upd
 `:latest` to the same image digest. Existing image version tags are not overwritten;
 prereleases and older release reruns do not update `:latest`. There is no automatic
 deployment. Use version tags or digests when you need reproducible deployments.
+Updating an image does not migrate the database; apply migrations as described in
+[Upgrade an existing installation](#upgrade-an-existing-installation).
 
 Before recommending a published image, verify anonymous pulls and its attestation.
 Keep deployment configuration private and pin the published digest rather than a
@@ -325,6 +327,34 @@ Before recording real data, verify login/logout, text/photo capture and denial o
 anonymous access through the configured HTTPS hostname on the intended devices.
 Create a backup, keep an independent copy and verify a clean-instance restore.
 Repeat these checks after changes to routing, storage or media handling.
+
+### Upgrade an existing installation
+
+Updating the image does not update the SQLite schema. Each release may add
+migrations; stop the running application and apply them against the same mounted
+`GROWBOOK_DATA_DIR` before the new image serves traffic. Create and verify a backup
+first using the [operational recovery guide](docs/backup-and-recovery.md).
+
+```sh
+docker compose build growbook
+docker compose stop growbook
+# Create and verify a backup with docs/backup-and-recovery.md before continuing.
+docker compose run --rm growbook python manage.py showmigrations core diary garden
+docker compose run --rm growbook python manage.py migrate --noinput
+docker compose run --rm growbook python manage.py migrate --check
+docker compose up -d growbook
+docker compose logs --tail=100 growbook
+```
+
+Use `docker compose pull growbook` instead of `build` when the service is configured
+to use the published image. `showmigrations` should show `[X]` for every migration
+after the upgrade. `migrate --check` exits non-zero while anything remains
+unapplied, so a successful upgrade ends with that command succeeding.
+
+If a page returns a 500 after an upgrade and the log reports a missing column or
+table, the image and the mounted database disagree. Confirm that both commands use
+the intended data directory, apply the migrations and restart. Do not delete the
+database, use `--fake`, or edit the schema by hand.
 
 ## Backup and recovery
 
