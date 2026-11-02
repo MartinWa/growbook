@@ -141,6 +141,8 @@ receipts before checking current association eligibility.
 
 Open **Plantings** for a growing-year table; enter a year or use **Previous year**
 and **Next year**. **All years** shows one row per planting across its full history.
+Crop, variety and area histories default to all years; table links keep an
+explicitly selected year.
 Use **Details** to expand multiple rows independently and see events, notes,
 evaluation and photos. Register details link to their **Planting history**.
 

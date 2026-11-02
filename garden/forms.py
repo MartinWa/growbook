@@ -104,6 +104,17 @@ class AreaForm(forms.Form):
         self.fields["parent"].queryset = GrowingArea.objects.filter(pk__in=eligible)
 
 
+def clean_record_id(value, *, required=False):
+    """Validate positive signed 64-bit IDs without checking record eligibility."""
+    message = _("Choose a valid record.")
+    return forms.IntegerField(
+        min_value=1,
+        max_value=2**63 - 1,
+        required=required,
+        error_messages={"invalid": message, "min_value": message, "max_value": message},
+    ).clean(getattr(value, "pk", value))
+
+
 class RecordIDChoiceField(forms.ModelChoiceField):
     """Render model choices but clean IDs only; writers resolve receipts before eligibility."""
 
@@ -111,11 +122,7 @@ class RecordIDChoiceField(forms.ModelChoiceField):
         return getattr(self, "paths", {}).get(obj.pk, str(obj))
 
     def to_python(self, value):
-        return forms.IntegerField(
-            min_value=1,
-            required=self.required,
-            error_messages={"invalid": _("Choose a valid record.")},
-        ).clean(value)
+        return clean_record_id(value, required=self.required)
 
 
 def planting_variety_choices(crop_id, record=None):
@@ -190,8 +197,8 @@ class PlantingForm(forms.Form):
         )
         raw_crop = self.data.get("crop") if self.is_bound else self.initial.get("crop")
         try:
-            crop_id = int(getattr(raw_crop, "pk", raw_crop))
-        except ValueError, TypeError:
+            crop_id = clean_record_id(raw_crop)
+        except forms.ValidationError:
             crop_id = None
         self.fields["variety"].queryset = planting_variety_choices(crop_id, record)
         areas = list(GrowingArea.objects.all())

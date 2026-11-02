@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import Photo
-from garden.models import Planting, PlantingEvent
+from garden.models import Planting, PlantingEvent, PlantingSubmission
 from garden.services import (
     archive_area,
     archive_crop,
@@ -205,6 +205,38 @@ def test_year_navigation_keeps_filters_and_respects_calendar_bounds(client, user
     assert client.get(path, {"area": 99999}).status_code == 422
 
 
+@pytest.mark.parametrize("year", [None, "", 2025])
+def test_area_history_keeps_all_years_or_the_explicit_year(
+    client, user, catalog, monkeypatch, year
+):
+    monkeypatch.setattr(timezone, "localdate", lambda: date(2026, 5, 9))
+    older = create_planting(
+        actor=user,
+        crop=catalog["crop"],
+        area=catalog["child"],
+        start_year=2025,
+        label="Historical batch",
+    ).record
+    client.force_login(user)
+    data = {} if year is None else {"year": year}
+    history = client.get(reverse("garden:planting-history"), data)
+    area_url = reverse("garden:area-history", args=[catalog["child"].pk])
+    assert f'href="{area_url}{"?year=2025" if year else ""}"' in history.text
+    for area in (catalog["root"], catalog["child"]):
+        response = client.get(reverse("garden:area-history", args=[area.pk]), data)
+        assert response.status_code == 200
+        assert response.context["year"] == (2025 if year else None)
+        assert set(response.context["records"]) == (
+            {older} if year else {older, catalog["planting"]}
+        )
+        all_years = client.get(response.context["all_years_url"])
+        assert all_years.context["year"] is None
+        assert set(all_years.context["records"]) == {older, catalog["planting"]}
+        overview = client.get(response.context["overview_url"])
+        assert overview.context["year"] == (2025 if year else 2026)
+        assert overview.context["records"] == ([older] if year else [catalog["planting"]])
+
+
 def test_area_rollups_persistent_years_unknown_and_unassigned_filters(client, user, catalog):
     current = catalog["planting"]
     persistent = create_planting(
@@ -315,6 +347,88 @@ def test_invalid_forms_show_useful_errors_and_keep_draft_key_without_writes(
     else:
         assert response.context["form"]["notes"].value() == data["notes"]
         assert response.context["form"]["submission_key"].value() == data["submission_key"]
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("field", ["crop", "variety", "area"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(str(2**63), id="integer-overflow"),
+        pytest.param("9" * 100, id="long-integer"),
+    ],
+)
+def test_out_of_range_association_ids_show_errors_without_saving(
+    client, user, catalog, image_upload, hx, editing, field, value
+):
+    client.force_login(user)
+    record = catalog["planting"]
+    version = record.updated_at
+    data = (
+        edit_payload(catalog, record, **{field: value})
+        if editing
+        else payload(catalog, **{field: value})
+    )
+    path = (
+        reverse("garden:planting-edit", args=[record.pk])
+        if editing
+        else reverse("garden:planting-create")
+    )
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    response = client.post(path, {**data, "photos": image_upload()}, **headers)
+    assert response.status_code == 422 and "error-summary" in response.text
+    assert "Välj en giltig post." in response.text
+    if not hx:
+        form = response.context["form"]
+        assert field in form.errors
+        assert form[field].value() == value
+        assert form["notes"].value() == data["notes"]
+        assert form["submission_key"].value() == data["submission_key"]
+    assert not PlantingSubmission.objects.filter(key=data["submission_key"]).exists()
+    assert Planting.objects.count() == 1 and not Photo.objects.exists()
+    record.refresh_from_db()
+    assert record.updated_at == version
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("endpoint", ["planting-create", "planting-varieties"])
+@pytest.mark.parametrize(
+    "crop_id",
+    [
+        pytest.param(str(2**63), id="integer-overflow"),
+        pytest.param(str(-(2**63) - 1), id="integer-underflow"),
+        pytest.param("9" * 100, id="long-integer"),
+    ],
+)
+def test_out_of_range_crop_prefills_offer_no_varieties(
+    client, user, catalog, hx, endpoint, crop_id
+):
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    response = client.get(reverse("garden:" + endpoint), {"crop": crop_id}, **headers)
+    assert response.status_code == 200 and "<select" in response.text
+    assert "Golden" not in response.text and "Blue" not in response.text
+    if endpoint == "planting-create":
+        assert not response.context["form"].fields["variety"].queryset.exists()
+    assert Planting.objects.count() == 1
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("field", ["planting", "variety"])
+def test_out_of_range_choice_context_ids_are_handled_before_queries(
+    client, user, catalog, hx, field
+):
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    response = client.get(
+        reverse("garden:planting-varieties"),
+        {"crop": catalog["crop"].pk, field: str(2**63)},
+        **headers,
+    )
+    assert response.status_code == (400 if field == "planting" else 200)
+    if field == "variety":
+        assert 'value="" selected' in response.text
 
 
 def test_dependent_variety_options_are_scoped_clear_mismatch_and_preserve_current_archive(

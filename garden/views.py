@@ -27,6 +27,7 @@ from .forms import (
     PlantingForm,
     RegisterPhotoForm,
     VarietyForm,
+    clean_record_id,
 )
 from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 from .queries import area_paths, planting_history, planting_rows
@@ -374,7 +375,7 @@ def planting_list(request, history=False, kind=None, pk=None):
     """The year overview and scoped histories share one explicit, deduplicated query."""
     scope = get_object_or_404(REGISTERS[kind][0], pk=pk) if kind else None
     data = request.GET.copy()
-    if (not history or kind == "area") and not data.get("year"):
+    if not history and not data.get("year"):
         data["year"] = str(timezone.localdate().year)
     locked = set()
     if scope:
@@ -556,21 +557,21 @@ def planting_form(request, pk=None):
 @require_GET
 def planting_varieties(request):
     try:
-        crop_id = int(request.GET.get("crop", ""))
-    except ValueError:
+        crop_id = clean_record_id(request.GET.get("crop"))
+    except ValidationError:
         crop_id = None
     record = None
     if request.GET.get("planting"):
         try:
-            planting_id = int(request.GET["planting"])
-        except ValueError:
+            planting_id = clean_record_id(request.GET["planting"], required=True)
+        except ValidationError:
             return HttpResponse(status=400)
         record = get_object_or_404(Planting, pk=planting_id)
     form = PlantingForm(record=record, initial={"crop": crop_id})
     form.fields["variety"].widget.attrs["aria-describedby"] = "variety-status"
     try:
-        current_id = int(request.GET.get("variety", ""))
-    except ValueError:
+        current_id = clean_record_id(request.GET.get("variety"))
+    except ValidationError:
         current_id = None
     if form.fields["variety"].queryset.filter(pk=current_id).exists():
         form.initial["variety"] = current_id
