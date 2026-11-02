@@ -18,7 +18,11 @@ from garden.services import (
     archive_variety,
     create_area,
     create_crop,
+    create_planting,
+    create_planting_event,
     create_variety,
+    delete_planting,
+    edit_register_photo,
 )
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -59,14 +63,64 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
         uploads=[image_upload()],
         submission_key=uuid4(),
     ).entry
+    planting_key, event_key = uuid4(), uuid4()
+    planting = create_planting(
+        actor=user,
+        crop=crop,
+        variety=variety,
+        area=child,
+        start_year=2024,
+        lifespan="persistent",
+        end_year=2026,
+        quantity=0,
+        label="Synthetic persistent batch",
+        evaluation="Synthetic cumulative results",
+        uploads=[image_upload(format="WEBP")],
+        submission_key=planting_key,
+    ).record
+    event = create_planting_event(
+        actor=user,
+        planting=planting,
+        kind="sowing",
+        planned_date=date(2023, 12, 20),
+        actual_date=date(2024, 1, 2),
+        note="Synthetic overwintered sowing",
+        submission_key=event_key,
+    ).record
+    edit_register_photo(
+        actor=user,
+        pk=planting.photos.get().pk,
+        caption="Synthetic evaluation caption",
+        position=4,
+    )
+    early_plan = create_planting(
+        actor=user, crop=crop, start_year=2027, label="Synthetic crop-only plan"
+    ).record
+    ongoing = create_planting(
+        actor=user,
+        crop=crop,
+        start_year=2025,
+        area=child,
+        lifespan="persistent",
+        label="Synthetic ongoing batch",
+    ).record
+    deleted_key = uuid4()
+    deleted = create_planting(
+        actor=user,
+        crop=crop,
+        start_year=2027,
+        label="Synthetic removed plan",
+        submission_key=deleted_key,
+    ).record
+    delete_planting(actor=user, pk=deleted.pk)
     archive_crop(actor=user, pk=crop.pk)
     archive_variety(actor=user, pk=variety.pk)
     archive_area(actor=user, pk=parent.pk)
-    photos = [variety.photos.get(), child.photos.get(), entry.photos.get()]
+    photos = [variety.photos.get(), child.photos.get(), entry.photos.get(), planting.photos.get()]
     backup, restored = tmp_path / "backup", tmp_path / "clean-instance"
     manifest = create_backup(backup, [config])
     assert verify_backup(backup) == manifest
-    assert len(manifest["files"]) == 5
+    assert len(manifest["files"]) == 6
     restore_backup(backup, restored)
     snapshot = open_snapshot(restored / "db.sqlite3")
     try:
@@ -82,13 +136,50 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
             [child.pk],
         ).fetchone() == (parent.pk, 120, None, "Synthetic area notes", 0)
         assert snapshot.execute("SELECT COUNT(*) FROM garden_registersubmission").fetchone()[0] == 4
+        assert snapshot.execute(
+            "SELECT crop_id, variety_id, area_id, start_year, lifespan, end_year, "
+            "quantity, evaluation FROM garden_planting WHERE id=?",
+            [planting.pk],
+        ).fetchone() == (
+            crop.pk,
+            variety.pk,
+            child.pk,
+            2024,
+            "persistent",
+            2026,
+            0,
+            "Synthetic cumulative results",
+        )
+        assert snapshot.execute(
+            "SELECT planting_id, kind, planned_date, actual_date, note "
+            "FROM garden_plantingevent WHERE id=?",
+            [event.pk],
+        ).fetchone() == (
+            planting.pk,
+            "sowing",
+            "2023-12-20",
+            "2024-01-02",
+            "Synthetic overwintered sowing",
+        )
+        assert snapshot.execute("SELECT COUNT(*) FROM garden_plantingsubmission").fetchone()[0] == 5
+        assert snapshot.execute(
+            "SELECT variety_id, area_id, quantity FROM garden_planting WHERE id=?", [early_plan.pk]
+        ).fetchone() == (None, None, None)
+        assert snapshot.execute(
+            "SELECT end_year, lifespan FROM garden_planting WHERE id=?", [ongoing.pk]
+        ).fetchone() == (None, "persistent")
+        assert snapshot.execute(
+            "SELECT planting_id, event_id FROM garden_plantingsubmission WHERE key=?",
+            [deleted_key.hex],
+        ).fetchone() == (None, None)
         owner_rows = snapshot.execute(
-            "SELECT entry_id, area_id, variety_id FROM core_photo ORDER BY id"
+            "SELECT entry_id, area_id, variety_id, planting_id FROM core_photo ORDER BY id"
         ).fetchall()
         assert owner_rows == [
-            (None, None, variety.pk),
-            (None, child.pk, None),
-            (entry.pk, None, None),
+            (None, None, variety.pk, None),
+            (None, child.pk, None, None),
+            (entry.pk, None, None, None),
+            (None, None, None, planting.pk),
         ]
     finally:
         snapshot.close()
@@ -108,8 +199,10 @@ from django.contrib.auth import authenticate
 from django.test import Client
 from core.models import Photo
 from diary.models import DiaryEntry
-from garden.models import Crop, Variety, GrowingArea
-from garden.services import create_area, create_crop, create_variety, edit_area
+from garden.models import Crop, Variety, GrowingArea, Planting, PlantingEvent, PlantingSubmission
+from garden.queries import plantings_in_year
+from garden.services import create_area, create_crop, create_variety, create_planting, edit_area
+from django.core.exceptions import ValidationError
 user = authenticate(username='gardener', password='Synthetic-password-42')
 assert user is not None
 client = Client(HTTP_HOST='localhost')
@@ -117,7 +210,7 @@ for photo in Photo.objects.all():
     assert client.get(photo.get_absolute_url()).status_code == 302
     assert client.get(photo.original_url).status_code == 302
 client.force_login(user)
-for model in (Crop, Variety, GrowingArea, DiaryEntry):
+for model in (Crop, Variety, GrowingArea, DiaryEntry, Planting):
     for record in model.objects.all():
         assert client.get(record.get_absolute_url()).status_code == 200
 for photo in Photo.objects.all():
@@ -131,6 +224,57 @@ edit_area(actor=user, pk=child.pk, parent=parent, name=child.name, notes='Restor
 crop = create_crop(actor=user, name='New restored crop').record
 create_variety(actor=user, crop=crop, name='New restored variety')
 create_area(actor=user, name='New restored bed')
+from datetime import date
+from django.core.files.uploadedfile import SimpleUploadedFile
+from core.media import private_path
+from garden.services import create_planting_event, RegisterConflict
+planting = Planting.objects.get(label='Synthetic persistent batch')
+ongoing = Planting.objects.get(label='Synthetic ongoing batch')
+early = Planting.objects.get(label='Synthetic crop-only plan')
+assert early.variety_id is None and early.area_id is None and early.quantity is None
+assert planting.quantity == 0 and planting.evaluation == 'Synthetic cumulative results'
+assert set(plantings_in_year(2026)) == {planting, ongoing}
+assert set(plantings_in_year(2027)) == {early, ongoing}
+assert list(plantings_in_year(2028)) == [ongoing]
+assert PlantingEvent.objects.get().actual_date.isoformat() == '2024-01-02'
+assert PlantingSubmission.objects.count() == 5
+photo = planting.photos.get()
+assert photo.caption == 'Synthetic evaluation caption' and photo.position == 4
+replayed = create_planting(
+    actor=user, crop=planting.crop_id, variety=planting.variety_id, area=planting.area_id,
+    start_year=2024, lifespan='persistent', end_year=2026, quantity=0,
+    label='Synthetic persistent batch', evaluation='Synthetic cumulative results',
+    uploads=[SimpleUploadedFile('synthetic.webp', private_path(photo.original.name).read_bytes())],
+    submission_key=PlantingSubmission.objects.get(planting=planting).key,
+)
+assert replayed.replayed and replayed.record.pk == planting.pk
+replayed_event = create_planting_event(
+    actor=user, planting=planting.pk, kind='sowing', planned_date=date(2023, 12, 20),
+    actual_date=date(2024, 1, 2), note='Synthetic overwintered sowing',
+    submission_key=PlantingSubmission.objects.get(kind='event').key,
+)
+assert replayed_event.replayed
+tombstone = PlantingSubmission.objects.get(planting=None, event=None)
+try:
+    create_planting(actor=user, crop=planting.crop_id, start_year=2027,
+                    label='Synthetic removed plan', submission_key=tombstone.key)
+except RegisterConflict:
+    pass
+else:
+    raise AssertionError('deleted planting was recreated after restore')
+assert Planting.objects.count() == 3 and Photo.objects.count() == 4
+for model in (Planting, Crop, Variety, GrowingArea):
+    for record in model.objects.all():
+        anonymous = Client(HTTP_HOST='localhost')
+        assert anonymous.get(record.get_absolute_url()).status_code == 302
+from garden.services import edit_variety
+try:
+    edit_variety(actor=user, pk=planting.variety_id, crop=crop, name='Invalid reclassification')
+except ValidationError:
+    pass
+else:
+    raise AssertionError('referenced variety was reclassified after restore')
+create_planting(actor=user, crop=crop, start_year=2027, label='Restored early plan')
 from django.db import connection
 with connection.cursor() as cursor:
     cursor.execute('PRAGMA journal_mode')

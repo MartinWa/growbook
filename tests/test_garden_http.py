@@ -224,15 +224,28 @@ def test_delete_is_get_safe_confirmed_and_protects_child_references(client, user
     assert GrowingArea.objects.filter(pk=parent.pk).exists()
 
 
-@pytest.mark.parametrize("kind", ["area", "variety"])
+@pytest.mark.parametrize("kind", ["area", "variety", "planting"])
 def test_photo_creation_edit_viewer_and_confirmed_delete(client, user, image_upload, kind):
     client.force_login(user)
     data = payload(kind, photos=[image_upload(), image_upload()])
-    if kind == "variety":
+    if kind in {"variety", "planting"}:
         data["crop"] = create_crop(actor=user, name="Tomato").record.pk
+    if kind == "planting":
+        data = {
+            "submission_key": data["submission_key"],
+            "crop": data["crop"],
+            "start_year": 2026,
+            "lifespan": "annual",
+            "photos": data["photos"],
+        }
     response = client.post(reverse(f"garden:{kind}-create"), data)
     assert response.status_code == 302
-    owner = (GrowingArea if kind == "area" else Variety).objects.get()
+    if kind == "planting":
+        from garden.models import Planting
+
+        owner = Planting.objects.get()
+    else:
+        owner = (GrowingArea if kind == "area" else Variety).objects.get()
     assert owner.photos.count() == 2
     photo = owner.photos.first()
     viewer = client.get(photo.get_absolute_url())

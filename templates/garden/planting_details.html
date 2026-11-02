@@ -1,0 +1,43 @@
+{% load i18n %}
+<section class="record-details" aria-labelledby="record-planting-{{ record.pk }}">
+  <h2 id="record-planting-{{ record.pk }}">{{ record.display_label }}</h2>
+  <dl class="record-fields">
+    <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
+    <dt>{% translate 'Variety' %}</dt><dd>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</dd>
+    <dt>{% translate 'Growing area' %}</dt><dd>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}">{{ record.area_path }}</a>{% if record.area.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</dd>
+    <dt>{% translate 'Start year' %}</dt><dd>{{ record.start_year }}</dd>
+    <dt>{% translate 'Lifespan' %}</dt><dd>{{ record.get_lifespan_display }}</dd>
+    {% if record.lifespan == 'persistent' %}<dt>{% translate 'End year' %}</dt><dd>{% if record.end_year %}{{ record.end_year }} ({% translate 'Inclusive' %}){% else %}{% translate 'Ongoing' %}{% endif %}</dd>{% endif %}
+    <dt>{% translate 'Quantity' %}</dt><dd>{{ record.quantity|default_if_none:'—' }}</dd>
+    {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
+    {% if record.evaluation %}<dt>{% translate 'Evaluation' %}</dt><dd>{{ record.evaluation|linebreaksbr }}</dd>{% endif %}
+  </dl>
+  <p class="muted">{% translate 'Evaluation is cumulative. Area changes and reparenting also change past-year views; movement history is not recorded.' %}</p>
+  {% if record.photos.all %}
+  <div class="photo-grid register-photos">
+    {% for photo in record.photos.all %}<figure>
+      <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Planting photo' %} {{ forloop.counter }}{% endif %}"></a>
+      {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
+      <a href="{% url 'garden:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
+      <a href="{% url 'garden:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
+    </figure>{% endfor %}
+  </div>
+  {% endif %}
+  <h3>{% translate 'Planting events' %}</h3>
+  <div class="table-scroll">
+  <table class="register-table event-table">
+    <caption class="visually-hidden">{% translate 'Planting events' %}: {{ record.display_label }}</caption>
+    <thead><tr><th scope="col">{% translate 'Event type' %}</th><th scope="col">{% translate 'Planned date' %}</th><th scope="col">{% translate 'Actual date' %}</th><th scope="col">{% translate 'Note' %}</th><th scope="col">{% translate 'Actions' %}</th></tr></thead>
+    <tbody>{% for event in events %}<tr id="event-{{ event.pk }}">
+      <th scope="row">{{ event.get_kind_display }}</th>
+      <td>{{ event.planned_date|date:'Y-m-d'|default:'—' }}</td><td>{{ event.actual_date|date:'Y-m-d'|default:'—' }}</td><td>{{ event.note|linebreaksbr }}</td>
+      <td><a href="{% url 'garden:event-edit' record.pk event.pk %}" aria-label="{% translate 'Edit' %}: {{ event.get_kind_display }} {{ event.actual_date|default:event.planned_date }}">{% translate 'Edit' %}</a> <a href="{% url 'garden:event-delete' record.pk event.pk %}" aria-label="{% translate 'Delete' %}: {{ event.get_kind_display }} {{ event.actual_date|default:event.planned_date }}">{% translate 'Delete' %}</a></td>
+    </tr>{% empty %}<tr><td colspan="5">{% translate 'No events yet.' %}</td></tr>{% endfor %}</tbody>
+  </table>
+  </div>
+  <div class="form-actions">
+    <a class="button" href="{% url 'garden:planting-edit' record.pk %}">{% translate 'Edit planting' %}</a>
+    <a href="{% url 'garden:event-create' record.pk %}">{% translate 'New planting event' %}</a>
+    <a href="{% url 'garden:planting-delete' record.pk %}">{% translate 'Delete planting' %}</a>
+  </div>
+</section>

@@ -76,6 +76,7 @@
     }
 
     form.addEventListener("htmx:configRequest", event => {
+      if (event.detail.elt !== form) return;
       const cookie = document.cookie.split("; ").find(value => value.startsWith("csrftoken="));
       if (cookie) event.detail.parameters.csrfmiddlewaretoken = decodeURIComponent(cookie.split("=")[1]);
     });
@@ -89,12 +90,14 @@
       status.textContent = form.dataset.uploading;
     });
     form.addEventListener("htmx:xhr:progress", event => {
+      if (!busy) return;
       if (event.detail.lengthComputable) {
         progress.value = 100 * event.detail.loaded / event.detail.total;
         if (progress.value >= 100) status.textContent = form.dataset.processing;
       }
     });
     form.addEventListener("htmx:beforeSwap", event => {
+      if (event.detail.target !== errors) return;
       const code = event.detail.xhr.status;
       if ([409, 422, 503].includes(code)) {
         event.detail.shouldSwap = true;
@@ -107,14 +110,19 @@
         showError(form.dataset.genericError);
       }
     });
-    form.addEventListener("htmx:afterSwap", () => errors.focus());
-    form.addEventListener("htmx:afterRequest", () => {
+    form.addEventListener("htmx:afterSwap", event => {
+      if (event.detail.target === errors) errors.focus();
+    });
+    form.addEventListener("htmx:afterRequest", event => {
+      if (event.detail.elt !== form) return;
       setBusy(false);
       progress.hidden = true;
       status.textContent = "";
     });
     ["htmx:sendError", "htmx:timeout"].forEach(name => {
-      form.addEventListener(name, () => showError(form.dataset.networkError));
+      form.addEventListener(name, event => {
+        if (event.detail.elt === form) showError(form.dataset.networkError);
+      });
     });
     if (errors.textContent.trim()) errors.focus();
   });

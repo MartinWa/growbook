@@ -12,6 +12,7 @@
   <script src="{% static 'js/htmx-2.0.11.min.js' %}" defer></script>
   <script src="{% static 'js/capture.js' %}" defer></script>
   <script src="{% static 'js/registers.js' %}" defer></script>
+  <script src="{% static 'js/plantings.js' %}" defer></script>
 </head>
 <body hx-history="false">
   <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
@@ -21,6 +22,7 @@
     <nav aria-label="{% translate 'Main navigation' %}">
       <a href="{% url 'diary:list' %}">{% translate 'Diary' %}</a>
       <a href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
+      <a href="{% url 'garden:planting-list' %}">{% translate 'Plantings' %}</a>
       <a href="{% url 'garden:area-list' %}">{% translate 'Registers' %}</a>
     </nav>
     {% endif %}

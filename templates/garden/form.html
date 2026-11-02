@@ -2,22 +2,29 @@
 {% load i18n %}
 {% block title %}{{ title }} · growbook{% endblock %}
 {% block content %}
-{% include 'garden/nav.html' %}
+{% if kind == 'planting' %}<nav class="register-nav" aria-label="{% translate 'Planting navigation' %}"><a href="{% url 'garden:planting-list' %}">{% translate 'Year overview' %}</a><a href="{% url 'garden:planting-history' %}">{% translate 'All years' %}</a></nav>{% elif kind != 'event' %}{% include 'garden/nav.html' %}{% endif %}
 <section class="panel register-form-panel">
 <h1>{{ title }}</h1>
 <form id="register-form" method="post" action="{{ action }}" enctype="multipart/form-data"
       hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#register-errors" hx-swap="innerHTML"
-      data-register-form data-uploading="{% translate 'Uploading photos…' %}"
+      data-register-form data-uploading="{% if has_photos %}{% translate 'Uploading photos…' %}{% else %}{% translate 'Saving…' %}{% endif %}"
       data-processing="{% translate 'Processing photos and saving…' %}"
       data-network-error="{% translate 'The connection failed. Keep this form open and retry the same submission.' %}"
       data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
       data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
   {% csrf_token %}
+  {% if kind == 'planting' and record %}<input id="planting-context" type="hidden" name="planting" value="{{ record.pk }}">{% endif %}
   <div id="register-errors" role="alert" tabindex="-1">{% include 'garden/form_errors.html' %}</div>
   {% if failed and has_photos %}<p role="alert">{% translate 'Your fields were kept. If you selected photos, select them again before retrying with the same content.' %}</p>{% endif %}
   {% for field in form %}
     {% if field.is_hidden %}{{ field }}{% else %}
-    <div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+    <div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}
+      {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="muted">{{ field.help_text }}</p>{% endif %}
+      {% if kind == 'planting' and field.name == 'crop' %}<noscript><button type="submit" name="choose_crop" value="1" formnovalidate>{% translate 'Update variety choices' %}</button></noscript>{% endif %}
+      {% if kind == 'planting' and field.name == 'variety' %}<p id="variety-status" class="muted" role="status" aria-live="polite"
+        data-choices-ready="{% translate 'Variety choices updated.' %}"
+        data-choices-error="{% translate 'Variety choices could not be loaded. Retry or select another crop.' %}">{% translate 'Choose a crop first. Variety may be left unknown.' %}</p><button type="button" class="quiet" data-variety-retry hidden>{% translate 'Retry variety choices' %}</button>{% endif %}
+    </div>
     {% endif %}
   {% endfor %}
   {% if kind == 'area' %}
@@ -27,11 +34,19 @@
     </datalist>
     <p class="muted">{% translate 'Type and dimensions are descriptive; either dimension may be left blank.' %}</p>
   {% endif %}
+  {% if kind == 'planting' %}
+    <p class="muted">{% translate 'Only crop and start year are required. Quantity is a plant count: blank means unknown; zero means none.' %}</p>
+    <p class="muted">{% translate 'Annual plantings belong to their start year. Persistent plantings continue through their end year, inclusive, or indefinitely when it is blank.' %}</p>
+    <p class="muted">{% translate 'Evaluation is cumulative. Area changes and reparenting also change past-year views; movement history is not recorded.' %}</p>
+  {% elif kind == 'event' %}
+    <p><a href="{{ planting.get_absolute_url }}">{{ planting }}</a></p>
+    <p class="muted">{% translate 'Planned and actual dates are independent and may cross growing-year boundaries. Repeated event types are allowed.' %}</p>
+  {% endif %}
   {% if has_photos %}<p class="muted">{% translate 'JPEG, PNG, WebP and HEIC. Up to 10 photos per record, 20 MiB each, 80 MiB per upload.' %}</p>{% endif %}
   {% if record and record.is_archived %}<p class="muted">{% translate 'This record is archived. Editing it does not restore it to active selections.' %}</p>{% endif %}
   <p data-register-status role="status" aria-live="polite"></p>
   <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
-  <div class="form-actions"><button type="submit">{% translate 'Save' %}</button><a href="{% if record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
+  <div class="form-actions"><button type="submit">{% translate 'Save' %}</button><a href="{% if kind == 'event' %}{{ planting.get_absolute_url }}{% elif record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
 </form>
 </section>
 {% endblock %}

@@ -39,6 +39,7 @@
   {% endif %}
   <div class="form-actions">
     <a class="button" href="{{ edit_url }}">{% translate 'Edit' %}</a>
+    <a href="{{ history_url }}">{% translate 'Planting history' %}</a>
     {% if kind == 'crop' %}<a href="{% url 'garden:variety-create' %}?crop={{ record.pk }}">{% translate 'New variety' %}</a>{% endif %}
     <form method="post" action="{{ archive_url }}">
       {% csrf_token %}

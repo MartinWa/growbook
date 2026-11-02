@@ -71,6 +71,13 @@ input::file-selector-button { padding: .35rem .6rem; margin-right: .6rem; }
 .register-nav { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-bottom: 1.2rem; }
 .register-nav [aria-current] { font-weight: 700; }
 .register-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+.planting-filter { margin: 1rem 0; }
+.filter-fields { display: flex; align-items: end; flex-wrap: wrap; gap: .5rem 1rem; }
+.filter-fields .field { margin-bottom: 0; }
+.filter-fields input[type=checkbox] + label { display: inline; }
+.filter-fields select { max-width: 16rem; }
+.year-navigation { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1rem 0; }
+.event-table { margin-top: .5rem; }
 .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: .5rem; }
 .register-table { width: 100%; border-collapse: collapse; font-size: .9rem; text-align: left; }
 .register-table th, .register-table td { padding: .4rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }

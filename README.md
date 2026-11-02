@@ -1,8 +1,9 @@
 # growbook
 
-A private, self-hosted garden diary and registers built with Python and Django.
-Capture an observation with text, photos, or both, and maintain crops, varieties
-and growing areas in your web browser.
+A private, self-hosted garden diary, planting planner and registers built with
+Python and Django. Capture observations with text, photos, or both; plan annual
+and persistent plantings; and maintain crops, varieties and growing areas in your
+web browser.
 The interface defaults to Swedish, with English available.
 
 ## Current features
@@ -14,26 +15,34 @@ The interface defaults to Swedish, with English available.
   deletion of records without protected references.
 - Multiple private photos on varieties/areas, with editable captions/order and
   confirmed photo deletion.
+- Early planting plans with required crop/start year, optional variety/area and
+  independent batches; quantity distinguishes unknown from zero.
+- Annual and persistent plantings, inclusive end years, year overviews and
+  crop/variety/descendant-area histories, including archived associations.
+- Repeated planting events with independent planned/actual dates across calendar
+  years, simple cumulative evaluation text and private planting photos.
 - Dated text-only, photo-only and text-plus-photo entries, with chronological paging.
 - Separate camera and photo-library inputs, multiple photos, previews and upload feedback.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped
   WebP display images/thumbnails. Received originals are retained privately.
 - Authenticated photo viewing in a CSP-safe HTML page and private original downloads;
   no public media directory.
-- Retry-safe diary creation and register saves, with visible errors and no partial
-  photo saves.
+- Retry-safe diary creation and register/planting/event saves, with visible errors
+  and no partial photo saves.
 - Operational database/photo backup, verification, clean-instance restore and orphan cleanup.
 
 ## Scope and limitations
 
 - The garden is shared within an installation: every active account can read all
-  records, photos and original downloads, and maintain the registers. There are
-  no per-user gardens or read-only member roles.
-- Diary entries can be created and read, but not edited or deleted. Planting plans,
-  year histories, diary links and portable data import/export are not provided.
-- Uploads are limited to 10 photos per entry or register record, 20 MiB per photo,
-  80 MiB per upload and 50 million decoded pixels per photo. Animated and
-  multi-image files are rejected.
+  records, photos and original downloads, and maintain registers, plantings and
+  events. There are no per-user gardens or read-only member roles.
+- Diary entries can be created and read, but not edited or deleted. Diary links,
+  structured harvest accounting and portable data import/export are not provided.
+- Planting histories use current area assignments and nesting, not immutable past
+  layouts or movement history. Evaluation is cumulative, not a per-year assessment.
+- Uploads are limited to 10 photos per diary entry, variety, area or planting,
+  20 MiB per photo, 80 MiB per upload and 50 million decoded pixels per photo.
+  Animated and multi-image files are rejected.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public
   Internet exposure. Verify backup and clean-instance recovery before recording
   real data.
@@ -79,9 +88,9 @@ uv run python manage.py runserver 127.0.0.1:8000
 ```
 
 Open **http://127.0.0.1:8000/**. Use **`/operator/`** to create or deactivate other
-accounts. There are no seeded credentials. Diary/photo/register admin screens are
-read-only; use the capture page for observations and **Registers** for garden
-records.
+accounts. There are no seeded credentials. Diary/photo/register/planting admin
+screens are read-only; use the capture page for observations, **Registers** for
+garden records and **Plantings** for plans and milestones.
 
 `manage.py` defaults to development settings with loopback-only allowed hosts,
 HTTP cookies, a generated local secret and data in ignored `local/development/`.
@@ -110,14 +119,64 @@ at once, and ordinary record links work without JavaScript.
   ordering. Deletion requires confirmation. A crop with varieties or an area with
   children cannot be deleted; archive it or deliberately reorganize its dependents.
   Allowed owner deletion removes its photos, with coordinated file cleanup after
-  the database commit.
+  the database commit. Referenced crops, varieties and areas cannot be deleted.
+- A variety used by any planting cannot change crop through an ordinary edit,
+  including when the planting has ended. Reconcile its planting references
+  explicitly first; changing the variety does not silently reclassify plantings.
 
-Register forms reject stale edits instead of overwriting another member's changes.
-On a failed or uncertain create/edit save, keep the form open and retry the same
-content and save key; photos are not appended twice. With JavaScript, validation
+Register, planting and event forms reject stale edits instead of overwriting
+another member's changes. On a failed or uncertain create/edit save, keep the form
+open and retry the same content and save key; photos are not appended twice. With
+JavaScript, validation
 replaces only the error summary, preserving fields and selected files. Without it,
 reselect photos as instructed before retrying. A genuinely changed form is a new
 submission; do not reuse a confirmed key for different content.
+
+A register retry can still be rejected if its selected crop/parent became
+ineligible after the original save. If a save may have committed, check the saved
+record before starting a new submission. Planting saves resolve matching immutable
+receipts before checking current association eligibility.
+
+### Plantings and histories
+
+Open **Plantings** for a growing-year table; enter a year or use **Previous year**
+and **Next year**. **All years** shows one row per planting across its full history.
+Use **Details** to expand multiple rows independently and see events, notes,
+evaluation and photos. Register details link to their **Planting history**.
+
+- **New planting** requires only a crop and start year (1–9999). Variety and final
+  growing area may be left unknown; no placeholder register records are created.
+  Variety choices follow the crop without reloading and clear an incompatible
+  selection. Without JavaScript, use **Update variety choices** before choosing a
+  variety. The server also rejects mismatches and ineligible new associations.
+- **Batch label** distinguishes similar rows. Several batches may have identical
+  year/crop/variety/area values. Quantity is a nonnegative plant count: blank means
+  unknown and zero is a known zero, not an omitted value.
+- **Annual** is the default and belongs only to the start year, with no end year.
+  **Persistent** belongs to every year from start through its optional end year,
+  inclusive; a blank end year means ongoing. Set the end year to end a planting
+  without deleting its events, evaluation or photos. Viewing another year never
+  creates a copy or counts the original quantity as repeated production.
+- Filter by crop, variety or area, or find rows with **Unassigned area only** or
+  **Unknown variety only**. Area filters include the selected area's own plantings
+  and all descendants, once per batch, showing the actual assigned place. Archived
+  register items stay visible in existing histories and associations.
+- **New planting event** supports sowing, transplanting, harvest start/end and
+  other milestones. Planned and actual dates are separate; at least one is needed.
+  Dates do not determine the growing year and may precede or follow it. Repeated
+  event types are valid; use separate planting rows for independently counted or
+  evaluated batches. Event edits and deletion use version checks and confirmation
+  for deletion.
+- Edit a planting to add cumulative evaluation text or photos. Photo captions,
+  order, private viewing/downloads and confirmed deletion use the same controls as
+  register photos. Planting deletion is permanent and removes its events/photos;
+  ending a persistent planting is the history-preserving alternative.
+
+Each planting has one current area. Correcting that assignment or reparenting an
+area changes past-year results too. For an established plant that moves, prefer
+ending the old planting and creating a new one at the destination. This preserves
+year-level presence, not exact movement dates, lineage or historical layouts.
+Diary observations are currently separate and cannot yet be linked to plantings.
 
 ### SQLite runtime
 
@@ -417,7 +476,7 @@ recovery, not portable data import/export.
 | `growbook/` | Project settings, routing, runtime bootstrap and WSGI server. |
 | `core/` | Users, private photos, security, SQLite configuration and operational commands. |
 | `diary/` | Diary models, forms, views and validated creation operations. |
-| `garden/` | Crop, variety and growing-area registers, forms and validated writes. |
+| `garden/` | Registers, plantings/events, year/history queries, forms and validated writes. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |
 | `tests/` | Domain/integration/browser tests and synthetic fixtures. |

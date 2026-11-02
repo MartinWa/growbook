@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete planting' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete planting' %}: {{ record.display_label }}</h1>
+  <p>{% translate 'Deletion is permanent and removes this planting’s events, photos and originals. To end a persistent planting while keeping its history, edit its end year instead.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'garden/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete planting' %}</button><a href="{{ record.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}
