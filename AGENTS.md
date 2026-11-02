@@ -103,9 +103,10 @@ or copy its status into the maintained documentation.
 ## Implementation conventions
 
 Keep the application split into `core` (users, photos, settings, shared helpers and
-operational commands) and `diary` (entries, photos and validated creation). Add
-further modules only when a feature needs them; do not add a generic repository,
-event bus or separate API layer before it is needed.
+operational commands), `diary` (entries and validated creation), and `garden`
+(crop, variety and growing-area registers with validated maintenance). Add further
+modules only when a feature needs them; do not add a generic repository, event
+bus or separate API layer before it is needed.
 
 Use `pytest-django` for domain and integration tests. On Windows run tests through
 `uv run python tools/run_tests.py` so the fixed SQLite runtime is activated before

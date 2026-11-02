@@ -21,15 +21,15 @@ class PhotoLimitUploadHandler(FileUploadHandler):
         self.current = 0
         self.count += 1
         if self.count > settings.PHOTO_MAX_COUNT:
-            self.reject(_("Too many photos were selected. No entry was saved."))
+            self.reject(_("Too many photos were selected. Nothing was saved."))
 
     def receive_data_chunk(self, raw_data, start):
         self.current += len(raw_data)
         self.total += len(raw_data)
         if self.current > settings.PHOTO_MAX_FILE_BYTES:
-            self.reject(_("A photo exceeds the per-photo upload limit. No entry was saved."))
+            self.reject(_("A photo exceeds the per-photo upload limit. Nothing was saved."))
         if self.total > settings.PHOTO_MAX_TOTAL_BYTES:
-            self.reject(_("The photos exceed the total upload limit. No entry was saved."))
+            self.reject(_("The photos exceed the total upload limit. Nothing was saved."))
         return raw_data
 
     def file_complete(self, file_size):

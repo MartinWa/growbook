@@ -178,17 +178,17 @@ msgstr "Den här bilden överskrider pixelgränsen efter avkodning."
 msgid "This photo has an unreadable color profile."
 msgstr "Den här bilden har en färgprofil som inte kan läsas."
 
-msgid "A photo could not be decoded safely. No entry was saved."
-msgstr "En bild kunde inte avkodas säkert. Inget inlägg sparades."
+msgid "A photo could not be decoded safely. Nothing was saved."
+msgstr "En bild kunde inte avkodas säkert. Inget sparades."
 
-msgid "Too many photos were selected. No entry was saved."
-msgstr "För många bilder valdes. Inget inlägg sparades."
+msgid "Too many photos were selected. Nothing was saved."
+msgstr "För många bilder valdes. Inget sparades."
 
-msgid "A photo exceeds the per-photo upload limit. No entry was saved."
-msgstr "En bild överskrider uppladdningsgränsen per bild. Inget inlägg sparades."
+msgid "A photo exceeds the per-photo upload limit. Nothing was saved."
+msgstr "En bild överskrider uppladdningsgränsen per bild. Inget sparades."
 
-msgid "The photos exceed the total upload limit. No entry was saved."
-msgstr "Bilderna överskrider den totala uppladdningsgränsen. Inget inlägg sparades."
+msgid "The photos exceed the total upload limit. Nothing was saved."
+msgstr "Bilderna överskrider den totala uppladdningsgränsen. Inget sparades."
 
 msgid "Your session expired. Log in in another tab, then retry. Keep this form open so your selected photos are not lost."
 msgstr "Din session har gått ut. Logga in på en annan flik och försök igen. Behåll formuläret öppet så att valda bilder inte går förlorade."
@@ -210,3 +210,288 @@ msgstr "Ett oväntat bildfält skickades. Inget inlägg sparades."
 
 msgid "The save could not be completed. Keep this form open and retry; the same submission will not create a duplicate."
 msgstr "Det gick inte att slutföra sparandet. Behåll formuläret öppet och försök igen; samma observation skapar ingen dubblett."
+
+msgid "Garden"
+msgstr "Trädgård"
+
+msgid "Registers"
+msgstr "Register"
+
+msgid "Crop"
+msgstr "Gröda"
+
+msgid "Crops"
+msgstr "Grödor"
+
+msgid "Variety"
+msgstr "Sort"
+
+msgid "Varieties"
+msgstr "Sorter"
+
+msgid "Growing area"
+msgstr "Odlingsyta"
+
+msgid "Growing areas"
+msgstr "Odlingsytor"
+
+msgid "Name"
+msgstr "Namn"
+
+msgid "Notes"
+msgstr "Anteckningar"
+
+msgid "Category"
+msgstr "Kategori"
+
+msgid "Description"
+msgstr "Beskrivning"
+
+msgid "Source"
+msgstr "Källa"
+
+msgid "Experiences"
+msgstr "Erfarenheter"
+
+msgid "Type"
+msgstr "Typ"
+
+msgid "Length (cm)"
+msgstr "Längd (cm)"
+
+msgid "Width (cm)"
+msgstr "Bredd (cm)"
+
+msgid "Parent area"
+msgstr "Överordnad yta"
+
+msgid "Child areas"
+msgstr "Underytor"
+
+msgid "Archived"
+msgstr "Arkiverad"
+
+msgid "Active"
+msgstr "Aktiv"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Details"
+msgstr "Detaljer"
+
+msgid "New crop"
+msgstr "Ny gröda"
+
+msgid "Edit crop"
+msgstr "Redigera gröda"
+
+msgid "New variety"
+msgstr "Ny sort"
+
+msgid "Edit variety"
+msgstr "Redigera sort"
+
+msgid "New growing area"
+msgstr "Ny odlingsyta"
+
+msgid "Edit growing area"
+msgstr "Redigera odlingsyta"
+
+msgid "Include archived records"
+msgstr "Visa även arkiverade poster"
+
+msgid "Apply"
+msgstr "Visa"
+
+msgid "Expand several rows at once to compare details."
+msgstr "Öppna flera rader samtidigt för att jämföra detaljer."
+
+msgid "Loading details…"
+msgstr "Laddar detaljer…"
+
+msgid "Details could not be loaded. Collapse and expand to retry, or follow the record link."
+msgstr "Detaljerna kunde inte laddas. Stäng och öppna raden för att försöka igen, eller följ länken till posten."
+
+msgid "No records yet. Create the first one when you need it."
+msgstr "Inga poster än. Skapa den första när du behöver den."
+
+msgid "Register photo"
+msgstr "Bild till registerpost"
+
+msgid "Back to record"
+msgstr "Tillbaka till posten"
+
+msgid "Add photos"
+msgstr "Lägg till bilder"
+
+msgid "Edit"
+msgstr "Redigera"
+
+msgid "Save"
+msgstr "Spara"
+
+msgid "Save key"
+msgstr "Sparnyckel"
+
+msgid "Record version"
+msgstr "Postversion"
+
+msgid "Archive"
+msgstr "Arkivera"
+
+msgid "Restore to active selections"
+msgstr "Gör valbar igen"
+
+msgid "Delete"
+msgstr "Radera"
+
+msgid "Delete record"
+msgstr "Radera post"
+
+msgid "I confirm this deletion."
+msgstr "Jag bekräftar raderingen."
+
+msgid "Deletion is permanent and removes this record’s photos. Records with children or other protected references cannot be deleted; archive them instead."
+msgstr "Raderingen är permanent och tar bort postens bilder. Poster med underposter eller andra skyddade referenser kan inte raderas; arkivera dem i stället."
+
+msgid "Edit photo details"
+msgstr "Redigera bilduppgifter"
+
+msgid "Delete photo"
+msgstr "Radera bild"
+
+msgid "Order"
+msgstr "Ordning"
+
+msgid "Owner"
+msgstr "Ägare"
+
+msgid "Lower order values appear first. Equal values keep a stable photo order."
+msgstr "Lägre ordningsnummer visas först. Bilder med samma nummer behåller en stabil ordning."
+
+msgid "This permanently removes this photo and its private original. The register record is kept."
+msgstr "Detta raderar bilden och dess privata original permanent. Registerposten behålls."
+
+msgid "Type and dimensions are descriptive; either dimension may be left blank."
+msgstr "Typ och mått är beskrivande; längd och bredd kan utelämnas oberoende av varandra."
+
+msgid "Bed"
+msgstr "Bädd"
+
+msgid "Greenhouse"
+msgstr "Växthus"
+
+msgid "Pot"
+msgstr "Kruka"
+
+msgid "Border"
+msgstr "Rabatt"
+
+msgid "JPEG, PNG, WebP and HEIC. Up to 10 photos per record, 20 MiB each, 80 MiB per upload."
+msgstr "JPEG, PNG, WebP och HEIC. Högst 10 bilder per post, 20 MiB per bild och 80 MiB per uppladdning."
+
+msgid "This record is archived. Editing it does not restore it to active selections."
+msgstr "Posten är arkiverad. Den blir inte valbar igen bara för att du redigerar den."
+
+msgid "Your fields were kept. If you selected photos, select them again before retrying with the same content."
+msgstr "Dina fält har behållits. Om du valde bilder behöver du välja dem igen innan du försöker på nytt med samma innehåll."
+
+msgid "The connection failed. Keep this form open and retry the same submission."
+msgstr "Anslutningen misslyckades. Behåll formuläret öppet och försök spara samma innehåll igen."
+
+msgid "Enter a name that is not blank."
+msgstr "Ange ett namn som inte är tomt."
+
+msgid "Enter text, or leave this field blank."
+msgstr "Ange text eller lämna fältet tomt."
+
+msgid "This name is already used in this register scope."
+msgstr "Namnet används redan här: i registret eller under samma överordnade post."
+
+msgid "Choose a valid record."
+msgstr "Välj en giltig post."
+
+msgid "Choose a parent that does not create a cycle."
+msgstr "Välj en överordnad yta som inte skapar en cirkel."
+
+msgid "Choose an active crop for a new association."
+msgstr "Välj en aktiv gröda för en ny koppling."
+
+msgid "Choose an active parent for a new association."
+msgstr "Välj en aktiv överordnad yta för en ny koppling."
+
+msgid "Enter a positive whole number, or leave it blank."
+msgstr "Ange ett positivt heltal eller lämna fältet tomt."
+
+msgid "Enter a nonnegative whole number."
+msgstr "Ange ett heltal som är noll eller större."
+
+msgid "Choose a valid archive state."
+msgstr "Välj ett giltigt arkiveringsläge."
+
+msgid "The save key is invalid. Reload the form."
+msgstr "Sparnyckeln är ogiltig. Ladda om formuläret."
+
+msgid "This save key was already used with different content. Nothing was overwritten."
+msgstr "Sparnyckeln har redan använts med annat innehåll. Inget skrevs över."
+
+msgid "This record was deleted. It was not recreated."
+msgstr "Posten har raderats. Den skapades inte på nytt."
+
+msgid "This record no longer exists. Reload the register."
+msgstr "Posten finns inte längre. Ladda om registret."
+
+msgid "This record changed while the form was open. Reload it before saving again."
+msgstr "Posten ändrades medan formuläret var öppet. Ladda om det innan du sparar igen."
+
+msgid "Reload the edit form before saving."
+msgstr "Ladda om redigeringsformuläret innan du sparar."
+
+msgid "A record can have no more than %(count)s photos."
+msgstr "En post kan ha högst %(count)s bilder."
+
+msgid "This crop has varieties. Archive it instead."
+msgstr "Grödan har sorter. Arkivera den i stället."
+
+msgid "This area has children. Reorganize them or archive it instead."
+msgstr "Ytan har underytor. Flytta dem eller arkivera ytan i stället."
+
+msgid "This record is still referenced. Archive it instead."
+msgstr "Posten används fortfarande. Arkivera den i stället."
+
+msgid "An unexpected photo field was submitted. Nothing was saved."
+msgstr "Ett oväntat bildfält skickades. Inget sparades."
+
+msgid "The save could not be completed. Keep this form open and retry the same submission."
+msgstr "Det gick inte att slutföra sparandet. Behåll formuläret öppet och försök spara samma innehåll igen."
+
+msgid "Record saved."
+msgstr "Posten har sparats."
+
+msgid "Record already saved."
+msgstr "Posten har redan sparats."
+
+msgid "Record archived."
+msgstr "Posten har arkiverats."
+
+msgid "Record restored to active selections."
+msgstr "Posten är valbar igen."
+
+msgid "Record deleted."
+msgstr "Posten har raderats."
+
+msgid "Photo details saved."
+msgstr "Bilduppgifterna har sparats."
+
+msgid "Photo deleted."
+msgstr "Bilden har raderats."
+
+msgid "Deletion could not be confirmed. Reload the register before retrying."
+msgstr "Raderingen kunde inte bekräftas. Ladda om registret innan du försöker igen."
+
+msgid "The action could not be completed."
+msgstr "Åtgärden kunde inte slutföras."
+
+msgid "The action could not be confirmed. Reload the register before retrying."
+msgstr "Åtgärden kunde inte bekräftas. Ladda om registret innan du försöker igen."

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ heading }} · growbook{% endblock %}
+{% block page_class %}page register-page{% endblock %}
+{% block content %}
+{% include 'garden/nav.html' %}
+<div class="page-heading">
+  <h1>{{ heading }}</h1>
+  <a class="button" href="{{ create_url }}">{{ create_label }}</a>
+</div>
+<form method="get" class="register-filter">
+  <label><input type="checkbox" name="archived" value="1" {% if show_archived %}checked{% endif %}> {% translate 'Include archived records' %}</label>
+  <button type="submit" class="quiet">{% translate 'Apply' %}</button>
+</form>
+<p class="muted">{% translate 'Expand several rows at once to compare details.' %}</p>
+<div class="table-scroll">
+<table class="register-table">
+  <caption class="visually-hidden">{{ heading }}</caption>
+  <thead><tr>
+    <th scope="col">{% translate 'Name' %}</th>
+    {% if kind == 'crop' %}<th scope="col">{% translate 'Varieties' %}</th>
+    {% elif kind == 'variety' %}<th scope="col">{% translate 'Crop' %}</th><th scope="col">{% translate 'Category' %}</th>
+    {% else %}<th scope="col">{% translate 'Parent area' %}</th><th scope="col">{% translate 'Type' %}</th>{% endif %}
+    <th scope="col">{% translate 'Status' %}</th><th scope="col">{% translate 'Details' %}</th>
+  </tr></thead>
+  {% for record in records %}
+  <tbody class="register-row-group">
+    <tr>
+      <th scope="row"><a href="{{ record.get_absolute_url }}">{{ record.name }}</a></th>
+      {% if kind == 'crop' %}<td>{{ record.variety_count }}</td>
+      {% elif kind == 'variety' %}<td><a href="{{ record.crop.get_absolute_url }}">{{ record.crop.name }}</a></td><td>{{ record.category|default:'—' }}</td>
+      {% else %}<td>{% if record.parent %}<a href="{{ record.parent.get_absolute_url }}">{{ record.parent_path }}</a>{% else %}—{% endif %}</td><td>{{ record.area_type|default:'—' }}</td>{% endif %}
+      <td>{% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% else %}{% translate 'Active' %}{% endif %}</td>
+      <td><a class="row-toggle" href="{{ record.get_absolute_url }}" aria-controls="details-{{ kind }}-{{ record.pk }}" aria-expanded="false"
+             aria-label="{% translate 'Details' %}: {{ record.name }}" data-register-toggle data-details-url="{{ record.get_absolute_url }}"
+             data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Collapse and expand to retry, or follow the record link.' %}">{% translate 'Details' %}</a></td>
+    </tr>
+    <tr id="details-{{ kind }}-{{ record.pk }}" class="register-expanded" hidden>
+      <td colspan="{% if kind == 'crop' %}4{% else %}5{% endif %}">
+        <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.name }}" aria-live="polite"></div>
+      </td>
+    </tr>
+  </tbody>
+  {% empty %}
+  <tbody><tr><td colspan="{% if kind == 'crop' %}4{% else %}5{% endif %}">{% translate 'No records yet. Create the first one when you need it.' %}</td></tr></tbody>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

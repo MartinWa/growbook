@@ -24,6 +24,7 @@ def cleanup_orphans(*, apply=False, minimum_age=86400, limit=1000):
                 references.add(str(Path(relative).parent).replace("\\", "/"))
         candidates = []
         candidates.extend((root / ".staging").glob("capture-*"))
+        candidates.extend((root / ".staging").glob("register-*"))
         candidates.extend((root / "photos").glob("*/*/*"))
         threshold = time.time() - minimum_age
         for folder in sorted(candidates):

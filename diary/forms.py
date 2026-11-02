@@ -5,17 +5,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-
-class MultipleFileInput(forms.ClearableFileInput):
-    allow_multiple_selected = True
-
-
-class MultipleFileField(forms.FileField):
-    def clean(self, data, initial=None):
-        if isinstance(data, (list, tuple)):
-            return [super(MultipleFileField, self).clean(item, initial) for item in data]
-        value = super().clean(data, initial)
-        return [value] if value else []
+from core.forms import MultipleFileField, MultipleFileInput
 
 
 class CaptureForm(forms.Form):

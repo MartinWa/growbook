@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete record' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete record' %}: {{ record.name }}</h1>
+  <p>{% translate 'Deletion is permanent and removes this record’s photos. Records with children or other protected references cannot be deleted; archive them instead.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'garden/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete record' %}</button><a href="{{ record.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}
