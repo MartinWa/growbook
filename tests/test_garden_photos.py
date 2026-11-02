@@ -12,16 +12,19 @@ from core.media import private_path
 from core.models import Photo
 from core.writes import validated_write
 from diary.services import create_entry
-from garden.models import Crop, GrowingArea, RegisterSubmission, Variety
+from garden.models import Crop, GrowingArea, Planting, RegisterSubmission, Variety
 from garden.services import (
     RegisterConflict,
     create_area,
     create_crop,
+    create_planting,
     create_variety,
     delete_area,
+    delete_planting,
     delete_register_photo,
     delete_variety,
     edit_area,
+    edit_planting,
     edit_register_photo,
     edit_variety,
 )
@@ -29,30 +32,52 @@ from garden.services import (
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-@pytest.fixture(params=["area", "variety"])
+@pytest.fixture(params=["area", "variety", "planting"])
 def register_owner(request, user):
     if request.param == "area":
         return create_area(actor=user, name="Synthetic bed").record
     crop = create_crop(actor=user, name="Tomato").record
+    if request.param == "planting":
+        return create_planting(
+            actor=user, crop=crop, start_year=2026, label="Synthetic batch"
+        ).record
     return create_variety(actor=user, crop=crop, name="Synthetic variety").record
+
+
+def owner_name(owner):
+    return owner.label if isinstance(owner, Planting) else owner.name
 
 
 def save_owner(user, owner, *, name=None, uploads=(), key=None, expected_updated_at=None):
     values = dict(
         actor=user,
         pk=owner.pk,
-        name=name or owner.name,
         uploads=uploads,
         submission_key=key or uuid4(),
         expected_updated_at=expected_updated_at,
     )
+    if isinstance(owner, Planting):
+        return edit_planting(
+            **values,
+            crop=owner.crop_id,
+            start_year=owner.start_year,
+            label=name or owner_name(owner),
+            notes="Synthetic edited notes",
+        )
+    values["name"] = name or owner.name
     if isinstance(owner, GrowingArea):
         return edit_area(**values, parent=owner.parent_id, notes="Synthetic edited notes")
     return edit_variety(**values, crop=owner.crop_id, description="Synthetic description")
 
 
 def delete_owner(user, owner):
-    writer = delete_area if isinstance(owner, GrowingArea) else delete_variety
+    writer = (
+        delete_planting
+        if isinstance(owner, Planting)
+        else delete_area
+        if isinstance(owner, GrowingArea)
+        else delete_variety
+    )
     writer(actor=user, pk=owner.pk)
 
 
@@ -79,7 +104,13 @@ def test_photo_creation_receipts_prevent_duplicate_owner_and_photos(
     retry_payload = dict(
         actor=user, name="Synthetic photo record", uploads=[image_upload()], submission_key=uuid4()
     )
-    if isinstance(owner, Variety):
+    if isinstance(owner, Planting):
+        retry_payload["label"] = retry_payload.pop("name")
+        saved = create_planting(**retry_payload, crop=owner.crop_id, start_year=2026)
+        replayed = create_planting(
+            **{**retry_payload, "uploads": [image_upload()]}, crop=owner.crop_id, start_year=2026
+        )
+    elif isinstance(owner, Variety):
         saved = create_variety(**retry_payload, crop=owner.crop_id)
         replayed = create_variety(
             **{**retry_payload, "uploads": [image_upload()]}, crop=owner.crop_id
@@ -97,7 +128,7 @@ def test_photo_edit_failure_keeps_old_fields_and_photos(
     owner = register_owner
     save_owner(user, owner, uploads=[image_upload()])
     owner.refresh_from_db()
-    previous_name, version = owner.name, owner.updated_at
+    previous_name, version = owner_name(owner), owner.updated_at
     old_photo = owner.photos.get()
     with pytest.raises(ValidationError):
         save_owner(
@@ -107,7 +138,7 @@ def test_photo_edit_failure_keeps_old_fields_and_photos(
             uploads=[image_upload(), SimpleUploadedFile("bad.jpg", b"invalid")],
         )
     owner.refresh_from_db()
-    assert (owner.name, owner.updated_at) == (previous_name, version)
+    assert (owner_name(owner), owner.updated_at) == (previous_name, version)
     assert owner.photos.count() == 1 and private_path(old_photo.original.name).is_file()
     assert len(list(settings.MEDIA_ROOT.glob("photos/*/*/*"))) == 1
     assert list((settings.MEDIA_ROOT / ".staging").iterdir()) == []
@@ -134,7 +165,7 @@ def test_identical_photo_edit_retry_never_appends_twice_even_after_later_edit(
     retry = save_owner(
         user, owner, uploads=[image_upload()], key=key, expected_updated_at=owner.updated_at
     )
-    assert retry.replayed and retry.record.name == "Later name"
+    assert retry.replayed and owner_name(retry.record) == "Later name"
     assert retry.record.photos.count() == 1
     with pytest.raises(RegisterConflict):
         save_owner(
@@ -453,7 +484,7 @@ def test_cleanup_recognizes_abandoned_register_staging_directories(settings):
     assert not abandoned.exists()
 
 
-def test_exactly_one_photo_owner_database_check_covers_all_three_kinds(user, image_upload):
+def test_exactly_one_photo_owner_database_check_covers_all_four_kinds(user, image_upload):
     entry = create_entry(
         author=user,
         date=date(2026, 5, 9),
@@ -464,16 +495,27 @@ def test_exactly_one_photo_owner_database_check_covers_all_three_kinds(user, ima
     area = create_area(actor=user, name="Bed", uploads=[image_upload()]).record
     crop = create_crop(actor=user, name="Tomato").record
     variety = create_variety(actor=user, crop=crop, name="Golden", uploads=[image_upload()]).record
-    for photo in (entry.photos.get(), area.photos.get(), variety.photos.get()):
-        assert photo.owner is not None
+    planting = create_planting(
+        actor=user, crop=crop, start_year=2026, uploads=[image_upload()]
+    ).record
+    for owner in (entry, area, variety, planting):
+        photo = owner.photos.get()
+        assert photo.owner.pk == owner.pk and type(photo.owner) is type(owner)
+    from itertools import product
+
     photo = entry.photos.get()
-    for owners in (
-        {"entry_id": None, "area_id": None, "variety_id": None},
-        {"entry_id": entry.pk, "area_id": area.pk, "variety_id": None},
-        {"entry_id": entry.pk, "area_id": None, "variety_id": variety.pk},
-        {"entry_id": None, "area_id": area.pk, "variety_id": variety.pk},
-        {"entry_id": entry.pk, "area_id": area.pk, "variety_id": variety.pk},
-    ):
+    for selected in product([False, True], repeat=4):
+        if sum(selected) == 1:
+            continue
+        owners = {
+            f"{kind}_id": owner.pk if present else None
+            for kind, owner, present in zip(
+                ("entry", "area", "variety", "planting"),
+                (entry, area, variety, planting),
+                selected,
+                strict=True,
+            )
+        }
         with pytest.raises(IntegrityError), transaction.atomic(), validated_write():
             Photo.objects.filter(pk=photo.pk).update(**owners)
-    assert Photo.objects.count() == 3
+    assert Photo.objects.count() == 4

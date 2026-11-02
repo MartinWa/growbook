@@ -42,15 +42,44 @@ class Photo(ValidatedModel):
         blank=True,
         verbose_name=_("Variety"),
     )
+    planting = models.ForeignKey(
+        "garden.Planting",
+        on_delete=models.CASCADE,
+        related_name="photos",
+        null=True,
+        blank=True,
+        verbose_name=_("Planting"),
+    )
 
     class Meta:
         ordering = ["position", "id"]
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    Q(entry__isnull=False, area__isnull=True, variety__isnull=True)
-                    | Q(entry__isnull=True, area__isnull=False, variety__isnull=True)
-                    | Q(entry__isnull=True, area__isnull=True, variety__isnull=False)
+                    Q(
+                        entry__isnull=False,
+                        area__isnull=True,
+                        variety__isnull=True,
+                        planting__isnull=True,
+                    )
+                    | Q(
+                        entry__isnull=True,
+                        area__isnull=False,
+                        variety__isnull=True,
+                        planting__isnull=True,
+                    )
+                    | Q(
+                        entry__isnull=True,
+                        area__isnull=True,
+                        variety__isnull=False,
+                        planting__isnull=True,
+                    )
+                    | Q(
+                        entry__isnull=True,
+                        area__isnull=True,
+                        variety__isnull=True,
+                        planting__isnull=False,
+                    )
                 ),
                 name="photo_exactly_one_owner",
             ),
@@ -66,7 +95,9 @@ class Photo(ValidatedModel):
             return self.entry
         if self.area_id is not None:
             return self.area
-        return self.variety
+        if self.variety_id is not None:
+            return self.variety
+        return self.planting
 
     def get_absolute_url(self):
         return reverse("photos:detail", args=[self.pk])

@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 {% load i18n %}
-{% block title %}{% if photo.entry_id %}{% translate 'Observation photo' %}{% else %}{% translate 'Register photo' %}{% endif %} · growbook{% endblock %}
+{% block title %}{% if photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %} · growbook{% endblock %}
 {% block page_class %}page photo-page{% endblock %}
 {% block content %}
 <a href="{{ photo.owner.get_absolute_url }}">← {% if photo.entry_id %}{% translate 'Back to observation' %}{% else %}{% translate 'Back to record' %}{% endif %}</a>
 <section aria-labelledby="photo-heading">
   <div class="page-heading">
-    <h1 id="photo-heading">{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% else %}{% translate 'Register photo' %}{% endif %}</h1>
+    <h1 id="photo-heading">{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}</h1>
     <a href="{{ photo.original_url }}">{% translate 'Download original' %}</a>
   </div>
   <figure class="photo-viewer">
-    <img src="{{ photo.display_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% else %}{% translate 'Register photo' %}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}">
+    <img src="{{ photo.display_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}">
   </figure>
 </section>
 {% endblock %}

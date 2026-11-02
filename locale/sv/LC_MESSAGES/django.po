@@ -495,3 +495,269 @@ msgstr "Åtgärden kunde inte slutföras."
 
 msgid "The action could not be confirmed. Reload the register before retrying."
 msgstr "Åtgärden kunde inte bekräftas. Ladda om registret innan du försöker igen."
+
+msgid "Actions"
+msgstr "Åtgärder"
+
+msgid "Actual date"
+msgstr "Faktiskt datum"
+
+msgid "All years"
+msgstr "Alla år"
+
+msgid "An annual planting has no end year."
+msgstr "En ettårig odling har inget slutår."
+
+msgid "Annual"
+msgstr "Ettårig"
+
+msgid ""
+"Annual plantings belong to their start year. Persistent plantings continue "
+"through their end year, inclusive, or indefinitely when it is blank."
+msgstr ""
+"Ettåriga odlingar hör till sitt startår. Fleråriga odlingar visas till och "
+"med slutåret, eller tills vidare om det är tomt."
+
+msgid ""
+"Area filters include descendants and show the actual assigned place. "
+"Archived records remain in histories."
+msgstr ""
+"Ytfilter omfattar även underytor och visar den tilldelade platsen. "
+"Arkiverade poster finns kvar i historiken."
+
+msgid "Batch %(number)s"
+msgstr "Odlingsomgång %(number)s"
+
+msgid "Batch label"
+msgstr "Omgångsnamn"
+
+msgid "Choose a crop first. Variety may be left unknown."
+msgstr "Välj en gröda först. Sorten kan lämnas okänd."
+
+msgid "Choose a valid event date."
+msgstr "Välj ett giltigt händelsedatum."
+
+msgid "Choose a variety of the selected crop, or leave it blank."
+msgstr "Välj en sort av den valda grödan eller lämna fältet tomt."
+
+msgid "Choose an active area for a new association."
+msgstr "Välj en aktiv yta för en ny koppling."
+
+msgid "Choose an active variety for a new association."
+msgstr "Välj en aktiv sort för en ny koppling."
+
+msgid "Delete planting"
+msgstr "Radera odling"
+
+msgid "Delete planting event"
+msgstr "Radera odlingshändelse"
+
+msgid ""
+"Deletion is permanent and removes this planting’s events, photos and "
+"originals. To end a persistent planting while keeping its history, edit its "
+"end year instead."
+msgstr ""
+"Raderingen är permanent och tar bort odlingens händelser, bilder och "
+"original. För att avsluta en flerårig odling och behålla historiken, ändra "
+"slutåret i stället."
+
+msgid "Edit planting"
+msgstr "Redigera odling"
+
+msgid "Edit planting event"
+msgstr "Redigera odlingshändelse"
+
+msgid "End year"
+msgstr "Slutår"
+
+msgid "Enter a growing year from 1 to 9999."
+msgstr "Ange ett odlingsår mellan 1 och 9999."
+
+msgid "Enter a nonnegative whole number, or leave it blank."
+msgstr "Ange ett heltal som är noll eller större, eller lämna fältet tomt."
+
+msgid "Evaluation"
+msgstr "Utvärdering"
+
+msgid ""
+"Evaluation is cumulative. Area changes and reparenting also change past-year"
+" views; movement history is not recorded."
+msgstr ""
+"Utvärderingen är samlad för hela odlingen. Ändrad yta eller överordnad yta "
+"påverkar även tidigare års vyer; flytthistorik sparas inte."
+
+msgid "Event type"
+msgstr "Händelsetyp"
+
+msgid "Growing year"
+msgstr "Odlingsår"
+
+msgid "Growing years"
+msgstr "Odlingsår"
+
+msgid "Harvest end"
+msgstr "Skördeslut"
+
+msgid "Harvest start"
+msgstr "Skördestart"
+
+msgid ""
+"Histories use current area assignments and nesting, not historical layouts."
+msgstr ""
+"Historiken använder nuvarande ytor och deras indelning, inte historiska "
+"placeringar."
+
+msgid "Inclusive"
+msgstr "Till och med"
+
+msgid "Lifespan"
+msgstr "Livslängd"
+
+msgid "New planting"
+msgstr "Ny odling"
+
+msgid "New planting event"
+msgstr "Ny odlingshändelse"
+
+msgid "Next year"
+msgstr "Nästa år"
+
+msgid "No events yet."
+msgstr "Inga händelser än."
+
+msgid "No plantings match these filters."
+msgstr "Inga odlingar matchar filtren."
+
+msgid "Ongoing"
+msgstr "Tills vidare"
+
+msgid ""
+"Only crop and start year are required. Quantity is a plant count: blank "
+"means unknown; zero means none."
+msgstr ""
+"Endast gröda och startår krävs. Antal avser plantor: tomt betyder okänt; "
+"noll betyder inga."
+
+msgid "Other"
+msgstr "Annan"
+
+msgid "Persistent"
+msgstr "Flerårig"
+
+msgid ""
+"Planned and actual dates are independent and may cross growing-year "
+"boundaries. Repeated event types are allowed."
+msgstr ""
+"Planerade och faktiska datum är oberoende och kan ligga utanför odlingsåret."
+" Samma händelsetyp får upprepas."
+
+msgid "Planned date"
+msgstr "Planerat datum"
+
+msgid "Planting"
+msgstr "Odling"
+
+msgid "Planting event"
+msgstr "Odlingshändelse"
+
+msgid "Planting events"
+msgstr "Odlingshändelser"
+
+msgid "Planting history"
+msgstr "Odlingshistorik"
+
+msgid "Planting navigation"
+msgstr "Odlingsnavigering"
+
+msgid "Planting photo"
+msgstr "Bild till odling"
+
+msgid "Plantings"
+msgstr "Odlingar"
+
+msgid "Previous year"
+msgstr "Föregående år"
+
+msgid "Quantity"
+msgstr "Antal"
+
+msgid "Set a planned date, an actual date, or both."
+msgstr "Ange ett planerat datum, ett faktiskt datum eller båda."
+
+msgid "Sowing"
+msgstr "Sådd"
+
+msgid "Start year"
+msgstr "Startår"
+
+msgid "The end year cannot precede the start year."
+msgstr "Slutåret får inte vara före startåret."
+
+msgid ""
+"This permanently removes the event. The planting and its photos are kept."
+msgstr "Detta raderar händelsen permanent. Odlingen och dess bilder behålls."
+
+msgid ""
+"This permanently removes this photo and its private original. The planting "
+"is kept."
+msgstr ""
+"Detta raderar bilden och dess privata original permanent. Odlingen behålls."
+
+msgid "This planting is still referenced and cannot be deleted."
+msgstr "Odlingen används fortfarande och kan inte raderas."
+
+msgid "This variety has plantings. Reconcile them before changing its crop."
+msgstr ""
+"Sorten används i odlingar. Ändra deras kopplingar uttryckligen innan du "
+"byter sortens gröda."
+
+msgid "Transplanting"
+msgstr "Utplantering"
+
+msgid "Unassigned area"
+msgstr "Ej tilldelad yta"
+
+msgid "Unassigned area only"
+msgstr "Endast utan tilldelad yta"
+
+msgid "Unknown variety"
+msgstr "Okänd sort"
+
+msgid "Unknown variety only"
+msgstr "Endast okänd sort"
+
+msgid "Update variety choices"
+msgstr "Uppdatera sortval"
+
+msgid "Variety choices could not be loaded. Retry or select another crop."
+msgstr "Sortvalen kunde inte laddas. Försök igen eller välj en annan gröda."
+
+msgid "Variety choices updated."
+msgstr "Sortvalen har uppdaterats."
+
+msgid "Year overview"
+msgstr "Årsöversikt"
+
+msgid "Years"
+msgstr "År"
+
+msgid "Unavailable selection (%(number)s)"
+msgstr "Ej tillgängligt val (%(number)s)"
+
+msgid ""
+"Annual: start year only. Persistent: every year through the inclusive end "
+"year."
+msgstr "Ettårig: endast startåret. Flerårig: varje år till och med slutåret."
+
+msgid "Persistent plantings only. Leave blank for ongoing presence."
+msgstr ""
+"Endast fleråriga odlingar. Lämna tomt om odlingen fortsätter tills vidare."
+
+msgid "Plant count: blank means unknown; zero means none."
+msgstr "Antal plantor: tomt betyder okänt; noll betyder inga."
+
+msgid "Retry variety choices"
+msgstr "Försök ladda sortval igen"
+
+msgid "Saving…"
+msgstr "Sparar…"

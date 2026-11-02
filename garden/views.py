@@ -1,12 +1,15 @@
 import logging
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import OperationalError
 from django.db.models import Count
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
@@ -19,11 +22,15 @@ from .forms import (
     AreaForm,
     CropForm,
     DeleteForm,
+    PlantingEventForm,
+    PlantingFilterForm,
+    PlantingForm,
     RegisterPhotoForm,
     VarietyForm,
+    clean_record_id,
 )
-from .models import Crop, GrowingArea, Variety
-from .queries import area_paths
+from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
+from .queries import area_paths, planting_history, planting_rows
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +96,7 @@ def _detail_context(kind, pk):
         edit_url=reverse(f"garden:{kind}-edit", args=[pk]),
         archive_url=reverse(f"garden:{kind}-archive", args=[pk]),
         delete_url=reverse(f"garden:{kind}-delete", args=[pk]),
+        history_url=reverse(f"garden:{kind}-history", args=[pk]),
     )
     return context
 
@@ -289,7 +297,9 @@ def register_delete(request, kind, pk):
 
 
 def _register_photo(pk):
-    photo = get_object_or_404(Photo.objects.select_related("area", "variety"), pk=pk)
+    photo = get_object_or_404(
+        Photo.objects.select_related("area", "variety", "planting__crop"), pk=pk
+    )
     if photo.entry_id is not None:
         raise PermissionDenied
     return photo
@@ -358,3 +368,342 @@ def photo_delete(request, pk):
             request, "garden/photo_delete.html", {"photo": photo, "form": form}, status=422
         )
     return render(request, "garden/photo_delete.html", {"photo": photo, "form": form})
+
+
+@require_GET
+def planting_list(request, history=False, kind=None, pk=None):
+    """The year overview and scoped histories share one explicit, deduplicated query."""
+    scope = get_object_or_404(REGISTERS[kind][0], pk=pk) if kind else None
+    data = request.GET.copy()
+    if not history and not data.get("year"):
+        data["year"] = str(timezone.localdate().year)
+    locked = set()
+    if scope:
+        data[kind] = str(scope.pk)
+        locked.add(kind)
+        if kind == "variety":
+            data["crop"] = str(scope.crop_id)
+            locked.add("crop")
+    form = PlantingFilterForm(data)
+    records, year = [], None
+    valid = form.is_valid()
+    if valid:
+        filters = form.cleaned_data
+        year = filters["year"]
+        records = planting_rows(planting_history(**filters))
+    previous_url = next_url = None
+    if year is not None:
+        if year > 1:
+            previous = data.copy()
+            previous["year"] = str(year - 1)
+            previous_url = request.path + "?" + previous.urlencode()
+        if year < 9999:
+            following = data.copy()
+            following["year"] = str(year + 1)
+            next_url = request.path + "?" + following.urlencode()
+    create = {}
+    if year:
+        create["year"] = year
+    for field in ("crop", "variety", "area"):
+        if valid and form.cleaned_data[field] is not None:
+            create[field] = form.cleaned_data[field].pk
+    all_years_data = data.copy()
+    all_years_data.pop("year", None)
+    overview_data = data.copy()
+    overview_data["year"] = str(year or timezone.localdate().year)
+    return render(
+        request,
+        "garden/planting_list.html",
+        {
+            "heading": _("Planting history") if history else _("Plantings"),
+            "form": form,
+            "records": records,
+            "year": year,
+            "scope": scope,
+            "kind": kind or "planting",
+            "locked_filters": locked,
+            "history": history,
+            "create_url": reverse("garden:planting-create")
+            + ("?" + urlencode(create) if create else ""),
+            "previous_url": previous_url,
+            "next_url": next_url,
+            "overview_url": reverse("garden:planting-list") + "?" + overview_data.urlencode(),
+            "all_years_url": reverse("garden:planting-history")
+            + ("?" + all_years_data.urlencode() if all_years_data else ""),
+        },
+        status=200 if valid else 422,
+    )
+
+
+def _planting_context(pk):
+    record = get_object_or_404(
+        Planting.objects.select_related("crop", "variety", "area").prefetch_related("photos"), pk=pk
+    )
+    paths = area_paths(list(GrowingArea.objects.all()))
+    record.area_path = paths.get(record.area_id, "")
+    record.display_label = record.label or _("Batch %(number)s") % {"number": record.pk}
+    events = record.events.annotate(event_date=Coalesce("actual_date", "planned_date")).order_by(
+        "event_date", "id"
+    )
+    return {"kind": "planting", "record": record, "events": events}
+
+
+@require_GET
+def planting_detail(request, pk):
+    template = (
+        "garden/planting_details.html"
+        if request.headers.get("HX-Request") == "true"
+        else "garden/planting_detail.html"
+    )
+    return render(request, template, _planting_context(pk))
+
+
+@require_http_methods(["GET", "POST"])
+def planting_form(request, pk=None):
+    record = get_object_or_404(Planting, pk=pk) if pk is not None else None
+    initial = {}
+    if record:
+        initial = {
+            field: getattr(record, field)
+            for field in PlantingForm.base_fields
+            if field in {f.name for f in Planting._meta.fields}
+        }
+        initial["expected_updated_at"] = record.updated_at
+    else:
+        initial = {field: request.GET.get(field) for field in ("crop", "variety", "area")}
+        try:
+            year = int(request.GET.get("year", ""))
+        except ValueError:
+            year = timezone.localdate().year
+        initial["start_year"] = year if 1 <= year <= 9999 else timezone.localdate().year
+    form = PlantingForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        record=record,
+        initial=initial,
+    )
+    form.fields["crop"].widget.attrs.update(
+        {
+            "hx-get": reverse("garden:planting-varieties"),
+            "hx-trigger": "change",
+            "hx-target": "#id_variety",
+            "hx-swap": "outerHTML",
+            "hx-include": "#id_variety, #planting-context" if record else "#id_variety",
+            "hx-sync": "this:replace",
+        }
+    )
+    form.fields["variety"].widget.attrs["aria-describedby"] = "variety-status"
+    context = {
+        "kind": "planting",
+        "form": form,
+        "record": record,
+        "title": _("Edit planting") if record else _("New planting"),
+        "has_photos": True,
+        "action": request.path,
+        "list_url": reverse("garden:planting-list"),
+    }
+    if request.method == "POST":
+        if request.POST.get("choose_crop") == "1":
+            context["failed"] = bool(request.FILES) or bool(
+                getattr(request, "photo_upload_error", None)
+            )
+            return render(request, "garden/form.html", context)
+        valid = _valid_post(request, form, photo_fields={"photos"})
+        if record is not None and not form.cleaned_data.get("expected_updated_at"):
+            form.add_error(None, _("Reload the edit form before saving."))
+            valid = False
+        status = 422
+        if valid:
+            values = {**form.cleaned_data, "actor": request.user}
+            values["uploads"] = values.pop("photos")
+            if pk is None:
+                values.pop("expected_updated_at")
+            else:
+                values["pk"] = pk
+            writer = services.edit_planting if pk is not None else services.create_planting
+            try:
+                result = writer(**values)
+            except services.RegisterConflict as exc:
+                _form_error(form, exc)
+                status = 409
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except MediaBusy, OperationalError, OSError:
+                logger.exception("Planting save failed; keep the original form/key for retries.")
+                form.add_error(
+                    None,
+                    _(
+                        "The save could not be completed. "
+                        "Keep this form open and retry the same submission."
+                    ),
+                )
+                status = 503
+            else:
+                messages.success(
+                    request, _("Record already saved.") if result.replayed else _("Record saved.")
+                )
+                if request.headers.get("HX-Request") == "true":
+                    response = HttpResponse(status=204)
+                    response["HX-Redirect"] = result.record.get_absolute_url()
+                    return response
+                return redirect(result.record)
+        if request.headers.get("HX-Request") == "true":
+            return render(request, "garden/form_errors.html", {"form": form}, status=status)
+        context["failed"] = True
+        return render(request, "garden/form.html", context, status=status)
+    return render(request, "garden/form.html", context)
+
+
+@require_GET
+def planting_varieties(request):
+    try:
+        crop_id = clean_record_id(request.GET.get("crop"))
+    except ValidationError:
+        crop_id = None
+    record = None
+    if request.GET.get("planting"):
+        try:
+            planting_id = clean_record_id(request.GET["planting"], required=True)
+        except ValidationError:
+            return HttpResponse(status=400)
+        record = get_object_or_404(Planting, pk=planting_id)
+    form = PlantingForm(record=record, initial={"crop": crop_id})
+    form.fields["variety"].widget.attrs["aria-describedby"] = "variety-status"
+    try:
+        current_id = clean_record_id(request.GET.get("variety"))
+    except ValidationError:
+        current_id = None
+    if form.fields["variety"].queryset.filter(pk=current_id).exists():
+        form.initial["variety"] = current_id
+    return render(request, "garden/variety_options.html", {"field": form["variety"]})
+
+
+@require_http_methods(["GET", "POST"])
+def planting_delete(request, pk):
+    context = _planting_context(pk)
+    record = context["record"]
+    form = DeleteForm(
+        request.POST if request.method == "POST" else None,
+        initial={"expected_updated_at": record.updated_at},
+    )
+    context["form"] = form
+    if request.method == "POST":
+        if _valid_post(request, form):
+            try:
+                services.delete_planting(
+                    actor=request.user,
+                    pk=pk,
+                    expected_updated_at=form.cleaned_data["expected_updated_at"],
+                )
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except MediaBusy, OperationalError, OSError:
+                form.add_error(
+                    None, _("Deletion could not be confirmed. Reload the register before retrying.")
+                )
+                return render(request, "garden/planting_delete.html", context, status=503)
+            else:
+                messages.success(request, _("Record deleted."))
+                return redirect("garden:planting-list")
+        return render(request, "garden/planting_delete.html", context, status=422)
+    return render(request, "garden/planting_delete.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def planting_event_form(request, planting_pk, pk=None):
+    planting = get_object_or_404(Planting.objects.select_related("crop"), pk=planting_pk)
+    record = get_object_or_404(PlantingEvent, pk=pk, planting=planting) if pk is not None else None
+    initial = (
+        {field: getattr(record, field) for field in ("kind", "planned_date", "actual_date", "note")}
+        if record
+        else {}
+    )
+    if record:
+        initial["expected_updated_at"] = record.updated_at
+    form = PlantingEventForm(request.POST if request.method == "POST" else None, initial=initial)
+    context = {
+        "kind": "event",
+        "form": form,
+        "record": record,
+        "planting": planting,
+        "title": _("Edit planting event") if record else _("New planting event"),
+        "has_photos": False,
+        "action": request.path,
+        "list_url": planting.get_absolute_url(),
+    }
+    if request.method == "POST":
+        valid = _valid_post(request, form)
+        if record is not None and not form.cleaned_data.get("expected_updated_at"):
+            form.add_error(None, _("Reload the edit form before saving."))
+            valid = False
+        status = 422
+        if valid:
+            values = {**form.cleaned_data, "actor": request.user, "planting": planting.pk}
+            if pk is None:
+                values.pop("expected_updated_at")
+            else:
+                values["pk"] = pk
+            writer = (
+                services.edit_planting_event if pk is not None else services.create_planting_event
+            )
+            try:
+                result = writer(**values)
+            except services.RegisterConflict as exc:
+                _form_error(form, exc)
+                status = 409
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except OperationalError:
+                form.add_error(
+                    None,
+                    _(
+                        "The save could not be completed. "
+                        "Keep this form open and retry the same submission."
+                    ),
+                )
+                status = 503
+            else:
+                messages.success(
+                    request, _("Record already saved.") if result.replayed else _("Record saved.")
+                )
+                if request.headers.get("HX-Request") == "true":
+                    response = HttpResponse(status=204)
+                    response["HX-Redirect"] = result.record.get_absolute_url()
+                    return response
+                return redirect(result.record)
+        if request.headers.get("HX-Request") == "true":
+            return render(request, "garden/form_errors.html", {"form": form}, status=status)
+        return render(request, "garden/form.html", context, status=status)
+    return render(request, "garden/form.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def planting_event_delete(request, planting_pk, pk):
+    event = get_object_or_404(
+        PlantingEvent.objects.select_related("planting__crop"), pk=pk, planting_id=planting_pk
+    )
+    form = DeleteForm(
+        request.POST if request.method == "POST" else None,
+        initial={"expected_updated_at": event.updated_at},
+    )
+    context = {"event": event, "form": form}
+    if request.method == "POST":
+        if _valid_post(request, form):
+            try:
+                services.delete_planting_event(
+                    actor=request.user,
+                    pk=pk,
+                    expected_updated_at=form.cleaned_data["expected_updated_at"],
+                )
+            except ValidationError as exc:
+                _form_error(form, exc)
+            except OperationalError:
+                form.add_error(
+                    None, _("Deletion could not be confirmed. Reload the register before retrying.")
+                )
+                return render(request, "garden/event_delete.html", context, status=503)
+            else:
+                messages.success(request, _("Record deleted."))
+                return redirect(event.planting)
+        return render(request, "garden/event_delete.html", context, status=422)
+    return render(request, "garden/event_delete.html", context)

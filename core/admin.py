@@ -18,7 +18,7 @@ class GardenUserAdmin(UserAdmin):
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
     list_display = ["id", "photo_owner", "original_format", "position", "uploaded_at"]
-    list_select_related = ["entry", "area", "variety__crop"]
+    list_select_related = ["entry", "area", "variety__crop", "planting__crop"]
     readonly_fields = [field.name for field in Photo._meta.fields]
     actions = None
 

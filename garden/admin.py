@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Crop, GrowingArea, Variety
+from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 
 
 class ReadOnlyRegisterAdmin(admin.ModelAdmin):
@@ -38,3 +38,17 @@ class VarietyAdmin(ReadOnlyRegisterAdmin):
 class GrowingAreaAdmin(ReadOnlyRegisterAdmin):
     list_display = ["name", "parent", "area_type", "is_archived", "updated_at"]
     list_select_related = ["parent"]
+
+
+@admin.register(Planting)
+class PlantingAdmin(ReadOnlyRegisterAdmin):
+    list_display = ["id", "crop", "variety", "area", "start_year", "lifespan", "end_year"]
+    list_select_related = ["crop", "variety", "area"]
+    list_filter = ["lifespan", "start_year"]
+
+
+@admin.register(PlantingEvent)
+class PlantingEventAdmin(ReadOnlyRegisterAdmin):
+    list_display = ["id", "planting", "kind", "planned_date", "actual_date"]
+    list_select_related = ["planting__crop"]
+    list_filter = ["kind"]

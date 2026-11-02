@@ -4,7 +4,7 @@
 {% block content %}
 <section class="panel register-form-panel">
   <h1>{% translate 'Edit photo details' %}</h1>
-  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% translate 'Register photo' %}"></a>
+  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% if photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}"></a>
   <p class="muted">{% translate 'Lower order values appear first. Equal values keep a stable photo order.' %}</p>
   <form method="post">
     {% csrf_token %}

@@ -4,8 +4,8 @@
 {% block content %}
 <section class="panel register-form-panel">
   <h1>{% translate 'Delete photo' %}</h1>
-  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% translate 'Register photo' %}"></a>
-  <p>{% translate 'This permanently removes this photo and its private original. The register record is kept.' %}</p>
+  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% if photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}"></a>
+  <p>{% if photo.planting_id %}{% translate 'This permanently removes this photo and its private original. The planting is kept.' %}{% else %}{% translate 'This permanently removes this photo and its private original. The register record is kept.' %}{% endif %}</p>
   <form method="post">
     {% csrf_token %}
     <div role="alert">{% include 'garden/form_errors.html' %}</div>

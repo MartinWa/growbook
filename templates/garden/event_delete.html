@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete planting event' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete planting event' %}: {{ event.get_kind_display }}</h1>
+  <p>{% translate 'This permanently removes the event. The planting and its photos are kept.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'garden/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete planting event' %}</button><a href="{{ event.planting.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}
