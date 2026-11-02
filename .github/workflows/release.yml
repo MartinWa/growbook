@@ -1,6 +1,8 @@
 name: Release image
 
 on:
+  push:
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
   release:
     types: [published]
 
@@ -13,44 +15,37 @@ concurrency:
 
 jobs:
   publish:
-    # Keep the first publishing path small: stable releases and one tested architecture.
-    if: ${{ !github.event.release.prerelease }}
+    # Tag pushes create stable releases; manual prereleases and tag deletions are skipped.
+    if: >-
+      (github.event_name == 'push' && !github.event.deleted) ||
+      (github.event_name == 'release' && !github.event.release.prerelease)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
-      contents: read
+      contents: write
       actions: read
       packages: write
       id-token: write
       attestations: write
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      # The Git tag is the release version; no package-version bump is required.
+      RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.release.tag_name }}
       DOCKER_BUILD_RECORD_UPLOAD: "false"
     steps:
       - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Require a versioned, tested commit from main
+      - name: Require a stable tag on a tested main commit
         id: release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          [[ "$RELEASE_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          git merge-base --is-ancestor HEAD origin/main
-          version=$RELEASE_TAG
-          python3 -c 'import os, tomllib; from pathlib import Path; version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]; assert version == os.environ["RELEASE_TAG"], (version, os.environ["RELEASE_TAG"])'
-          conclusion=$(gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" \
-            --branch main --event push --limit 1 --json conclusion --jq '.[0].conclusion')
-          if [ "$conclusion" != success ]; then
-            echo "The release commit must have a successful CI push run on main." >&2
-            exit 1
-          fi
-          printf 'image=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          EVENT_NAME: ${{ github.event_name }}
+          TAG_CREATED: ${{ github.event.created }}
+        run: python3 tools/publish_release.py --check
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
@@ -135,7 +130,15 @@ jobs:
           sbom-path: ${{ runner.temp }}/sbom.spdx.json
           push-to-registry: true
           create-storage-record: false
+      - name: Create or publish the GitHub Release
+        id: github-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # GITHUB_TOKEN does not trigger another release workflow; image publishing stays in this run.
+        run: python3 tools/publish_release.py
       - name: Update latest for the current stable release
+        if: ${{ steps.github-release.outputs.latest == 'true' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

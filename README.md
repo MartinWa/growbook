@@ -216,14 +216,36 @@ aligned with `.python-version` and `pyproject.toml`.
 
 ### Release images
 
-[`.github/workflows/release.yml`](.github/workflows/release.yml) publishes a
-Linux/amd64 image to `ghcr.io/martinwa/growbook` when a stable GitHub Release is
-published. Use an `X.Y.Z` tag matching the `pyproject.toml` version on a commit
-from `main` whose push CI run has passed. The workflow rebuilds, smoke-checks and
-audits the image before pushing its `X.Y.Z` tag, then attaches provenance and SBOM
-attestations. Only after those steps succeed does the current stable release update
-`:latest` to the same image digest. Existing image version tags are not overwritten;
-prereleases and older release reruns do not update `:latest`. There is no automatic
+[`.github/workflows/release.yml`](.github/workflows/release.yml) creates a GitHub
+Release and publishes a Linux/amd64 image to `ghcr.io/martinwa/growbook` when a new
+`X.Y.Z` tag is pushed. The Git tag is the release version, used for the image tag
+and OCI version label; no version bump in `pyproject.toml` or `uv.lock` is needed.
+The static project version is local tooling metadata, not the container release
+version. Tags have no `v` prefix or prerelease suffix and must point to a commit
+from `main` whose push CI run has passed. Merge the changes, wait for that
+commit's CI, then tag it:
+
+```sh
+git switch main
+git pull --ff-only
+git tag -a X.Y.Z -m "Release X.Y.Z"
+git push origin X.Y.Z
+```
+
+Replace `X.Y.Z` with a new release version. No manual GitHub Release creation is
+needed; watch **Actions → Release image** for completion. A manually published
+stable GitHub Release remains a supported trigger. Tag deletion is ignored, and
+moving an existing tag is rejected; correct failures by rerunning the failed
+workflow, not by force-pushing tags.
+
+The workflow rebuilds, smoke-checks and audits the image before pushing its `X.Y.Z`
+tag, then attaches provenance and SBOM attestations. Only after those steps succeed
+does it create or publish the GitHub Release with generated notes, preserving an
+existing release's notes. If the version is the highest published stable version
+and GitHub identifies it as the current release, `:latest` updates to the same
+image digest. Existing image version tags are not overwritten; prereleases and
+older releases do not update `:latest`. A rerun after the image has been pushed
+stops at the no-overwrite guard and requires investigation. There is no automatic
 deployment. Use version tags or digests when you need reproducible deployments.
 The server applies pending migrations at startup by default. Set
 `GROWBOOK_MIGRATE_ON_START=false` to run migrations as a separate deployment step
