@@ -65,7 +65,32 @@ input::file-selector-button { padding: .35rem .6rem; margin-right: .6rem; }
 .save-confirmation { background: #e4f2e4; border: 1px solid #668266; border-radius: .4rem; padding: .6rem 1rem; }
 .errorlist, .error-summary { color: var(--error); }
 .error-summary:not(:empty) { border-left: 4px solid var(--error); padding: .3rem .7rem; margin-bottom: 1rem; }
-#capture-progress { width: 100%; accent-color: var(--green); }
+#capture-progress, [data-register-progress] { width: 100%; accent-color: var(--green); }
+.register-page { max-width: 1200px; }
+.register-form-panel { max-width: 750px; margin: 1rem auto; }
+.register-nav { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-bottom: 1.2rem; }
+.register-nav [aria-current] { font-weight: 700; }
+.register-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+.table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: .5rem; }
+.register-table { width: 100%; border-collapse: collapse; font-size: .9rem; text-align: left; }
+.register-table th, .register-table td { padding: .4rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.register-table thead { background: #edf0e7; }
+.register-table tbody:last-child tr:last-child > * { border-bottom: 0; }
+.register-table th[scope=row] { min-width: 9rem; overflow-wrap: anywhere; }
+.row-toggle { display: inline-block; min-height: 44px; padding: .25rem .35rem; white-space: nowrap; }
+.row-toggle::before { content: "+ "; }
+.row-toggle[aria-expanded=true]::before { content: "− "; }
+.register-expanded > td { padding: .8rem 1rem 1rem; background: #f8faf5; }
+.register-details { min-width: 0; }
+.record-fields { display: grid; grid-template-columns: minmax(7rem, 1fr) 3fr; gap: .3rem 1rem; margin: .8rem 0; }
+.record-fields dt { font-weight: 600; }
+.record-fields dd { margin: 0; overflow-wrap: anywhere; white-space: normal; }
+.register-photos { max-width: 750px; margin: 1rem 0; }
+.register-photos figure > a:not(:first-child) { display: block; font-size: .85rem; padding-top: .2rem; }
+.archive-label { color: #6d4b1f; background: #f7edd9; border-radius: .25rem; padding: .1rem .4rem; }
+button.danger { background: var(--error); border-color: var(--error); }
+.photo-edit-preview { max-width: 100%; width: 200px; height: auto; border-radius: .4rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pagination { display: flex; justify-content: center; gap: 1.5rem; padding: 1rem; }
 .skip-link { position: fixed; left: 1rem; top: -10rem; z-index: 10; background: #fff; padding: .5rem; }
 .skip-link:focus { top: .5rem; }
@@ -76,5 +101,8 @@ input::file-selector-button { padding: .35rem .6rem; margin-right: .6rem; }
   .page { margin-top: 1rem; }
   .panel { padding: 1rem; }
   .page-heading { align-items: flex-start; flex-wrap: wrap; }
+  .site-header nav { flex-wrap: wrap; }
+  .record-fields { grid-template-columns: 1fr; gap: .2rem; }
+  .record-fields dd { margin-bottom: .5rem; }
   h1 { font-size: 1.6rem; }
 }

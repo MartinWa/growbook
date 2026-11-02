@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "core.apps.CoreConfig",
     "diary.apps.DiaryConfig",
+    "garden.apps.GardenConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

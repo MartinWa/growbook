@@ -109,9 +109,7 @@ def decode_still(source):
         Image.DecompressionBombWarning,
         Image.DecompressionBombError,
     ) as exc:
-        raise ValidationError(
-            _("A photo could not be decoded safely. No entry was saved.")
-        ) from exc
+        raise ValidationError(_("A photo could not be decoded safely. Nothing was saved.")) from exc
 
 
 def render_derivatives(source, display_path, thumbnail_path):

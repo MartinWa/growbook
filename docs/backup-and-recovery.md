@@ -85,9 +85,12 @@ instances against the same live directory.
 For each deployment, verify that:
 
 - Existing accounts can authenticate, and deactivated accounts stay inactive.
-- Dates, notes, authorship and creation receipts are preserved.
-- Referenced originals match checksums; regenerated derivatives display.
-- Anonymous clients cannot read entries, media or original downloads.
+- Dates, notes, authorship and save receipts are preserved.
+- Crop/variety relationships, area nesting, nullable measurements and archive flags
+  are preserved, including active children of archived records.
+- Referenced originals for diary entries, areas and varieties match checksums;
+  regenerated derivatives display and photo captions/order remain intact.
+- Anonymous clients cannot read entries, registers, media or original downloads.
 - New validated saves work with the restored database's WAL configuration.
 
 Verify recovery before storing real observations, and repeat these checks whenever
@@ -109,6 +112,13 @@ database commit may leave an orphan; a successful save must not leave a committe
 photo row pointing at a file that has not yet been published.
 
 Creation retries compare the original immutable payload fingerprint and author
-against the stored receipt, not the entry's mutable fields. A reused key with
-different content conflicts. If the receipt's entry is missing, the retry fails
-instead of recreating it. The application has no entry edit/delete operation or UI.
+against the stored receipt, not mutable record fields. Register create/edit saves
+also retain receipts so an uncertain retry cannot append photos twice. A reused
+key with different content conflicts; a missing receipt target fails instead of
+recreating a deleted record. The application has no diary-entry edit/delete
+operation or UI.
+
+Allowed register/photo deletion commits database changes before removing live file
+bundles, using the same media-operation lock as backups. A failed file cleanup
+leaves an unreferenced bundle for `cleanup_media`; it does not invalidate an
+independent completed backup.

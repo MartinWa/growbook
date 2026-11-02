@@ -22,7 +22,7 @@ def favicon(request):
 @require_GET
 @never_cache
 def photo_detail(request, pk):
-    photo = get_object_or_404(Photo.objects.select_related("entry"), pk=pk)
+    photo = get_object_or_404(Photo.objects.select_related("entry", "area", "variety__crop"), pk=pk)
     return render(request, "core/photo.html", {"photo": photo})
 
 

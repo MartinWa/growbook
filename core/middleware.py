@@ -11,7 +11,9 @@ class PhotoUploadLimitMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.method == "POST" and request.path == "/capture/":
+        if request.method == "POST" and (
+            request.path == "/capture/" or request.path.startswith("/garden/")
+        ):
             request.upload_handlers.insert(0, PhotoLimitUploadHandler(request))
         return self.get_response(request)
 

@@ -1,30 +1,39 @@
 # growbook
 
-A private, self-hosted garden diary built with Python and Django. Capture an
-observation with text, photos, or both, then browse it in your web browser.
+A private, self-hosted garden diary and registers built with Python and Django.
+Capture an observation with text, photos, or both, and maintain crops, varieties
+and growing areas in your web browser.
 The interface defaults to Swedish, with English available.
 
 ## Current features
 
-- Administrator-managed accounts, login/logout and a shared diary; no public signup.
+- Administrator-managed accounts, login/logout and a shared garden; no public signup.
+- Crop, variety and optionally nested growing-area registers, with compact tables,
+  independently expandable details, editing and non-cascading archive.
+- Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed
+  deletion of records without protected references.
+- Multiple private photos on varieties/areas, with editable captions/order and
+  confirmed photo deletion.
 - Dated text-only, photo-only and text-plus-photo entries, with chronological paging.
 - Separate camera and photo-library inputs, multiple photos, previews and upload feedback.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped
   WebP display images/thumbnails. Received originals are retained privately.
 - Authenticated photo viewing in a CSP-safe HTML page and private original downloads;
   no public media directory.
-- Retry-safe creation and visible errors without silently accepting partial photo saves.
+- Retry-safe diary creation and register saves, with visible errors and no partial
+  photo saves.
 - Operational database/photo backup, verification, clean-instance restore and orphan cleanup.
 
 ## Scope and limitations
 
-- The diary is shared within an installation: every active account can read all
-  entries, photos and original downloads. There are no per-user diaries.
-- Entries can be created and read, but not edited or deleted. Growing-area, crop
-  and variety registers, planting plans, diary links and portable data import/export
-  are not provided.
-- Uploads are limited to 10 photos per entry, 20 MiB per photo, 80 MiB in total and
-  50 million decoded pixels per photo. Animated and multi-image files are rejected.
+- The garden is shared within an installation: every active account can read all
+  records, photos and original downloads, and maintain the registers. There are
+  no per-user gardens or read-only member roles.
+- Diary entries can be created and read, but not edited or deleted. Planting plans,
+  year histories, diary links and portable data import/export are not provided.
+- Uploads are limited to 10 photos per entry or register record, 20 MiB per photo,
+  80 MiB per upload and 50 million decoded pixels per photo. Animated and
+  multi-image files are rejected.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public
   Internet exposure. Verify backup and clean-instance recovery before recording
   real data.
@@ -70,14 +79,45 @@ uv run python manage.py runserver 127.0.0.1:8000
 ```
 
 Open **http://127.0.0.1:8000/**. Use **`/operator/`** to create or deactivate other
-accounts. There are no seeded credentials. Diary/photo admin screens are
-read-only; entries are created through the capture page.
+accounts. There are no seeded credentials. Diary/photo/register admin screens are
+read-only; use the capture page for observations and **Registers** for garden
+records.
 
 `manage.py` defaults to development settings with loopback-only allowed hosts,
 HTTP cookies, a generated local secret and data in ignored `local/development/`.
 Do not expose the development server or point it at production data. A local
 `.env` file is **not automatically loaded**; local configuration overrides must
 be set in the process environment.
+
+### Registers
+
+Open **Registers** to switch between growing areas, crops and varieties. Each
+compact table has a labelled **Details** control: several rows can stay expanded
+at once, and ordinary record links work without JavaScript.
+
+- Crop names are unique globally; variety names are unique within a crop. Area
+  names are unique among top-level areas or among siblings with the same parent.
+  Comparison keys use Unicode NFC, collapsed whitespace and casefolding; display
+  names and user-entered notes are not translated. Archived records still reserve
+  their names.
+- Areas may have a parent, arbitrary descriptive type and independently optional
+  positive length/width in centimetres. A parent cannot be itself or a descendant;
+  dimensions do not enforce a rectangular layout or capacity.
+- Archive hides a record from default lists and new associations, not from direct
+  links or existing associations. It does not archive child areas or varieties.
+  Use **Include archived records** to find and restore it to active selections.
+- Edit an area or variety to add photos; edit photo details to change captions or
+  ordering. Deletion requires confirmation. A crop with varieties or an area with
+  children cannot be deleted; archive it or deliberately reorganize its dependents.
+  Allowed owner deletion removes its photos, with coordinated file cleanup after
+  the database commit.
+
+Register forms reject stale edits instead of overwriting another member's changes.
+On a failed or uncertain create/edit save, keep the form open and retry the same
+content and save key; photos are not appended twice. With JavaScript, validation
+replaces only the error summary, preserving fields and selected files. Without it,
+reselect photos as instructed before retrying. A genuinely changed form is a new
+submission; do not reuse a confirmed key for different content.
 
 ### SQLite runtime
 
@@ -305,6 +345,7 @@ recovery, not portable data import/export.
 | `growbook/` | Project settings, routing, runtime bootstrap and WSGI server. |
 | `core/` | Users, private photos, security, SQLite configuration and operational commands. |
 | `diary/` | Diary models, forms, views and validated creation operations. |
+| `garden/` | Crop, variety and growing-area registers, forms and validated writes. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |
 | `tests/` | Domain/integration/browser tests and synthetic fixtures. |

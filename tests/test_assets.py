@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def test_every_marked_source_message_has_a_swedish_translation():
     messages = set()
-    for folder in ("core", "diary", "growbook"):
+    for folder in ("core", "diary", "garden", "growbook"):
         for path in (ROOT / folder).rglob("*.py"):
             if "migrations" in path.parts:
                 continue

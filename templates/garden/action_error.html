@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<h1>{% translate 'The action could not be completed.' %}</h1>
+<div role="alert">{% include 'garden/form_errors.html' %}</div>
+<a href="{% url 'garden:area-list' %}">{% translate 'Registers' %}</a>
+{% endblock %}

@@ -13,5 +13,6 @@ urlpatterns = [
     path("accounts/language/", login_not_required(set_language), name="set_language"),
     path("operator/", admin.site.urls),
     path("photos/", include("core.urls")),
+    path("garden/", include("garden.urls")),
     path("", include("diary.urls")),
 ]

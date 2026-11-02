@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete photo' %} · growbook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete photo' %}</h1>
+  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% translate 'Register photo' %}"></a>
+  <p>{% translate 'This permanently removes this photo and its private original. The register record is kept.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'garden/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete photo' %}</button><a href="{{ photo.owner.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}

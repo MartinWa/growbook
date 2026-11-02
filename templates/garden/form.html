@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ title }} · growbook{% endblock %}
+{% block content %}
+{% include 'garden/nav.html' %}
+<section class="panel register-form-panel">
+<h1>{{ title }}</h1>
+<form id="register-form" method="post" action="{{ action }}" enctype="multipart/form-data"
+      hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#register-errors" hx-swap="innerHTML"
+      data-register-form data-uploading="{% translate 'Uploading photos…' %}"
+      data-processing="{% translate 'Processing photos and saving…' %}"
+      data-network-error="{% translate 'The connection failed. Keep this form open and retry the same submission.' %}"
+      data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
+      data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
+  {% csrf_token %}
+  <div id="register-errors" role="alert" tabindex="-1">{% include 'garden/form_errors.html' %}</div>
+  {% if failed and has_photos %}<p role="alert">{% translate 'Your fields were kept. If you selected photos, select them again before retrying with the same content.' %}</p>{% endif %}
+  {% for field in form %}
+    {% if field.is_hidden %}{{ field }}{% else %}
+    <div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+    {% endif %}
+  {% endfor %}
+  {% if kind == 'area' %}
+    <datalist id="area-types">
+      <option value="{% translate 'Bed' %}"></option><option value="{% translate 'Greenhouse' %}"></option>
+      <option value="{% translate 'Pot' %}"></option><option value="{% translate 'Border' %}"></option>
+    </datalist>
+    <p class="muted">{% translate 'Type and dimensions are descriptive; either dimension may be left blank.' %}</p>
+  {% endif %}
+  {% if has_photos %}<p class="muted">{% translate 'JPEG, PNG, WebP and HEIC. Up to 10 photos per record, 20 MiB each, 80 MiB per upload.' %}</p>{% endif %}
+  {% if record and record.is_archived %}<p class="muted">{% translate 'This record is archived. Editing it does not restore it to active selections.' %}</p>{% endif %}
+  <p data-register-status role="status" aria-live="polite"></p>
+  <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
+  <div class="form-actions"><button type="submit">{% translate 'Save' %}</button><a href="{% if record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
+</form>
+</section>
+{% endblock %}
