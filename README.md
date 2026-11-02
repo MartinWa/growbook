@@ -112,6 +112,11 @@ ignored `local/`. Tests use a real file-backed SQLite/WAL database and synthetic
 images, covering capture, image failures, authorization, retries, concurrency
 and clean-instance recovery. Browser tests are excluded from the default run.
 
+For UI-copy changes, update the English source messages and
+`locale/sv/LC_MESSAGES/django.po`, then recompile with
+`tools/compile_translations.py`. Compiled `.mo` files are generated; tests and
+Docker compile them automatically.
+
 ### Browser tests
 
 Install Playwright's Chromium, then run the browser suite separately:
@@ -181,12 +186,9 @@ to the same image digest. Existing image version tags are not overwritten;
 prereleases and older release reruns do not update `:latest`. There is no automatic
 deployment. Use version tags or digests when you need reproducible deployments.
 
-No release image is provided until a release workflow completes successfully.
-After the first push, explicitly make the GHCR package public in its settings;
-GitHub initially creates packages as private. Verify anonymous pulls and the
-attestation before recommending an image. Keep deployment configuration private
-and pin the published digest rather than a moving tag. `compose.yaml` continues
-to build locally unless deliberately overridden.
+Before recommending a published image, verify anonymous pulls and its attestation.
+Keep deployment configuration private and pin the published digest rather than a
+moving tag. `compose.yaml` continues to build locally unless deliberately overridden.
 
 ```sh
 gh attestation verify oci://ghcr.io/martinwa/growbook:X.Y.Z --repo MartinWa/growbook
@@ -286,39 +288,15 @@ Repeat these checks after changes to routing, storage or media handling.
 
 ## Backup and recovery
 
-Never back up a live SQLite installation by copying its database file. The
-implemented commands use SQLite's backup API and coordinate the snapshot with
-immutable original photos.
+Use the [operational recovery guide](docs/backup-and-recovery.md) for the
+backup, verification, clean-instance restore and orphan-cleanup commands.
+It is the canonical procedure, including local and container configuration notes.
 
-For a disposable local instance after the setup above:
-
-```sh
-uv run python manage.py backup_garden local/backups/example-001 --config local/development/.development-secret
-uv run python manage.py verify_backup local/backups/example-001
-uv run python manage.py restore_garden local/backups/example-001 local/restored-example
-```
-
-Supply every private configuration file needed for recovery using repeated
-`--config` arguments; the local example includes only the generated development
-secret. Container operations must use explicitly mounted backup/configuration
-paths; Compose does not mount a backup destination or its `.env` file by default.
-
-Backups include accounts/password hashes, database records, originals and a
-checksum manifest: protect them as sensitive data and keep an independent copy.
-Restore requires a **new, nonexistent destination**, regenerates display images,
-and places recovered configuration in `recovered-configuration/` for deliberate
-review rather than applying it automatically. It is not a portable data importer.
-See the [recovery notes](docs/backup-and-recovery.md) for the complete procedure.
-
-Orphan cleanup is a dry run unless explicitly applied:
-
-```sh
-uv run python manage.py cleanup_media
-uv run python manage.py cleanup_media --apply
-```
-
-It is age/count bounded, coordinates with in-flight saves and never scans backup
-storage. Keep backups outside live media storage.
+Never copy a live SQLite database file to back it up. The supported backup
+coordinates a database snapshot with private originals and recovery configuration.
+Protect backups as sensitive data, keep an independent copy, and verify restore
+into a **new, nonexistent destination** before real use. This is operational
+recovery, not portable data import/export.
 
 ## Project layout
 
