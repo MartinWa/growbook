@@ -13,22 +13,22 @@ repository.
 - [`third_party/README.md`](third_party/README.md) — dependency licensing and the
   decoder-only HEIC packaging boundary.
 
-## Current scope
+## Scope and documentation ownership
 
-Implemented: administrator-managed accounts, login/logout, create/read diary entries,
-private photo originals with WebP display derivatives, Swedish/English UI, and the
-operational backup/verify/restore/cleanup commands.
+The [README](README.md#current-features) is the source of truth for implemented
+features and deliberate limitations; do not duplicate that inventory here.
+Do not implement a feature outside the current scope without agreeing it with
+the maintainer first. A planned feature is not an implemented capability.
 
-Not implemented: growing-area, crop and variety registers; planting plans; diary
-editing, deletion and links; portable data export. Their absence is part of the
-current scope, not a backlog to fill silently.
+Maintained documentation describes current behavior and how to run, test, build
+and operate it. Keep each procedure in one canonical guide and link to it rather
+than copying it. Do not add public roadmap documents, milestone identifiers,
+changelogs or claims about verification that has not been performed.
 
-Do not implement a feature outside this scope without agreeing it with the
-maintainer first. Maintained documentation describes the code as it exists:
-current behavior, deliberate limitations, and how to run, test, build and operate
-it. Do not add roadmap documents, milestone identifiers, changelogs or claims about
-verification that has not been performed. Keep local plans and work/verification
-logs in ignored private material, not maintained documentation.
+Keep local plans and work/verification logs in ignored private material. When the
+private `planning/` workspace is available, start with `planning/README.md` and
+update progress/evidence only in `planning/PLAN.md`; do not publish that workspace
+or copy its status into the maintained documentation.
 
 ## Language and publication
 
@@ -58,9 +58,10 @@ logs in ignored private material, not maintained documentation.
   API or `VACUUM INTO`, and coordinate the snapshot with photo storage.
 - Database changes use Django migrations, never hand-edited production schemas.
 - Django `save()` does not run `full_clean()`, and bulk writes bypass hooks. Put
-  validation in the explicit write operations (`core/writes.py`,
-  `diary/services.py`) and revalidate shared state inside short serialized writes,
-  after image processing outside transactions.
+  validation in explicit write operations such as `diary/services.py` and
+  revalidate shared state inside short serialized writes, after image processing
+  outside transactions. The guard in `core/writes.py` only allows or rejects ORM
+  writes; it does not validate data or replace database constraints.
 - Photo owners use explicit foreign keys with **exactly one** target per row,
   enforced by a database check constraint. Extend that constraint deliberately when
   a new owner kind is added rather than relaxing it.

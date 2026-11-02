@@ -1,8 +1,8 @@
 # Operational backup and recovery
 
-Detailed notes for the backup, verification, restore and cleanup commands. The
-[main README](../README.md#backup-and-recovery) summarizes them; this page is the
-complete procedure.
+This is the canonical procedure for the backup, verification, restore and cleanup
+commands. The [main README](../README.md#backup-and-recovery) links here; keep
+operational instructions on this page rather than maintaining duplicate guides.
 
 This is an **operational backup** for disaster recovery, not a portable export of
 garden data. It contains accounts and password hashes, sessions, garden records,
@@ -19,10 +19,24 @@ uv run python manage.py backup_garden local/backups/example-001 --config local/o
 uv run python manage.py verify_backup local/backups/example-001
 ```
 
-The example paths are generic. Supply the actual configuration needed for recovery;
-several `--config` arguments are accepted. The backup never guesses or exports all
-environment variables. Configuration files must stay stable during the operation
-and must be protected independently of source control.
+The example paths are generic. Supply the actual configuration needed for recovery
+using repeated `--config` arguments. For a disposable local instance configured by
+the [local setup](../README.md#run-locally), the generated development secret can
+be used instead of the example operator configuration:
+
+```sh
+uv run python manage.py backup_garden local/backups/example-001 --config local/development/.development-secret
+```
+
+That includes only the local secret; supply any additional configuration required
+by the instance. For container operations, explicitly mount private backup and
+configuration paths: `compose.yaml` mounts neither a backup destination nor its
+`.env` file by default. Use the intended production settings for those operations,
+not the disposable development defaults.
+
+The backup never guesses or exports all environment variables. Configuration
+files must stay stable during the operation and must be protected independently
+of source control.
 
 The procedure:
 
