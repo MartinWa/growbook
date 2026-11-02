@@ -225,6 +225,9 @@ attestations. Only after those steps succeed does the current stable release upd
 `:latest` to the same image digest. Existing image version tags are not overwritten;
 prereleases and older release reruns do not update `:latest`. There is no automatic
 deployment. Use version tags or digests when you need reproducible deployments.
+The server applies pending migrations at startup by default. Set
+`GROWBOOK_MIGRATE_ON_START=false` to run migrations as a separate deployment step
+instead; see [Upgrade an existing installation](#upgrade-an-existing-installation).
 
 Before recommending a published image, verify anonymous pulls and its attestation.
 Keep deployment configuration private and pin the published digest rather than a
@@ -282,6 +285,7 @@ uv run python -c "import secrets; print(secrets.token_urlsafe(64))"
 | `GROWBOOK_ALLOWED_HOSTS` | Comma-separated exact hostnames, without schemes; no wildcard. |
 | `GROWBOOK_CSRF_TRUSTED_ORIGINS` | Comma-separated trusted HTTPS origins. |
 | `GROWBOOK_TIME_ZONE` | Garden timezone; defaults to `Europe/Stockholm`. |
+| `GROWBOOK_MIGRATE_ON_START` | Apply pending schema migrations when the server starts; defaults to `true`. Set `false` for a separate migration step. |
 | `GROWBOOK_TRUST_PROXY` | Set `true` only for a trusted TLS-terminating proxy that strips/replaces forwarding headers. |
 | `GROWBOOK_TRUSTED_PROXY_IP` | Exact proxy IP when trust is enabled; wildcard trust is rejected. |
 | `APP_UID`, `APP_GID` | Non-root numeric process IDs. |
@@ -316,6 +320,9 @@ docker compose up -d growbook
 docker compose logs --tail=100 growbook
 ```
 
+The explicit `migrate` initializes the schema before `createsuperuser`. Later starts
+apply pending migrations automatically when `GROWBOOK_MIGRATE_ON_START` is enabled.
+
 Production settings deliberately leave HSTS include-subdomains/preload disabled;
 `check --deploy` reports W005/W021 because this private installation does not claim
 control of sibling domains or enroll in public preload. Other security warnings
@@ -325,6 +332,49 @@ Before recording real data, verify login/logout, text/photo capture and denial o
 anonymous access through the configured HTTPS hostname on the intended devices.
 Create a backup, keep an independent copy and verify a clean-instance restore.
 Repeat these checks after changes to routing, storage or media handling.
+
+### Upgrade an existing installation
+
+The server applies pending migrations to the mounted database when it starts. That
+is the default for this single-container image, so an image update does not require a
+separate `migrate` command. Create and verify a backup before changing the schema,
+and keep the application stopped while the backup runs.
+
+```sh
+docker compose build growbook
+docker compose stop growbook
+# Create and verify a backup with docs/backup-and-recovery.md before continuing.
+docker compose up -d growbook
+docker compose logs --tail=100 growbook
+docker compose run --rm growbook python manage.py migrate --check
+docker compose run --rm growbook python manage.py showmigrations core diary garden
+```
+
+Use `docker compose pull growbook` instead of `build` when the service is configured
+to use the published image. The startup migration is serialized with a lock in
+`GROWBOOK_DATA_DIR`. If it fails, the server does not start; inspect the logs before
+retrying. `showmigrations` should show `[X]` for every migration, and `migrate --check`
+must succeed.
+
+For deployments that must run migrations separately (for example, several replicas
+or an external migration job), set `GROWBOOK_MIGRATE_ON_START=false`. Then stop the
+application, run the migration step explicitly, verify it, and start the new image:
+
+```sh
+docker compose stop growbook
+docker compose run --rm growbook python manage.py migrate --noinput
+docker compose run --rm growbook python manage.py migrate --check
+docker compose up -d growbook
+```
+
+With startup migration disabled, the server refuses to start while migrations are
+pending. Do not start or restart the application while a backup is running; a
+startup migration is a schema change.
+
+If a page returns a 500 after an upgrade and the log reports a missing column or
+table, the image and the mounted database disagree. Confirm that both commands use
+the intended data directory, apply the migrations and restart. Do not delete the
+database, use `--fake`, or edit the schema by hand.
 
 ## Backup and recovery
 

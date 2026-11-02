@@ -57,8 +57,9 @@ write inside a completed backup or the running instance's media directory. These
 boundaries keep cleanup from treating a misplaced backup as an orphan.
 
 Failed or incomplete operations are not restorable. Do not run schema migrations
-concurrently with a backup. Any new media writer must use the same coordination
-lock.
+concurrently with a backup. With the default `GROWBOOK_MIGRATE_ON_START=true`, a
+server start applies pending migrations; do not start or restart the application
+while a backup is running. Any new media writer must use the same coordination lock.
 
 Keep at least one independent copy outside live storage. Retention, access
 controls and encryption are operator responsibilities; the application does not
