@@ -122,11 +122,11 @@ create/edit saves retain receipts; an uncertain photo retry cannot append images
 twice. A reused key with different content conflicts; a missing receipt target
 fails instead of recreating a deleted record. Matching register and planting
 receipts are checked before current association eligibility; see the
-[register retry workflow](../README.md#garden).
+[register retry workflow](usage.md#garden).
 Diary edits use version checks and reject stale writes; an uncertain edit may
 already have committed, so follow the conflict message and reload the observation
 to check the saved state before submitting further changes. See the
-[diary guide](../README.md#diary) for editing and deletion.
+[diary guide](usage.md#diary) for editing and deletion.
 
 Allowed deletion of diary entries, registers, plantings or photos commits database
 changes before removing live file bundles, using the same media-operation lock as

@@ -12,7 +12,7 @@ def sqlite_runtime_check(app_configs, **kwargs):
     return [
         Error(
             "The SQLite runtime lacks the WAL-reset fix.",
-            hint="Use SQLite 3.51.3+ or a fixed backport. See README.md#sqlite-runtime.",
+            hint="Use SQLite 3.51.3+ or a fixed backport. See docs/deployment.md#sqlite-runtime.",
             id="growbook.E001",
         )
     ]
