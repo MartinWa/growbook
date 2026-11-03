@@ -11,7 +11,7 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
         if not wal_runtime_is_fixed(sqlite3.sqlite_version_info):
             raise ImproperlyConfigured(
                 "SQLite lacks the WAL-reset fix. "
-                "See README.md#sqlite-runtime before using this database."
+                "See docs/deployment.md#sqlite-runtime before using this database."
             )
         connection = super().get_new_connection(conn_params)
         mode = connection.execute("PRAGMA journal_mode=WAL").fetchone()[0]

@@ -252,6 +252,16 @@ def test_truncated_apple_hdr_auxiliary_image_rejects_entire_save(user, apple_hdr
     assert_no_save(settings)
 
 
+def test_corrupt_heic_codestream_rejects_entire_save(user, settings):
+    # The container stays parseable while the image bitstream ends early; libheif
+    # reports that as EOFError, which must not escape as an unhandled server error.
+    fixture = Path(__file__).parent / "fixtures" / "corrupt-heic-codestream.heic"
+    upload = SimpleUploadedFile("corrupt.heic", fixture.read_bytes(), "image/heic")
+    with pytest.raises(ValidationError):
+        capture(user, uploads=[upload])
+    assert_no_save(settings)
+
+
 @pytest.mark.parametrize("header_byte", [0, 3])
 def test_corrupt_apple_hdr_auxiliary_header_rejects_entire_save(
     user, image_upload, corrupt_apple_hdr_upload, settings, header_byte

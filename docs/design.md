@@ -112,7 +112,7 @@ with keyboard and Escape handling shared with the account menu. Diary photos lin
 to the viewer; their captions show ordinary photo-maintenance actions.
 
 For local operation and checks, use the canonical
-[README instructions](../README.md#test-and-check). Browser checks cannot
+[development guide](development.md#test-and-check). Browser checks cannot
 verify device-native camera/library pickers; those require the intended phone.
 
 ## Garden layout and interaction
