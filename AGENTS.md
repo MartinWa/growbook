@@ -5,7 +5,14 @@ repository.
 
 ## Read first
 
-- [`README.md`](README.md) — current application behavior and run/test/build instructions.
+- [`README.md`](README.md) — current features, limitations, quick start and documentation
+  index.
+- [`docs/usage.md`](docs/usage.md) — screen behavior, save retries and no-JavaScript
+  fallbacks.
+- [`docs/development.md`](docs/development.md) — tests, browser suite, translations, CI,
+  dependency updates and release publishing.
+- [`docs/deployment.md`](docs/deployment.md) — Docker, private configuration, upgrades and
+  the SQLite runtime.
 - [`docs/backup-and-recovery.md`](docs/backup-and-recovery.md) — backup, verification,
   clean-instance restore and orphan cleanup.
 - [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) — PolyForm Noncommercial 1.0.0, with the
@@ -115,7 +122,7 @@ test plugins. Tests use real file-backed SQLite/WAL, not an in-memory substitute
 contention checks.
 
 For a request to run locally and confirm Playwright works, run the
-[browser suite](README.md#browser-tests), using an installed Chrome with
+[browser suite](docs/development.md#browser-tests), using an installed Chrome with
 `GROWBOOK_BROWSER_CHANNEL=chrome` when Chromium has not been downloaded. Run the
 full browser suite when requested or when interactive changes need regression
 coverage. Reuse instructions already read in the current conversation. This
