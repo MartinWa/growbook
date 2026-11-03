@@ -352,14 +352,29 @@ Trivy checks the final image and fails on fixable high/critical vulnerabilities.
 These checks do not prove that custom-built native libraries are vulnerability-free.
 CI does not publish images, upload test state or deploy the application.
 
+[`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml)
+runs on every pull request and fails when the change introduces a dependency with a
+known high or critical vulnerability. It is a required status check on `main`.
+
+[`.github/workflows/zizmor.yml`](.github/workflows/zizmor.yml) audits the workflow
+files for Actions-specific security problems on pull requests, pushes to `main`,
+manual dispatch and weekly. [`.github/workflows/scorecard.yml`](.github/workflows/scorecard.yml)
+publishes an OpenSSF Scorecard and its SARIF results to code scanning on `main` and
+weekly. These reports are advisory; they do not replace the build, test, audit and
+image checks above.
+
 ### Dependency updates
 
 [`.github/dependabot.yml`](.github/dependabot.yml) requests weekly updates for uv,
-GitHub Actions and the Docker base image. Updates require review and passing CI;
-Django stays on 5.2 LTS and Python stays on the current minor series. Dependabot
-resolves with its bundled Python 3.14.9; CI and containers use the pinned 3.14.10
-runtime. After a uv update, regenerate the Docker requirements on the PR branch
-before merging:
+GitHub Actions and the Docker base image. Version updates use a seven-day cooldown so
+a release can age before review; Dependabot security updates are not delayed. Patch
+updates may be auto-merged by
+[`.github/workflows/dependabot-auto-merge.yml`](.github/workflows/dependabot-auto-merge.yml)
+after the required checks pass; minor and major updates still require review. Django
+stays on 5.2 LTS and Python stays on the current minor series. Dependabot resolves
+with its bundled Python 3.14.9; CI and containers use the pinned 3.14.10 runtime.
+After a uv update, regenerate the Docker requirements on the PR branch before
+merging:
 
 ```sh
 uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
