@@ -107,6 +107,10 @@ def decode_still(source):
     except (
         UnidentifiedImageError,
         OSError,
+        # pillow-heif reports libheif failures as RuntimeError/EOFError rather
+        # than OSError; malformed HEIC input must not escape as a server error.
+        EOFError,
+        RuntimeError,
         SyntaxError,
         ValueError,
         Image.DecompressionBombWarning,
