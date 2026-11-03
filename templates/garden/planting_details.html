@@ -25,7 +25,7 @@
   {% endif %}
   <h3>{% translate 'Planting events' %}</h3>
   <div class="table-scroll">
-  <table class="register-table event-table">
+  <table class="register-table event-table table table-sm">
     <caption class="visually-hidden">{% translate 'Planting events' %}: {{ record.display_label }}</caption>
     <thead><tr><th scope="col">{% translate 'Event type' %}</th><th scope="col">{% translate 'Planned date' %}</th><th scope="col">{% translate 'Actual date' %}</th><th scope="col">{% translate 'Note' %}</th><th scope="col">{% translate 'Actions' %}</th></tr></thead>
     <tbody>{% for event in events %}<tr id="event-{{ event.pk }}">

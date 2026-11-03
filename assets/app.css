@@ -5,7 +5,7 @@
 @plugin "daisyui" {
   themes: false;
   logs: false;
-  include: rootcolor, svg, rootscrollgutter, properties, scrollbar, rootscrolllock, button, badge, menu, dropdown, table, radius;
+  include: rootcolor, svg, rootscrollgutter, properties, scrollbar, rootscrolllock, button, badge, dropdown, table, radius;
 }
 
 /* Garden palette and targets. Colour roles keep the warm paper, green ink and ochre focus. */
@@ -58,7 +58,9 @@
 @layer base {
   html {
     font-size: 106.25%;
+    line-height: 1.6;
     scroll-padding-block: 1rem;
+    scroll-padding-block-start: calc(var(--site-header-height, 0px) + 1rem);
   }
 
   body {
@@ -132,6 +134,10 @@
 }
 
 @layer components {
+  .site-header-sticky {
+    @apply sticky top-0;
+  }
+
   /* daisyUI buttons do not shrink by default; large text must still fit the viewport. */
   .btn {
     max-width: 100% !important;
@@ -293,14 +299,6 @@
     @apply mb-0;
   }
 
-  .photo-choice-actions {
-    @apply grid grid-cols-1 gap-2;
-  }
-
-  .photo-choice-actions .btn {
-    @apply w-full min-w-0 justify-start text-left;
-  }
-
   .photo-limit-line {
     @apply mt-2 flex flex-wrap items-center gap-2;
   }
@@ -309,12 +307,10 @@
     @apply m-0;
   }
 
-  .photo-chooser,
   .photo-limits {
     @apply relative;
   }
 
-  .photo-chooser > .menu-panel,
   .photo-limits > .menu-panel {
     @apply static mt-2 w-auto max-w-full border-0 p-0;
     box-shadow: none;
@@ -396,8 +392,12 @@
     @apply w-full text-left text-sm;
   }
 
+  .register-table :where(th, td) {
+    overflow-wrap: anywhere;
+  }
+
   .register-table th[scope="row"] {
-    @apply min-w-36 break-words;
+    @apply min-w-36;
   }
 
   .register-table thead {
@@ -525,10 +525,7 @@
     @apply h-24;
   }
 
-  .result-count {
-    @apply my-3;
-  }
-
+  .result-count,
   #diary-result-count {
     @apply my-3;
   }
@@ -538,7 +535,8 @@
   }
 
   .filter-chip {
-    @apply badge badge-outline max-w-full gap-1 break-words px-3 py-2 text-sm no-underline;
+    @apply badge badge-outline h-auto min-h-11 max-w-full gap-2 px-3 py-2 text-sm no-underline;
+    overflow-wrap: anywhere;
   }
 
   .pagination {
@@ -670,7 +668,7 @@
   }
 
   .archive-state {
-    @apply text-warning;
+    @apply text-warning-content;
   }
 
   .archive-state a {
@@ -823,6 +821,17 @@
     .register-form-panel > form > .form-actions > .btn,
     #entry-form > .form-actions > .btn {
       @apply flex-1;
+    }
+
+    .capture-panel > form > .form-actions.form-actions-static,
+    .register-form-panel > form > .form-actions.form-actions-static {
+      @apply static;
+    }
+
+    .capture-panel :is(input, select, textarea),
+    .register-form-panel :is(input, select, textarea),
+    [role="alert"][tabindex="-1"] {
+      scroll-margin-block-end: 7rem;
     }
   }
 }

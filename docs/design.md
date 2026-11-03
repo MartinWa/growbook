@@ -26,6 +26,8 @@ medium and large radii. The base font is 106.25% of the browser default, with a
   action, `btn-outline` for secondary actions and `btn-error` for destructive ones.
   Use one primary action in a form. Disabled controls retain their label; an
   uploading form uses `aria-busy` and a visible status line.
+  Generated photo removal/clear controls use the same button classes. Filter chips
+  grow with wrapped text and retain the shared minimum control height.
 - `.field` places a label above its control, with `.field-help` and
   `.field-errors` underneath. Create/edit forms mark required and optional
   fields in words and associate help/errors through `aria-describedby`.
@@ -99,6 +101,11 @@ Keyboard focus uses a visible three-pixel outline. Button transitions use
 daisyUI's 200 ms timing and are disabled when `prefers-reduced-motion` requests
 reduced motion. The strict content security policy remains unchanged; icons,
 styles and scripts require no runtime downloads from third parties.
+
+With JavaScript, the main header sticks to the top and its measured height keeps
+anchor targets below it as navigation wraps or text size changes. The header and
+form actions return to normal flow when either consumes more than a quarter of
+the viewport height. Without JavaScript, the header stays in normal document flow.
 
 Original downloads are available in the photo viewer's Photo options disclosure,
 with keyboard and Escape handling shared with the account menu. Diary photos link

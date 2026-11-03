@@ -21,7 +21,7 @@
 <body hx-history="false" class="flex min-h-screen flex-col">
   {% include 'components/icons.html' %}
   <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
-  <header class="sticky top-0 z-40 border-b border-base-300 bg-base-100/90 backdrop-blur">
+  <header id="site-header" class="z-40 border-b border-base-300 bg-base-100/90 backdrop-blur">
     <div class="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1 sm:px-6">
       <a class="brand py-2 text-xl font-extrabold tracking-tight text-base-content no-underline" href="{% url 'diary:list' %}">growbook</a>
       {% if user.is_authenticated %}

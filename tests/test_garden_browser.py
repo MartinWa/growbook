@@ -6,7 +6,7 @@ import re
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
-from garden.services import create_area, create_crop
+from garden.services import create_area, create_crop, create_variety
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
@@ -32,6 +32,14 @@ def registers(user, image_upload):
         "child": child,
         "grandchild": grandchild,
     }
+
+
+@pytest.fixture
+def long_variety(user, registers):
+    crop = create_crop(actor=user, name="W" * 100).record
+    return create_variety(
+        actor=user, crop=crop, name="Synthetic long values", category="W" * 150
+    ).record
 
 
 @pytest.fixture
@@ -61,13 +69,32 @@ def image_file(image_upload, name="synthetic.jpg"):
     return {"name": name, "mimeType": "image/jpeg", "buffer": image_upload().read()}
 
 
+@pytest.mark.parametrize("large_text", [False, True])
 def test_shared_photo_picker_accumulates_native_choices_and_retains_them_on_validation(
-    page, live_server, user, image_upload
+    page, live_server, user, image_upload, large_text
 ):
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
+    page.set_viewport_size({"width": 390, "height": 844})
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/areas/new/")
+    if large_text:
+        page.route(
+            "**/static/css/test-text-size.css",
+            lambda route: route.fulfill(
+                status=200, content_type="text/css", body=":root { font-size: 212.5%; }"
+            ),
+        )
+        page.evaluate(
+            """() => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet'; link.href = '/static/css/test-text-size.css';
+                document.head.append(link);
+            }"""
+        )
+        page.wait_for_function(
+            "() => getComputedStyle(document.documentElement).fontSize === '34px'"
+        )
     chooser = page.locator("[data-photo-chooser]")
     expect(page.locator("[data-native-photos]")).to_be_hidden()
     expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
@@ -92,6 +119,13 @@ def test_shared_photo_picker_accumulates_native_choices_and_retains_them_on_vali
     expect(page.locator("#id_name")).to_have_attribute("aria-invalid", "true")
     page.locator("#register-errors").get_by_role("link", name="Namn", exact=True).click()
     expect(page.locator("#id_name")).to_be_focused()
+    page.wait_for_function(
+        """() => {
+            const field = document.getElementById('id_name').getBoundingClientRect();
+            const header = document.querySelector('body > header').getBoundingClientRect();
+            return field.top >= header.bottom + 6;
+        }"""
+    )
     expect(page.locator("[data-photo-previews] figure")).to_have_count(2)
     assert page.locator("#id_photos").evaluate("input => input.files.length") == 2
     expect(page.locator("#id_submission_key")).to_have_value(key)
@@ -135,11 +169,29 @@ def test_photo_picker_fallback_replaces_choices_and_can_clear_them(
     expect(page.locator("[data-photo-previews] figure")).to_have_count(1)
     expect(page.locator("[data-photo-previews] figcaption")).to_have_text("replacement.jpg")
     expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 1 av 10")
+    clear = page.get_by_role("button", name="Rensa valda bilder", exact=True).bounding_box()
+    assert clear["width"] >= 44 and clear["height"] >= 44
     page.get_by_role("button", name="Rensa valda bilder", exact=True).click()
     expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
     expect(page.locator("[data-photo-count]")).to_have_text("")
     assert page.locator("#id_photos").evaluate("input => input.files.length") == 0
     expect(page.locator("[data-photo-chooser]")).to_be_focused()
+
+
+def test_register_wraps_long_crop_and_category_values_in_each_cell(
+    long_variety, page, live_server, user
+):
+    login(page, live_server, user)
+    for width in (320, 390, 1280):
+        page.set_viewport_size({"width": width, "height": 844})
+        page.goto(live_server.url + "/garden/varieties/")
+        expect(page.locator(".register-table")).to_contain_text(long_variety.category)
+        assert page.locator(".register-table").evaluate(
+            """table => [...table.querySelectorAll('th, td')]
+                .filter(cell => cell.offsetWidth)
+                .every(cell => cell.scrollWidth <= cell.clientWidth + 1)"""
+        )
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
 
 def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
@@ -167,6 +219,20 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
     plain.get_by_role("checkbox", name="Visa även arkiverade poster").check()
     plain.locator(".register-filter").get_by_role("button", name="Visa", exact=True).click()
     expect(plain).to_have_url(live_server.url + "/garden/crops/?archived=1")
+    assert plain.locator(".archive-state").evaluate(
+        """notice => {
+            const luminance = color => color.match(/\\d+/g).slice(0, 3)
+                .map(value => Number(value) / 255)
+                .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+                .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+            const background = luminance(getComputedStyle(document.body).backgroundColor);
+            return [notice, notice.querySelector('a')].every(element => {
+                const foreground = luminance(getComputedStyle(element).color);
+                return (Math.max(foreground, background) + 0.05) /
+                    (Math.min(foreground, background) + 0.05) >= 4.5;
+            });
+        }"""
+    )
     plain.get_by_role("link", name="Dölj arkiverade poster", exact=True).click()
     expect(plain).to_have_url(live_server.url + "/garden/crops/")
     context.close()
