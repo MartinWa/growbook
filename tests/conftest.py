@@ -87,3 +87,16 @@ def apple_hdr_upload():
         return SimpleUploadedFile("synthetic-hdr.jpeg", buffer.getvalue(), "image/jpeg")
 
     return make
+
+
+@pytest.fixture
+def corrupt_apple_hdr_upload(apple_hdr_upload):
+    """Damage an auxiliary JPEG header while keeping the primary image and MPF index."""
+
+    def make(*, header_byte=0):
+        data = bytearray(apple_hdr_upload().read())
+        auxiliary_start = data.index(b"\xff\xd8\xff", 3)
+        data[auxiliary_start + header_byte] = 1
+        return SimpleUploadedFile("synthetic-corrupt-hdr.jpeg", bytes(data), "image/jpeg")
+
+    return make

@@ -107,6 +107,7 @@ def decode_still(source):
     except (
         UnidentifiedImageError,
         OSError,
+        SyntaxError,
         ValueError,
         Image.DecompressionBombWarning,
         Image.DecompressionBombError,
