@@ -66,6 +66,7 @@
           if (canAccumulate) {
             const remove = document.createElement("button");
             remove.type = "button";
+            remove.className = "btn btn-outline";
             remove.textContent = picker.dataset.remove;
             remove.setAttribute("aria-label", `${picker.dataset.remove}: ${file.name}`);
             remove.addEventListener("click", () => {
@@ -85,6 +86,7 @@
       if (!canAccumulate && previews.childElementCount) {
         const clear = document.createElement("button");
         clear.type = "button";
+        clear.className = "btn btn-outline";
         clear.textContent = picker.dataset.clear;
         clear.addEventListener("click", () => {
           if (busy) return;

@@ -5,7 +5,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from io import BytesIO
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
 import pytest
@@ -362,6 +362,8 @@ def test_capture_foundation_reflows_and_supports_keyboard(
     page.locator("#id_library").set_input_files(upload(image_upload()))
     expected = "Valda bilder: 1 av 10" if language == "sv" else "Photos selected: 1 of 10"
     expect(page.locator("[data-photo-count]")).to_have_text(expected)
+    removal = page.locator("[data-photo-previews] button").bounding_box()
+    assert removal["width"] >= 44 and removal["height"] >= 44
     page.locator("#capture-form").evaluate("form => form.reset()")
     expect(page.locator("[data-photo-count]")).to_have_text("")
     expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
@@ -507,7 +509,7 @@ def test_edit_links_filter_and_delete_round_trip(page, live_server, user):
 
     page.locator('a[href$="/delete/"]').click()
     page.locator("#id_confirm").check()
-    page.locator("button.danger").click()
+    page.locator("button.btn-error").click()
     expect(page).to_have_url(live_server.url + "/")
     expect(page.locator(".diary-card")).to_have_count(0)
     expect(page.get_by_text("Browser edited observation")).to_have_count(0)
@@ -925,6 +927,36 @@ def test_diary_filters_chips_and_history_preserve_the_capture_draft(
     assert page.locator("#id_library").evaluate("input => input.files.length") == 1
 
 
+@pytest.mark.parametrize(
+    "query", ["Synthetic garden observation phrase for wrapping " * 4, "W" * 150]
+)
+def test_filter_chips_wrap_inside_their_targets_and_remain_keyboard_operable(
+    page, live_server, user, query
+):
+    login(page, live_server, user)
+    for width in (320, 390, 1280):
+        page.set_viewport_size({"width": width, "height": 844})
+        page.goto(live_server.url + "/?" + urlencode({"q": query}))
+        chip = page.locator(".filter-chip")
+        expect(chip).to_have_count(1)
+        assert chip.evaluate(
+            """link => {
+                const box = link.getBoundingClientRect();
+                const range = document.createRange();
+                range.selectNodeContents(link);
+                const content = range.getBoundingClientRect();
+                return box.height >= 44 && content.top >= box.top - 1 &&
+                    content.bottom <= box.bottom + 1 && content.left >= box.left - 1 &&
+                    content.right <= box.right + 1;
+            }"""
+        )
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    chip.focus()
+    chip.press("Enter")
+    expect(page).to_have_url(live_server.url + "/")
+    expect(page.locator(".filter-chip")).to_have_count(0)
+
+
 def test_filter_failure_is_visible_in_the_drawer_and_retry_keeps_the_draft(page, live_server, user):
     login(page, live_server, user)
     page.goto(live_server.url + "/")
@@ -952,7 +984,7 @@ def test_account_disclosure_and_language_change_keep_the_filtered_page(page, liv
     page.locator("#language").select_option("en")
     expect(page.locator("html")).to_have_attribute("lang", "en")
     expect(page).to_have_url(live_server.url + "/?q=synthetic")
-    expect(page.locator(".site-header nav [aria-current=page]")).to_have_text("Diary")
+    expect(page.locator("header nav [aria-current=page]")).to_have_text("Diary")
 
 
 def test_quick_add_and_filters_work_without_javascript(page, live_server, user, image_upload):

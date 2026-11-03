@@ -1,0 +1,837 @@
+@import "tailwindcss";
+
+@source "../templates/**/*.html";
+
+@plugin "daisyui" {
+  themes: false;
+  logs: false;
+  include: rootcolor, svg, rootscrollgutter, properties, scrollbar, rootscrolllock, button, badge, dropdown, table, radius;
+}
+
+/* Garden palette and targets. Colour roles keep the warm paper, green ink and ochre focus. */
+@plugin "daisyui/theme" {
+  name: "growbook";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #fffdf6;
+  --color-base-200: #f5f5ee;
+  --color-base-300: #d8dfd6;
+  --color-base-content: #202d24;
+
+  --color-primary: #2c593a;
+  --color-primary-content: #ffffff;
+  --color-secondary: #47694f;
+  --color-secondary-content: #ffffff;
+  --color-accent: #a8691a;
+  --color-accent-content: #ffffff;
+  --color-neutral: #202d24;
+  --color-neutral-content: #f5f5ee;
+
+  --color-info: #335e77;
+  --color-info-content: #ffffff;
+  --color-success: #e4f2e4;
+  --color-success-content: #244a2e;
+  --color-warning: #f7edd9;
+  --color-warning-content: #6d4b1f;
+  --color-error: #8c2424;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+
+  /* 10 x 0.275rem = 2.75rem, the 44 px control target at the default font size. */
+  --size-selector: 0.275rem;
+  --size-field: 0.275rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@theme {
+  --color-focus: #ba791d;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  html {
+    font-size: 106.25%;
+    line-height: 1.6;
+    scroll-padding-block: 1rem;
+    scroll-padding-block-start: calc(var(--site-header-height, 0px) + 1rem);
+  }
+
+  body {
+    @apply bg-base-200 font-sans text-base-content antialiased;
+  }
+
+  h1 {
+    @apply text-3xl leading-tight font-bold tracking-tight;
+    overflow-wrap: anywhere;
+  }
+
+  h2 {
+    @apply text-xl leading-snug font-semibold;
+    overflow-wrap: anywhere;
+  }
+
+  h3 {
+    @apply text-lg font-semibold;
+    overflow-wrap: anywhere;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-focus) !important;
+    outline-offset: 3px !important;
+  }
+
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    @apply min-h-11 w-full rounded-lg border border-base-300 bg-base-100 px-3 py-2 text-base text-base-content;
+  }
+
+  textarea {
+    @apply min-h-24 resize-y;
+    field-sizing: content;
+    max-height: 18rem;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply accent-primary;
+    min-height: auto;
+  }
+
+  input[aria-invalid="true"],
+  select[aria-invalid="true"],
+  textarea[aria-invalid="true"] {
+    @apply border-2 border-error;
+  }
+
+  input[type="file"] {
+    @apply w-full text-sm;
+  }
+
+  input::file-selector-button {
+    @apply mr-3 min-h-11 cursor-pointer rounded-lg border border-base-300 bg-base-200 px-3 font-semibold text-primary;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+  }
+}
+
+@layer components {
+  .site-header-sticky {
+    @apply sticky top-0;
+  }
+
+  /* daisyUI buttons do not shrink by default; large text must still fit the viewport. */
+  .btn {
+    max-width: 100% !important;
+    flex-shrink: 1 !important;
+    white-space: normal !important;
+  }
+
+  .page {
+    @apply mx-auto my-8 w-full max-w-[1050px] px-4;
+  }
+
+  .register-page {
+    @apply max-w-[1200px];
+  }
+
+  .photo-page {
+    @apply max-w-none;
+  }
+
+  .panel {
+    @apply my-4 rounded-box border border-base-300 bg-base-100 p-4 sm:p-6;
+  }
+
+  .panel-header {
+    @apply mb-6;
+  }
+
+  .panel-header p {
+    @apply mt-2;
+  }
+
+  .empty-state p {
+    @apply max-w-[42rem];
+  }
+
+  [data-register-progress] {
+    @apply w-full;
+    accent-color: var(--color-primary);
+  }
+
+  .event-table {
+    @apply mt-2;
+  }
+
+  .login-panel,
+  .capture-panel,
+  .register-form-panel {
+    @apply mx-auto my-4;
+  }
+
+  .login-panel,
+  .capture-panel {
+    @apply max-w-[700px];
+  }
+
+  .register-form-panel {
+    @apply max-w-[750px];
+  }
+
+  .brand-mark {
+    @apply mb-4 block h-12 w-12;
+  }
+
+  .page-heading {
+    @apply flex flex-wrap items-center justify-between gap-4;
+  }
+
+  .entry-heading {
+    @apply mb-4 flex flex-wrap items-center justify-between gap-2;
+  }
+
+  .entry-body {
+    @apply mb-5 break-words;
+  }
+
+  .diary-card {
+    @apply my-5;
+  }
+
+  .muted {
+    @apply text-sm text-base-content/70;
+  }
+
+  .field {
+    @apply mb-6 min-w-0;
+  }
+
+  .field > label {
+    @apply mb-2 block font-semibold;
+  }
+
+  .field-requirement {
+    @apply text-sm font-normal text-base-content/70;
+  }
+
+  .field-help {
+    @apply mt-2 text-sm text-base-content/70;
+  }
+
+  .field-errors {
+    @apply text-sm text-error;
+  }
+
+  .field-errors:empty {
+    @apply hidden;
+  }
+
+  .field-errors p {
+    @apply mt-2;
+  }
+
+  .errorlist {
+    @apply my-1 list-disc pl-5;
+  }
+
+  .error-summary {
+    @apply text-error;
+  }
+
+  .error-summary:not(:empty) {
+    @apply mb-4 border-l-4 border-error py-1 pl-3;
+  }
+
+  .error-summary a {
+    color: inherit;
+  }
+
+  .save-confirmation {
+    @apply rounded-lg border border-success/60 bg-success p-3 text-success-content;
+  }
+
+  .form-actions {
+    @apply mt-6 flex flex-wrap items-center gap-3;
+    @apply [&>a:not(.btn)]:inline-flex [&>a:not(.btn)]:min-h-11 [&>a:not(.btn)]:items-center [&>a:not(.btn)]:px-1;
+  }
+
+  .photo-picker {
+    @apply m-0 min-w-0 rounded-box border border-base-300 p-4;
+  }
+
+  .photo-picker legend {
+    @apply font-semibold;
+  }
+
+  .photo-picker [data-photo-count]:empty,
+  .photo-picker [data-photo-previews]:empty {
+    @apply hidden;
+  }
+
+  .photo-picker [data-photo-count]:not(:empty) {
+    @apply my-3 font-semibold;
+  }
+
+  .photo-inputs {
+    @apply grid gap-4;
+  }
+
+  .photo-inputs .field {
+    @apply mb-0;
+  }
+
+  .photo-limit-line {
+    @apply mt-2 flex flex-wrap items-center gap-2;
+  }
+
+  .photo-limit-line > .field-help {
+    @apply m-0;
+  }
+
+  .photo-limits {
+    @apply relative;
+  }
+
+  .photo-limits > .menu-panel {
+    @apply static mt-2 w-auto max-w-full border-0 p-0;
+    box-shadow: none;
+  }
+
+  .photo-limits > summary {
+    @apply inline-flex min-h-11 cursor-pointer items-center px-1 text-primary underline underline-offset-2;
+  }
+
+  .photo-limits .menu-panel {
+    @apply w-[min(18rem,calc(100vw-2rem))];
+  }
+
+  .photo-limits .field-help {
+    @apply m-0;
+  }
+
+  .photo-grid {
+    @apply grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3;
+  }
+
+  .photo-grid figure {
+    @apply m-0 min-w-0;
+  }
+
+  .photo-grid img {
+    @apply block h-40 w-full rounded-lg object-cover;
+  }
+
+  .photo-grid figcaption {
+    @apply text-xs break-words;
+  }
+
+  .photo-grid .btn {
+    @apply mt-1 min-h-11 px-2 text-xs;
+  }
+
+  .large-photo {
+    @apply my-5;
+  }
+
+  .large-photo img {
+    @apply h-auto max-w-full rounded-lg;
+  }
+
+  .large-photo figcaption {
+    @apply text-sm;
+  }
+
+  .photo-viewer {
+    @apply my-5;
+  }
+
+  .photo-viewer img {
+    @apply mx-auto block h-auto w-auto max-w-full;
+  }
+
+  .photo-edit-preview {
+    @apply h-auto w-[200px] max-w-full rounded-lg;
+  }
+
+  .record-fields {
+    @apply my-3 grid grid-cols-[minmax(7rem,1fr)_3fr] gap-x-4 gap-y-1;
+  }
+
+  .record-fields dt {
+    @apply font-semibold;
+  }
+
+  .record-fields dd {
+    @apply m-0 break-words whitespace-normal;
+  }
+
+  .table-scroll {
+    @apply mt-2 overflow-x-auto rounded-lg border border-base-300 bg-base-100;
+  }
+
+  .register-table {
+    @apply w-full text-left text-sm;
+  }
+
+  .register-table :where(th, td) {
+    overflow-wrap: anywhere;
+  }
+
+  .register-table th[scope="row"] {
+    @apply min-w-36;
+  }
+
+  .register-table thead {
+    @apply bg-base-200;
+  }
+
+  .register-expanded > td {
+    @apply bg-base-200/50 px-4 py-4;
+  }
+
+  .register-details {
+    @apply min-w-0;
+  }
+
+  .register-photos {
+    @apply my-4 max-w-[750px];
+  }
+
+  .register-photos figure > a:not(:first-child) {
+    @apply block pt-1 text-sm;
+  }
+
+  .archive-label {
+    @apply badge badge-warning badge-sm;
+  }
+
+  .archive-options {
+    @apply mt-3;
+  }
+
+  .archive-options > summary,
+  .form-disclosure > summary,
+  .filter-help > summary {
+    @apply inline-flex min-h-11 cursor-pointer items-center text-primary;
+  }
+
+  .disclosure-fields {
+    @apply pt-3;
+  }
+
+  .form-disclosure {
+    @apply border-t border-base-300;
+  }
+
+  .filter-panel {
+    @apply min-w-0 rounded-box border border-base-300 bg-base-100 p-4;
+  }
+
+  .filter-panel .field {
+    @apply mb-3;
+  }
+
+  .filter-panel .checkbox-field {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .filter-panel .checkbox-field label {
+    @apply m-0 font-normal;
+  }
+
+  .filter-panel .checkbox-field input {
+    @apply order-first w-auto;
+  }
+
+  .filter-panel select {
+    @apply max-w-full;
+  }
+
+  .filter-heading {
+    @apply mb-4 flex items-center justify-between gap-2;
+  }
+
+  .diary-layout,
+  .filter-layout {
+    @apply grid gap-6;
+  }
+
+  .diary-stream,
+  .filter-stream {
+    @apply min-w-0;
+  }
+
+  .diary-filters > summary {
+    @apply mb-3;
+  }
+
+  .filter-close-label {
+    @apply hidden;
+  }
+
+  .filter-drawer {
+    @apply fixed inset-y-0 right-0 m-0 h-full max-h-full w-[min(24rem,100%)] max-w-full border-0 bg-base-100 p-4 text-base-content;
+    box-shadow: -6px 0 24px #202d2426;
+  }
+
+  .filter-drawer::backdrop {
+    background: #202d2466;
+  }
+
+  .filter-drawer .filter-panel {
+    @apply border-0 p-0;
+  }
+
+  .quick-add .field {
+    @apply mb-3;
+  }
+
+  .quick-add .date-field {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .quick-add .date-field label {
+    @apply m-0;
+  }
+
+  .quick-add .date-field input {
+    @apply w-44 min-w-0;
+  }
+
+  .quick-add .photo-picker {
+    @apply border-0 p-0;
+  }
+
+  .quick-add .photo-grid img {
+    @apply h-24;
+  }
+
+  .result-count,
+  #diary-result-count {
+    @apply my-3;
+  }
+
+  .filter-chips {
+    @apply mb-3 flex flex-wrap items-center gap-2;
+  }
+
+  .filter-chip {
+    @apply badge badge-outline h-auto min-h-11 max-w-full gap-2 px-3 py-2 text-sm no-underline;
+    overflow-wrap: anywhere;
+  }
+
+  .pagination {
+    @apply flex justify-center gap-6 p-4;
+  }
+
+  .skip-link {
+    @apply fixed top-[-10rem] left-4 z-50 bg-base-100 p-2;
+  }
+
+  .skip-link:focus {
+    @apply top-2;
+  }
+
+  .visually-hidden {
+    @apply absolute h-px w-px overflow-hidden whitespace-nowrap;
+    clip-path: inset(50%);
+  }
+
+  .icon {
+    @apply h-5 w-5 shrink-0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .icon-sprite {
+    @apply absolute overflow-hidden;
+  }
+
+  .menu-panel {
+    @apply z-50 w-max max-w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-base-300 bg-base-100 p-4;
+    box-shadow: 0 6px 24px #202d2426;
+  }
+
+  .account-menu .menu-panel {
+    @apply left-auto max-w-[min(22rem,calc(100vw-2rem))] min-w-[min(15rem,calc(100vw-2rem))];
+  }
+
+  .account-name {
+    @apply mb-3 font-semibold break-words;
+  }
+
+  .account-menu .language-form {
+    @apply mb-3;
+  }
+
+  .account-menu .menu-link {
+    @apply block min-h-11 py-2;
+  }
+
+  .account-menu .btn {
+    @apply w-full;
+  }
+
+  .photo-options {
+    @apply relative;
+  }
+
+  .photo-options > .menu-panel {
+    @apply absolute top-full right-0 z-50 mt-2 w-max max-w-[min(22rem,calc(100vw-2rem))];
+  }
+
+  .photo-options .menu-link {
+    @apply block min-h-11 py-2;
+  }
+
+  .language-form {
+    @apply flex flex-wrap items-center gap-2 text-sm;
+  }
+
+  .language-form label {
+    @apply sr-only;
+  }
+
+  .language-form select {
+    @apply w-auto min-h-11 py-1;
+  }
+
+  .diary-heading {
+    @apply mb-3;
+  }
+
+  .garden-cards {
+    @apply grid grid-cols-1 gap-4 md:grid-cols-3;
+  }
+
+  .garden-cards .panel {
+    @apply flex flex-col items-start;
+  }
+
+  .garden-cards .btn {
+    @apply mt-auto;
+  }
+
+  .garden-planting-link a,
+  .related-actions a,
+  .register-nav a,
+  .year-navigation a {
+    @apply inline-flex min-h-11 items-center;
+  }
+
+  .heading-actions,
+  .related-actions {
+    @apply flex flex-wrap gap-3;
+  }
+
+  .related-actions {
+    @apply mt-3;
+  }
+
+  .register-nav {
+    @apply mb-5 flex flex-wrap gap-x-5 gap-y-1;
+  }
+
+  .register-nav [aria-current] {
+    @apply font-bold;
+  }
+
+  .year-navigation {
+    @apply my-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-base-300 bg-base-100 px-3 py-2;
+  }
+
+  .result-count,
+  .related-actions {
+    @apply text-sm;
+  }
+
+  .archive-state {
+    @apply text-warning-content;
+  }
+
+  .archive-state a {
+    @apply inline-flex min-h-11 items-center;
+  }
+
+  .phone-archive {
+    @apply hidden;
+  }
+
+  .row-toggle {
+    @apply inline-block min-h-11 px-1 whitespace-nowrap;
+  }
+
+  .row-toggle::before {
+    content: "+ ";
+  }
+
+  .row-toggle[aria-expanded="true"]::before {
+    content: "− ";
+  }
+
+  .register-filter {
+    @apply my-4 flex flex-wrap items-center gap-4;
+  }
+
+  .register-filter label {
+    @apply inline-flex min-h-11 items-center gap-2;
+  }
+
+  .planting-required-help {
+    @apply mb-4;
+  }
+
+  .diary-observations h2 {
+    @apply mt-6 mb-2;
+  }
+
+  .observation-list {
+    @apply grid list-none gap-2 p-0;
+  }
+
+  .link-tags {
+    @apply my-3 flex list-none flex-wrap gap-2 p-0;
+  }
+
+  .tag {
+    @apply badge badge-outline py-3 no-underline;
+  }
+
+  .capture-actions {
+    @apply mt-6 flex flex-wrap items-center gap-3;
+  }
+
+  .capture-link-help {
+    @apply mt-4;
+  }
+
+  @media (min-width: 600px) {
+    .photo-inputs {
+      @apply grid-cols-2;
+    }
+  }
+
+  @media (min-width: 900px) {
+    .diary-layout,
+    .filter-layout {
+      @apply grid-cols-[16rem_minmax(0,1fr)] items-start;
+    }
+
+    .filters-enhanced [data-filter-disclosure] > summary {
+      @apply hidden;
+    }
+  }
+
+  @media (max-width: 899px) {
+    .filters-enhanced [data-filter-disclosure] {
+      @apply hidden;
+    }
+
+    .diary-filters[open] > summary {
+      @apply fixed top-4 right-4 z-40;
+    }
+
+    .diary-filters[open] .filter-open-label {
+      @apply hidden;
+    }
+
+    .diary-filters[open] .filter-close-label {
+      @apply inline;
+    }
+
+    .diary-filters[open] .filter-panel {
+      @apply fixed inset-y-0 right-0 z-30 w-[min(24rem,100%)] overflow-y-auto pt-20;
+      box-shadow: -6px 0 24px #202d2426;
+    }
+  }
+
+  @media (max-width: 650px) {
+    .page {
+      @apply mt-4;
+    }
+
+    .responsive-table {
+      table-layout: fixed;
+    }
+
+    .responsive-table .secondary-column {
+      @apply hidden;
+    }
+
+    .responsive-table th[scope="row"] {
+      @apply min-w-0;
+    }
+
+    .responsive-table > thead > tr > th,
+    .responsive-table > tbody > tr > th,
+    .responsive-table > tbody > tr > td {
+      @apply px-2 py-1;
+    }
+
+    .phone-archive {
+      @apply mt-1 inline-block text-xs;
+    }
+
+    .responsive-table .row-toggle {
+      @apply whitespace-normal px-0;
+    }
+
+    .record-fields {
+      @apply grid-cols-1 gap-y-0;
+    }
+
+    .record-fields dd {
+      @apply mb-2;
+    }
+
+    .pagination {
+      @apply gap-3;
+    }
+  }
+
+  @media (max-width: 599px) and (min-height: 600px) {
+    .capture-panel > form > .form-actions,
+    .register-form-panel > form > .form-actions {
+      @apply sticky bottom-0 z-10 border-t border-base-300 bg-base-100 py-3;
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    .register-form-panel > form > .form-actions > .btn,
+    #entry-form > .form-actions > .btn {
+      @apply flex-1;
+    }
+
+    .capture-panel > form > .form-actions.form-actions-static,
+    .register-form-panel > form > .form-actions.form-actions-static {
+      @apply static;
+    }
+
+    .capture-panel :is(input, select, textarea),
+    .register-form-panel :is(input, select, textarea),
+    [role="alert"][tabindex="-1"] {
+      scroll-margin-block-end: 7rem;
+    }
+  }
+}

@@ -2,25 +2,28 @@
 {% load i18n %}
 {% block title %}{% translate 'Garden' %} · growbook{% endblock %}
 {% block content %}
-<div class="page-heading"><h1>{% translate 'Garden' %}</h1></div>
+<div class="page-heading mb-5"><h1>{% translate 'Garden' %}</h1></div>
 <div class="garden-cards">
   <section class="panel">
-    <h2><a href="{% url 'garden:crop-list' %}">{% translate 'Crops' %}</a></h2>
+    <h2><a class="no-underline" href="{% url 'garden:crop-list' %}">{% translate 'Crops' %}</a></h2>
     <p class="field-help">{% translate 'Plants you grow.' %}</p>
-    <p>{% translate 'Active records' %}: {{ crop_count }}</p>
-    <a class="button quiet" href="{% url 'garden:crop-create' %}">{% translate 'New crop' %}</a>
+    <p class="mt-5 text-4xl font-bold tabular-nums text-primary">{{ crop_count }}</p>
+    <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Active records' %}</p>
+    <a class="btn btn-outline mt-5" href="{% url 'garden:crop-create' %}">{% translate 'New crop' %}</a>
   </section>
   <section class="panel">
-    <h2><a href="{% url 'garden:variety-list' %}">{% translate 'Varieties' %}</a></h2>
+    <h2><a class="no-underline" href="{% url 'garden:variety-list' %}">{% translate 'Varieties' %}</a></h2>
     <p class="field-help">{% translate 'Named varieties of a crop.' %}</p>
-    <p>{% translate 'Active records' %}: {{ variety_count }}</p>
-    <a class="button quiet" href="{% url 'garden:variety-create' %}">{% translate 'New variety' %}</a>
+    <p class="mt-5 text-4xl font-bold tabular-nums text-primary">{{ variety_count }}</p>
+    <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Active records' %}</p>
+    <a class="btn btn-outline mt-5" href="{% url 'garden:variety-create' %}">{% translate 'New variety' %}</a>
   </section>
   <section class="panel">
-    <h2><a href="{% url 'garden:area-list' %}">{% translate 'Growing areas' %}</a></h2>
+    <h2><a class="no-underline" href="{% url 'garden:area-list' %}">{% translate 'Growing areas' %}</a></h2>
     <p class="field-help">{% translate 'Beds, pots and other places.' %}</p>
-    <p>{% translate 'Active records' %}: {{ area_count }}</p>
-    <a class="button quiet" href="{% url 'garden:area-create' %}">{% translate 'New growing area' %}</a>
+    <p class="mt-5 text-4xl font-bold tabular-nums text-primary">{{ area_count }}</p>
+    <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Active records' %}</p>
+    <a class="btn btn-outline mt-5" href="{% url 'garden:area-create' %}">{% translate 'New growing area' %}</a>
   </section>
 </div>
 <p class="garden-planting-link"><a href="{% url 'garden:planting-list' %}">{% translate 'Plan and follow your plantings' %}</a></p>

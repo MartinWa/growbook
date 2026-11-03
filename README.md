@@ -83,9 +83,10 @@ interface defaults to Swedish, with English available.
 - Docker with Linux containers and Compose v2 for the optional
   [container workflow](docs/deployment.md#build-and-run-with-docker).
 
-Run commands from the repository root. There is no frontend build step or runtime CDN
-dependency; CSS, HTMX and JavaScript are self-hosted. The
-[interface foundation guide](docs/design.md) describes the shared styles and form
+Run commands from the repository root. The compiled CSS, HTMX and JavaScript are
+self-hosted. Rebuilding the committed stylesheet needs Node.js and pnpm only during
+development; see [Styles](docs/development.md#styles). The
+[interface foundation guide](docs/design.md) describes the shared theme and form
 conventions.
 
 ## Run locally
@@ -147,7 +148,7 @@ migration and deployment-check commands. On Windows, run tests through
 `tools/run_tests.py`: it activates the fixed SQLite runtime before test plugins import it,
 compiles translations and keeps artifacts in ignored `local/`. Tests use real file-backed
 SQLite/WAL and synthetic images; browser tests are excluded. The guide also covers browser
-tests, translations, CI checks and dependency updates.
+tests, styles, translations, CI checks and dependency updates.
 
 ## Run with Docker
 
@@ -169,7 +170,7 @@ operational recovery, not portable import/export.
 | Guide | Contents |
 |---|---|
 | [Using growbook](docs/usage.md) | Garden, plantings, diary, photos and retries |
-| [Development, CI and releases](docs/development.md) | Tests, browser suite, translations, workflows, dependency updates and release images |
+| [Development, CI and releases](docs/development.md) | Tests, browser suite, styles, translations, workflows, dependency updates and release images |
 | [Deployment](docs/deployment.md) | Docker, private configuration, upgrades and SQLite runtime |
 | [Backup and recovery](docs/backup-and-recovery.md) | Backup, verification, restore and orphan cleanup |
 | [Interface foundations](docs/design.md) | Shared styles, tokens and capture form conventions |
@@ -184,6 +185,7 @@ operational recovery, not portable import/export.
 | `diary/` | Diary models, forms, views, filtering and validated create/edit/delete operations. |
 | `garden/` | Registers, plantings/events, year/history queries, forms and validated writes. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
+| `assets/` | Stylesheet source compiled into the committed application CSS. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |
 | `tests/` | Domain, integration and browser tests with synthetic fixtures. |
 | `tools/` | SQLite setup, translation compilation and the test entry point. |

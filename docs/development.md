@@ -1,7 +1,7 @@
 # Development, CI and releases
 
-Canonical guide for local checks, browser tests, translations, workflow audits, dependency
-updates and release publishing. First-time setup is in the
+Canonical guide for local checks, browser tests, styles, translations, workflow audits,
+dependency updates and release publishing. First-time setup is in the
 [main README](../README.md#run-locally). Deployment procedures are in the
 [deployment guide](deployment.md).
 
@@ -53,6 +53,22 @@ The suite exercises Chromium and real form interaction. It does not verify a pho
 native camera/library picker or a deployment's private-network routing; check those on
 the intended devices and installation.
 
+## Styles
+
+The committed `static/css/app.css` is built from `assets/app.css` with the pinned
+Tailwind CSS and daisyUI versions in `package.json`. Node.js and pnpm are needed only
+to rebuild styles; the application and container use the compiled file.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run build:css
+```
+
+`pnpm run watch:css` rebuilds while editing templates. Commit the regenerated
+`static/css/app.css` with the template or JavaScript class changes that require it.
+CI verifies the pnpm archive checksum, installs from the frozen lockfile, rebuilds
+the stylesheet and fails if the committed file differs.
+
 ## GitHub Actions
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`, manual
@@ -61,6 +77,9 @@ requirements, Ruff, translations, database and migration checks, and the applica
 Chromium suites with the fixed SQLite helper. The Linux job validates workflow syntax,
 builds the production image, and checks migrations, deployment settings and non-root WSGI
 initialization with disposable storage.
+
+The stylesheet job verifies the generated CSS with the pinned frontend toolchain;
+see [Styles](#styles).
 
 Unexpected deployment-check issues fail CI; W005/W021 remain visible. Python audits check
 locked application, development and build-only dependencies with `pip-audit`. Trivy

@@ -10,7 +10,7 @@
     {% csrf_token %}
     <div role="alert">{% include 'diary/form_errors.html' %}</div>
     {% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
-    <div class="form-actions"><button type="submit">{% translate 'Save' %}</button><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">{% translate 'Save' %}</button><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
   </form>
 </section>
 {% endblock %}

@@ -19,8 +19,8 @@
     {% include 'components/field.html' with field=form.date %}
     {% include 'components/field.html' with field=form.body %}
 
-    <details class="link-picker" open>
-      <summary>{% translate 'Link to garden records (optional)' %}</summary>
+    <details class="link-picker my-4 border-t border-base-300" open>
+      <summary class="inline-flex min-h-11 cursor-pointer items-center text-primary">{% translate 'Link to garden records (optional)' %}</summary>
       <p class="muted">{% translate 'A planting link also matches its crop, variety and area. Select several with Ctrl or Cmd; nothing else is required.' %}</p>
       {% include 'components/field.html' with field=form.link_areas %}
       {% include 'components/field.html' with field=form.link_crops %}
@@ -53,7 +53,7 @@
     <p data-register-status role="status" aria-live="polite"></p>
     <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
     <div class="form-actions">
-      <button type="submit">{% translate 'Save observation' %}</button>
+      <button type="submit" class="btn btn-primary">{% translate 'Save observation' %}</button>
       <a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a>
     </div>
   </form>

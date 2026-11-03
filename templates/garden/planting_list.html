@@ -6,8 +6,8 @@
 <div class="page-heading">
   <h1>{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}</h1>
   <div class="heading-actions">
-    <button id="open-filters" type="button" class="quiet" hidden aria-haspopup="dialog" aria-controls="filter-dialog">{% translate 'Planting filters' %}</button>
-    <a class="button" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
+    <button id="open-filters" type="button" class="btn btn-ghost btn-square" hidden aria-haspopup="dialog" aria-controls="filter-dialog" aria-label="{% translate 'Planting filters' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-search"/></svg></button>
+    <a class="btn btn-primary" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
   </div>
 </div>
 <div class="filter-layout" data-filter-page data-results-id="planting-results"
@@ -16,7 +16,7 @@
   data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
   <aside>
     <details class="diary-filters" data-filter-disclosure{% if form.errors %} open{% endif %}>
-      <summary class="button quiet"><span class="filter-open-label">{% translate 'Planting filters' %}</span><span class="filter-close-label">{% translate 'Close filters' %}</span></summary>
+      <summary class="btn btn-outline"><span class="filter-open-label">{% translate 'Planting filters' %}</span><span class="filter-close-label">{% translate 'Close filters' %}</span></summary>
       {% include 'garden/planting_filters.html' %}
     </details>
   </aside>

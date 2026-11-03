@@ -1,6 +1,33 @@
 /* Native disclosures remain usable without JavaScript. */
 (() => {
   "use strict";
+  const header = document.getElementById("site-header");
+  const actions = document.querySelector(
+    ".capture-panel > form > .form-actions, .register-form-panel > form > .form-actions"
+  );
+  if (window.ResizeObserver) {
+    // Large navigation/actions must leave enough viewport space to use the form.
+    const updateStickyBars = () => {
+      const heightLimit = window.innerHeight / 4;
+      if (header) {
+        const height = header.getBoundingClientRect().height;
+        const sticky = height <= heightLimit;
+        header.classList.toggle("site-header-sticky", sticky);
+        document.documentElement.style.setProperty(
+          "--site-header-height", `${sticky ? height : 0}px`
+        );
+      }
+      if (actions) {
+        actions.classList.toggle(
+          "form-actions-static", actions.getBoundingClientRect().height > heightLimit
+        );
+      }
+    };
+    const observer = new ResizeObserver(updateStickyBars);
+    for (const bar of [header, actions]) if (bar) observer.observe(bar);
+    window.addEventListener("resize", updateStickyBars);
+    updateStickyBars();
+  }
   const menus = document.querySelectorAll(".disclosure-menu");
   document.addEventListener("click", event => {
     for (const menu of menus) {

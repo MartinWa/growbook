@@ -9,7 +9,7 @@
   <title>{% block title %}growbook{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'icons/favicon.svg' %}">
   <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}">
-  <link rel="stylesheet" href="{% static 'css/growbook.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'js/htmx-2.0.11.min.js' %}" defer></script>
   <script src="{% static 'js/photos.js' %}" defer></script>
   <script src="{% static 'js/capture.js' %}" defer></script>
@@ -18,38 +18,40 @@
   <script src="{% static 'js/registers.js' %}" defer></script>
   <script src="{% static 'js/plantings.js' %}" defer></script>
 </head>
-<body hx-history="false">
+<body hx-history="false" class="flex min-h-screen flex-col">
   {% include 'components/icons.html' %}
   <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
-  <header class="site-header">
-    <a class="brand" href="{% url 'diary:list' %}">growbook</a>
-    {% if user.is_authenticated %}
-    <nav aria-label="{% translate 'Main navigation' %}">
-      <a href="{% url 'diary:list' %}"{% if request.resolver_match.namespace == 'diary' %} aria-current="page"{% endif %}>{% translate 'Diary' %}</a>
-      <a href="{% url 'garden:home' %}"{% if request.resolver_match.namespace == 'garden' and 'planting' not in request.resolver_match.url_name and 'event' not in request.resolver_match.url_name and 'history' not in request.resolver_match.url_name %} aria-current="page"{% endif %}>{% translate 'Garden' %}</a>
-      <a href="{% url 'garden:planting-list' %}"{% if request.resolver_match.namespace == 'garden' %}{% if 'planting' in request.resolver_match.url_name or 'event' in request.resolver_match.url_name or 'history' in request.resolver_match.url_name %} aria-current="page"{% endif %}{% endif %}>{% translate 'Plantings' %}</a>
-    </nav>
-    {% endif %}
-    <div class="account-controls">
+  <header id="site-header" class="z-40 border-b border-base-300 bg-base-100/90 backdrop-blur">
+    <div class="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1 sm:px-6">
+      <a class="brand py-2 text-xl font-extrabold tracking-tight text-base-content no-underline" href="{% url 'diary:list' %}">growbook</a>
       {% if user.is_authenticated %}
-      <details class="disclosure-menu account-menu" id="account-menu">
-        <summary class="button quiet icon-button" aria-label="{% translate 'Account menu' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-user-round"/></svg></summary>
-        <div class="menu-panel">
-          <p class="account-name">{{ user.get_username }}</p>
-          {% include 'components/language_form.html' %}
-          {% if user.is_staff %}<a class="menu-link" href="{% url 'admin:index' %}">{% translate 'Operator' %}</a>{% endif %}
-          <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit" class="quiet">{% translate 'Log out' %}</button>
-          </form>
-        </div>
-      </details>
-      {% else %}
-      {% include 'components/language_form.html' %}
+      <nav class="flex flex-wrap items-center gap-1" aria-label="{% translate 'Main navigation' %}">
+        <a class="btn btn-ghost{% if request.resolver_match.namespace == 'diary' %} btn-active{% endif %}" href="{% url 'diary:list' %}"{% if request.resolver_match.namespace == 'diary' %} aria-current="page"{% endif %}>{% translate 'Diary' %}</a>
+        <a class="btn btn-ghost{% if request.resolver_match.namespace == 'garden' and 'planting' not in request.resolver_match.url_name and 'event' not in request.resolver_match.url_name and 'history' not in request.resolver_match.url_name %} btn-active{% endif %}" href="{% url 'garden:home' %}"{% if request.resolver_match.namespace == 'garden' and 'planting' not in request.resolver_match.url_name and 'event' not in request.resolver_match.url_name and 'history' not in request.resolver_match.url_name %} aria-current="page"{% endif %}>{% translate 'Garden' %}</a>
+        <a class="btn btn-ghost{% if request.resolver_match.namespace == 'garden' %}{% if 'planting' in request.resolver_match.url_name or 'event' in request.resolver_match.url_name or 'history' in request.resolver_match.url_name %} btn-active{% endif %}{% endif %}" href="{% url 'garden:planting-list' %}"{% if request.resolver_match.namespace == 'garden' %}{% if 'planting' in request.resolver_match.url_name or 'event' in request.resolver_match.url_name or 'history' in request.resolver_match.url_name %} aria-current="page"{% endif %}{% endif %}>{% translate 'Plantings' %}</a>
+      </nav>
       {% endif %}
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        {% if user.is_authenticated %}
+        <details class="disclosure-menu account-menu dropdown dropdown-end" id="account-menu">
+          <summary class="btn btn-ghost btn-square" aria-label="{% translate 'Account menu' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-user-round"/></svg></summary>
+          <div class="menu-panel dropdown-content">
+            <p class="account-name">{{ user.get_username }}</p>
+            {% include 'components/language_form.html' %}
+            {% if user.is_staff %}<a class="menu-link" href="{% url 'admin:index' %}">{% translate 'Operator' %}</a>{% endif %}
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost w-full">{% translate 'Log out' %}</button>
+            </form>
+          </div>
+        </details>
+        {% else %}
+        {% include 'components/language_form.html' %}
+        {% endif %}
+      </div>
     </div>
   </header>
-  <main id="main" class="{% block page_class %}page{% endblock %}" tabindex="-1">
+  <main id="main" class="{% block page_class %}page{% endblock %} grow" tabindex="-1">
     {% for message in messages %}<p class="save-confirmation" role="status">{{ message }}</p>{% endfor %}
     {% block content %}{% endblock %}
   </main>

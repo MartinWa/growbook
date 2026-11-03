@@ -6,20 +6,20 @@
 {% include 'garden/nav.html' %}
 <div class="page-heading">
   <h1>{{ heading }}</h1>
-  {% if records %}<a class="button" href="{{ create_url }}">{{ create_label }}</a>{% endif %}
+  {% if records %}<a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>{% endif %}
 </div>
 <details class="archive-options">
   <summary>{% translate 'Archive options' %}</summary>
   <form method="get" class="register-filter" data-auto-submit>
     <label><input type="checkbox" name="archived" value="1" {% if show_archived %}checked{% endif %}> {% translate 'Include archived records' %}</label>
-    <button type="submit" class="quiet">{% translate 'Apply' %}</button>
+    <button type="submit" class="btn btn-outline">{% translate 'Apply' %}</button>
   </form>
 </details>
 {% if show_archived %}<p class="archive-state">{% translate 'Showing archived records' %} · <a href="{{ request.path }}">{% translate 'Hide archived records' %}</a></p>{% endif %}
 {% if records %}
 <p class="muted">{% translate 'Expand several rows at once to compare details.' %}</p>
 <div class="table-scroll">
-<table class="register-table responsive-table">
+<table class="register-table responsive-table table table-sm">
   <caption class="visually-hidden">{{ heading }}</caption>
   <thead><tr>
     <th scope="col">{% translate 'Name' %}</th>

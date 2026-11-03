@@ -9,7 +9,8 @@ dependency.
 Source: <https://github.com/lucide-icons/lucide/tree/0.468.0/icons>.
 The original SVG files are retained in `icons/`. Their geometry is copied into
 the inline sprite at `templates/components/icons.html`; shared presentation
-attributes are supplied by `.icon` in `static/css/growbook.css`.
+attributes are supplied by `.icon` in `assets/app.css` (compiled into
+`static/css/app.css`).
 
 Keep the original files and copyright/license notice when distributing the
 sprite. To change the subset or version, update the originals, sprite and
