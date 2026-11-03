@@ -228,9 +228,9 @@ Open **Diary** to add an observation directly or browse observations newest firs
 Quick-add accepts a note, photos or both; **More options** opens the dedicated capture
 page and does not carry the quick draft over. With JavaScript, a confirmation warns
 before leaving a non-empty quick draft behind; a confirmed save clears quick-add,
-shows a receipt and refreshes the results. Failed saves keep the draft and selected
-files in the open form; without JavaScript, reselect photos as instructed before
-retrying with the same save key.
+shows a receipt and refreshes the first results page with the current filters.
+Failed saves keep the draft and selected files in the open form; without JavaScript,
+reselect photos as instructed before retrying with the same save key.
 
 Search and filters use a sidebar on wide screens and a drawer on phones. With
 JavaScript, search applies after a short pause or Enter, other filters apply on

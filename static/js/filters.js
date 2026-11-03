@@ -114,7 +114,7 @@
     }
     return url;
   }
-  async function load(url, { push = true, focusEntry } = {}) {
+  async function load(url, { push = true, replace = false, focusEntry } = {}) {
     clearTimeout(debounce);
     controller?.abort();
     const request = new AbortController();
@@ -161,7 +161,10 @@
       }
       document.dispatchEvent(new CustomEvent("growbook:results", { detail: { root: results } }));
       // No private HTML is cached in history or browser storage.
-      if (push && url.href !== location.href) history.pushState(null, "", url);
+      if (url.href !== location.href) {
+        if (replace) history.replaceState(null, "", url);
+        else if (push) history.pushState(null, "", url);
+      }
       setLinks(url);
       if (focusEntry) document.getElementById(`entry-${focusEntry}`)?.querySelector("h2").focus();
     } catch (error) {
@@ -216,6 +219,8 @@
     load(url, { push: false });
   });
   document.addEventListener("diary:saved", event => {
-    load(new URL(location.href), { push: false, focusEntry: event.detail.entryId });
+    const url = new URL(location.href);
+    url.search = filterState(url);
+    load(url, { push: false, replace: true, focusEntry: event.detail.entryId });
   });
 })();

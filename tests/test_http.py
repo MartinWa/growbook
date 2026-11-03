@@ -155,12 +155,17 @@ def test_quick_add_state_omits_pagination(client, user):
     assert 'name="filter_query" value="q=synthetic&amp;year=2026"' in response.text
 
 
-def test_invalid_diary_filter_renders_inline_field_feedback(client, user):
+@pytest.mark.parametrize("partial", [False, True])
+def test_invalid_diary_filter_renders_field_feedback(client, user, partial):
     client.force_login(user)
-    response = client.get("/?year=invalid")
+    headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "diary-results"} if partial else {}
+    response = client.get("/?year=invalid", **headers)
     assert response.status_code == 422
-    assert 'id="id_year_errors"' in response.text
-    assert 'data-filter-field-errors="year"' in response.text
+    assert 'data-field-errors="year"' in response.text
+    assert 'href="#id_year"' in response.text
+    if not partial:
+        assert 'id="id_year_errors"' in response.text
+        assert 'data-filter-field-errors="year"' in response.text
 
 
 def test_photo_picker_uses_configured_limits(client, user, settings):

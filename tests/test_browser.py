@@ -3,15 +3,18 @@
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from io import BytesIO
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import pytest
 from django.db import close_old_connections, connection
 from PIL import Image
 from playwright.sync_api import expect, sync_playwright
 
-from garden.services import create_crop
+from diary.services import create_entry
+from garden.services import create_crop, delete_crop
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
@@ -745,6 +748,123 @@ def test_quick_capture_lost_response_keeps_draft_and_retries_without_duplicates(
     expect(page.locator("#quick-receipt")).to_contain_text("redan")
     expect(page.locator("#diary-results .diary-card")).to_have_count(1)
     expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
+
+
+@pytest.mark.parametrize("refresh_fails", [False, True])
+def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_page(
+    page, live_server, user, image_upload, refresh_fails
+):
+    def seed_entries():
+        close_old_connections()
+        try:
+            actor = type(user).objects.get(pk=user.pk)
+            for number in range(21):
+                create_entry(
+                    author=actor,
+                    date=date(2026, 1, 1),
+                    body=f"Synthetic pagination note {number}",
+                    uploads=[],
+                    submission_key=uuid4(),
+                )
+            for entry_date, body in (
+                (date(2025, 1, 1), "Synthetic pagination note from another year"),
+                (date(2026, 1, 1), "Synthetic unrelated observation"),
+            ):
+                create_entry(
+                    author=actor, date=entry_date, body=body, uploads=[], submission_key=uuid4()
+                )
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.submit(seed_entries).result(timeout=20)
+    login(page, live_server, user)
+    filters = "q=pagination&year=2026"
+    first_url = live_server.url + "/?" + filters
+    later_url = first_url + "&page=2"
+    page.goto(later_url)
+    expect(page.locator("#diary-result-count")).to_contain_text("21")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    page.locator("#id_date").fill("2026-05-09")
+    page.locator("#id_body").fill("Synthetic newest pagination note")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    if refresh_fails:
+        page.route(first_url, lambda route: route.abort())
+    page.locator("#save-entry").click()
+    saved = page.locator("#quick-receipt [data-capture-saved]")
+    expect(saved).to_be_attached()
+    entry_id = saved.get_attribute("data-capture-saved")
+    if refresh_fails:
+        expect(page.locator("#filter-status")).not_to_be_empty()
+        expect(page).to_have_url(later_url)
+        expect(page.locator("#diary-result-count")).to_contain_text("21")
+        expect(saved.locator("a")).to_be_focused()
+        page.unroute(first_url)
+        page.locator("#open-filters").click()
+        page.locator("#id_q").press("Enter")
+        page.keyboard.press("Escape")
+    expect(page).to_have_url(first_url)
+    expect(page.locator("#diary-result-count")).to_contain_text("22")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(20)
+    expect(page.locator(f"#entry-{entry_id} .entry-body")).to_have_text(
+        "Synthetic newest pagination note"
+    )
+    expect(page.locator(f"#entry-{entry_id} .photo-grid img")).to_have_count(1)
+    if not refresh_fails:
+        expect(page.locator(f"#entry-{entry_id} h2")).to_be_focused()
+    expect(page.locator('input[name="filter_query"]')).to_have_value(filters)
+    expect(page.locator("#id_body")).to_have_value("")
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 0
+    page.reload()
+    expect(page.locator(f"#entry-{entry_id}")).to_be_attached()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(20)
+    expect(page.locator("#diary-result-count")).to_contain_text("22")
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_stale_diary_filter_errors_identify_the_field_and_clear_on_retry(
+    page, live_server, user, image_upload, width
+):
+    def change_crop(pk=None):
+        close_old_connections()
+        try:
+            actor = type(user).objects.get(pk=user.pk)
+            if pk is None:
+                return create_crop(actor=actor, name="Synthetic temporary crop").record.pk
+            delete_crop(actor=actor, pk=pk)
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        crop_pk = executor.submit(change_crop).result(timeout=20)
+        page.set_viewport_size({"width": width, "height": 844})
+        login(page, live_server, user)
+        page.goto(live_server.url + "/")
+        expect(page.locator(f"#id_crop option[value='{crop_pk}']")).to_be_attached()
+        executor.submit(change_crop, crop_pk).result(timeout=20)
+    page.locator("#id_body").fill("Keep this draft while correcting filters")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    if width < 900:
+        page.locator("#open-filters").click()
+    page.locator("#id_crop").select_option(str(crop_pk))
+    expect(page.locator("#id_crop")).to_have_attribute("aria-invalid", "true")
+    expect(page.locator("#id_crop_errors")).not_to_be_empty()
+    expect(page.locator('#diary-results [data-field-errors="crop"]')).not_to_be_empty()
+    feedback = "#filter-drawer-status" if width < 900 else "#filter-status"
+    expect(page.locator(feedback)).not_to_be_empty()
+    if width < 900:
+        page.keyboard.press("Escape")
+    page.locator('#diary-results .error-summary a[href="#id_crop"]').click()
+    expect(page.locator("#id_crop")).to_be_focused()
+    page.locator("#id_crop").select_option("")
+    expect(page.locator("#id_crop")).not_to_have_attribute("aria-invalid", "true")
+    expect(page.locator("#id_crop_errors")).to_be_empty()
+    expect(page.locator("#diary-results .error-summary")).to_have_count(0)
+    expect(page.locator(feedback)).to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Keep this draft while correcting filters")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
 
 
 def test_diary_filters_chips_and_history_preserve_the_capture_draft(

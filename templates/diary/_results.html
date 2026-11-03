@@ -1,5 +1,6 @@
 {% load i18n %}
 <section id="diary-results" aria-label="{% translate 'Observations' %}">
+  <div role="alert">{% include 'diary/form_errors.html' %}</div>
   <p id="diary-result-count" data-result-focus class="muted" role="status" tabindex="-1">{% blocktranslate count count=page_obj.paginator.count %}{{ count }} observation{% plural %}{{ count }} observations{% endblocktranslate %}</p>
   <template data-year-options>{% for value, label in form.fields.year.choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</template>
   {% if active_filters %}
