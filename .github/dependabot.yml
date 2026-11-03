@@ -6,6 +6,10 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
+    # Let a release age before opening a version-update PR. Security updates
+    # are not delayed by cooldown.
+    cooldown:
+      default-days: 7
     allow:
       - dependency-type: all
     ignore:
@@ -23,6 +27,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
@@ -33,6 +39,8 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 1
+    cooldown:
+      default-days: 7
     ignore:
       # Keep the Python series aligned with .python-version and pyproject.toml.
       - dependency-name: python
