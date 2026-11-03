@@ -28,7 +28,7 @@ The interface defaults to Swedish, with English available.
   area descendants.
 - Authors edit and delete their own entries; active staff administrators can edit and
   delete any entry. Photo captions, ordering, addition and removal are editable too.
-- Inline diary quick-add and a dedicated capture page, with camera/library choices,
+- Inline diary quick-add and a dedicated capture page, with native photo selection,
   multiple photos, previews and upload feedback; native inputs remain without JavaScript.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped
   WebP display images/thumbnails. Received originals are retained privately.
@@ -60,7 +60,9 @@ The interface defaults to Swedish, with English available.
   layouts or movement history. Evaluation is cumulative, not a per-year assessment.
 - Uploads are limited to 10 photos per diary entry, variety, area or planting,
   20 MiB per photo, 80 MiB per upload and 50 million decoded pixels per photo.
-  Animated and multi-image files are rejected.
+  Apple HDR JPEGs with one auxiliary grayscale gain map use the primary photo
+  for display; both images count toward the pixel limit. Other multi-image files
+  and animated images are rejected.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public
   Internet exposure. Verify backup and clean-instance recovery before recording
   real data.
@@ -161,8 +163,10 @@ ineligible after the original save. If a save may have committed, check the save
 record before starting a new submission. Planting saves resolve matching immutable
 receipts before checking current association eligibility.
 
-Observation, variety, area and planting upload forms share **Add photos**, with
-camera/library choices, selected-file previews and removal controls. With JavaScript,
+Observation, variety, area and planting upload forms share **Add photos**, which
+opens the native image picker directly with JavaScript. Camera/library options
+and their labels depend on the browser and operating system. Selected-file previews
+and removal controls stay in the form. With JavaScript,
 successive choices accumulate where the browser supports assigning FileLists.
 Otherwise, a new choice replaces that source and **Clear selected photos** empties
 the selection.
@@ -241,6 +245,10 @@ the note text only; the year, area, crop, variety and planting controls combine 
 form. Clear all filters to return to every year. A planting filter also matches its
 crop, variety and area; an area filter includes descendant areas. Results are
 deduplicated, and paging preserves the active filters.
+
+Open a photo to use **Photo options → Download original**. Original downloads are
+kept out of the ordinary diary view; received originals remain private and are
+included in operational backups.
 
 The account menu contains Language, Log out and, for staff, Operator. Language
 changes apply immediately with JavaScript and retain the current page and filters;

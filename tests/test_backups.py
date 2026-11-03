@@ -34,13 +34,15 @@ def capture(user, uploads=(), body="Synthetic backup note"):
     ).entry
 
 
-def test_consistent_backup_and_clean_restore(user, image_upload, tmp_path, recovery_config):
-    entry = capture(user, [image_upload(format="HEIF"), image_upload()])
+def test_consistent_backup_and_clean_restore(
+    user, image_upload, apple_hdr_upload, tmp_path, recovery_config
+):
+    entry = capture(user, [image_upload(format="HEIF"), image_upload(), apple_hdr_upload()])
     original_paths = {photo.original.name: photo.original_sha256 for photo in entry.photos.all()}
     backup = tmp_path / "complete-backup"
     manifest = create_backup(backup, [recovery_config])
     assert manifest["derivatives"] == "regenerate"
-    assert len(manifest["files"]) == 4
+    assert len(manifest["files"]) == 5
     assert all(not item["path"].endswith(".webp") for item in manifest["files"])
     assert verify_backup(backup) == manifest
     restored = tmp_path / "clean-instance"

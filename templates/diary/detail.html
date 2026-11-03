@@ -16,14 +16,13 @@
   {% for photo in entry.photos.all %}
   <figure class="large-photo">
     <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.display_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}"></a>
-    <figcaption>
-      {% if photo.caption %}{{ photo.caption }} · {% endif %}
-      <a href="{{ photo.original_url }}">{% translate 'Download original' %}</a>
+    {% if photo.caption or can_edit %}<figcaption>
+      {% if photo.caption %}{{ photo.caption }}{% if can_edit %} · {% endif %}{% endif %}
       {% if can_edit %}
       <a href="{% url 'diary:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
       <a href="{% url 'diary:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
       {% endif %}
-    </figcaption>
+    </figcaption>{% endif %}
   </figure>
   {% endfor %}
   {% if can_edit %}

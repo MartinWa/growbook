@@ -5,6 +5,7 @@ import io
 import os
 import shutil
 import warnings
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
@@ -74,13 +75,14 @@ def decode_still(source):
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(source) as original:
-                if original.format not in FORMATS:
+                apple_hdr = original.format == "MPO" and _apple_hdr_jpeg(original)
+                detected = "JPEG" if apple_hdr else original.format
+                if detected not in FORMATS:
                     raise ValidationError(_("Use a JPEG, PNG, WebP or HEIC still photo."))
-                if getattr(original, "n_frames", 1) != 1:
+                if getattr(original, "n_frames", 1) != 1 and not apple_hdr:
                     raise ValidationError(_("Animated and multi-image files are not supported."))
                 if original.width * original.height > settings.PHOTO_MAX_PIXELS:
                     raise ValidationError(_("This photo exceeds the decoded pixel limit."))
-                detected = original.format
                 original.load()  # Truncated data is not accepted.
                 ImageOps.exif_transpose(original, in_place=True)
                 image = original
@@ -110,6 +112,54 @@ def decode_still(source):
         Image.DecompressionBombError,
     ) as exc:
         raise ValidationError(_("A photo could not be decoded safely. Nothing was saved.")) from exc
+
+
+def _apple_hdr_jpeg(image):
+    """Recognize one JPEG photo plus Apple's auxiliary grayscale HDR gain map."""
+    if image.n_frames != 2:
+        return False
+    primary_size = image.size
+    image.seek(1)
+    try:
+        if image.mode != "L" or any(
+            auxiliary > primary for auxiliary, primary in zip(image.size, primary_size, strict=True)
+        ):
+            return False
+        # XMP is confined to one JPEG APP1 segment. Do not allow XML declarations
+        # that define entities; the auxiliary marker needs only ordinary UTF-8 XML.
+        prefix = b"http://ns.adobe.com/xap/1.0/\x00"
+        packets = [
+            content[len(prefix) :]
+            for marker, content in image.applist
+            if marker == "APP1" and content.startswith(prefix)
+        ]
+        if len(packets) != 1 or not packets[0] or len(packets[0]) > 65_504:
+            return False
+        try:
+            document = packets[0].decode("utf-8")
+            if "<!DOCTYPE" in document or "<!ENTITY" in document:
+                return False
+            root = ET.fromstring(document)
+        except UnicodeDecodeError, ET.ParseError:
+            return False
+        auxiliary_type = "{http://ns.apple.com/pixeldatainfo/1.0/}AuxiliaryImageType"
+        types = [node.text.strip() if node.text else "" for node in root.iter(auxiliary_type)]
+        types.extend(
+            node.attrib[auxiliary_type].strip()
+            for node in root.iter()
+            if auxiliary_type in node.attrib
+        )
+        if types != ["urn:com:apple:photo:2020:aux:hdrgainmap"]:
+            return False
+        # Count both decoded images against the per-photo budget. Validate the
+        # auxiliary pixels too, then release them before decoding the primary image.
+        pixels = primary_size[0] * primary_size[1] + image.width * image.height
+        if pixels > settings.PHOTO_MAX_PIXELS:
+            raise ValidationError(_("This photo exceeds the decoded pixel limit."))
+        image.load()
+        return True
+    finally:
+        image.seek(0)
 
 
 def render_derivatives(source, display_path, thumbnail_path):

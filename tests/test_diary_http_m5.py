@@ -125,6 +125,31 @@ def test_edit_post_htmx_redirects_without_rendering_the_form(client, user):
     assert response["HX-Redirect"] == record.get_absolute_url()
 
 
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("htmx", [False, True])
+def test_apple_hdr_library_upload_succeeds_in_capture_and_edit(
+    client, user, apple_hdr_upload, editing, htmx
+):
+    client.force_login(user)
+    upload = apple_hdr_upload()
+    original_bytes = upload.read()
+    upload.seek(0)
+    if editing:
+        record = make_entry(user)
+        path = reverse("diary:edit", args=[record.pk])
+        data = edit_data(record, photos=upload)
+    else:
+        path = reverse("diary:capture")
+        data = {"submission_key": uuid4(), "date": "2026-05-09", "body": "", "library": upload}
+    response = client.post(path, data, **({"HTTP_HX_REQUEST": "true"} if htmx else {}))
+    assert response.status_code == (204 if htmx else 302)
+    record = DiaryEntry.objects.get()
+    assert response["HX-Redirect" if htmx else "Location"] == record.get_absolute_url()
+    photo = record.photos.get()
+    assert photo.original_format == "JPEG" and (photo.width, photo.height) == (80, 60)
+    assert private_path(photo.original.name).read_bytes() == original_bytes
+
+
 def test_stale_edit_returns_409_and_keeps_saved_value(client, user):
     record = make_entry(user)
     original = record.updated_at

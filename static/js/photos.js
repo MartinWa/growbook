@@ -4,12 +4,8 @@
   for (const picker of document.querySelectorAll("[data-photo-picker]")) {
     const form = picker.closest("form");
     const inputs = [...picker.querySelectorAll("input[type=file]")];
-    const sources = {
-      camera: inputs.find(input => input.hasAttribute("capture")),
-      library: inputs.find(input => !input.hasAttribute("capture"))
-    };
+    const nativePicker = inputs.find(input => !input.hasAttribute("capture"));
     const chooser = picker.querySelector("[data-photo-chooser]");
-    const buttons = [...picker.querySelectorAll("[data-pick-photo]")];
     const previews = picker.querySelector("[data-photo-previews]");
     const count = picker.querySelector("[data-photo-count]");
     const warning = picker.querySelector("[data-photo-limit-warning]");
@@ -79,7 +75,7 @@
               updateFiles(input);
               renderPreviews();
               const remaining = [...previews.querySelectorAll("button")];
-              (remaining[Math.min(position, remaining.length - 1)] || chooser.querySelector("summary")).focus();
+              (remaining[Math.min(position, remaining.length - 1)] || chooser).focus();
             });
             figure.append(remove);
           }
@@ -97,7 +93,7 @@
             selections.set(input, []);
           });
           renderPreviews();
-          chooser.querySelector("summary").focus();
+          chooser.focus();
         });
         previews.append(clear);
       }
@@ -109,13 +105,11 @@
       if (canAccumulate) updateFiles(input);
       renderPreviews();
     }));
-    buttons.forEach(button => button.addEventListener("click", () => {
+    chooser.addEventListener("click", () => {
       if (busy) return;
-      sources[button.dataset.pickPhoto].click();
-      chooser.open = false;
-      chooser.querySelector("summary").focus();
-    }));
-    chooser.querySelector("summary").setAttribute("aria-describedby",
+      nativePicker.click();
+    });
+    chooser.setAttribute("aria-describedby",
       [...picker.querySelectorAll(".field-errors[id]")].map(slot => slot.id).join(" "));
     picker.querySelector("[data-native-photos]").hidden = true;
     chooser.hidden = false;
@@ -134,13 +128,12 @@
       for (let parent = picker.parentElement; parent && parent !== form; parent = parent.parentElement) {
         if (parent.tagName === "DETAILS") parent.open = true;
       }
-      chooser.querySelector("summary").focus();
+      chooser.focus();
     });
     function setBusy(value) {
       busy = value;
-      buttons.forEach(button => { button.disabled = value; });
+      chooser.disabled = value;
       previews.querySelectorAll("button").forEach(button => { button.disabled = value; });
-      if (value) chooser.open = false;
     }
     form.addEventListener("htmx:beforeRequest", event => {
       if (event.detail.elt === form) setBusy(true);

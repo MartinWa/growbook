@@ -7,7 +7,10 @@
 <section aria-labelledby="photo-heading">
   <div class="page-heading">
     <h1 id="photo-heading">{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}</h1>
-    <a href="{{ photo.original_url }}">{% translate 'Download original' %}</a>
+    <details class="disclosure-menu photo-options">
+      <summary class="button quiet">{% translate 'Photo options' %}</summary>
+      <div class="menu-panel"><a class="menu-link" href="{{ photo.original_url }}">{% translate 'Download original' %}</a></div>
+    </details>
   </div>
   <figure class="photo-viewer">
     <img src="{{ photo.display_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}">

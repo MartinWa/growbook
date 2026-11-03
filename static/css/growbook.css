@@ -259,10 +259,9 @@ input::file-selector-button {
 .account-menu .menu-panel { left: auto; right: 0; min-width: min(15rem, calc(100vw - 2rem)); }
 .account-name { overflow-wrap: anywhere; margin: 0 0 var(--space-3); font-weight: 600; }
 .account-menu .language-form { margin-bottom: var(--space-3); }
-.account-menu .menu-link { display: block; padding: var(--space-2) 0; min-height: 44px; }
+.account-menu .menu-link, .photo-options .menu-link { display: block; padding: var(--space-2) 0; min-height: 44px; }
 .account-menu button { width: 100%; }
-.photo-choice-actions { display: grid; gap: var(--space-2); }
-.photo-choice-actions button { justify-content: flex-start; }
+.photo-options .menu-panel { left: auto; right: 0; }
 .photo-limit-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .photo-limit-line > .field-help { margin: 0; }
 .photo-limits { font-size: .9rem; }

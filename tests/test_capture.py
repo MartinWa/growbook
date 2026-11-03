@@ -170,6 +170,88 @@ def test_multi_image_heif_is_rejected(user, settings):
     assert_no_save(settings)
 
 
+def test_apple_hdr_jpeg_uses_primary_image_and_preserves_original(user, apple_hdr_upload):
+    exif = Image.Exif()
+    exif[274] = 6
+    exif[34853] = {1: "N", 2: (59.0, 0.0, 0.0)}
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    upload = apple_hdr_upload(exif=exif, icc_profile=profile)
+    original_bytes = upload.read()
+    upload.seek(0)
+    with Image.open(io.BytesIO(original_bytes)) as image:
+        assert image.format == "MPO" and image.n_frames == 2
+    result = capture(user, body="", uploads=[upload])
+    photo = result.entry.photos.get()
+    assert photo.original_format == "JPEG"
+    assert (photo.width, photo.height) == (60, 80)
+    assert private_path(photo.original.name).read_bytes() == original_bytes
+    with Image.open(private_path(photo.display.name)) as image:
+        assert image.format == "WEBP" and image.size == (60, 80)
+        red, green, blue = image.getpixel((30, 40))
+        assert green > red and green > blue
+        assert not image.getexif()
+        assert not any(key in image.info for key in ("xmp", "icc_profile", "exif"))
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "plain",
+        "wrong-type",
+        "malformed",
+        "entities",
+        "rgb",
+        "oversize",
+        "three-images",
+        "primary-only",
+    ],
+)
+def test_general_or_malformed_multi_picture_jpeg_is_rejected(
+    user, apple_hdr_upload, settings, kind
+):
+    options = {}
+    if kind == "plain":
+        options["xmp"] = b""
+    elif kind == "wrong-type":
+        options["xmp"] = (
+            b'<x xmlns="http://ns.apple.com/pixeldatainfo/1.0/"><AuxiliaryImageType>other</AuxiliaryImageType></x>'
+        )
+    elif kind == "malformed":
+        options["xmp"] = b"<broken"
+    elif kind == "entities":
+        options["xmp"] = (
+            b'<!DOCTYPE x [<!ENTITY marker "urn:com:apple:photo:2020:aux:hdrgainmap">]><x xmlns="http://ns.apple.com/pixeldatainfo/1.0/"><AuxiliaryImageType>&marker;</AuxiliaryImageType></x>'
+        )
+    elif kind == "rgb":
+        options["aux_mode"] = "RGB"
+    elif kind == "oversize":
+        options["aux_size"] = (81, 60)
+    elif kind == "three-images":
+        options["extra_images"] = [Image.new("RGB", (10, 10), "blue")]
+    elif kind == "primary-only":
+        options["xmp"] = b""
+        options["primary_xmp"] = (
+            b'<x xmlns="http://ns.apple.com/pixeldatainfo/1.0/"><AuxiliaryImageType>urn:com:apple:photo:2020:aux:hdrgainmap</AuxiliaryImageType></x>'
+        )
+    with pytest.raises(ValidationError):
+        capture(user, uploads=[apple_hdr_upload(**options)])
+    assert_no_save(settings)
+
+
+def test_apple_hdr_jpeg_counts_auxiliary_pixels_against_limit(user, apple_hdr_upload, settings):
+    settings.PHOTO_MAX_PIXELS = 5_999
+    with pytest.raises(ValidationError):
+        capture(user, uploads=[apple_hdr_upload()])
+    assert_no_save(settings)
+
+
+def test_truncated_apple_hdr_auxiliary_image_rejects_entire_save(user, apple_hdr_upload, settings):
+    data = apple_hdr_upload().read()
+    with pytest.raises(ValidationError):
+        capture(user, uploads=[SimpleUploadedFile("truncated.jpeg", data[:-100], "image/jpeg")])
+    assert_no_save(settings)
+
+
 def test_pixel_limit_is_checked_before_decode(user, image_upload, settings):
     settings.PHOTO_MAX_PIXELS = 100
     with pytest.raises(ValidationError):

@@ -64,6 +64,9 @@ msgstr "Tillbaka till observationen"
 msgid "Download original"
 msgstr "Ladda ner original"
 
+msgid "Photo options"
+msgstr "Bildalternativ"
+
 msgid "A photo, a note, or both. Nothing else is required."
 msgstr "En bild, en anteckning eller båda. Inget mer krävs."
 
@@ -948,8 +951,8 @@ msgstr "(valfritt)"
 msgid "Use the date of the observation."
 msgstr "Ange datumet för observationen."
 
-msgid "Write what you noticed, or leave this blank and add a photo."
-msgstr "Skriv vad du lade märke till, eller lämna fältet tomt och lägg till en bild."
+msgid "Write a diary note, or leave this blank and add a photo."
+msgstr "Skriv en dagboksanteckning, eller lämna fältet tomt och lägg till en bild."
 
 msgid "Account menu"
 msgstr "Kontomeny"
@@ -993,8 +996,8 @@ msgstr "Högst %(photo_max_count)s bilder"
 msgid "View observation"
 msgstr "Visa observationen"
 
-msgid "What did you notice?"
-msgstr "Vad lade du märke till?"
+msgid "New diary entry"
+msgstr "Ny anteckning"
 
 msgid "%(count)s observation"
 msgid_plural "%(count)s observations"
