@@ -98,6 +98,142 @@ helper.main()
     )
 
 
+@pytest.fixture(params=["pwsh", "powershell"])
+def tag_repository(release_repository, request):
+    powershell = shutil.which(request.param)
+    if not powershell:
+        pytest.skip(f"Release tag integration checks require {request.param}.")
+    repository, environment = release_repository
+    tools = repository / "tools"
+    tools.mkdir()
+    shutil.copyfile(ROOT / "tools" / "tag_release.ps1", tools / "tag_release.ps1")
+    git(repository, environment, "add", "tools/tag_release.ps1")
+    git(repository, environment, "commit", "-m", "Synthetic tag helper")
+    return repository, environment, powershell
+
+
+def run_tag_script(tag_repository, *arguments):
+    repository, environment, powershell = tag_repository
+    return subprocess.run(
+        [
+            powershell,
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(repository / "tools" / "tag_release.ps1"),
+            *arguments,
+        ],
+        cwd=repository.parent,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+
+
+def test_tag_script_increments_highest_numeric_patch_and_creates_annotated_tag(tag_repository):
+    repository, environment, _ = tag_repository
+    for tag in ("0.1.9", "v0.1.10", "2.0.0-rc.1", "unrelated", "01.2.0"):
+        git(repository, environment, "tag", tag)
+    result = run_tag_script(tag_repository)
+    assert result.returncode == 0, result.stderr
+    assert (
+        git(repository, environment, "cat-file", "-t", "refs/tags/0.1.11").stdout.strip() == "tag"
+    )
+    assert (
+        git(repository, environment, "rev-parse", "0.1.11^{commit}").stdout
+        == git(repository, environment, "rev-parse", "HEAD").stdout
+    )
+    assert (
+        git(
+            repository, environment, "for-each-ref", "--format=%(contents)", "refs/tags/0.1.11"
+        ).stdout.strip()
+        == "Release 0.1.11"
+    )
+
+
+def test_tag_script_preview_leaves_tags_unchanged_and_does_not_push(tag_repository):
+    repository, environment, _ = tag_repository
+    before = git(repository, environment, "show-ref", "--tags").stdout
+    result = run_tag_script(tag_repository, "-Push", "-WhatIf")
+    assert result.returncode == 0, result.stderr
+    assert "0.1.4" in result.stdout
+    assert git(repository, environment, "show-ref", "--tags").stdout == before
+
+
+@pytest.mark.parametrize("version", ["0.2.0", "0.1.2"])
+def test_tag_script_accepts_explicit_version_including_maintenance_release(tag_repository, version):
+    repository, environment, _ = tag_repository
+    result = run_tag_script(tag_repository, "-Version", version)
+    assert result.returncode == 0, result.stderr
+    assert git(repository, environment, "tag", "--list").stdout.splitlines() == sorted(
+        ["0.1.3", version]
+    )
+
+
+@pytest.mark.parametrize("version", ["v0.2.0", "0.2.0-rc.1", "01.2.0", "0.1.3"])
+def test_tag_script_rejects_invalid_or_existing_versions(tag_repository, version):
+    repository, environment, _ = tag_repository
+    before = git(repository, environment, "show-ref", "--tags").stdout
+    result = run_tag_script(tag_repository, "-Version", version)
+    assert result.returncode != 0
+    assert git(repository, environment, "show-ref", "--tags").stdout == before
+
+
+def test_tag_script_requires_explicit_first_version(tag_repository):
+    repository, environment, _ = tag_repository
+    git(repository, environment, "tag", "-d", "0.1.3")
+    result = run_tag_script(tag_repository)
+    assert result.returncode != 0
+    assert "Use -Version X.Y.Z" in result.stderr
+    assert git(repository, environment, "tag", "--list").stdout == ""
+    result = run_tag_script(tag_repository, "-Version", "0.1.0")
+    assert result.returncode == 0, result.stderr
+    assert git(repository, environment, "tag", "--list").stdout.strip() == "0.1.0"
+
+
+@pytest.mark.parametrize("state", ["dirty", "branch"])
+def test_tag_script_requires_clean_main_checkout(tag_repository, state):
+    repository, environment, _ = tag_repository
+    if state == "dirty":
+        (repository / "uncommitted.txt").write_text("Synthetic change", encoding="utf-8")
+    else:
+        git(repository, environment, "switch", "-c", "synthetic-feature")
+    before = git(repository, environment, "show-ref", "--tags").stdout
+    result = run_tag_script(tag_repository)
+    assert result.returncode != 0
+    assert git(repository, environment, "show-ref", "--tags").stdout == before
+
+
+@pytest.mark.parametrize("follow_tags", [False, True])
+def test_tag_script_pushes_only_the_new_tag_to_local_remote(tag_repository, follow_tags):
+    repository, environment, _ = tag_repository
+    remote = repository.parent / "origin.git"
+    git(repository.parent, environment, "init", "--bare", str(remote))
+    git(repository, environment, "remote", "add", "origin", str(remote))
+    git(repository, environment, "push", "origin", "main")
+    git(repository, environment, "tag", "work-in-progress")
+    git(repository, environment, "tag", "-a", "0.1.2", "-m", "Pending synthetic release")
+    git(repository, environment, "config", "push.followTags", str(follow_tags).lower())
+    result = run_tag_script(tag_repository, "-Push")
+    assert result.returncode == 0, result.stderr
+    assert git(remote, environment, "tag", "--list").stdout.strip() == "0.1.4"
+    assert (
+        git(remote, environment, "rev-parse", "0.1.4^{commit}").stdout
+        == git(repository, environment, "rev-parse", "HEAD").stdout
+    )
+
+
+def test_tag_script_reports_failed_push_and_preserves_local_tag(tag_repository):
+    repository, environment, _ = tag_repository
+    result = run_tag_script(tag_repository, "-Push")
+    assert result.returncode != 0
+    assert "git push --no-follow-tags origin refs/tags/0.1.4" in result.stderr
+    assert git(repository, environment, "tag", "--list").stdout.splitlines() == ["0.1.3", "0.1.4"]
+
+
 @pytest.mark.parametrize("annotated", [False, True])
 def test_tag_guard_accepts_tested_main_with_lightweight_or_annotated_tags(
     release_repository, annotated

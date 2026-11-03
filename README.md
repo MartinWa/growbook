@@ -406,15 +406,31 @@ commit's CI, then tag it:
 ```sh
 git switch main
 git pull --ff-only
+git fetch origin --tags
 git tag -a X.Y.Z -m "Release X.Y.Z"
 git push origin X.Y.Z
 ```
 
-Replace `X.Y.Z` with a new release version. No manual GitHub Release creation is
-needed; watch **Actions → Release image** for completion. A manually published
-stable GitHub Release remains a supported trigger. Tag deletion is ignored, and
-moving an existing tag is rejected; correct failures by rerunning the failed
-workflow, not by force-pushing tags.
+Replace `X.Y.Z` with a new release version. From PowerShell, after the same
+`main` checkout update, tag fetch and successful CI, use
+[`tools/tag_release.ps1`](tools/tag_release.ps1):
+
+```powershell
+.\tools\tag_release.ps1 -WhatIf
+.\tools\tag_release.ps1 -Push
+```
+
+The script requires a clean `main` checkout and increments the highest local
+stable tag's patch number by default (`0.1.9` becomes `0.1.10`), including legacy
+`v`-prefixed tags when comparing history. Use `-Version X.Y.Z` to choose a
+version explicitly or create the first release. Without `-Push`, it only creates
+the annotated tag locally; `-WhatIf` previews the operation. If a push fails, the
+local tag remains and the error gives the command to retry that push.
+
+No manual GitHub Release creation is needed; watch **Actions → Release image**
+for completion. A manually published stable GitHub Release remains a supported
+trigger. Tag deletion is ignored, and moving an existing tag is rejected; correct
+failures by rerunning the failed workflow, not by force-pushing tags.
 
 The workflow rebuilds, smoke-checks and audits the image before pushing its `X.Y.Z`
 tag, then attaches provenance and SBOM attestations. Only after those steps succeed
