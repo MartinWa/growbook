@@ -188,6 +188,10 @@ class PlantingForm(forms.Form):
     def __init__(self, *args, record=None, **kwargs):
         super().__init__(*args, **kwargs)
         describe_fields(self)
+        variety_attrs = self.fields["variety"].widget.attrs
+        variety_attrs["aria-describedby"] = (
+            f"{variety_attrs.get('aria-describedby', '')} variety-status".strip()
+        )
         self.fields["crop"].queryset = Crop.objects.filter(
             Q(is_archived=False) | Q(pk=record.crop_id if record else None)
         )
@@ -311,6 +315,7 @@ class PlantingFilterForm(forms.Form):
         self.fields["variety"].queryset = Variety.objects.select_related("crop")
         # Repeated sibling names need distinct full paths in filters as well as rows.
         field.queryset = GrowingArea.objects.all()
+        describe_fields(self)
 
 
 class ArchiveForm(forms.Form):

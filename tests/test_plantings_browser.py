@@ -164,6 +164,8 @@ def test_phone_filters_retry_back_and_reinitialize_rows(page, live_server, user,
     page.locator("#id_year").fill("10000")
     page.locator("#id_year").press("Tab")
     expect(page.locator('#planting-results [data-field-errors="year"]')).to_be_attached()
+    expect(page.locator("#filter-drawer-status")).to_contain_text("Välj ett giltigt värde")
+    expect(page.locator("#id_year")).to_have_attribute("aria-invalid", "true")
     expect(page.locator("#id_year")).to_have_value("10000")
     page.keyboard.press("Escape")
     page.locator("#planting-results .error-summary a").click()

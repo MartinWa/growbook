@@ -140,10 +140,39 @@ def test_inline_capture_returns_a_receipt_and_a_new_key_with_retry_safety(client
 def test_inline_capture_without_javascript_redirects_to_the_filtered_diary(client, user):
     client.force_login(user)
     response = client.post(
-        "/capture/", post_data(capture_mode="quick", filter_query="q=synthetic&year=2026")
+        "/capture/",
+        post_data(capture_mode="quick", filter_query="q=synthetic&year=2026&page=2"),
     )
     assert response.status_code == 302
     assert response.url == f"/?q=synthetic&year=2026#entry-{DiaryEntry.objects.get().pk}"
+
+
+def test_quick_add_state_omits_pagination(client, user):
+    entry(user)
+    client.force_login(user)
+    response = client.get("/?q=synthetic&year=2026&page=2")
+    assert "page" not in response.context["filter_query"]
+    assert 'name="filter_query" value="q=synthetic&amp;year=2026"' in response.text
+
+
+def test_invalid_diary_filter_renders_inline_field_feedback(client, user):
+    client.force_login(user)
+    response = client.get("/?year=invalid")
+    assert response.status_code == 422
+    assert 'id="id_year_errors"' in response.text
+    assert 'data-filter-field-errors="year"' in response.text
+
+
+def test_photo_picker_uses_configured_limits(client, user, settings):
+    settings.PHOTO_MAX_COUNT = 3
+    settings.PHOTO_MAX_FILE_BYTES = 2 * 1024 * 1024
+    settings.PHOTO_MAX_TOTAL_BYTES = 5 * 1024 * 1024
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    response = client.get("/")
+    assert 'data-photo-limit="3"' in response.text
+    assert "Up to 3 photos" in response.text
+    assert "2 MiB each, 5 MiB per upload" in response.text
 
 
 def test_inline_capture_failure_without_javascript_keeps_draft_key_and_filters(client, user):

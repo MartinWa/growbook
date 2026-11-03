@@ -6,7 +6,12 @@
   </header>
   <p id="filter-drawer-status" class="field-errors" role="alert"></p>
   <form id="diary-filter-form" data-filter-form method="get" action="{% url 'diary:list' %}" role="search">
-    {% for field in form %}<div class="field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+    {% for field in form %}
+    <div class="field">
+      {{ field.label_tag }}{{ field }}
+      <div id="{{ field.auto_id }}_errors" class="field-errors" data-filter-field-errors="{{ field.name }}">{{ field.errors }}</div>
+    </div>
+    {% endfor %}
     <div class="form-actions">
       <button type="submit" data-filter-submit>{% translate 'Filter' %}</button>
       <a href="{% url 'diary:list' %}" data-filter-link>{% translate 'Clear filters' %}</a>

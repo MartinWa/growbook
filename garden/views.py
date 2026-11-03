@@ -602,7 +602,6 @@ def planting_form(request, pk=None):
             "hx-sync": "this:replace",
         }
     )
-    form.fields["variety"].widget.attrs["aria-describedby"] = "variety-status"
     context = {
         "kind": "planting",
         "form": form,
@@ -678,7 +677,6 @@ def planting_varieties(request):
             return HttpResponse(status=400)
         record = get_object_or_404(Planting, pk=planting_id)
     form = PlantingForm(record=record, initial={"crop": crop_id})
-    form.fields["variety"].widget.attrs["aria-describedby"] = "variety-status"
     try:
         current_id = clean_record_id(request.GET.get("variety"))
     except ValidationError:

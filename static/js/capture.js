@@ -43,6 +43,18 @@
     errors.focus();
   }
 
+  const moreOptions = form.querySelector("[data-more-options]");
+  moreOptions?.addEventListener("click", event => {
+    // Opening the full form in another tab keeps this quick draft intact.
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const body = document.getElementById("id_body");
+    const date = document.getElementById("id_date");
+    const hasDraft = (body?.value.trim() || "") !== "" ||
+      (date?.value || "") !== (date?.defaultValue || "") ||
+      inputs.some(input => input?.files?.length);
+    if (hasDraft && !window.confirm(moreOptions.dataset.confirm)) event.preventDefault();
+  });
+
   form.addEventListener("htmx:configRequest", event => {
     // A login in another tab rotates Django's CSRF cookie. Refresh the submitted token
     // without discarding the original save key, note or selected files.

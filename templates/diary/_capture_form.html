@@ -4,8 +4,7 @@
       data-processing="{% translate 'Processing photos and saving…' %}"
       data-network-error="{% translate 'The connection failed. Keep this form open and retry; your save key prevents duplicates.' %}"
       data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
-      data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}"
-      data-conflict="{% translate 'This submission has already been used with different content. Follow the saved entry or start a new observation.' %}">
+      data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
   {% csrf_token %}
   {{ form.submission_key }}
   {% if quick %}
@@ -31,9 +30,9 @@
   <progress id="capture-progress" max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
   <div class="form-actions capture-actions">
     <button type="submit" id="save-entry"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-check"/></svg> {% translate 'Save observation' %}</button>
-    {% if quick %}<a href="{% url 'diary:capture' %}">{% translate 'More options' %}</a>
+    {% if quick %}<a href="{% url 'diary:capture' %}" data-more-options data-confirm="{% translate 'Open the full form? Your quick draft is not carried over.' %}">{% translate 'More options' %}</a>
     {% else %}<a class="button quiet" href="{% url 'diary:list' %}">{% translate 'Cancel' %}</a>{% endif %}
   </div>
   {% if not quick %}<p class="field-help capture-link-help">{% translate 'Garden links are added after saving: open the observation and choose Edit observation.' %}</p>{% endif %}
-  <noscript><p class="field-help">{% translate 'Without JavaScript, select all library photos at once. A failed save requires selecting the photos again.' %}</p></noscript>
+  <noscript><p class="field-help">{% translate 'Without JavaScript, select all library photos at once. A failed save requires selecting the photos again.' %}</p>{% if quick %}<p class="field-help">{% translate 'More options opens a new page and does not keep a quick draft.' %}</p>{% endif %}</noscript>
 </form>

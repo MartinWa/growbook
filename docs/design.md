@@ -65,8 +65,9 @@ observation editing and Garden forms. Garden and edit inputs share the existing
 widget. Selection and removal update native FileLists where supported; previews
 use object URLs, released on replacement or page exit. Removing a preview keeps
 focus on another removal control or the chooser. Errors link back to the chooser
-when native inputs are hidden. Selected counts read “3 of 10”; on edit forms the
-capacity subtracts existing photos kept after any marked removals.
+when native inputs are hidden. Selected counts show the chosen number out of the
+configured capacity; on edit forms the capacity subtracts existing photos kept after
+any marked removals.
 Count warnings include retained photos and do not
 discard files or replace server validation.
 When FileList assignment is unavailable, native replacement selection remains
@@ -79,9 +80,12 @@ scroll margins leave space for the actions. Quick-add keeps its normal layout.
 Diary results, counts, filter chips and pagination share one server-rendered
 partial. The shared `filters.js` module replaces list results and updates filter URLs;
 it does not cache private HTML in history or browser storage. Filtering leaves
-the capture form and FileLists in place. A successful quick save returns a
-receipt and a fresh submission key; focus moves to the saved entry when it
-matches the current results, or stays on the receipt link otherwise.
+the capture form and FileLists in place. Invalid filter responses still replace the
+results summary, copy field errors back beside the fields and mark the controls
+invalid; on phones the open drawer announces the check-filters message too. A
+successful quick save returns a receipt and a fresh submission key; focus moves to
+the saved entry when it matches the current results, or stays on the receipt link
+otherwise.
 
 Keyboard focus uses a visible three-pixel outline. Button transitions last
 140 ms and are disabled when `prefers-reduced-motion` requests reduced motion.

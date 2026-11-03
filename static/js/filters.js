@@ -70,13 +70,42 @@
       else field.value = url.searchParams.get(field.name) || "";
     }
   }
+  function filterState(url) {
+    const state = new URLSearchParams(url.searchParams);
+    // A new observation belongs on page 1 even when the quick form sits on a later page.
+    state.delete("page");
+    return state.toString();
+  }
   function setLinks(url) {
     if (capture) {
       const query = capture.elements.namedItem("filter_query");
-      query.value = query.defaultValue = url.searchParams.toString();
+      query.value = query.defaultValue = filterState(url);
     }
     const languageNext = document.querySelector("[data-language-form] input[name=next]");
     if (languageNext) languageNext.value = url.pathname + url.search;
+  }
+  function fieldInputs(name) {
+    const control = form.elements.namedItem(name);
+    if (!control) return [];
+    return control instanceof Element ? [control] : [...control];
+  }
+  function syncFieldFeedback(results, invalid) {
+    for (const slot of form.querySelectorAll("[data-filter-field-errors]")) {
+      const name = slot.dataset.filterFieldErrors;
+      const source = invalid ? results.querySelector(`[data-field-errors="${name}"]`) : null;
+      slot.replaceChildren();
+      if (source) {
+        for (const item of source.querySelectorAll("li")) {
+          const message = document.createElement("p");
+          message.textContent = item.textContent;
+          slot.append(message);
+        }
+      }
+      for (const input of fieldInputs(name)) {
+        if (source) input.setAttribute("aria-invalid", "true");
+        else input.removeAttribute("aria-invalid");
+      }
+    }
   }
   function formURL() {
     const url = new URL(form.action);
@@ -102,6 +131,7 @@
         throw new Error(page.dataset.sessionError);
       }
       if (!response.ok && response.status !== 422) throw new Error(page.dataset.filterError);
+      const invalid = response.status === 422;
       const documentFragment = new DOMParser().parseFromString(await response.text(), "text/html");
       const results = documentFragment.getElementById(resultsId);
       if (!results) throw new Error(page.dataset.filterError);
@@ -115,6 +145,13 @@
       }
       if (results.hasAttribute("data-year")) year.value = results.dataset.year;
       document.getElementById(resultsId).replaceWith(results);
+      syncFieldFeedback(results, invalid);
+      if (invalid) {
+        // The results summary sits behind the modal drawer; repeat it where the fields are.
+        const message = page.dataset.invalidFilters;
+        if (dialog.open) drawerStatus.textContent = message;
+        else status.textContent = message;
+      }
       if (results.dataset.heading) {
         document.querySelector(".page-heading h1").textContent = results.dataset.heading;
         document.title = results.dataset.heading + " · growbook";
@@ -142,6 +179,7 @@
     load(formURL());
   });
   form.addEventListener("change", event => {
+    // Search is handled by its debounced input listener and the submit path.
     if (event.target.name !== "q") load(formURL());
   });
   form.elements.namedItem("q")?.addEventListener("input", event => {

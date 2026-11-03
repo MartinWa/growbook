@@ -12,6 +12,7 @@
 </div>
 <div class="filter-layout" data-filter-page data-results-id="planting-results"
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
+  data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
   data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
   <aside>
     <details class="diary-filters" data-filter-disclosure{% if form.errors %} open{% endif %}>

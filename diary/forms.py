@@ -246,3 +246,4 @@ class DiaryFilterForm(forms.Form):
         self.fields["planting"].queryset = Planting.objects.select_related(
             "crop", "variety", "area"
         ).order_by("-start_year", "crop__name_key", "variety__name_key", "id")
+        describe_fields(self)

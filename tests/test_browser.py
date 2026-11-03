@@ -58,6 +58,22 @@ def open_entry_edit(page, live_server, user, photos=()):
     return entry_url
 
 
+def test_more_options_warns_before_dropping_a_quick_draft(page, live_server, user):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/")
+    expect(page.locator("#capture-form")).to_be_visible()
+    page.locator("#id_body").fill("Keep this quick note")
+    dialogs = []
+    page.on(
+        "dialog",
+        lambda dialog: (dialogs.append(dialog.message), dialog.dismiss()),
+    )
+    page.get_by_role("link", name="Fler alternativ").click()
+    assert dialogs
+    expect(page).to_have_url(live_server.url + "/")
+    assert page.locator("#id_body").input_value() == "Keep this quick note"
+
+
 def test_favicon_is_available_without_login(page, live_server):
     errors = []
     page.on(

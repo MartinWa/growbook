@@ -82,9 +82,6 @@ msgstr "Din session har gått ut. Logga in på en annan flik och försök igen u
 msgid "The save failed. Keep this form open and retry."
 msgstr "Det gick inte att spara. Behåll formuläret öppet och försök igen."
 
-msgid "This submission has already been used with different content. Follow the saved entry or start a new observation."
-msgstr "Den här sparnyckeln har redan använts med annat innehåll. Öppna det sparade inlägget eller börja en ny observation."
-
 msgid "Photos selected:"
 msgstr "Valda bilder:"
 
@@ -114,6 +111,12 @@ msgstr "Avbryt"
 
 msgid "Without JavaScript, select all library photos at once. A failed save requires selecting the photos again."
 msgstr "Utan JavaScript behöver alla biblioteksbilder väljas samtidigt. Om sparandet misslyckas måste bilderna väljas igen."
+
+msgid "More options opens a new page and does not keep a quick draft."
+msgstr "Fler alternativ öppnar en ny sida och behåller inte ett snabbutkast."
+
+msgid "Open the full form? Your quick draft is not carried over."
+msgstr "Öppna det fullständiga formuläret? Ditt snabbutkast följer inte med."
 
 msgid "Your form could not be verified"
 msgstr "Formuläret kunde inte verifieras"
@@ -388,8 +391,8 @@ msgstr "Kruka"
 msgid "Border"
 msgstr "Rabatt"
 
-msgid "JPEG, PNG, WebP and HEIC. Up to 10 photos per record, 20 MiB each, 80 MiB per upload."
-msgstr "JPEG, PNG, WebP och HEIC. Högst 10 bilder per post, 20 MiB per bild och 80 MiB per uppladdning."
+msgid "JPEG, PNG, WebP and HEIC. Up to %(photo_max_count)s photos per record, %(photo_max_file_mib)s MiB each, %(photo_max_total_mib)s MiB per upload."
+msgstr "JPEG, PNG, WebP och HEIC. Högst %(photo_max_count)s bilder per post, %(photo_max_file_mib)s MiB per bild och %(photo_max_total_mib)s MiB per uppladdning."
 
 msgid "This record is archived. Editing it does not restore it to active selections."
 msgstr "Posten är arkiverad. Den blir inte valbar igen bara för att du redigerar den."
@@ -984,8 +987,8 @@ msgstr "Ta bort filter"
 msgid "Search and filters"
 msgstr "Sök och filtrera"
 
-msgid "Up to 10 photos"
-msgstr "Högst 10 bilder"
+msgid "Up to %(photo_max_count)s photos"
+msgstr "Högst %(photo_max_count)s bilder"
 
 msgid "View observation"
 msgstr "Visa observationen"

@@ -277,10 +277,12 @@ input::file-selector-button {
 .filter-close-label { display: none; }
 .filter-panel { min-width: 0; padding: var(--space-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-medium); }
 .filter-panel input, .filter-panel select { width: 100%; }
-.filter-panel .checkbox-field { display: flex; align-items: center; gap: var(--space-2); }
+.filter-panel .checkbox-field { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .filter-panel .checkbox-field label { margin: 0; font-weight: 400; }
 .filter-panel .checkbox-field input { width: auto; order: -1; }
+.filter-panel .checkbox-field .field-errors { flex-basis: 100%; }
 .filter-panel .field { margin-bottom: var(--space-3); }
+.filter-panel .field-errors:empty { display: none; }
 .filter-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); }
 .filter-help { margin-top: var(--space-3); }
 .filter-help > summary { min-height: 44px; cursor: pointer; padding: var(--space-2) 0; color: var(--green); }

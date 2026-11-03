@@ -118,7 +118,7 @@ Do not expose the development server or point it at production data. A local
 `.env` file is **not automatically loaded**; local configuration overrides must
 be set in the process environment.
 
-### Registers
+### Garden
 
 Open **Garden** for crop, variety and growing-area cards with active record
 counts and creation links. Each register table has a labelled **Details** control:
@@ -226,9 +226,11 @@ year-level presence, not exact movement dates, lineage or historical layouts.
 
 Open **Diary** to add an observation directly or browse observations newest first.
 Quick-add accepts a note, photos or both; **More options** opens the dedicated capture
-page. With JavaScript, a confirmed save clears quick-add, shows a receipt and refreshes
-the results. Failed saves keep the draft and selected files in the open form; without
-JavaScript, reselect photos as instructed before retrying with the same save key.
+page and does not carry the quick draft over. With JavaScript, a confirmation warns
+before leaving a non-empty quick draft behind; a confirmed save clears quick-add,
+shows a receipt and refreshes the results. Failed saves keep the draft and selected
+files in the open form; without JavaScript, reselect photos as instructed before
+retrying with the same save key.
 
 Search and filters use a sidebar on wide screens and a drawer on phones. With
 JavaScript, search applies after a short pause or Enter, other filters apply on

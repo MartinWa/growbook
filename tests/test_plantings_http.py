@@ -148,6 +148,14 @@ def test_planting_partial_preserves_scope_and_returns_filter_errors(client, user
     assert b'data-field-errors="year"' in invalid.content
 
 
+def test_invalid_planting_filter_renders_inline_field_feedback(client, user):
+    client.force_login(user)
+    response = client.get(reverse("garden:planting-list"), {"year": 10000})
+    assert response.status_code == 422
+    assert 'id="id_year_errors"' in response.text
+    assert 'data-filter-field-errors="year"' in response.text
+
+
 def test_optional_planting_groups_open_for_invalid_and_populated_values(client, user, catalog):
     client.force_login(user)
     path = reverse("garden:planting-create")
@@ -538,6 +546,19 @@ def test_dependent_variety_options_are_scoped_clear_mismatch_and_preserve_curren
         assert 'value=""' in client.get(path, {"crop": crop}).text
     assert client.get(path, {"planting": "invalid"}).status_code == 400
     assert client.get(path, {"planting": 99999}).status_code == 404
+    assert 'aria-describedby="id_variety_errors variety-status"' in new_response.text
+
+
+def test_variety_status_stays_associated_beside_errors(client, user, catalog):
+    client.force_login(user)
+    create_response = client.get(reverse("garden:planting-create"), {"crop": catalog["crop"].pk})
+    assert 'aria-describedby="id_variety_errors variety-status"' in create_response.text
+    swap_response = client.get(
+        reverse("garden:planting-varieties"),
+        {"crop": catalog["crop"].pk},
+        HTTP_HX_REQUEST="true",
+    )
+    assert 'aria-describedby="id_variety_errors variety-status"' in swap_response.text
 
 
 def test_new_choices_hide_archives_edit_retains_existing_and_server_rechecks(client, user, catalog):

@@ -41,4 +41,7 @@ def describe_fields(form):
         descriptions = [f"{field_id}_errors"]
         if field.help_text or name == "photos":
             descriptions.append(f"{field_id}_helptext")
+        for identifier in field.widget.attrs.get("aria-describedby", "").split():
+            if identifier not in descriptions:
+                descriptions.append(identifier)
         field.widget.attrs["aria-describedby"] = " ".join(descriptions)

@@ -69,6 +69,12 @@ def _editable_entry(request, pk):
     return entry
 
 
+def _filter_query(value):
+    data = QueryDict(value).copy()
+    data.pop("page", None)
+    return data.urlencode()
+
+
 def _list_context(request, *, data=None, capture_form=None):
     data = request.GET.copy() if data is None else data.copy()
     form = DiaryFilterForm(data, years=diary_years())
@@ -108,7 +114,7 @@ def _list_context(request, *, data=None, capture_form=None):
         "capture_form": capture_form or CaptureForm(quick=True),
         "page_obj": page_obj,
         "querystring": query.urlencode(),
-        "filter_query": data.urlencode(),
+        "filter_query": query.urlencode(),
         "valid_filter": valid,
         "active_filters": active_filters,
         "diary_has_entries": DiaryEntry.objects.exists(),
@@ -386,7 +392,7 @@ def capture(request):
                     response["HX-Redirect"] = result.entry.get_absolute_url()
                     return response
                 if quick:
-                    query = QueryDict(request.POST.get("filter_query", "")).urlencode()
+                    query = _filter_query(request.POST.get("filter_query", ""))
                     destination = reverse("diary:list") + ("?" + query if query else "")
                     return redirect(f"{destination}#entry-{result.entry.pk}")
                 return redirect(result.entry)

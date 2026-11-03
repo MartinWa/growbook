@@ -8,7 +8,10 @@
   <form data-filter-form method="get" action="{{ request.path }}">
     {% for field in form %}
       {% if field.name in locked_filters %}{{ field.as_hidden }}{% else %}
-      <div class="field{% if field.name == 'unassigned' or field.name == 'unknown_variety' %} checkbox-field{% endif %}">{{ field.label_tag }}{{ field }}</div>
+      <div class="field{% if field.name == 'unassigned' or field.name == 'unknown_variety' %} checkbox-field{% endif %}">
+        {{ field.label_tag }}{{ field }}
+        <div id="{{ field.auto_id }}_errors" class="field-errors" data-filter-field-errors="{{ field.name }}">{{ field.errors }}</div>
+      </div>
       {% endif %}
     {% endfor %}
     <button type="submit" data-filter-submit>{% translate 'Apply' %}</button>
