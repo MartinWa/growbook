@@ -183,13 +183,14 @@ def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(
     assert page.evaluate("Object.keys(localStorage).length") == 0
 
 
-def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server, user):
+@pytest.mark.parametrize("mime_type", ["image/svg+xml", "text/html"])
+def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server, user, mime_type):
     login(page, live_server, user)
     filename = '<img src=x onerror="window.previewExecuted=true">.svg'
     page.locator("#id_library").set_input_files(
         {
             "name": filename,
-            "mimeType": "image/svg+xml",
+            "mimeType": mime_type,
             "buffer": b'<svg xmlns="http://www.w3.org/2000/svg" '
             b'onload="window.previewExecuted=true"><script>'
             b"window.previewExecuted=true</script></svg>",
@@ -198,14 +199,56 @@ def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server,
     preview = page.locator("#photo-previews figure")
     expect(preview).to_have_count(1)
     expect(preview.locator("figcaption")).to_have_text(filename)
-    expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
-    expect(preview.locator("img")).to_have_attribute("alt", filename)
-    preview.locator("img").evaluate("image => image.decode()")
-    assert preview.locator("img").count() == 1
+    if mime_type == "image/svg+xml":
+        expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
+        expect(preview.locator("img")).to_have_attribute("alt", filename)
+        preview.locator("img").evaluate("image => image.decode()")
+        assert preview.locator("img").count() == 1
+    else:
+        expect(preview.locator("img")).to_have_count(0)
+        expect(preview.locator("p")).to_have_text(
+            page.locator("[data-photo-picker]").get_attribute("data-preview-unavailable")
+        )
     assert preview.locator("script, svg, [onerror], [onload]").count() == 0
     assert page.evaluate("window.previewExecuted === undefined")
+    key = page.locator("#id_submission_key").input_value()
+    page.locator("#id_body").fill("Synthetic draft with unsupported photo")
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-errors")).not_to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Synthetic draft with unsupported photo")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
     preview.get_by_role("button", name=f"Ta bort: {filename}", exact=True).click()
     expect(page.locator("#photo-previews figure")).to_have_count(0)
+
+
+@pytest.mark.parametrize(
+    "preview_url",
+    [
+        "javascript:window.previewExecuted=true",
+        "data:image/svg+xml,<svg onload='window.previewExecuted=true'/>",
+        "https://example.invalid/preview.jpg",
+        'blob:<img src=x onerror="window.previewExecuted=true">',
+    ],
+)
+def test_preview_rejects_unexpected_urls_without_losing_upload(
+    page, live_server, user, image_upload, preview_url
+):
+    login(page, live_server, user)
+    page.evaluate("url => { URL.createObjectURL = () => url; }", preview_url)
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    preview = page.locator("#photo-previews figure")
+    expect(preview).to_have_count(1)
+    expect(preview.locator("img")).to_have_count(0)
+    expect(preview.locator("p")).to_have_text(
+        page.locator("[data-photo-picker]").get_attribute("data-preview-unavailable")
+    )
+    assert preview.locator("script, svg, [onerror], [onload]").count() == 0
+    assert page.evaluate("window.previewExecuted === undefined")
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    page.locator("#save-entry").click()
+    expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    expect(page.locator(".large-photo")).to_have_count(1)
 
 
 def test_validation_preserves_text_photos_and_submission_key(page, live_server, user, image_upload):

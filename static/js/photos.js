@@ -48,18 +48,25 @@
           const figure = document.createElement("figure");
           const image = document.createElement("img");
           const url = URL.createObjectURL(file);
-          urls.push(url);
-          image.src = url;
           image.alt = file.name;
           const caption = document.createElement("figcaption");
           caption.textContent = file.name;
-          image.addEventListener("error", () => {
+          function showUnavailable() {
             image.remove();
             const hint = document.createElement("p");
             hint.textContent = picker.dataset.previewUnavailable;
             figure.prepend(hint);
-          });
+          }
+          image.addEventListener("error", showUnavailable, { once: true });
           figure.append(image, caption);
+          // Allow only blob URLs without HTML metacharacters at the image source.
+          if (url.startsWith("blob:") && !/["&<>]/.test(url)) {
+            urls.push(url);
+            image.src = url;
+          } else {
+            URL.revokeObjectURL(url);
+            showUnavailable();
+          }
           if (canAccumulate) {
             const remove = document.createElement("button");
             remove.type = "button";
