@@ -51,3 +51,52 @@ def image_upload():
         return SimpleUploadedFile("synthetic-photo.upload", buffer.getvalue(), "image/jpeg")
 
     return make
+
+
+@pytest.fixture
+def apple_hdr_upload():
+    """Generate a solid-color primary JPEG and a synthetic Apple HDR gain map."""
+
+    def make(
+        *, xmp=None, primary_xmp=None, aux_mode="L", aux_size=(40, 30), extra_images=(), **options
+    ):
+        if xmp is None:
+            xmp = (
+                b'<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+                b'<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+                b'<rdf:Description xmlns:apdi="http://ns.apple.com/pixeldatainfo/1.0/" '
+                b'xmlns:hdr="http://ns.apple.com/HDRGainMap/1.0/">'
+                b"<apdi:AuxiliaryImageType>urn:com:apple:photo:2020:aux:hdrgainmap</apdi:AuxiliaryImageType>"
+                b"<hdr:HDRGainMapVersion>131072</hdr:HDRGainMapVersion>"
+                b"</rdf:Description></rdf:RDF></x:xmpmeta>"
+            )
+        buffer = io.BytesIO()
+        with (
+            Image.new("RGB", (80, 60), (35, 110, 50)) as primary,
+            Image.new(aux_mode, aux_size, 128) as auxiliary,
+        ):
+            auxiliary.encoderinfo = {"xmp": xmp}
+            primary.save(
+                buffer,
+                format="MPO",
+                save_all=True,
+                append_images=[auxiliary, *extra_images],
+                xmp=primary_xmp,
+                **options,
+            )
+        return SimpleUploadedFile("synthetic-hdr.jpeg", buffer.getvalue(), "image/jpeg")
+
+    return make
+
+
+@pytest.fixture
+def corrupt_apple_hdr_upload(apple_hdr_upload):
+    """Damage an auxiliary JPEG header while keeping the primary image and MPF index."""
+
+    def make(*, header_byte=0):
+        data = bytearray(apple_hdr_upload().read())
+        auxiliary_start = data.index(b"\xff\xd8\xff", 3)
+        data[auxiliary_start + header_byte] = 1
+        return SimpleUploadedFile("synthetic-corrupt-hdr.jpeg", bytes(data), "image/jpeg")
+
+    return make

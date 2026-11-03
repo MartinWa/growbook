@@ -393,6 +393,7 @@ def test_diary_photo_links_use_html_viewer(client, user, image_upload):
         response = client.get(path)
         assert f'<a href="{stored.get_absolute_url()}">' in response.text
         assert f'<a href="{stored.display_url}">' not in response.text
+        assert f'href="{stored.original_url}"' not in response.text
     client.cookies["django_language"] = "en"
     response = client.get(stored.get_absolute_url())
     assert "Back to observation" in response.text

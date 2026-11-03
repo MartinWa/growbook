@@ -38,7 +38,7 @@ font is 106.25% of the browser default, with a 1.6 line height.
   assistive technology with `aria-hidden="true"` and `focusable="false"`.
   A control's accessible name comes from its text.
 - `.disclosure-menu` uses native `details`/`summary` with a bordered overlay.
-  Account and photo choices are nonmodal. Escape returns focus to their summary;
+  Account and photo-options menus are nonmodal. Escape returns focus to their summary;
   clicking outside closes them without taking focus from the clicked control.
 - `.filter-drawer` uses a modal `dialog`, with first/last Tab handling, Escape,
   a labelled close action and focus returned to its trigger. The same filter
@@ -54,8 +54,10 @@ note grows with its content where native `field-sizing` is supported, with
 a maximum height and ordinary textarea scrolling for longer text.
 Garden-link guidance follows the dedicated form's actions.
 
-With JavaScript, Add photos opens camera/library choices using the two native
-inputs. Without it, those inputs are visible in one column below 600 px and
+With JavaScript, Add photos is one button that opens the native image picker
+directly. Camera/library options and their language are supplied by the browser
+and operating system. Without JavaScript, separate camera and library inputs
+are visible in one column below 600 px and
 two columns above it. Photo limits use a short line and a native disclosure
 with the full formats and byte limits.
 
@@ -91,6 +93,10 @@ Keyboard focus uses a visible three-pixel outline. Button transitions last
 140 ms and are disabled when `prefers-reduced-motion` requests reduced motion.
 The strict content security policy remains unchanged; icons, styles and
 scripts require no runtime downloads from third parties.
+
+Original downloads are available in the photo viewer's Photo options disclosure,
+with keyboard and Escape handling shared with the account menu. Diary photos link
+to the viewer; their captions show ordinary photo-maintenance actions.
 
 For local operation and checks, use the canonical
 [README instructions](../README.md#test-and-check). Browser checks cannot

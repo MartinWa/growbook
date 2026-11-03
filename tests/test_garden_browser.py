@@ -61,7 +61,7 @@ def image_file(image_upload, name="synthetic.jpg"):
     return {"name": name, "mimeType": "image/jpeg", "buffer": image_upload().read()}
 
 
-def test_shared_photo_picker_accumulates_both_sources_and_retains_them_on_validation(
+def test_shared_photo_picker_accumulates_native_choices_and_retains_them_on_validation(
     page, live_server, user, image_upload
 ):
     errors = []
@@ -72,14 +72,14 @@ def test_shared_photo_picker_accumulates_both_sources_and_retains_them_on_valida
     expect(page.locator("[data-native-photos]")).to_be_hidden()
     expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
     page.locator("#id_name").fill("Parent")
-    chooser.locator("summary").click()
     with page.expect_file_chooser() as selection:
-        page.get_by_role("button", name="Ta en bild", exact=True).click()
+        chooser.click()
+    assert selection.value.element.get_attribute("id") == "id_photos"
+    assert selection.value.is_multiple()
     selection.value.set_files(image_file(image_upload, "camera.jpg"))
-    expect(chooser.locator("summary")).to_be_focused()
-    chooser.locator("summary").click()
+    expect(chooser).to_be_focused()
     with page.expect_file_chooser() as selection:
-        page.get_by_role("button", name="Välj från bildbiblioteket", exact=True).click()
+        chooser.click()
     selection.value.set_files(image_file(image_upload, "library.jpg"))
     page.locator("#id_photos").set_input_files(image_file(image_upload, "extra.jpg"))
     expect(page.locator("[data-photo-previews] figure")).to_have_count(3)
@@ -93,8 +93,7 @@ def test_shared_photo_picker_accumulates_both_sources_and_retains_them_on_valida
     page.locator("#register-errors").get_by_role("link", name="Namn", exact=True).click()
     expect(page.locator("#id_name")).to_be_focused()
     expect(page.locator("[data-photo-previews] figure")).to_have_count(2)
-    assert page.locator("#id_photos_camera").evaluate("input => input.files.length") == 1
-    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 2
     expect(page.locator("#id_submission_key")).to_have_value(key)
     page.locator("#id_name").fill("Shared picker area")
     page.locator("#register-form button[type=submit]").click()
@@ -140,7 +139,7 @@ def test_photo_picker_fallback_replaces_choices_and_can_clear_them(
     expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
     expect(page.locator("[data-photo-count]")).to_have_text("")
     assert page.locator("#id_photos").evaluate("input => input.files.length") == 0
-    expect(page.locator("[data-photo-chooser] > summary")).to_be_focused()
+    expect(page.locator("[data-photo-chooser]")).to_be_focused()
 
 
 def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(

@@ -125,6 +125,76 @@ def test_edit_post_htmx_redirects_without_rendering_the_form(client, user):
     assert response["HX-Redirect"] == record.get_absolute_url()
 
 
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("htmx", [False, True])
+def test_apple_hdr_library_upload_succeeds_in_capture_and_edit(
+    client, user, apple_hdr_upload, editing, htmx
+):
+    client.force_login(user)
+    upload = apple_hdr_upload()
+    original_bytes = upload.read()
+    upload.seek(0)
+    if editing:
+        record = make_entry(user)
+        path = reverse("diary:edit", args=[record.pk])
+        data = edit_data(record, photos=upload)
+    else:
+        path = reverse("diary:capture")
+        data = {"submission_key": uuid4(), "date": "2026-05-09", "body": "", "library": upload}
+    response = client.post(path, data, **({"HTTP_HX_REQUEST": "true"} if htmx else {}))
+    assert response.status_code == (204 if htmx else 302)
+    record = DiaryEntry.objects.get()
+    assert response["HX-Redirect" if htmx else "Location"] == record.get_absolute_url()
+    photo = record.photos.get()
+    assert photo.original_format == "JPEG" and (photo.width, photo.height) == (80, 60)
+    assert private_path(photo.original.name).read_bytes() == original_bytes
+
+
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("htmx", [False, True])
+def test_corrupt_apple_hdr_header_returns_validation_feedback_and_allows_retry(
+    client, user, apple_hdr_upload, corrupt_apple_hdr_upload, image_upload, editing, htmx
+):
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    uploads = [image_upload(), corrupt_apple_hdr_upload()]
+    if editing:
+        record = make_entry(user, uploads=[image_upload()])
+        original_updated_at = record.updated_at
+        original_photos = list(record.photos.values_list("pk", flat=True))
+        path = reverse("diary:edit", args=[record.pk])
+        data = edit_data(record, body="Synthetic edited note", photos=uploads)
+        photo_field = "photos"
+    else:
+        path = reverse("diary:capture")
+        data = {
+            "submission_key": uuid4(),
+            "date": "2026-05-09",
+            "body": "Synthetic new note",
+            "library": uploads,
+        }
+        photo_field = "library"
+    headers = {"HTTP_HX_REQUEST": "true"} if htmx else {}
+    response = client.post(path, data, **headers)
+    assert response.status_code == 422
+    assert "A photo could not be decoded safely. Nothing was saved." in response.text
+    if editing:
+        record.refresh_from_db()
+        assert record.body == "Synthetic observation"
+        assert record.updated_at == original_updated_at
+        assert list(record.photos.values_list("pk", flat=True)) == original_photos
+    else:
+        assert not DiaryEntry.objects.exists()
+        assert not DiarySubmission.objects.exists()
+    data[photo_field] = apple_hdr_upload()
+    retry = client.post(path, data, **headers)
+    assert retry.status_code == (204 if htmx else 302)
+    record = DiaryEntry.objects.get()
+    assert retry["HX-Redirect" if htmx else "Location"] == record.get_absolute_url()
+    assert record.body == data["body"]
+    assert record.photos.count() == (2 if editing else 1)
+
+
 def test_stale_edit_returns_409_and_keeps_saved_value(client, user):
     record = make_entry(user)
     original = record.updated_at

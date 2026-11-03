@@ -77,6 +77,19 @@ def test_more_options_warns_before_dropping_a_quick_draft(page, live_server, use
     assert page.locator("#id_body").input_value() == "Keep this quick note"
 
 
+def test_apple_hdr_library_photo_saves_from_the_edit_form(
+    page, live_server, user, apple_hdr_upload
+):
+    entry_url = open_entry_edit(page, live_server, user)
+    page.locator("input[type=file]:not([capture])").set_input_files(upload(apple_hdr_upload()))
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(1)
+    page.locator('#entry-form button[type="submit"]').click()
+    expect(page).to_have_url(entry_url)
+    image = page.locator(".large-photo img")
+    image.evaluate("image => image.decode()")
+    assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [80, 60]
+
+
 def test_favicon_is_available_without_login(page, live_server):
     errors = []
     page.on(
@@ -138,6 +151,18 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     expect(photo_link).to_have_attribute("href", re.compile(r"/photos/\d+/$"))
     photo_link.click()
     expect(page).to_have_url(live_server.url + viewer_path)
+    options = page.locator(".photo-options > summary")
+    expect(options).to_have_text("Bildalternativ")
+    original = page.get_by_role("link", name="Ladda ner original", exact=True)
+    expect(original).to_be_hidden()
+    options.focus()
+    page.keyboard.press("Enter")
+    expect(original).to_be_visible()
+    page.keyboard.press("Tab")
+    expect(original).to_be_focused()
+    page.keyboard.press("Escape")
+    expect(original).to_be_hidden()
+    expect(options).to_be_focused()
     image = page.locator(".photo-viewer img")
     image.evaluate("image => image.decode()")
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [1600, 1200]
@@ -157,6 +182,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         assert image.evaluate("image => image.getBoundingClientRect().right <= innerWidth")
     assert image.evaluate("image => image.getBoundingClientRect().width > 1050")
+    page.locator(".photo-options > summary").click()
     with page.expect_download() as downloaded:
         page.get_by_role("link", name="Ladda ner original").click()
     assert downloaded.value.failure() is None
@@ -316,14 +342,11 @@ def test_capture_foundation_reflows_and_supports_keyboard(
             assert box["width"] >= 44 and box["height"] >= 44
     page.locator("#id_body").focus()
     page.keyboard.press("Tab")
-    expect(page.locator("[data-photo-chooser] > summary")).to_be_focused()
-    page.keyboard.press("Enter")
-    page.keyboard.press("Tab")
-    expect(page.locator("[data-pick-photo=camera]")).to_be_focused()
-    page.keyboard.press("Tab")
-    expect(page.locator("[data-pick-photo=library]")).to_be_focused()
-    page.keyboard.press("Escape")
-    expect(page.locator("[data-photo-chooser] > summary")).to_be_focused()
+    expect(page.locator("[data-photo-chooser]")).to_be_focused()
+    with page.expect_file_chooser() as selection:
+        page.keyboard.press("Enter")
+    assert selection.value.element.get_attribute("id") == "id_library"
+    assert selection.value.element.get_attribute("capture") is None
     page.keyboard.press("Tab")
     expect(page.locator(".photo-limits > summary")).to_be_focused()
     assert page.locator("#capture-form").evaluate(
@@ -693,9 +716,8 @@ def test_quick_capture_saves_without_navigation_and_resets_only_after_success(
     page.goto(live_server.url + "/")
     key = page.locator("#id_submission_key").input_value()
     if photo_count:
-        page.locator("[data-photo-chooser] > summary").click()
         with page.expect_file_chooser() as picker:
-            page.locator("[data-pick-photo=library]").click()
+            page.locator("[data-photo-chooser]").click()
         picker.value.set_files(
             [upload(image_upload(), f"synthetic-{number}.jpg") for number in range(photo_count)]
         )

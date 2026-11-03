@@ -22,7 +22,7 @@
   <div class="field">
     <label for="{{ form.body.id_for_label }}">{{ form.body.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
     {{ form.body }}
-    <p id="capture-note-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Write what you noticed, or leave this blank and add a photo.' %}</p>
+    <p id="capture-note-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Write a diary note, or leave this blank and add a photo.' %}</p>
     <div id="capture-body-errors" class="field-errors">{{ form.body.errors }}</div>
   </div>
   {% include 'components/photo_picker.html' with field=None %}
