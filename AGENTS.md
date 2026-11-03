@@ -25,10 +25,11 @@ and operate it. Keep each procedure in one canonical guide and link to it rather
 than copying it. Do not add public roadmap documents, milestone identifiers,
 changelogs or claims about verification that has not been performed.
 
-Keep local plans and work/verification logs in ignored private material. When the
-private `planning/` workspace is available, start with `planning/README.md` and
-update progress/evidence only in `planning/PLAN.md`; do not publish that workspace
-or copy its status into the maintained documentation.
+Keep the next-step checklist in ignored private `planning/PLAN.md` when available.
+Keep it concise and focused on remaining work; do not accumulate planning history
+or verification logs there. Track bugs and user-testing feedback in issues, using
+synthetic examples. Do not publish the planning workspace or copy its status into
+maintained documentation.
 
 ## Language and publication
 
@@ -112,6 +113,14 @@ Use `pytest-django` for domain and integration tests. On Windows run tests throu
 `uv run python tools/run_tests.py` so the fixed SQLite runtime is activated before
 test plugins. Tests use real file-backed SQLite/WAL, not an in-memory substitute for
 contention checks.
+
+For a request to run locally and confirm Playwright works, run the
+[browser suite](README.md#browser-tests), using an installed Chrome with
+`GROWBOOK_BROWSER_CHANNEL=chrome` when Chromium has not been downloaded. Run the
+full browser suite when requested or when interactive changes need regression
+coverage. Reuse instructions already read in the current conversation. This
+repository uses `AGENTS.md` and `README.md`; do not probe for a repository
+`SKILL.md`. Read installed skill instructions only when the task needs that skill.
 
 Cover at least: text-only, photo-only and multi-photo entries, photo failures and
 retries, upload limits, authorization for pages/media/downloads, overlapping writes,
