@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Garden' %} · growbook{% endblock %}
+{% block content %}
+<div class="page-heading"><h1>{% translate 'Garden' %}</h1></div>
+<div class="garden-cards">
+  <section class="panel">
+    <h2><a href="{% url 'garden:crop-list' %}">{% translate 'Crops' %}</a></h2>
+    <p class="field-help">{% translate 'Plants you grow.' %}</p>
+    <p>{% translate 'Active records' %}: {{ crop_count }}</p>
+    <a class="button quiet" href="{% url 'garden:crop-create' %}">{% translate 'New crop' %}</a>
+  </section>
+  <section class="panel">
+    <h2><a href="{% url 'garden:variety-list' %}">{% translate 'Varieties' %}</a></h2>
+    <p class="field-help">{% translate 'Named varieties of a crop.' %}</p>
+    <p>{% translate 'Active records' %}: {{ variety_count }}</p>
+    <a class="button quiet" href="{% url 'garden:variety-create' %}">{% translate 'New variety' %}</a>
+  </section>
+  <section class="panel">
+    <h2><a href="{% url 'garden:area-list' %}">{% translate 'Growing areas' %}</a></h2>
+    <p class="field-help">{% translate 'Beds, pots and other places.' %}</p>
+    <p>{% translate 'Active records' %}: {{ area_count }}</p>
+    <a class="button quiet" href="{% url 'garden:area-create' %}">{% translate 'New growing area' %}</a>
+  </section>
+</div>
+<p class="garden-planting-link"><a href="{% url 'garden:planting-list' %}">{% translate 'Plan and follow your plantings' %}</a></p>
+{% endblock %}

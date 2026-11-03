@@ -18,6 +18,7 @@ text is included in that installed license file.
 | tzdata | Apache-2.0 and timezone-data notices in its distribution. |
 | Waitress | Zope Public License 2.1. |
 | HTMX | 0BSD, original license in [`htmx/LICENSE`](htmx/LICENSE). |
+| Lucide icon subset, 0.468.0 | Free ISC-licensed icons; original SVGs and attribution in [`lucide/README.md`](lucide/README.md) and [`lucide/LICENSE`](lucide/LICENSE). |
 | SQLite | Public domain; source/runtime inputs are checksum-pinned. |
 
 ## HEIC packaging boundary

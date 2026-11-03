@@ -3,13 +3,18 @@
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
+from io import BytesIO
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 import pytest
 from django.db import close_old_connections, connection
+from PIL import Image
 from playwright.sync_api import expect, sync_playwright
 
-from garden.services import create_crop
+from diary.services import create_entry
+from garden.services import create_crop, delete_crop
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
@@ -56,12 +61,30 @@ def open_entry_edit(page, live_server, user, photos=()):
     return entry_url
 
 
+def test_more_options_warns_before_dropping_a_quick_draft(page, live_server, user):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/")
+    expect(page.locator("#capture-form")).to_be_visible()
+    page.locator("#id_body").fill("Keep this quick note")
+    dialogs = []
+    page.on(
+        "dialog",
+        lambda dialog: (dialogs.append(dialog.message), dialog.dismiss()),
+    )
+    page.get_by_role("link", name="Fler alternativ").click()
+    assert dialogs
+    expect(page).to_have_url(live_server.url + "/")
+    assert page.locator("#id_body").input_value() == "Keep this quick note"
+
+
 def test_favicon_is_available_without_login(page, live_server):
     errors = []
     page.on(
         "console", lambda message: errors.append(message.text) if message.type == "error" else None
     )
     page.goto(live_server.url + "/accounts/login/")
+    expect(page.locator(".login-panel .brand-mark")).to_be_visible()
+    expect(page.locator(".login-panel .brand-mark")).to_have_attribute("alt", "")
     icon = page.locator('link[rel="icon"]')
     expect(icon).to_have_attribute("type", "image/svg+xml")
     expect(icon).to_have_attribute("href", "/static/icons/favicon.svg")
@@ -80,6 +103,15 @@ def test_favicon_is_available_without_login(page, live_server):
     response = page.request.get(live_server.url + "/favicon.ico", max_redirects=0)
     assert response.status == 301
     assert response.headers["location"] == "/static/icons/favicon.svg"
+    touch_icon = page.locator('link[rel="apple-touch-icon"]')
+    expect(touch_icon).to_have_attribute("sizes", "180x180")
+    expect(touch_icon).to_have_attribute("href", "/static/icons/apple-touch-icon.png")
+    response = page.request.get(live_server.url + touch_icon.get_attribute("href"))
+    assert response.status == 200
+    assert response.headers["content-type"] == "image/png"
+    with Image.open(BytesIO(response.body())) as touch_image:
+        assert touch_image.size == (180, 180)
+        assert touch_image.convert("RGBA").getextrema()[3] == (255, 255)
     assert errors == []
 
 
@@ -159,7 +191,7 @@ def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(
     page.locator("#id_library").set_input_files(upload(image_upload(), "library-1.jpg"))
     page.locator("#id_library").set_input_files(upload(image_upload(), "library-2.jpg"))
     expect(page.locator("#photo-previews figure")).to_have_count(3)
-    expect(page.locator("#photo-count")).to_contain_text("3")
+    expect(page.locator("#photo-count")).to_have_text("Valda bilder: 3 av 10")
     page.locator("#id_body").fill("Synthetic browser observation — Ärtor")
     page.locator("#save-entry").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
@@ -170,13 +202,14 @@ def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(
     assert page.evaluate("Object.keys(localStorage).length") == 0
 
 
-def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server, user):
+@pytest.mark.parametrize("mime_type", ["image/svg+xml", "text/html"])
+def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server, user, mime_type):
     login(page, live_server, user)
     filename = '<img src=x onerror="window.previewExecuted=true">.svg'
     page.locator("#id_library").set_input_files(
         {
             "name": filename,
-            "mimeType": "image/svg+xml",
+            "mimeType": mime_type,
             "buffer": b'<svg xmlns="http://www.w3.org/2000/svg" '
             b'onload="window.previewExecuted=true"><script>'
             b"window.previewExecuted=true</script></svg>",
@@ -185,14 +218,56 @@ def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server,
     preview = page.locator("#photo-previews figure")
     expect(preview).to_have_count(1)
     expect(preview.locator("figcaption")).to_have_text(filename)
-    expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
-    expect(preview.locator("img")).to_have_attribute("alt", filename)
-    preview.locator("img").evaluate("image => image.decode()")
-    assert preview.locator("img").count() == 1
+    if mime_type == "image/svg+xml":
+        expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
+        expect(preview.locator("img")).to_have_attribute("alt", filename)
+        preview.locator("img").evaluate("image => image.decode()")
+        assert preview.locator("img").count() == 1
+    else:
+        expect(preview.locator("img")).to_have_count(0)
+        expect(preview.locator("p")).to_have_text(
+            page.locator("[data-photo-picker]").get_attribute("data-preview-unavailable")
+        )
     assert preview.locator("script, svg, [onerror], [onload]").count() == 0
     assert page.evaluate("window.previewExecuted === undefined")
+    key = page.locator("#id_submission_key").input_value()
+    page.locator("#id_body").fill("Synthetic draft with unsupported photo")
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-errors")).not_to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Synthetic draft with unsupported photo")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
     preview.get_by_role("button", name=f"Ta bort: {filename}", exact=True).click()
     expect(page.locator("#photo-previews figure")).to_have_count(0)
+
+
+@pytest.mark.parametrize(
+    "preview_url",
+    [
+        "javascript:window.previewExecuted=true",
+        "data:image/svg+xml,<svg onload='window.previewExecuted=true'/>",
+        "https://example.invalid/preview.jpg",
+        'blob:<img src=x onerror="window.previewExecuted=true">',
+    ],
+)
+def test_preview_rejects_unexpected_urls_without_losing_upload(
+    page, live_server, user, image_upload, preview_url
+):
+    login(page, live_server, user)
+    page.evaluate("url => { URL.createObjectURL = () => url; }", preview_url)
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    preview = page.locator("#photo-previews figure")
+    expect(preview).to_have_count(1)
+    expect(preview.locator("img")).to_have_count(0)
+    expect(preview.locator("p")).to_have_text(
+        page.locator("[data-photo-picker]").get_attribute("data-preview-unavailable")
+    )
+    assert preview.locator("script, svg, [onerror], [onload]").count() == 0
+    assert page.evaluate("window.previewExecuted === undefined")
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    page.locator("#save-entry").click()
+    expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    expect(page.locator(".large-photo")).to_have_count(1)
 
 
 def test_validation_preserves_text_photos_and_submission_key(page, live_server, user, image_upload):
@@ -211,6 +286,116 @@ def test_validation_preserves_text_photos_and_submission_key(page, live_server, 
     expect(page.locator("#id_submission_key")).to_have_value(key)
     assert page.locator("#id_library").evaluate("input => input.files.length") == 1
     expect(page.locator("#save-entry")).to_be_enabled()
+    expect(page.locator("#id_date")).to_have_attribute("aria-invalid", "true")
+    expect(page.locator("#capture-date-errors")).to_contain_text("datum")
+    expect(page.locator("#capture-errors")).to_be_focused()
+    page.locator('#capture-errors a[href="#id_date"]').click()
+    expect(page.locator("#id_date")).to_be_focused()
+    page.locator("#id_date").fill("2026-05-09")
+    page.locator("#save-entry").click()
+    expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    expect(page.locator(".entry-body")).to_have_text("Keep this draft")
+    expect(page.locator(".large-photo")).to_have_count(1)
+
+
+@pytest.mark.parametrize("language", ["sv", "en"])
+def test_capture_foundation_reflows_and_supports_keyboard(
+    page, live_server, user, image_upload, language
+):
+    login(page, live_server, user)
+    page.context.add_cookies(
+        [{"name": "django_language", "value": language, "url": live_server.url}]
+    )
+    page.reload()
+    expect(page.locator("html")).to_have_attribute("lang", language)
+    for width in (320, 390, 1280):
+        page.set_viewport_size({"width": width, "height": 844})
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        for selector in ("#save-entry", ".capture-actions a", "#id_date", "#id_body"):
+            box = page.locator(selector).bounding_box()
+            assert box["width"] >= 44 and box["height"] >= 44
+    page.locator("#id_body").focus()
+    page.keyboard.press("Tab")
+    expect(page.locator("[data-photo-chooser] > summary")).to_be_focused()
+    page.keyboard.press("Enter")
+    page.keyboard.press("Tab")
+    expect(page.locator("[data-pick-photo=camera]")).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(page.locator("[data-pick-photo=library]")).to_be_focused()
+    page.keyboard.press("Escape")
+    expect(page.locator("[data-photo-chooser] > summary")).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(page.locator(".photo-limits > summary")).to_be_focused()
+    assert page.locator("#capture-form").evaluate(
+        """form => [...form.querySelectorAll('[aria-describedby]')].every(input =>
+            input.getAttribute('aria-describedby').split(' ').every(id =>
+                document.getElementById(id)))"""
+    )
+    page.emulate_media(reduced_motion="reduce")
+    assert page.locator("#save-entry").evaluate(
+        """button => getComputedStyle(button).transitionDuration.split(',')
+            .every(t => t.trim() === '0s')"""
+    )
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    expected = "Valda bilder: 1 av 10" if language == "sv" else "Photos selected: 1 of 10"
+    expect(page.locator("[data-photo-count]")).to_have_text(expected)
+    page.locator("#capture-form").evaluate("form => form.reset()")
+    expect(page.locator("[data-photo-count]")).to_have_text("")
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
+    # Emulate larger user text with a self-hosted stylesheet under the unchanged CSP.
+    page.route(
+        "**/static/css/test-text-size.css",
+        lambda route: route.fulfill(
+            status=200, content_type="text/css", body=":root { font-size: 212.5%; }"
+        ),
+    )
+    for path in ("/capture/", "/"):
+        page.goto(live_server.url + path)
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.evaluate(
+            """() => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet'; link.href = '/static/css/test-text-size.css';
+                document.head.append(link);
+            }"""
+        )
+        page.wait_for_function(
+            "() => getComputedStyle(document.documentElement).fontSize === '34px'"
+        )
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
+
+@pytest.mark.parametrize("language", ["sv", "en"])
+def test_capture_without_javascript_keeps_native_inputs_and_retry_help(
+    page, live_server, user, image_upload, language
+):
+    context = page.context.browser.new_context(
+        java_script_enabled=False, viewport={"width": 390, "height": 844}
+    )
+    try:
+        context.add_cookies(
+            [{"name": "django_language", "value": language, "url": live_server.url}]
+        )
+        plain = context.new_page()
+        plain.goto(live_server.url + "/accounts/login/")
+        plain.locator("#id_username").fill(user.username)
+        plain.locator("#id_password").fill("Synthetic-password-42")
+        plain.locator('form:has(#id_username) button[type="submit"]').click()
+        plain.goto(live_server.url + "/capture/")
+        expect(plain.locator("#id_camera")).to_be_visible()
+        expect(plain.locator("#id_library")).to_be_visible()
+        key = plain.locator("#id_submission_key").input_value()
+        # An empty observation gets a server error and the same submission key.
+        plain.locator("#save-entry").click()
+        expect(plain.locator("#capture-errors")).not_to_be_empty()
+        expect(plain.locator("#id_submission_key")).to_have_value(key)
+        expect(plain.locator("#capture-form > p[role=alert]")).to_be_visible()
+        plain.locator("#id_library").set_input_files(upload(image_upload()))
+        plain.locator("#save-entry").click()
+        expect(plain).to_have_url(re.compile(r"/entries/\d+/$"))
+        expect(plain.locator(".large-photo")).to_have_count(1)
+    finally:
+        context.close()
 
 
 def test_network_error_preserves_selection_then_retry_saves_once(
@@ -247,6 +432,7 @@ def test_session_expiry_and_new_tab_login_keep_draft_and_rotate_csrf(
     key = page.locator("#id_submission_key").input_value()
     other = page.context.new_page()
     other.goto(live_server.url + "/")
+    other.locator("#account-menu > summary").click()
     other.locator('button[type="submit"]').filter(has_text="Logga ut").click()
     page.locator("#save-entry").click()
     expect(page.locator("#capture-errors")).to_contain_text("session")
@@ -351,6 +537,34 @@ def test_edit_validation_preserves_draft_and_photo_changes_then_retry_saves(
     assert script_errors == []
 
 
+def test_edit_photo_limit_counts_kept_photos_and_can_be_corrected(
+    page, live_server, user, image_upload
+):
+    entry_url = open_entry_edit(
+        page,
+        live_server,
+        user,
+        [upload(image_upload(), "first.jpg"), upload(image_upload(), "second.jpg")],
+    )
+    page.locator("#id_photos_camera").set_input_files(upload(image_upload(), "camera.jpg"))
+    page.locator("#id_photos").set_input_files(
+        [upload(image_upload(), f"library-{number}.jpg") for number in range(9)]
+    )
+    expect(page.locator("[data-photo-limit-warning]")).to_be_visible()
+    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 10 av 8")
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(10)
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page.locator("#entry-errors")).to_contain_text("10")
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(10)
+    for capacity, removal in enumerate(page.locator('input[name="remove_photos"]').all(), start=9):
+        removal.check()
+        expect(page.locator("[data-photo-count]")).to_have_text(f"Valda bilder: 10 av {capacity}")
+    expect(page.locator("[data-photo-limit-warning]")).to_be_hidden()
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".large-photo")).to_have_count(10)
+
+
 def test_edit_conflict_is_visible_and_preserves_the_unsaved_draft(
     page, live_server, user, image_upload
 ):
@@ -444,6 +658,7 @@ def test_edit_session_recovery_keeps_draft_and_refreshes_csrf(
     version = page.locator("#id_expected_updated_at").input_value()
     other = page.context.new_page()
     other.goto(live_server.url + "/")
+    other.locator("#account-menu > summary").click()
     other.get_by_role("button", name="Logga ut", exact=True).click()
 
     with page.expect_response(
@@ -468,3 +683,280 @@ def test_edit_session_recovery_keeps_draft_and_refreshes_csrf(
     expect(page.locator(".entry-body")).to_have_text("Edit after logging in again")
     expect(page.locator(".large-photo")).to_have_count(1)
     other.close()
+
+
+@pytest.mark.parametrize("photo_count", [0, 1, 3])
+def test_quick_capture_saves_without_navigation_and_resets_only_after_success(
+    page, live_server, user, image_upload, photo_count
+):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/")
+    key = page.locator("#id_submission_key").input_value()
+    if photo_count:
+        page.locator("[data-photo-chooser] > summary").click()
+        with page.expect_file_chooser() as picker:
+            page.locator("[data-pick-photo=library]").click()
+        picker.value.set_files(
+            [upload(image_upload(), f"synthetic-{number}.jpg") for number in range(photo_count)]
+        )
+    if photo_count != 1:
+        if photo_count == 0:
+            initial_height = page.locator("#id_body").bounding_box()["height"]
+            page.locator("#id_body").fill("Synthetic long note\n" * 8)
+            assert page.locator("#id_body").bounding_box()["height"] > initial_height
+        page.locator("#id_body").fill("Synthetic quick observation")
+    page.locator("#save-entry").click()
+    expect(page.locator("#quick-receipt")).to_contain_text("har sparats")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    expect(page).to_have_url(live_server.url + "/")
+    expect(page.locator("#id_body")).to_have_value("")
+    assert page.locator("#id_submission_key").input_value() != key
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 0
+    expect(page.locator("#photo-previews figure")).to_have_count(0)
+    expect(page.locator("#diary-results .diary-card h2")).to_be_focused()
+    expect(page.locator("#diary-results .photo-grid img")).to_have_count(photo_count)
+    page.reload()
+    box = page.locator("#diary-results .diary-card").bounding_box()
+    assert box["y"] < 844
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
+
+def test_quick_capture_lost_response_keeps_draft_and_retries_without_duplicates(
+    page, live_server, user, image_upload
+):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/")
+    page.locator("#id_body").fill("Retry a committed quick capture")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+
+    def lose_response(route):
+        if route.request.method == "POST":
+            route.fetch()
+            route.abort()
+        else:
+            route.continue_()
+
+    page.route("**/capture/", lose_response)
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-errors")).not_to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Retry a committed quick capture")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    page.unroute("**/capture/")
+    page.locator("#save-entry").click()
+    expect(page.locator("#quick-receipt")).to_contain_text("redan")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
+
+
+@pytest.mark.parametrize("refresh_fails", [False, True])
+def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_page(
+    page, live_server, user, image_upload, refresh_fails
+):
+    def seed_entries():
+        close_old_connections()
+        try:
+            actor = type(user).objects.get(pk=user.pk)
+            for number in range(21):
+                create_entry(
+                    author=actor,
+                    date=date(2026, 1, 1),
+                    body=f"Synthetic pagination note {number}",
+                    uploads=[],
+                    submission_key=uuid4(),
+                )
+            for entry_date, body in (
+                (date(2025, 1, 1), "Synthetic pagination note from another year"),
+                (date(2026, 1, 1), "Synthetic unrelated observation"),
+            ):
+                create_entry(
+                    author=actor, date=entry_date, body=body, uploads=[], submission_key=uuid4()
+                )
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.submit(seed_entries).result(timeout=20)
+    login(page, live_server, user)
+    filters = "q=pagination&year=2026"
+    first_url = live_server.url + "/?" + filters
+    later_url = first_url + "&page=2"
+    page.goto(later_url)
+    expect(page.locator("#diary-result-count")).to_contain_text("21")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    page.locator("#id_date").fill("2026-05-09")
+    page.locator("#id_body").fill("Synthetic newest pagination note")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    if refresh_fails:
+        page.route(first_url, lambda route: route.abort())
+    page.locator("#save-entry").click()
+    saved = page.locator("#quick-receipt [data-capture-saved]")
+    expect(saved).to_be_attached()
+    entry_id = saved.get_attribute("data-capture-saved")
+    if refresh_fails:
+        expect(page.locator("#filter-status")).not_to_be_empty()
+        expect(page).to_have_url(later_url)
+        expect(page.locator("#diary-result-count")).to_contain_text("21")
+        expect(saved.locator("a")).to_be_focused()
+        page.unroute(first_url)
+        page.locator("#open-filters").click()
+        page.locator("#id_q").press("Enter")
+        page.keyboard.press("Escape")
+    expect(page).to_have_url(first_url)
+    expect(page.locator("#diary-result-count")).to_contain_text("22")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(20)
+    expect(page.locator(f"#entry-{entry_id} .entry-body")).to_have_text(
+        "Synthetic newest pagination note"
+    )
+    expect(page.locator(f"#entry-{entry_id} .photo-grid img")).to_have_count(1)
+    if not refresh_fails:
+        expect(page.locator(f"#entry-{entry_id} h2")).to_be_focused()
+    expect(page.locator('input[name="filter_query"]')).to_have_value(filters)
+    expect(page.locator("#id_body")).to_have_value("")
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 0
+    page.reload()
+    expect(page.locator(f"#entry-{entry_id}")).to_be_attached()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(20)
+    expect(page.locator("#diary-result-count")).to_contain_text("22")
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_stale_diary_filter_errors_identify_the_field_and_clear_on_retry(
+    page, live_server, user, image_upload, width
+):
+    def change_crop(pk=None):
+        close_old_connections()
+        try:
+            actor = type(user).objects.get(pk=user.pk)
+            if pk is None:
+                return create_crop(actor=actor, name="Synthetic temporary crop").record.pk
+            delete_crop(actor=actor, pk=pk)
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        crop_pk = executor.submit(change_crop).result(timeout=20)
+        page.set_viewport_size({"width": width, "height": 844})
+        login(page, live_server, user)
+        page.goto(live_server.url + "/")
+        expect(page.locator(f"#id_crop option[value='{crop_pk}']")).to_be_attached()
+        executor.submit(change_crop, crop_pk).result(timeout=20)
+    page.locator("#id_body").fill("Keep this draft while correcting filters")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    if width < 900:
+        page.locator("#open-filters").click()
+    page.locator("#id_crop").select_option(str(crop_pk))
+    expect(page.locator("#id_crop")).to_have_attribute("aria-invalid", "true")
+    expect(page.locator("#id_crop_errors")).not_to_be_empty()
+    expect(page.locator('#diary-results [data-field-errors="crop"]')).not_to_be_empty()
+    feedback = "#filter-drawer-status" if width < 900 else "#filter-status"
+    expect(page.locator(feedback)).not_to_be_empty()
+    if width < 900:
+        page.keyboard.press("Escape")
+    page.locator('#diary-results .error-summary a[href="#id_crop"]').click()
+    expect(page.locator("#id_crop")).to_be_focused()
+    page.locator("#id_crop").select_option("")
+    expect(page.locator("#id_crop")).not_to_have_attribute("aria-invalid", "true")
+    expect(page.locator("#id_crop_errors")).to_be_empty()
+    expect(page.locator("#diary-results .error-summary")).to_have_count(0)
+    expect(page.locator(feedback)).to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Keep this draft while correcting filters")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+
+
+def test_diary_filters_chips_and_history_preserve_the_capture_draft(
+    page, live_server, user, image_upload
+):
+    login(page, live_server, user)
+    page.locator("#id_body").fill("Synthetic searchable tomato")
+    page.locator("#save-entry").click()
+    expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
+    page.goto(live_server.url + "/")
+    page.locator("#id_body").fill("Unsubmitted draft")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    page.locator("#open-filters").click()
+    expect(page.locator("#id_q")).to_be_focused()
+    page.locator("#id_q").fill("tomato")
+    expect(page).to_have_url(live_server.url + "/?q=tomato")
+    expect(page.locator("#id_q")).to_be_focused()
+    expect(page.locator(".filter-chip")).to_have_count(1)
+    page.keyboard.press("Shift+Tab")
+    expect(page.locator("[data-dialog-close]")).to_be_focused()
+    for _ in range(14):
+        page.keyboard.press("Tab")
+        assert page.evaluate("document.activeElement.closest('#filter-dialog') !== null")
+    page.keyboard.press("Escape")
+    expect(page.locator("#open-filters")).to_be_focused()
+    page.locator(".filter-chip").click()
+    expect(page).to_have_url(live_server.url + "/")
+    expect(page.locator(".filter-chip")).to_have_count(0)
+    page.go_back()
+    expect(page).to_have_url(live_server.url + "/?q=tomato")
+    expect(page.locator(".filter-chip")).to_have_count(1)
+    expect(page.locator("#id_q")).to_have_value("tomato")
+    expect(page.locator("#id_body")).to_have_value("Unsubmitted draft")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+
+
+def test_filter_failure_is_visible_in_the_drawer_and_retry_keeps_the_draft(page, live_server, user):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/")
+    page.locator("#id_body").fill("Keep filtering draft")
+    page.locator("#open-filters").click()
+    page.route("**/?q=*", lambda route: route.abort())
+    page.locator("#id_q").fill("synthetic")
+    expect(page.locator("#filter-drawer-status")).not_to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Keep filtering draft")
+    page.unroute("**/?q=*")
+    page.locator("#id_q").press("Enter")
+    expect(page).to_have_url(live_server.url + "/?q=synthetic")
+    expect(page.locator("#filter-drawer-status")).to_be_empty()
+
+
+def test_account_disclosure_and_language_change_keep_the_filtered_page(page, live_server, user):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/?q=synthetic")
+    trigger = page.locator("#account-menu > summary")
+    trigger.click()
+    expect(page.locator('#account-menu a[href="/operator/"]')).to_have_count(0)
+    page.keyboard.press("Escape")
+    expect(trigger).to_be_focused()
+    trigger.click()
+    page.locator("#language").select_option("en")
+    expect(page.locator("html")).to_have_attribute("lang", "en")
+    expect(page).to_have_url(live_server.url + "/?q=synthetic")
+    expect(page.locator(".site-header nav [aria-current=page]")).to_have_text("Diary")
+
+
+def test_quick_add_and_filters_work_without_javascript(page, live_server, user, image_upload):
+    context = page.context.browser.new_context(
+        java_script_enabled=False, viewport={"width": 390, "height": 844}
+    )
+    try:
+        plain = context.new_page()
+        plain.goto(live_server.url + "/accounts/login/")
+        plain.locator("#id_username").fill(user.username)
+        plain.locator("#id_password").fill("Synthetic-password-42")
+        plain.locator('form:has(#id_username) button[type="submit"]').click()
+        expect(plain.locator("#id_library")).to_be_visible()
+        plain.locator("#id_body").fill("Synthetic no-JavaScript quick note")
+        plain.locator("#id_library").set_input_files(upload(image_upload()))
+        plain.locator("#save-entry").click()
+        expect(plain).to_have_url(re.compile(r"/#entry-\d+$"))
+        expect(plain.locator(".diary-card")).to_have_count(1)
+        expect(plain.locator(".diary-card .photo-grid img")).to_have_count(1)
+        plain.locator("#diary-filters > summary").click()
+        plain.locator("#id_q").fill("does not match")
+        plain.locator("[data-filter-submit]").click()
+        expect(plain.locator(".diary-card")).to_have_count(0)
+        plain.locator(".filter-chip").click()
+        expect(plain.locator(".diary-card")).to_have_count(1)
+        plain.locator("#account-menu > summary").click()
+        expect(plain.locator("#account-menu .language-form button")).to_be_visible()
+    finally:
+        context.close()

@@ -1,11 +1,13 @@
 import logging
+from uuid import uuid4
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import OperationalError
-from django.http import HttpResponse
+from django.http import HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -67,9 +69,14 @@ def _editable_entry(request, pk):
     return entry
 
 
-@require_GET
-def entry_list(request):
-    data = request.GET.copy()
+def _filter_query(value):
+    data = QueryDict(value).copy()
+    data.pop("page", None)
+    return data.urlencode()
+
+
+def _list_context(request, *, data=None, capture_form=None):
+    data = request.GET.copy() if data is None else data.copy()
     form = DiaryFilterForm(data, years=diary_years())
     valid = form.is_valid()
     page_obj = None
@@ -86,17 +93,46 @@ def entry_list(request):
     query.pop("page", None)
     for entry in page_obj.object_list:
         entry.can_edit = can_edit_entry(request.user, entry)
+    active_filters = []
+    for name, field in form.fields.items():
+        value = data.get(name)
+        if not value:
+            continue
+        selected = form.cleaned_data.get(name, value)
+        display = field.label_from_instance(selected) if hasattr(selected, "pk") else selected
+        remaining = query.copy()
+        remaining.pop(name, None)
+        active_filters.append(
+            {
+                "label": field.label,
+                "value": display,
+                "url": reverse("diary:list") + ("?" + remaining.urlencode() if remaining else ""),
+            }
+        )
+    return {
+        "form": form,
+        "capture_form": capture_form or CaptureForm(quick=True),
+        "page_obj": page_obj,
+        "querystring": query.urlencode(),
+        "filter_query": query.urlencode(),
+        "valid_filter": valid,
+        "active_filters": active_filters,
+        "diary_has_entries": DiaryEntry.objects.exists(),
+    }
+
+
+@require_GET
+def entry_list(request):
+    context = _list_context(request)
+    partial = (
+        request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-Target") == "diary-results"
+    )
     return render(
         request,
-        "diary/list.html",
-        {
-            "form": form,
-            "page_obj": page_obj,
-            "querystring": query.urlencode(),
-            "valid_filter": valid,
-            "diary_has_entries": DiaryEntry.objects.exists(),
-        },
-        status=200 if valid else 422,
+        "diary/_results.html" if partial else "diary/list.html",
+        context,
+        status=200 if context["valid_filter"] else 422,
     )
 
 
@@ -298,9 +334,11 @@ def photo_delete(request, pk):
 
 @require_http_methods(["GET", "POST"])
 def capture(request):
+    quick = request.method == "POST" and request.POST.get("capture_mode") == "quick"
     form = CaptureForm(
         request.POST if request.method == "POST" else None,
         request.FILES if request.method == "POST" else None,
+        quick=quick,
     )
     status = 422
     if request.method == "POST":
@@ -336,6 +374,15 @@ def capture(request):
                 )
                 status = 503
             else:
+                if quick and request.headers.get("HX-Request") == "true":
+                    response = render(
+                        request,
+                        "diary/_quick_saved.html",
+                        {"entry": result.entry, "created": result.created, "next_key": uuid4()},
+                    )
+                    response["HX-Retarget"] = "#quick-receipt"
+                    response["HX-Reswap"] = "innerHTML"
+                    return response
                 messages.success(
                     request,
                     _("Observation saved.") if result.created else _("Observation already saved."),
@@ -344,8 +391,20 @@ def capture(request):
                     response = HttpResponse(status=204)
                     response["HX-Redirect"] = result.entry.get_absolute_url()
                     return response
+                if quick:
+                    query = _filter_query(request.POST.get("filter_query", ""))
+                    destination = reverse("diary:list") + ("?" + query if query else "")
+                    return redirect(f"{destination}#entry-{result.entry.pk}")
                 return redirect(result.entry)
         if request.headers.get("HX-Request") == "true":
             return render(request, "diary/capture_errors.html", {"form": form}, status=status)
+        if quick:
+            context = _list_context(
+                request,
+                data=QueryDict(request.POST.get("filter_query", "")),
+                capture_form=form,
+            )
+            context["failed"] = True
+            return render(request, "diary/list.html", context, status=status)
         return render(request, "diary/capture.html", {"form": form, "failed": True}, status=status)
     return render(request, "diary/capture.html", {"form": form})

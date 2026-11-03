@@ -1,0 +1,43 @@
+{% load i18n %}
+<section id="diary-results" aria-label="{% translate 'Observations' %}">
+  <div role="alert">{% include 'diary/form_errors.html' %}</div>
+  <p id="diary-result-count" data-result-focus class="muted" role="status" tabindex="-1">{% blocktranslate count count=page_obj.paginator.count %}{{ count }} observation{% plural %}{{ count }} observations{% endblocktranslate %}</p>
+  <template data-year-options>{% for value, label in form.fields.year.choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</template>
+  {% if active_filters %}
+  <div class="filter-chips" aria-label="{% translate 'Active filters' %}">
+    {% for filter in active_filters %}
+    <a class="filter-chip" href="{{ filter.url }}" data-filter-link aria-label="{% translate 'Remove filter' %}: {{ filter.label }}: {{ filter.value }}">{{ filter.label }}: {{ filter.value }} <svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-x"/></svg></a>
+    {% endfor %}
+    <a href="{% url 'diary:list' %}" data-filter-link>{% translate 'Clear filters' %}</a>
+  </div>
+  {% endif %}
+  {% for entry in page_obj %}
+    {% include 'diary/_card.html' %}
+  {% empty %}
+    {% if not valid_filter %}
+    {% translate 'Check the filters' as empty_heading %}
+    {% translate 'Choose a valid value, or clear the filters and try again.' as empty_description %}
+    {% elif diary_has_entries %}
+    {% translate 'No observations match these filters.' as empty_heading %}
+    {% translate 'Try clearing a filter or searching for a different word.' as empty_description %}
+    {% else %}
+    {% translate 'Start with one observation' as empty_heading %}
+    {% translate 'A photo, a short note, or both. Start with what you want to record.' as empty_description %}
+    {% endif %}
+    {% if not valid_filter or diary_has_entries %}
+      {% url 'diary:list' as empty_action_url %}
+      {% translate 'Clear filters' as empty_action_label %}
+      {% include 'components/empty_state.html' with empty_filter_link=True %}
+    {% else %}
+      {% translate 'New observation' as empty_action_label %}
+      {% include 'components/empty_state.html' with empty_action_url='#id_body' empty_filter_link=False %}
+    {% endif %}
+  {% endfor %}
+  {% if page_obj.has_other_pages %}
+  <nav class="pagination" aria-label="{% translate 'Diary pages' %}">
+    {% if page_obj.has_previous %}<a data-filter-link href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">{% translate 'Newer entries' %}</a>{% endif %}
+    <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a data-filter-link href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">{% translate 'Older entries' %}</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>

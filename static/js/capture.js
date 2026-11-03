@@ -7,21 +7,26 @@
   const status = document.getElementById("capture-status");
   const progress = document.getElementById("capture-progress");
   const save = document.getElementById("save-entry");
-  const previews = document.getElementById("photo-previews");
-  const count = document.getElementById("photo-count");
   const inputs = [document.getElementById("id_camera"), document.getElementById("id_library")];
-  const selections = new Map(inputs.map(input => [input, []]));
-  let urls = [];
   let busy = false;
-  // Only use accumulated-selection mode when assigning FileLists is supported.
-  let canAccumulate = false;
-  try {
-    const probe = new DataTransfer();
-    const input = document.createElement("input");
-    input.type = "file";
-    input.files = probe.files;
-    canAccumulate = true;
-  } catch (_) { /* The native picker still works without accumulating selections. */ }
+
+  function syncFieldErrors() {
+    for (const name of ["date", "body", "camera", "library"]) {
+      const input = form.elements.namedItem(name);
+      const target = document.getElementById(`capture-${name}-errors`);
+      const source = errors.querySelector(`[data-field-errors="${name}"]`);
+      target.replaceChildren();
+      if (source) {
+        // Keep field feedback beside the input when HTMX replaces only the summary.
+        for (const item of source.querySelectorAll("li")) {
+          const message = document.createElement("p");
+          message.textContent = item.textContent;
+          target.append(message);
+        }
+        input.setAttribute("aria-invalid", "true");
+      } else input.removeAttribute("aria-invalid");
+    }
+  }
 
   function setBusy(value) {
     busy = value;
@@ -29,7 +34,6 @@
     document.getElementById("id_body").readOnly = value;
     document.getElementById("id_date").readOnly = value;
     inputs.forEach(input => { input.disabled = value; });
-    previews.querySelectorAll("button").forEach(button => { button.disabled = value; });
     if (value) form.setAttribute("aria-busy", "true");
     else form.removeAttribute("aria-busy");
   }
@@ -39,61 +43,17 @@
     errors.focus();
   }
 
-  function renderPreviews() {
-    urls.forEach(url => URL.revokeObjectURL(url));
-    urls = [];
-    previews.replaceChildren();
-    let total = 0;
-    for (const input of inputs) {
-      const files = selections.get(input);
-      total += files.length;
-      files.forEach((file, index) => {
-        const figure = document.createElement("figure");
-        const image = document.createElement("img");
-        const url = URL.createObjectURL(file);
-        urls.push(url);
-        image.src = url;
-        image.alt = file.name;
-        const caption = document.createElement("figcaption");
-        caption.textContent = file.name;
-        image.addEventListener("error", () => {
-          image.remove();
-          const hint = document.createElement("p");
-          hint.textContent = form.dataset.previewUnavailable;
-          figure.prepend(hint);
-        });
-        figure.append(image, caption);
-        if (canAccumulate) {
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.textContent = form.dataset.remove;
-          remove.setAttribute("aria-label", `${form.dataset.remove}: ${file.name}`);
-          remove.addEventListener("click", () => {
-            if (busy) return;
-            files.splice(index, 1);
-            updateFiles(input);
-            renderPreviews();
-          });
-          figure.append(remove);
-        }
-        previews.append(figure);
-      });
-    }
-    count.textContent = total ? `${form.dataset.photosSelected} ${total}` : "";
-  }
-
-  function updateFiles(input) {
-    const transfer = new DataTransfer();
-    selections.get(input).forEach(file => transfer.items.add(file));
-    input.files = transfer.files;
-  }
-
-  inputs.forEach(input => input.addEventListener("change", () => {
-    const chosen = Array.from(input.files);
-    selections.set(input, canAccumulate ? selections.get(input).concat(chosen) : chosen);
-    if (canAccumulate) updateFiles(input);
-    renderPreviews();
-  }));
+  const moreOptions = form.querySelector("[data-more-options]");
+  moreOptions?.addEventListener("click", event => {
+    // Opening the full form in another tab keeps this quick draft intact.
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const body = document.getElementById("id_body");
+    const date = document.getElementById("id_date");
+    const hasDraft = (body?.value.trim() || "") !== "" ||
+      (date?.value || "") !== (date?.defaultValue || "") ||
+      inputs.some(input => input?.files?.length);
+    if (hasDraft && !window.confirm(moreOptions.dataset.confirm)) event.preventDefault();
+  });
 
   form.addEventListener("htmx:configRequest", event => {
     // A login in another tab rotates Django's CSRF cookie. Refresh the submitted token
@@ -106,6 +66,7 @@
     if (busy) { event.preventDefault(); return; }
     setBusy(true);
     errors.replaceChildren();
+    syncFieldErrors();
     progress.hidden = false;
     progress.value = 0;
     status.textContent = form.dataset.uploading;
@@ -129,7 +90,24 @@
       showError(form.dataset.genericError);
     }
   });
-  form.addEventListener("htmx:afterSwap", () => errors.focus());
+  document.addEventListener("htmx:afterSwap", event => {
+    if (event.detail.target === errors) {
+      syncFieldErrors();
+      errors.focus();
+    } else if (event.detail.target?.id === "quick-receipt") {
+      const saved = event.detail.target.querySelector("[data-capture-saved]");
+      if (!saved) return;
+      form.reset();
+      const key = form.elements.namedItem("submission_key");
+      key.value = key.defaultValue = saved.dataset.nextKey;
+      errors.replaceChildren();
+      syncFieldErrors();
+      saved.querySelector("a").focus();
+      document.dispatchEvent(new CustomEvent("diary:saved", {
+        detail: { entryId: saved.dataset.captureSaved }
+      }));
+    }
+  });
   form.addEventListener("htmx:afterRequest", () => {
     setBusy(false);
     progress.hidden = true;
@@ -138,5 +116,4 @@
   ["htmx:sendError", "htmx:timeout"].forEach(name => {
     form.addEventListener(name, () => showError(form.dataset.networkError));
   });
-  window.addEventListener("pagehide", () => urls.forEach(url => URL.revokeObjectURL(url)));
 })();

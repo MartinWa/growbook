@@ -1,68 +1,28 @@
 {% extends 'base.html' %}
 {% load i18n %}
-{% block title %}{{ heading }}{% if year %} · {{ year }}{% endif %} · growbook{% endblock %}
+{% block title %}{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %} · growbook{% endblock %}
 {% block page_class %}page register-page{% endblock %}
 {% block content %}
 <div class="page-heading">
   <h1>{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}</h1>
-  <a class="button" href="{{ create_url }}">{% translate 'New planting' %}</a>
-</div>
-<nav class="register-nav" aria-label="{% translate 'Planting navigation' %}">
-  <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
-  <a href="{{ all_years_url }}">{% translate 'All years' %}</a>
-  {% if scope %}<a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a>{% endif %}
-</nav>
-<form method="get" class="planting-filter">
-  <div role="alert">{% include 'garden/form_errors.html' %}</div>
-  <div class="filter-fields">
-  {% for field in form %}
-    {% if field.name in locked_filters %}{{ field.as_hidden }}{% else %}
-    <div class="field">{% if field.name == 'unassigned' or field.name == 'unknown_variety' %}{{ field }} {{ field.label_tag }}{% else %}{{ field.label_tag }}{{ field }}{% endif %}</div>
-    {% endif %}
-  {% endfor %}
-  <button type="submit" class="quiet">{% translate 'Apply' %}</button>
+  <div class="heading-actions">
+    <button id="open-filters" type="button" class="quiet" hidden aria-haspopup="dialog" aria-controls="filter-dialog">{% translate 'Planting filters' %}</button>
+    <a class="button" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
   </div>
-</form>
-<nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
-  {% if previous_url %}<a aria-label="{% translate 'Previous year' %}" href="{{ previous_url }}">← {% translate 'Previous year' %}</a>{% endif %}
-  {% if next_url %}<a aria-label="{% translate 'Next year' %}" href="{{ next_url }}">{% translate 'Next year' %} →</a>{% endif %}
-</nav>
-<p class="muted">{% translate 'Area filters include descendants and show the actual assigned place. Archived records remain in histories.' %}</p>
-<p class="muted">{% translate 'Histories use current area assignments and nesting, not historical layouts.' %}</p>
-<p class="muted">{% translate 'Expand several rows at once to compare details.' %}</p>
-<div class="table-scroll">
-<table class="register-table">
-  <caption class="visually-hidden">{{ heading }}{% if year %} · {{ year }}{% endif %}</caption>
-  <thead><tr>
-    <th scope="col">{% translate 'Batch label' %}</th><th scope="col">{% translate 'Crop' %}</th>
-    <th scope="col">{% translate 'Variety' %}</th><th scope="col">{% translate 'Growing area' %}</th>
-    <th scope="col">{% translate 'Years' %}</th><th scope="col">{% translate 'Quantity' %}</th>
-    <th scope="col">{% translate 'Details' %}</th>
-  </tr></thead>
-  {% for record in records %}
-  <tbody class="register-row-group">
-    <tr>
-      <th scope="row"><a href="{{ record.get_absolute_url }}">{{ record.display_label }}</a></th>
-      <td><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</td>
-      <td>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</td>
-      <td>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.area_path }}</a>{% if record.area.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</td>
-      <td>{{ record.start_year }}{% if record.lifespan == 'persistent' %}–{% if record.end_year %}{{ record.end_year }}{% else %}{% translate 'Ongoing' %}{% endif %}{% endif %}<br>{{ record.get_lifespan_display }}</td>
-      <td>{{ record.quantity|default_if_none:'—' }}</td>
-      <td><a class="row-toggle" href="{{ record.get_absolute_url }}" aria-controls="details-planting-{{ record.pk }}" aria-expanded="false"
-        aria-label="{% translate 'Details' %}: {{ record.display_label }}" data-register-toggle data-details-url="{{ record.get_absolute_url }}"
-        data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Collapse and expand to retry, or follow the record link.' %}">{% translate 'Details' %}</a></td>
-    </tr>
-    <tr id="details-planting-{{ record.pk }}" class="register-expanded" hidden><td colspan="7">
-      <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.display_label }}" aria-live="polite"></div>
-    </td></tr>
-  </tbody>
-  {% empty %}<tbody><tr><td colspan="7">{% translate 'No plantings match these filters.' %}</td></tr></tbody>{% endfor %}
-</table>
 </div>
-{% if scope %}
-<section class="panel diary-observations" aria-labelledby="history-observations">
-  <h2 id="history-observations">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>
-  {% include 'diary/_observations.html' %}
-</section>
-{% endif %}
+<div class="filter-layout" data-filter-page data-results-id="planting-results"
+  data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
+  data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
+  data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
+  <aside>
+    <details class="diary-filters" data-filter-disclosure{% if form.errors %} open{% endif %}>
+      <summary class="button quiet"><span class="filter-open-label">{% translate 'Planting filters' %}</span><span class="filter-close-label">{% translate 'Close filters' %}</span></summary>
+      {% include 'garden/planting_filters.html' %}
+    </details>
+  </aside>
+  <div class="filter-stream">
+    <p id="filter-status" class="field-errors" role="alert"></p>
+    {% include 'garden/planting_results.html' %}
+  </div>
+</div>
 {% endblock %}

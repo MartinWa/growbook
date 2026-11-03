@@ -39,14 +39,16 @@
   {% endif %}
   <div class="form-actions">
     <a class="button" href="{{ edit_url }}">{% translate 'Edit' %}</a>
-    <a href="{{ history_url }}">{% translate 'Planting history' %}</a>
-    {% if kind == 'crop' %}<a href="{% url 'garden:variety-create' %}?crop={{ record.pk }}">{% translate 'New variety' %}</a>{% endif %}
     <form method="post" action="{{ archive_url }}">
       {% csrf_token %}
       {% if record.is_archived %}<input type="hidden" name="archived" value="false"><button type="submit" class="quiet">{% translate 'Restore to active selections' %}</button>
       {% else %}<input type="hidden" name="archived" value="true"><button type="submit" class="quiet">{% translate 'Archive' %}</button>{% endif %}
     </form>
     <a href="{{ delete_url }}">{% translate 'Delete' %}</a>
+  </div>
+  <div class="related-actions">
+    <a href="{{ history_url }}">{% translate 'Planting history' %}</a>
+    {% if kind == 'crop' %}<a href="{% url 'garden:variety-create' %}?crop={{ record.pk }}">{% translate 'New variety' %}</a>{% endif %}
   </div>
   <section class="diary-observations" aria-labelledby="diary-observations-{{ kind }}-{{ record.pk }}">
     <h2 id="diary-observations-{{ kind }}-{{ record.pk }}">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>

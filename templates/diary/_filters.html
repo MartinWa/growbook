@@ -1,0 +1,22 @@
+{% load i18n %}
+<div class="filter-panel" id="filter-panel">
+  <header class="filter-heading">
+    <h2 id="filter-title">{% translate 'Search and filters' %}</h2>
+    <button type="button" class="quiet icon-button" data-dialog-close hidden aria-label="{% translate 'Close filters' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-x"/></svg></button>
+  </header>
+  <p id="filter-drawer-status" class="field-errors" role="alert"></p>
+  <form id="diary-filter-form" data-filter-form method="get" action="{% url 'diary:list' %}" role="search">
+    {% for field in form %}
+    <div class="field">
+      {{ field.label_tag }}{{ field }}
+      <div id="{{ field.auto_id }}_errors" class="field-errors" data-filter-field-errors="{{ field.name }}">{{ field.errors }}</div>
+    </div>
+    {% endfor %}
+    <div class="form-actions">
+      <button type="submit" data-filter-submit>{% translate 'Filter' %}</button>
+      <a href="{% url 'diary:list' %}" data-filter-link>{% translate 'Clear filters' %}</a>
+    </div>
+    {% if form.non_field_errors %}<div role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <details class="filter-help"><summary>{% translate 'How filters work' %}</summary><p class="field-help">{% translate 'Filters combine. A planting match also includes its crop, variety and area; an area filter includes subareas.' %}</p></details>
+  </form>
+</div>

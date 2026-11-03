@@ -1,0 +1,16 @@
+{% load i18n %}
+<p class="field-help planting-required-help">{% translate 'Only crop and start year are required.' %}</p>
+{% for field in form.hidden_fields %}{{ field }}{% endfor %}
+{% include 'garden/field.html' with field=form.crop %}
+{% include 'garden/field.html' with field=form.start_year %}
+<details class="form-disclosure" id="planting-more-details"{% if form.details_open %} open{% endif %}>
+  <summary>{% translate 'More details' %}</summary>
+  <div class="disclosure-fields">{% for field in form.detail_fields %}{% include 'garden/field.html' %}{% endfor %}</div>
+</details>
+<details class="form-disclosure" id="planting-notes-photos"{% if form.notes_open %} open{% endif %}>
+  <summary>{% translate 'Notes and photos' %}</summary>
+  <div class="disclosure-fields">
+    {% for field in form.note_fields %}{% if field.name == 'photos' %}{% include 'components/photo_picker.html' with existing_photos=record.photos.count %}{% else %}{% include 'garden/field.html' %}{% endif %}{% endfor %}
+    <p class="field-help">{% translate 'Evaluation is cumulative. Area changes and reparenting also change past-year views; movement history is not recorded.' %}</p>
+  </div>
+</details>

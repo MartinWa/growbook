@@ -83,6 +83,91 @@ def payload(catalog, **overrides):
     }
 
 
+def test_empty_plantings_offer_crop_then_prefilled_planting_creation(client, user):
+    client.force_login(user)
+    path = reverse("garden:planting-list")
+    response = client.get(path, {"year": 2026})
+    assert response.context["empty_action_url"] == reverse("garden:crop-create")
+    crop = create_crop(actor=user, name="First crop").record
+    response = client.get(path, {"year": 2026, "crop": crop.pk})
+    assert response.context["empty_action_url"] == response.context["create_url"]
+    form = client.get(response.context["empty_action_url"]).context["form"]
+    assert str(form["crop"].value()) == str(crop.pk)
+    assert str(form["start_year"].value()) == "2026"
+
+
+@pytest.mark.parametrize("partial", [False, True])
+@pytest.mark.parametrize("kind", ["crop", "variety", "area"])
+def test_empty_history_actions_clear_adjustable_filters_and_keep_scope(
+    client, user, catalog, partial, kind
+):
+    client.force_login(user)
+    scope = catalog["root" if kind == "area" else kind]
+    path = reverse(f"garden:{kind}-history", args=[scope.pk])
+    headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
+    for filters in ({"year": 2027}, {"year": "invalid"}, {"unassigned": "on"}):
+        response = client.get(path, filters, **headers)
+        assert not response.context["records"]
+        assert response.context["empty_action_url"] == path
+        assert b'class="panel empty-state"' in response.content
+        restored = client.get(response.context["empty_action_url"], **headers)
+        assert [row.pk for row in restored.context["records"]] == [catalog["planting"].pk]
+
+
+def test_empty_scope_offers_creation_instead_of_clearing_to_the_same_empty_history(
+    client, user, catalog
+):
+    client.force_login(user)
+    path = reverse("garden:crop-history", args=[catalog["other_crop"].pk])
+    response = client.get(path)
+    assert not response.context["records"]
+    assert response.context["empty_action_url"] == response.context["create_url"]
+    assert "crop=" + str(catalog["other_crop"].pk) in response.context["empty_action_url"]
+
+
+def test_empty_year_overview_links_to_all_years_without_adjustable_filters(client, user, catalog):
+    client.force_login(user)
+    response = client.get(reverse("garden:planting-list"), {"year": 2027})
+    assert response.context["empty_action_url"] == reverse("garden:planting-history")
+    assert client.get(response.context["empty_action_url"]).context["records"]
+
+
+def test_planting_partial_preserves_scope_and_returns_filter_errors(client, user, catalog):
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"}
+    path = reverse("garden:crop-history", args=[catalog["crop"].pk])
+    response = client.get(path, {"crop": catalog["other_crop"].pk, "year": 2026}, **headers)
+    assert response.status_code == 200
+    assert response.context["records"][0].pk == catalog["planting"].pk
+    assert response.context["locked_filters"] == {"crop"}
+    assert b'id="planting-results"' in response.content
+    assert b"<html" not in response.content
+    invalid = client.get(path, {"year": "invalid"}, **headers)
+    assert invalid.status_code == 422
+    assert invalid.context["form"].errors["year"]
+    assert b'data-field-errors="year"' in invalid.content
+
+
+def test_invalid_planting_filter_renders_inline_field_feedback(client, user):
+    client.force_login(user)
+    response = client.get(reverse("garden:planting-list"), {"year": 10000})
+    assert response.status_code == 422
+    assert 'id="id_year_errors"' in response.text
+    assert 'data-filter-field-errors="year"' in response.text
+
+
+def test_optional_planting_groups_open_for_invalid_and_populated_values(client, user, catalog):
+    client.force_login(user)
+    path = reverse("garden:planting-create")
+    form = client.get(path).context["form"]
+    assert not form.details_open and not form.notes_open
+    response = client.post(path, payload(catalog, quantity="invalid", notes="Keep note"))
+    assert response.status_code == 422
+    form = response.context["form"]
+    assert form.details_open and form.notes_open
+    assert 'id="planting-more-details" open' in response.content.decode()
+
+
 def event_payload(**overrides):
     return {
         "submission_key": str(uuid4()),
@@ -170,7 +255,7 @@ def test_default_year_and_all_years_do_not_infer_years_from_event_dates(client, 
     assert response.context["records"] == [catalog["planting"]]
     assert client.get(reverse("garden:planting-list"), {"year": 2025}).context["records"] == []
     response = client.get(reverse("garden:planting-list"), {"year": 2026})
-    assert '<table class="register-table">' in response.text
+    assert '<table class="register-table planting-table responsive-table">' in response.text
     assert f'aria-controls="details-planting-{catalog["planting"].pk}"' in response.text
     assert "Synthetic event note" not in response.text
     assert "Unknown variety" not in response.text  # Swedish is the default locale.
@@ -461,6 +546,19 @@ def test_dependent_variety_options_are_scoped_clear_mismatch_and_preserve_curren
         assert 'value=""' in client.get(path, {"crop": crop}).text
     assert client.get(path, {"planting": "invalid"}).status_code == 400
     assert client.get(path, {"planting": 99999}).status_code == 404
+    assert 'aria-describedby="id_variety_errors variety-status"' in new_response.text
+
+
+def test_variety_status_stays_associated_beside_errors(client, user, catalog):
+    client.force_login(user)
+    create_response = client.get(reverse("garden:planting-create"), {"crop": catalog["crop"].pk})
+    assert 'aria-describedby="id_variety_errors variety-status"' in create_response.text
+    swap_response = client.get(
+        reverse("garden:planting-varieties"),
+        {"crop": catalog["crop"].pk},
+        HTTP_HX_REQUEST="true",
+    )
+    assert 'aria-describedby="id_variety_errors variety-status"' in swap_response.text
 
 
 def test_new_choices_hide_archives_edit_retains_existing_and_server_rechecks(client, user, catalog):

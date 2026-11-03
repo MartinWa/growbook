@@ -1,0 +1,38 @@
+{% load i18n %}
+<form id="capture-form" method="post" action="{% url 'diary:capture' %}" enctype="multipart/form-data" hx-post="{% url 'diary:capture' %}" hx-encoding="multipart/form-data" hx-target="#capture-errors" hx-swap="innerHTML"
+      data-uploading="{% translate 'Uploading photos…' %}"
+      data-processing="{% translate 'Processing photos and saving…' %}"
+      data-network-error="{% translate 'The connection failed. Keep this form open and retry; your save key prevents duplicates.' %}"
+      data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
+      data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
+  {% csrf_token %}
+  {{ form.submission_key }}
+  {% if quick %}
+  <input type="hidden" name="capture_mode" value="quick">
+  <input type="hidden" name="filter_query" value="{{ filter_query }}">
+  {% endif %}
+  <div id="capture-errors" role="alert" tabindex="-1">{% include 'diary/capture_errors.html' %}</div>
+  {% if failed %}<p role="alert">{% translate 'Your note and date were kept. Select your photos again before retrying.' %}</p>{% endif %}
+  <div class="field date-field">
+    <label for="{{ form.date.id_for_label }}">{{ form.date.label }}{% if not quick %} <span class="field-requirement">{% translate '(required)' %}</span>{% endif %}</label>
+    {{ form.date }}
+    <p id="capture-date-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Use the date of the observation.' %}</p>
+    <div id="capture-date-errors" class="field-errors">{{ form.date.errors }}</div>
+  </div>
+  <div class="field">
+    <label for="{{ form.body.id_for_label }}">{{ form.body.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
+    {{ form.body }}
+    <p id="capture-note-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Write what you noticed, or leave this blank and add a photo.' %}</p>
+    <div id="capture-body-errors" class="field-errors">{{ form.body.errors }}</div>
+  </div>
+  {% include 'components/photo_picker.html' with field=None %}
+  <p id="capture-status" role="status" aria-live="polite"></p>
+  <progress id="capture-progress" max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
+  <div class="form-actions capture-actions">
+    <button type="submit" id="save-entry"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-check"/></svg> {% translate 'Save observation' %}</button>
+    {% if quick %}<a href="{% url 'diary:capture' %}" data-more-options data-confirm="{% translate 'Open the full form? Your quick draft is not carried over.' %}">{% translate 'More options' %}</a>
+    {% else %}<a class="button quiet" href="{% url 'diary:list' %}">{% translate 'Cancel' %}</a>{% endif %}
+  </div>
+  {% if not quick %}<p class="field-help capture-link-help">{% translate 'Garden links are added after saving: open the observation and choose Edit observation.' %}</p>{% endif %}
+  <noscript><p class="field-help">{% translate 'Without JavaScript, select all library photos at once. A failed save requires selecting the photos again.' %}</p>{% if quick %}<p class="field-help">{% translate 'More options opens a new page and does not keep a quick draft.' %}</p>{% endif %}</noscript>
+</form>

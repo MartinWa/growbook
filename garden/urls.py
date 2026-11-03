@@ -5,6 +5,7 @@ from . import views
 app_name = "garden"
 
 urlpatterns = [
+    path("", views.garden_home, name="home"),
     path("crops/", views.register_list, {"kind": "crop"}, name="crop-list"),
     path("crops/new/", views.register_form, {"kind": "crop"}, name="crop-create"),
     path("crops/<int:pk>/", views.register_detail, {"kind": "crop"}, name="crop-detail"),
