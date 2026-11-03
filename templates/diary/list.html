@@ -2,68 +2,25 @@
 {% load i18n %}
 {% block title %}{% translate 'Diary' %} · growbook{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <div><p class="eyebrow">growbook</p><h1>{% translate 'Diary' %}</h1></div>
-  <a class="button" href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
+<div class="page-heading diary-heading">
+  <h1>{% translate 'Diary' %}</h1>
+  <button id="open-filters" type="button" class="quiet icon-button" hidden aria-label="{% translate 'Search and filters' %}" aria-haspopup="dialog" aria-controls="filter-dialog"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-search"/></svg></button>
 </div>
-
-<form method="get" class="filter-form panel" role="search">
-  <div class="field">{{ form.q.label_tag }}{{ form.q }}{{ form.q.errors }}</div>
-  <div class="field">{{ form.year.label_tag }}{{ form.year }}{{ form.year.errors }}</div>
-  <div class="field">{{ form.area.label_tag }}{{ form.area }}{{ form.area.errors }}</div>
-  <div class="field">{{ form.crop.label_tag }}{{ form.crop }}{{ form.crop.errors }}</div>
-  <div class="field">{{ form.variety.label_tag }}{{ form.variety }}{{ form.variety.errors }}</div>
-  <div class="field">{{ form.planting.label_tag }}{{ form.planting }}{{ form.planting.errors }}</div>
-  <div class="form-actions">
-    <button type="submit">{% translate 'Filter' %}</button>
-    <a href="{% url 'diary:list' %}">{% translate 'Clear filters' %}</a>
+<div class="diary-layout" data-filter-page data-results-id="diary-results"
+     data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
+     data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
+  <details class="diary-filters" data-filter-disclosure id="diary-filters">
+    <summary class="button quiet"><span class="filter-open-label">{% translate 'Search and filters' %}</span><span class="filter-close-label">{% translate 'Close filters' %}</span></summary>
+    {% include 'diary/_filters.html' %}
+  </details>
+  <div class="diary-stream">
+    <section class="panel quick-add" aria-labelledby="quick-add-title">
+      <h2 id="quick-add-title">{% translate 'What did you notice?' %}</h2>
+      {% include 'diary/_capture_form.html' with form=capture_form quick=True %}
+    </section>
+    <div id="quick-receipt"></div>
+    <p id="filter-status" class="field-errors" role="alert" tabindex="-1"></p>
+    {% include 'diary/_results.html' %}
   </div>
-  {% if form.non_field_errors %}<div role="alert">{{ form.non_field_errors }}</div>{% endif %}
-  <p class="muted">{% translate 'Filters combine. A planting match also includes its crop, variety and area; an area filter includes subareas.' %}</p>
-</form>
-
-{% for entry in page_obj %}
-<article class="panel diary-card">
-  <header class="entry-heading">
-    <h2><a href="{{ entry.get_absolute_url }}"><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time></a></h2>
-    <span class="muted">{{ entry.author.get_username }}</span>
-  </header>
-  {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
-  {% include 'diary/_links.html' with entry=entry %}
-  {% if entry.can_edit %}
-  <p class="muted"><a href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit and tag' %}</a></p>
-  {% endif %}
-  {% if entry.photos.all %}
-  <div class="photo-grid">
-    {% for photo in entry.photos.all %}
-    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
-    {% endfor %}
-  </div>
-  {% endif %}
-</article>
-{% empty %}
-<section class="panel empty-state">
-  {% if not valid_filter %}
-  <h2>{% translate 'Check the filters' %}</h2>
-  <p>{% translate 'Choose a valid value, or clear the filters and try again.' %}</p>
-  <a class="button" href="{% url 'diary:list' %}">{% translate 'Clear filters' %}</a>
-  {% elif diary_has_entries %}
-  <h2>{% translate 'No observations match these filters.' %}</h2>
-  <p>{% translate 'Try clearing a filter or searching for a different word.' %}</p>
-  <a class="button" href="{% url 'diary:list' %}">{% translate 'Clear filters' %}</a>
-  {% else %}
-  <h2>{% translate 'Start with one observation' %}</h2>
-  <p>{% translate 'A photo, a short note, or both. Start with what you want to record.' %}</p>
-  <a class="button" href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
-  {% endif %}
-</section>
-{% endfor %}
-
-{% if page_obj.has_other_pages %}
-<nav class="pagination" aria-label="{% translate 'Diary pages' %}">
-  {% if page_obj.has_previous %}<a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">{% translate 'Newer entries' %}</a>{% endif %}
-  <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-  {% if page_obj.has_next %}<a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">{% translate 'Older entries' %}</a>{% endif %}
-</nav>
-{% endif %}
+</div>
 {% endblock %}

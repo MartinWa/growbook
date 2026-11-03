@@ -26,7 +26,7 @@ def test_every_marked_source_message_has_a_swedish_translation():
                     messages.add(node.args[0].value)
     for path in (ROOT / "templates").rglob("*.html"):
         source = path.read_text(encoding="utf-8")
-        messages.update(re.findall(r"{%\s*translate\s+'([^']+)'\s*%}", source))
+        messages.update(re.findall(r"{%\s*translate\s+'([^']+)'(?:\s+as\s+\w+)?\s*%}", source))
     catalog = polib.pofile(str(ROOT / "locale" / "sv" / "LC_MESSAGES" / "django.po"))
     translated = {entry.msgid for entry in catalog if entry.translated()}
     assert messages <= translated, f"Missing Swedish translations: {messages - translated}"

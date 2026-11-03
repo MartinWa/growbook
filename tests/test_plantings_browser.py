@@ -97,8 +97,89 @@ def image_file(image_upload, name="synthetic.jpg"):
     return {"name": name, "mimeType": "image/jpeg", "buffer": image_upload().read()}
 
 
+def open_optional(page):
+    for selector in ("#planting-more-details", "#planting-notes-photos"):
+        group = page.locator(selector)
+        if group.get_attribute("open") is None:
+            group.locator(":scope > summary").click()
+
+
 def save(page):
     page.locator("#register-form").get_by_role("button", name="Spara", exact=True).click()
+
+
+def test_minimal_planting_and_optional_error_reveal(page, live_server, user, catalog):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/garden/plantings/new/")
+    expect(page.locator("#id_label")).to_be_hidden()
+    expect(page.locator("#id_notes")).to_be_hidden()
+    page.locator("#id_crop").select_option(str(catalog["crop"].pk))
+    expect(page.locator("#id_variety option")).to_have_count(2)
+    expect(page.locator("#id_label")).to_be_hidden()
+    page.locator("#id_start_year").fill("2027")
+    save(page)
+    expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
+    expect(page.locator(".record-fields")).to_contain_text("2027")
+    page.goto(live_server.url + "/garden/plantings/new/")
+    page.locator("#id_crop").select_option(str(catalog["crop"].pk))
+    page.locator("#planting-more-details > summary").click()
+    page.locator("#id_quantity").fill("-1")
+    page.locator("#planting-more-details > summary").click()
+    page.locator("#register-form").evaluate("form => form.noValidate = true")
+    save(page)
+    expect(page.locator("#id_quantity")).to_be_visible()
+    expect(page.locator("#id_quantity")).to_have_attribute("aria-invalid", "true")
+    expect(page.locator("#register-errors")).to_be_focused()
+    page.locator("#register-errors").get_by_role("link", name="Antal", exact=True).click()
+    expect(page.locator("#id_quantity")).to_be_focused()
+    page.locator("#id_quantity").fill("0")
+    save(page)
+    expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
+
+
+def test_phone_filters_retry_back_and_reinitialize_rows(page, live_server, user, catalog):
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.set_viewport_size({"width": 390, "height": 844})
+    login(page, live_server, user)
+    page.goto(live_server.url + "/garden/plantings/?year=2026")
+    expect(page.locator("#id_year")).to_be_hidden()
+    expect(page.locator(".planting-table .secondary-column").first).to_be_hidden()
+    page.locator("#open-filters").click()
+    expect(page.locator("#id_year")).to_be_focused()
+    page.route("**/garden/plantings/?*", lambda route: route.abort())
+    page.locator("#id_year").fill("2027")
+    page.locator("#id_year").press("Enter")
+    expect(page.locator("#filter-drawer-status")).to_contain_text("Filtren kunde inte uppdateras")
+    expect(page.locator("#planting-results")).to_contain_text("First batch")
+    page.unroute("**/garden/plantings/?*")
+    page.locator("#id_year").press("Enter")
+    expect(page).to_have_url(live_server.url + "/garden/plantings/?year=2027")
+    expect(page.locator("#planting-results")).to_contain_text("Inga odlingar detta odlingsår")
+    page.keyboard.press("Escape")
+    expect(page.locator("#open-filters")).to_be_focused()
+    page.go_back()
+    expect(page.locator("h1")).to_contain_text("2026")
+    page.locator("#open-filters").click()
+    page.locator("#id_year").fill("10000")
+    page.locator("#id_year").press("Tab")
+    expect(page.locator('#planting-results [data-field-errors="year"]')).to_be_attached()
+    expect(page.locator("#id_year")).to_have_value("10000")
+    page.keyboard.press("Escape")
+    page.locator("#planting-results .error-summary a").click()
+    expect(page.locator("#filter-dialog")).to_be_visible()
+    expect(page.locator("#id_year")).to_be_focused()
+    page.locator("#id_year").fill("2026")
+    page.locator("#id_year").press("Enter")
+    expect(page.locator("#planting-results .error-summary")).to_have_count(0)
+    page.keyboard.press("Escape")
+    page.get_by_role("button", name="Detaljer: First batch", exact=True).click()
+    expect(page.locator(f"#details-planting-{catalog['first'].pk}")).to_contain_text("Golden")
+    page.locator(".planting-table > tbody > tr:first-child > th > a:first-child").first.evaluate(
+        "link => link.textContent = 'Synthetic'.repeat(16)"
+    )
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    assert errors == []
 
 
 def test_dependent_variety_switch_does_not_reload_or_lose_draft_and_is_csp_safe(
@@ -114,6 +195,7 @@ def test_dependent_variety_switch_does_not_reload_or_lose_draft_and_is_csp_safe(
     });""")
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/new/")
+    open_optional(page)
     page.locator("#id_label").fill("Dependent choices batch")
     page.locator("#id_start_year").fill("2027")
     page.locator("#id_notes").fill("Keep draft — Ärtor")
@@ -170,7 +252,9 @@ def test_year_area_history_rows_expand_independently_with_keyboard(
     expect(second_details).to_be_visible()
     page.get_by_role("link", name="Nästa år", exact=True).click()
     expect(page.locator("h1")).to_contain_text("2027")
-    expect(page.locator(".register-table")).to_contain_text("Inga odlingar matchar filtren.")
+    expect(page.locator("#planting-results .empty-state")).to_contain_text(
+        "Inga odlingar detta odlingsår"
+    )
     page.get_by_role("link", name="Föregående år", exact=True).click()
     page.locator(".register-table th[scope=row]").get_by_role(
         "link", name="First batch", exact=True
@@ -201,9 +285,11 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
     expect(table).not_to_contain_text("Persistent batch")
     page.get_by_role("link", name="Årsöversikt", exact=True).click()
     page.locator("#id_year").fill("2027")
-    page.get_by_role("button", name="Visa", exact=True).click()
-    expect(table).to_contain_text("Inga odlingar matchar filtren.")
-    page.get_by_role("link", name="Alla år", exact=True).click()
+    page.locator("#id_year").press("Enter")
+    expect(page.locator("#planting-results .empty-state")).to_contain_text(
+        "Inga odlingar matchar filtren."
+    )
+    page.locator(".year-navigation").get_by_role("link", name="Alla år", exact=True).click()
     expect(page.locator("#id_year")).to_have_value("")
     expect(table).to_contain_text("First batch")
     table.get_by_role("link", name="Greenhouse / Bed", exact=True).click()
@@ -211,11 +297,34 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
     expect(table).to_contain_text("First batch")
 
 
+def test_empty_scoped_history_action_restores_rows_and_preserves_scope(
+    page, live_server, user, catalog
+):
+    login(page, live_server, user)
+    path = f"/garden/areas/{catalog['child'].pk}/history/"
+    page.goto(live_server.url + path + "?year=2027")
+    empty = page.locator("#planting-results .empty-state")
+    expect(page.locator("[data-filter-create]")).to_be_hidden()
+    expect(empty.locator(".brand-mark")).to_be_visible()
+    action = empty.get_by_role("link", name="Alla år", exact=True)
+    expect(action).to_have_attribute("href", path)
+    action.focus()
+    action.press("Enter")
+    expect(page).to_have_url(live_server.url + path)
+    expect(page.locator("#id_year")).to_have_value("")
+    expect(page.locator("#planting-results")).to_contain_text("First batch")
+    expect(page.locator("#planting-results")).not_to_contain_text("Persistent batch")
+    expect(empty).to_have_count(0)
+    expect(page.locator("[data-filter-create]")).to_be_visible()
+    expect(page.locator("[data-result-focus]")).to_be_focused()
+
+
 def test_invalid_planting_retains_zero_text_photos_key_focus_and_can_retry(
     page, live_server, user, catalog, image_upload
 ):
     login(page, live_server, user)
     page.goto(live_server.url + f"/garden/plantings/new/?crop={catalog['crop'].pk}&year=2026")
+    open_optional(page)
     page.locator("#id_label").fill("Retry batch")
     page.locator("#id_quantity").fill("0")
     page.locator("#id_evaluation").fill("Synthetic evaluation")
@@ -224,7 +333,10 @@ def test_invalid_planting_retains_zero_text_photos_key_focus_and_can_retry(
     )
     key = page.locator("#id_submission_key").input_value()
     page.locator("#register-form").evaluate("form => form.noValidate = true")
+    page.locator("#id_lifespan").select_option("persistent")
     page.locator("#id_end_year").fill("2027")
+    page.locator("#id_lifespan").select_option("annual")
+    expect(page.locator("#id_end_year")).to_have_value("2027")
     save(page)
     expect(page.locator("#register-errors")).to_contain_text("En ettårig odling har inget slutår.")
     expect(page.locator("#register-errors")).to_be_focused()
@@ -252,6 +364,7 @@ def test_dependent_choice_network_failure_retries_and_session_expiry_preserves_f
 ):
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/new/")
+    open_optional(page)
     page.locator("#id_label").fill("Session recovery batch")
     page.locator("#id_notes").fill("Keep session draft")
     page.locator("#id_photos").set_input_files(image_file(image_upload))
@@ -264,6 +377,7 @@ def test_dependent_choice_network_failure_retries_and_session_expiry_preserves_f
     expect(page.locator("#id_variety option")).to_have_count(2)
     other = page.context.new_page()
     other.goto(live_server.url + "/")
+    other.locator("#account-menu > summary").click()
     other.get_by_role("button", name="Logga ut", exact=True).click()
     page.locator("#id_crop").select_option(str(catalog["other_crop"].pk))
     expect(page.locator("#variety-status")).to_contain_text("session")
@@ -293,6 +407,7 @@ def test_no_javascript_dependent_choices_drafts_and_early_plan_save(
     )
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/plantings/new/")
+    open_optional(plain)
     plain.locator("#id_label").fill("No-JS batch")
     plain.locator("#id_notes").fill("Keep no-JS draft")
     key = plain.locator("#id_submission_key").input_value()
@@ -309,6 +424,14 @@ def test_no_javascript_dependent_choices_drafts_and_early_plan_save(
     save(plain)
     expect(plain).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
     expect(plain.locator(".record-fields")).to_contain_text("Keep no-JS draft")
+    plain.goto(live_server.url + "/garden/plantings/history/")
+    plain.locator("[data-filter-disclosure] > summary").click()
+    plain.locator("#id_year").fill("2027")
+    plain.locator("[data-filter-form]").get_by_role("button", name="Visa", exact=True).click()
+    expect(plain.locator("#planting-results")).to_contain_text("Inga odlingar detta odlingsår")
+    plain.goto(live_server.url + "/garden/plantings/history/?year=10000")
+    expect(plain.locator("#id_year")).to_be_visible()
+    expect(plain.locator("#id_year")).to_have_value("10000")
     context.close()
 
 

@@ -121,6 +121,72 @@ def test_htmx_save_uses_success_redirect(client, user):
     assert response["HX-Redirect"] == DiaryEntry.objects.get().get_absolute_url()
 
 
+def test_inline_capture_returns_a_receipt_and_a_new_key_with_retry_safety(client, user):
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    data = post_data(capture_mode="quick")
+    response = client.post("/capture/", data, HTTP_HX_REQUEST="true")
+    assert response.status_code == 200
+    assert response["HX-Retarget"] == "#quick-receipt"
+    assert "HX-Redirect" not in response
+    assert "Observation saved." in response.text
+    assert data["submission_key"] not in response.text
+    retry = client.post("/capture/", data, HTTP_HX_REQUEST="true")
+    assert retry.status_code == 200
+    assert "Observation already saved." in retry.text
+    assert DiaryEntry.objects.count() == 1
+
+
+def test_inline_capture_without_javascript_redirects_to_the_filtered_diary(client, user):
+    client.force_login(user)
+    response = client.post(
+        "/capture/", post_data(capture_mode="quick", filter_query="q=synthetic&year=2026")
+    )
+    assert response.status_code == 302
+    assert response.url == f"/?q=synthetic&year=2026#entry-{DiaryEntry.objects.get().pk}"
+
+
+def test_inline_capture_failure_without_javascript_keeps_draft_key_and_filters(client, user):
+    client.force_login(user)
+    data = post_data(
+        capture_mode="quick", date="invalid", body="Keep this draft", filter_query="q=synthetic"
+    )
+    response = client.post("/capture/", data)
+    assert response.status_code == 422
+    form = response.context["capture_form"]
+    assert form["submission_key"].value() == data["submission_key"]
+    assert form["body"].value() == "Keep this draft"
+    assert response.context["form"]["q"].value() == "synthetic"
+    assert 'name="capture_mode" value="quick"' in response.text
+    assert not DiaryEntry.objects.exists()
+
+
+def test_diary_fragment_contains_results_and_chips_without_replacing_capture(client, user):
+    record = entry(user, body="Synthetic tomato note")
+    client.force_login(user)
+    response = client.get(
+        "/?q=tomato&year=2026&page=1",
+        HTTP_HX_REQUEST="true",
+        HTTP_HX_TARGET="diary-results",
+    )
+    assert response.status_code == 200
+    assert f'id="entry-{record.pk}"' in response.text
+    assert 'id="capture-form"' not in response.text
+    assert "<script" not in response.text
+    chips = response.context["active_filters"]
+    assert [chip["url"] for chip in chips] == ["/?year=2026", "/?q=tomato"]
+    invalid = client.get("/?year=invalid", HTTP_HX_REQUEST="true", HTTP_HX_TARGET="diary-results")
+    assert invalid.status_code == 422
+    assert 'id="diary-results"' in invalid.text
+
+
+def test_operator_link_is_only_in_staff_account_menus(client, user, staff_user):
+    client.force_login(user)
+    assert 'class="menu-link" href="/operator/"' not in client.get("/").text
+    client.force_login(staff_user)
+    assert 'class="menu-link" href="/operator/"' in client.get("/").text
+
+
 def test_empty_post_has_visible_error(client, user):
     client.force_login(user)
     response = client.post("/capture/", {"date": "2026-05-09", "submission_key": str(uuid4())})

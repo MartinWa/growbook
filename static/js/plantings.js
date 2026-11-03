@@ -5,6 +5,19 @@
   const status = form?.querySelector("#variety-status");
   if (!form || !status || !window.htmx) return;
   const crop = form.querySelector("#id_crop");
+  const lifespan = form.querySelector("#id_lifespan");
+  const endYear = form.querySelector("#id_end_year");
+  const endField = endYear.closest("[data-field-name]");
+  const endHelp = endField.querySelector("[data-annual-end-help]");
+  function updateEndYear() {
+    const annual = lifespan.value === "annual";
+    // Preserve a typed end year so the user can correct it instead of silently losing it.
+    endField.hidden = annual && !endYear.value && endYear.getAttribute("aria-invalid") !== "true";
+    endHelp.hidden = !annual || !endYear.value;
+  }
+  lifespan.addEventListener("change", updateEndYear);
+  endYear.addEventListener("input", updateEndYear);
+  updateEndYear();
   const retry = form.querySelector("[data-variety-retry]");
   retry.addEventListener("click", () => {
     crop.focus();
@@ -37,6 +50,7 @@
   form.addEventListener("htmx:beforeSwap", event => {
     if (event.detail.target?.id !== "id_variety") return;
     if (event.detail.xhr.status >= 400) {
+      status.closest("details").open = true;
       event.detail.shouldSwap = false;
       retry.hidden = false;
       status.textContent = event.detail.xhr.status === 401 || event.detail.xhr.status === 403
@@ -57,6 +71,7 @@
   ["htmx:sendError", "htmx:timeout"].forEach(name => {
     form.addEventListener(name, event => {
       if (event.detail.elt === crop) {
+        status.closest("details").open = true;
         status.textContent = status.dataset.choicesError;
         retry.hidden = false;
       }

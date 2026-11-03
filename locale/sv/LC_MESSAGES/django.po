@@ -935,3 +935,172 @@ msgstr "Lägg till odlingslänkar"
 
 msgid "Edit and tag"
 msgstr "Redigera och tagga"
+
+msgid "(required)"
+msgstr "(obligatoriskt)"
+
+msgid "(optional)"
+msgstr "(valfritt)"
+
+msgid "Use the date of the observation."
+msgstr "Ange datumet för observationen."
+
+msgid "Write what you noticed, or leave this blank and add a photo."
+msgstr "Skriv vad du lade märke till, eller lämna fältet tomt och lägg till en bild."
+
+msgid "Account menu"
+msgstr "Kontomeny"
+
+msgid "Active filters"
+msgstr "Aktiva filter"
+
+msgid "Choose from library"
+msgstr "Välj från bildbiblioteket"
+
+msgid "Close filters"
+msgstr "Stäng filter"
+
+msgid "Filters could not be updated. Retry, or reload this page."
+msgstr "Filtren kunde inte uppdateras. Försök igen eller ladda om sidan."
+
+msgid "How filters work"
+msgstr "Så fungerar filtren"
+
+msgid "More options"
+msgstr "Fler alternativ"
+
+msgid "Observations"
+msgstr "Observationer"
+
+msgid "Operator"
+msgstr "Administration"
+
+msgid "Photo limits"
+msgstr "Bildgränser"
+
+msgid "Remove filter"
+msgstr "Ta bort filter"
+
+msgid "Search and filters"
+msgstr "Sök och filtrera"
+
+msgid "Up to 10 photos"
+msgstr "Högst 10 bilder"
+
+msgid "View observation"
+msgstr "Visa observationen"
+
+msgid "What did you notice?"
+msgstr "Vad lade du märke till?"
+
+msgid "%(count)s observation"
+msgid_plural "%(count)s observations"
+msgstr[0] "%(count)s observation"
+msgstr[1] "%(count)s observationer"
+
+msgid "Garden navigation"
+msgstr "Trädgårdsmeny"
+
+msgid "Plants you grow."
+msgstr "Växter du odlar."
+
+msgid "Named varieties of a crop."
+msgstr "Namngivna sorter av en gröda."
+
+msgid "Beds, pots and other places."
+msgstr "Bäddar, krukor och andra platser."
+
+msgid "Active records"
+msgstr "Aktiva poster"
+
+msgid "Plan and follow your plantings"
+msgstr "Planera och följ dina odlingar"
+
+msgid "Only crop and start year are required."
+msgstr "Bara gröda och startår behöver anges."
+
+msgid "More details"
+msgstr "Fler detaljer"
+
+msgid "Notes and photos"
+msgstr "Anteckningar och bilder"
+
+msgid "Clear the end year for an annual planting, or choose Persistent."
+msgstr "Ta bort slutåret för en ettårig odling, eller välj Flerårig."
+
+msgid "Planting filters"
+msgstr "Filtrera odlingar"
+
+msgid "Archive options"
+msgstr "Arkivinställningar"
+
+msgid "Showing archived records"
+msgstr "Arkiverade poster visas"
+
+msgid "Hide archived records"
+msgstr "Dölj arkiverade poster"
+
+msgid "Batch"
+msgstr "Omgång"
+
+msgid "The photo limit is exceeded. Remove selected photos before saving."
+msgstr "Bildgränsen har överskridits. Ta bort valda bilder innan du sparar."
+
+msgid "Clear selected photos"
+msgstr "Rensa valda bilder"
+
+msgid "%(count)s planting"
+msgid_plural "%(count)s plantings"
+msgstr[0] "%(count)s odling"
+msgstr[1] "%(count)s odlingar"
+
+msgid "Photos selected: {selected} of {limit}"
+msgstr "Valda bilder: {selected} av {limit}"
+
+msgid "No crops yet"
+msgstr "Inga grödor ännu"
+
+msgid "No varieties yet"
+msgstr "Inga sorter ännu"
+
+msgid "No growing areas yet"
+msgstr "Inga odlingsplatser ännu"
+
+msgid "Add a crop to organize varieties and start planning plantings."
+msgstr "Lägg till en gröda för att samla sorter och börja planera odlingar."
+
+msgid "Add a variety to a crop when you want to record more detail."
+msgstr "Lägg till en sort till en gröda när du vill spara mer information."
+
+msgid "Add a growing area to record where you grow and link observations."
+msgstr "Lägg till en odlingsplats för att ange var du odlar och koppla observationer."
+
+msgid "No active records"
+msgstr "Inga aktiva poster"
+
+msgid "Your archived records are available in the archive view."
+msgstr "Dina arkiverade poster finns i arkivvyn."
+
+msgid "Show archived records"
+msgstr "Visa arkiverade poster"
+
+msgid "Add a crop first, then record its varieties."
+msgstr "Lägg först till en gröda och sedan dess sorter."
+
+msgid "No plantings yet"
+msgstr "Inga odlingar ännu"
+
+msgid "Start a planting with a crop and growing year; add details later."
+msgstr "Börja en odling med en gröda och ett odlingsår. Lägg till detaljer senare."
+
+msgid "No plantings in this growing year"
+msgstr "Inga odlingar detta odlingsår"
+
+msgid "Clear the filters to see the planting history."
+msgstr "Rensa filtren för att se odlingshistoriken."
+
+msgid "See all years to find earlier plans and ongoing plantings."
+msgstr "Visa alla år för att hitta tidigare planer och pågående odlingar."
+
+msgid "Add a crop first, then plan where and when to grow it."
+msgstr "Lägg först till en gröda och planera sedan var och när du ska odla den."

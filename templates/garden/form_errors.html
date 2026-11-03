@@ -2,7 +2,7 @@
 <div class="error-summary">
   {{ form.non_field_errors }}
   {% for field in form %}
-    {% if field.errors %}<div>{{ field.label }}: {{ field.errors }}</div>{% endif %}
+    {% if field.errors %}<div>{% if field.is_hidden %}{{ field.label }}{% else %}<a href="#{{ field.id_for_label }}">{{ field.label }}</a>{% endif %}: <div data-field-errors="{{ field.name }}"><ul class="errorlist">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul></div></div>{% endif %}
   {% endfor %}
 </div>
 {% endif %}

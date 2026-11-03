@@ -16,20 +16,20 @@
     {{ form.expected_updated_at }}
     <div id="entry-errors" role="alert" tabindex="-1">{% include 'diary/form_errors.html' %}</div>
     {% if failed %}<p role="alert">{% translate 'Your date, note and link selections were kept. Select any photos again before retrying.' %}</p>{% endif %}
-    <div class="field">{{ form.date.label_tag }}{{ form.date }}{{ form.date.errors }}</div>
-    <div class="field">{{ form.body.label_tag }}{{ form.body }}{{ form.body.errors }}</div>
+    {% include 'components/field.html' with field=form.date %}
+    {% include 'components/field.html' with field=form.body %}
 
     <details class="link-picker" open>
       <summary>{% translate 'Link to garden records (optional)' %}</summary>
       <p class="muted">{% translate 'A planting link also matches its crop, variety and area. Select several with Ctrl or Cmd; nothing else is required.' %}</p>
-      <div class="field">{{ form.link_areas.label_tag }}{{ form.link_areas }}{{ form.link_areas.errors }}</div>
-      <div class="field">{{ form.link_crops.label_tag }}{{ form.link_crops }}{{ form.link_crops.errors }}</div>
-      <div class="field">{{ form.link_varieties.label_tag }}{{ form.link_varieties }}{{ form.link_varieties.errors }}</div>
-      <div class="field">{{ form.link_plantings.label_tag }}{{ form.link_plantings }}{{ form.link_plantings.errors }}</div>
+      {% include 'components/field.html' with field=form.link_areas %}
+      {% include 'components/field.html' with field=form.link_crops %}
+      {% include 'components/field.html' with field=form.link_varieties %}
+      {% include 'components/field.html' with field=form.link_plantings %}
       <p class="muted">{% translate 'Archived records stay selectable only when this entry already links to them.' %}</p>
     </details>
 
-    <fieldset class="photo-picker">
+    <fieldset class="photo-picker" id="id_remove_photos" tabindex="-1">
       <legend>{% translate 'Existing photos' %}</legend>
       {% if entry.photos.all %}
       <div class="photo-grid">
@@ -37,22 +37,18 @@
         <figure>
           <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
           {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
-          <label><input type="checkbox" name="remove_photos" value="{{ photo.pk }}"{% if form.remove_photos.value %}{% if photo.pk|stringformat:'s' in form.remove_photos.value %} checked{% endif %}{% endif %}> {% translate 'Remove' %}</label>
+          <label><input type="checkbox" id="id_remove_photos_{{ forloop.counter0 }}" name="remove_photos" value="{{ photo.pk }}" aria-describedby="id_remove_photos_helptext id_remove_photos_errors"{% if form.remove_photos.value %}{% if photo.pk|stringformat:'s' in form.remove_photos.value %} checked{% endif %}{% endif %}> {% translate 'Remove' %}</label>
         </figure>
         {% endfor %}
       </div>
       {% else %}
       <p>{% translate 'No photos yet.' %}</p>
       {% endif %}
-      {{ form.remove_photos.errors }}
-      <p class="muted">{{ form.remove_photos.help_text }}</p>
+      <div id="id_remove_photos_errors" class="field-errors" data-register-field-errors="remove_photos">{{ form.remove_photos.errors }}</div>
+      <p id="id_remove_photos_helptext" class="field-help">{{ form.remove_photos.help_text }}</p>
     </fieldset>
 
-    <fieldset class="photo-picker">
-      <legend>{% translate 'Add photos' %}</legend>
-      <div class="field">{{ form.photos.label_tag }}{{ form.photos }}{{ form.photos.errors }}</div>
-      <p class="muted">{% translate 'JPEG, PNG, WebP and HEIC. Up to 10 photos per entry, 20 MiB each, 80 MiB in total.' %}</p>
-    </fieldset>
+    {% include 'components/photo_picker.html' with field=form.photos existing_photos=entry.photos.count %}
 
     <p data-register-status role="status" aria-live="polite"></p>
     <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>

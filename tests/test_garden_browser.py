@@ -61,6 +61,118 @@ def image_file(image_upload, name="synthetic.jpg"):
     return {"name": name, "mimeType": "image/jpeg", "buffer": image_upload().read()}
 
 
+def test_shared_photo_picker_accumulates_both_sources_and_retains_them_on_validation(
+    page, live_server, user, image_upload
+):
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    login(page, live_server, user)
+    page.goto(live_server.url + "/garden/areas/new/")
+    chooser = page.locator("[data-photo-chooser]")
+    expect(page.locator("[data-native-photos]")).to_be_hidden()
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
+    page.locator("#id_name").fill("Parent")
+    chooser.locator("summary").click()
+    with page.expect_file_chooser() as selection:
+        page.get_by_role("button", name="Ta en bild", exact=True).click()
+    selection.value.set_files(image_file(image_upload, "camera.jpg"))
+    expect(chooser.locator("summary")).to_be_focused()
+    chooser.locator("summary").click()
+    with page.expect_file_chooser() as selection:
+        page.get_by_role("button", name="Välj från bildbiblioteket", exact=True).click()
+    selection.value.set_files(image_file(image_upload, "library.jpg"))
+    page.locator("#id_photos").set_input_files(image_file(image_upload, "extra.jpg"))
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(3)
+    page.get_by_role("button", name="Ta bort: extra.jpg", exact=True).click()
+    expect(page.get_by_role("button", name="Ta bort: library.jpg", exact=True)).to_be_focused()
+    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 2 av 10")
+    key = page.locator("#id_submission_key").input_value()
+    page.locator("#register-form button[type=submit]").click()
+    expect(page.locator("#id_name_errors")).to_contain_text("Namnet används redan")
+    expect(page.locator("#id_name")).to_have_attribute("aria-invalid", "true")
+    page.locator("#register-errors").get_by_role("link", name="Namn", exact=True).click()
+    expect(page.locator("#id_name")).to_be_focused()
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(2)
+    assert page.locator("#id_photos_camera").evaluate("input => input.files.length") == 1
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    page.locator("#id_name").fill("Shared picker area")
+    page.locator("#register-form button[type=submit]").click()
+    expect(page).to_have_url(re.compile(r"/garden/areas/\d+/$"))
+    expect(page.locator(".register-photos figure")).to_have_count(2)
+    assert errors == []
+
+
+def test_no_js_photo_sources_share_the_existing_upload_field(page, live_server, user, image_upload):
+    login(page, live_server, user)
+    context = page.context.browser.new_context(
+        java_script_enabled=False, storage_state=page.context.storage_state()
+    )
+    plain = context.new_page()
+    plain.goto(live_server.url + "/garden/areas/new/")
+    expect(plain.locator("[data-native-photos]")).to_be_visible()
+    expect(plain.locator("[data-photo-chooser]")).to_be_hidden()
+    plain.locator("#id_name").fill("No-JS camera and library area")
+    plain.locator("#id_photos_camera").set_input_files(image_file(image_upload, "camera.jpg"))
+    plain.locator("#id_photos").set_input_files(image_file(image_upload, "library.jpg"))
+    plain.locator("#register-form button[type=submit]").click()
+    expect(plain).to_have_url(re.compile(r"/garden/areas/\d+/$"))
+    expect(plain.locator(".register-photos figure")).to_have_count(2)
+    context.close()
+
+
+def test_photo_picker_fallback_replaces_choices_and_can_clear_them(
+    page, live_server, user, image_upload
+):
+    page.add_init_script(
+        """window.DataTransfer = class {
+            constructor() { throw new Error('Synthetic unsupported FileList assignment'); }
+        };"""
+    )
+    login(page, live_server, user)
+    page.goto(live_server.url + "/garden/areas/new/")
+    page.locator("#id_photos").set_input_files(image_file(image_upload, "first.jpg"))
+    page.locator("#id_photos").set_input_files(image_file(image_upload, "replacement.jpg"))
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(1)
+    expect(page.locator("[data-photo-previews] figcaption")).to_have_text("replacement.jpg")
+    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 1 av 10")
+    page.get_by_role("button", name="Rensa valda bilder", exact=True).click()
+    expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
+    expect(page.locator("[data-photo-count]")).to_have_text("")
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 0
+    expect(page.locator("[data-photo-chooser] > summary")).to_be_focused()
+
+
+def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
+    page, live_server, user, registers
+):
+    page.set_viewport_size({"width": 390, "height": 844})
+    login(page, live_server, user)
+    page.goto(live_server.url + "/garden/crops/")
+    # Exercise wrapping independently of database name limits.
+    page.locator(".responsive-table th[scope=row] > a").first.evaluate(
+        "link => link.textContent = 'Synthetic'.repeat(20)"
+    )
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.get_by_role("button", name=f"Detaljer: {registers['first'].name}", exact=True).click()
+    expect(page.locator(f"#details-crop-{registers['first'].pk}")).to_contain_text(
+        "Full first crop note"
+    )
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    context = page.context.browser.new_context(
+        java_script_enabled=False, storage_state=page.context.storage_state()
+    )
+    plain = context.new_page()
+    plain.goto(live_server.url + "/garden/crops/")
+    plain.locator(".archive-options > summary").click()
+    plain.get_by_role("checkbox", name="Visa även arkiverade poster").check()
+    plain.locator(".register-filter").get_by_role("button", name="Visa", exact=True).click()
+    expect(plain).to_have_url(live_server.url + "/garden/crops/?archived=1")
+    plain.get_by_role("link", name="Dölj arkiverade poster", exact=True).click()
+    expect(plain).to_have_url(live_server.url + "/garden/crops/")
+    context.close()
+
+
 def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
     page, live_server, user, registers
 ):
@@ -75,11 +187,10 @@ def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
     });""")
     login(page, live_server, user)
     page.get_by_role("navigation", name="Huvudmeny").get_by_role(
-        "link", name="Register", exact=True
+        "link", name="Trädgård", exact=True
     ).click()
-    page.get_by_role("navigation", name="Register", exact=True).get_by_role(
-        "link", name="Grödor"
-    ).click()
+    expect(page.locator("h1")).to_have_text("Trädgård")
+    page.locator(".garden-cards").get_by_role("link", name="Grödor", exact=True).click()
     first_toggle = page.get_by_role("button", name=f"Detaljer: {first.name}", exact=True)
     second_toggle = page.get_by_role("button", name=f"Detaljer: {second.name}", exact=True)
     first_details = page.locator(f"#details-crop-{first.pk}")
@@ -146,6 +257,7 @@ def test_register_session_expiry_new_tab_login_preserves_fields_photos_and_key(
     key = page.locator("#id_submission_key").input_value()
     other = page.context.new_page()
     other.goto(live_server.url + "/")
+    other.locator("#account-menu > summary").click()
     other.get_by_role("button", name="Logga ut", exact=True).click()
     page.locator("#register-form").get_by_role("button", name="Spara", exact=True).click()
     expect(page.locator("#register-errors")).to_contain_text("session")
@@ -227,8 +339,9 @@ def test_register_unicode_duplicate_feedback_then_edit_archive_and_restore(
     expect(
         page.locator(".register-table").get_by_role("link", name="Ärtor", exact=True)
     ).to_have_count(0)
+    page.locator(".archive-options > summary").click()
     page.get_by_role("checkbox", name="Visa även arkiverade poster").check()
-    page.locator(".register-filter").get_by_role("button", name="Visa", exact=True).click()
+    expect(page).to_have_url(live_server.url + "/garden/crops/?archived=1")
     page.locator(".register-table").get_by_role("link", name="Ärtor", exact=True).click()
     page.get_by_role("button", name="Gör valbar igen", exact=True).click()
     expect(page.get_by_role("button", name="Arkivera", exact=True)).to_be_visible()

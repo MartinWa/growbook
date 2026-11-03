@@ -14,6 +14,7 @@ from garden.models import Crop, GrowingArea, Variety
 from garden.services import (
     archive_area,
     archive_crop,
+    archive_variety,
     create_area,
     create_crop,
     create_variety,
@@ -21,6 +22,59 @@ from garden.services import (
 )
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.mark.parametrize("kind", ["crop", "variety", "area"])
+def test_empty_register_offers_creation_with_crop_prerequisite(client, user, kind):
+    client.force_login(user)
+    response = client.get(reverse(f"garden:{kind}-list"))
+    action = reverse(f"garden:{'crop' if kind == 'variety' else kind}-create")
+    assert response.context["empty_action_url"] == action
+    assert b'class="panel empty-state"' in response.content
+    assert b'class="register-table' not in response.content
+    if kind == "variety":
+        create_crop(actor=user, name="First crop")
+        assert client.get(reverse("garden:variety-list")).context["empty_action_url"] == reverse(
+            "garden:variety-create"
+        )
+
+
+def test_archived_only_register_offers_a_view_that_contains_records(client, user, register_record):
+    kind, record = register_record
+    {"crop": archive_crop, "variety": archive_variety, "area": archive_area}[kind](
+        actor=user, pk=record.pk
+    )
+    client.force_login(user)
+    response = client.get(reverse(f"garden:{kind}-list"))
+    assert not response.context["records"]
+    assert response.context["empty_action_url"] == reverse(f"garden:{kind}-list") + "?archived=1"
+    archived = client.get(response.context["empty_action_url"])
+    assert [item.pk for item in archived.context["records"]] == [record.pk]
+    assert b'class="panel empty-state"' not in archived.content
+
+
+def test_garden_landing_requires_login_and_counts_only_active_records(client, user):
+    path = reverse("garden:home")
+    assert client.get(path).status_code == 302
+    assert client.get(path, HTTP_HX_REQUEST="true").status_code == 401
+    crop = create_crop(actor=user, name="Active crop").record
+    archived_crop = create_crop(actor=user, name="Archived crop").record
+    variety = create_variety(actor=user, crop=crop, name="Archived variety").record
+    create_variety(actor=user, crop=crop, name="Active variety")
+    area = create_area(actor=user, name="Archived area").record
+    create_area(actor=user, name="Active area")
+    archive_crop(actor=user, pk=archived_crop.pk)
+    archive_variety(actor=user, pk=variety.pk)
+    archive_area(actor=user, pk=area.pk)
+    client.force_login(user)
+    response = client.get(path)
+    assert response.status_code == 200
+    assert "no-store" in response["Cache-Control"]
+    assert [response.context[key] for key in ("crop_count", "variety_count", "area_count")] == [
+        1,
+        1,
+        1,
+    ]
 
 
 @pytest.fixture(params=["crop", "variety", "area"])
@@ -78,7 +132,7 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
     client.force_login(user)
     response = client.get(reverse(f"garden:{kind}-list"))
     assert response.status_code == 200
-    assert '<table class="register-table">' in response.text
+    assert '<table class="register-table responsive-table">' in response.text
     assert f'aria-controls="details-{kind}-{record.pk}"' in response.text
     assert 'aria-expanded="false"' in response.text
     assert f'href="{record.get_absolute_url()}"' in response.text

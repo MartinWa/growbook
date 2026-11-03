@@ -1,0 +1,11 @@
+{% load i18n %}
+{% if field.is_hidden %}{{ field }}{% elif field.name == 'photos' %}
+  {% include 'components/photo_picker.html' with existing_photos=record.photos.count %}
+{% else %}
+<div class="field" data-field-name="{{ field.name }}">
+  <label for="{{ field.id_for_label }}">{{ field.label }} <span class="field-requirement">{% if field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></label>
+  {{ field }}
+  {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="field-help">{{ field.help_text }}</p>{% endif %}
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-register-field-errors="{{ field.name }}">{{ field.errors }}</div>
+</div>
+{% endif %}

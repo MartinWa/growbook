@@ -8,40 +8,44 @@
   <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"historyCacheSize":0,"selfRequestsOnly":true}'>
   <title>{% block title %}growbook{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'icons/favicon.svg' %}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}">
   <link rel="stylesheet" href="{% static 'css/growbook.css' %}">
   <script src="{% static 'js/htmx-2.0.11.min.js' %}" defer></script>
+  <script src="{% static 'js/photos.js' %}" defer></script>
   <script src="{% static 'js/capture.js' %}" defer></script>
+  <script src="{% static 'js/site.js' %}" defer></script>
+  <script src="{% static 'js/filters.js' %}" defer></script>
   <script src="{% static 'js/registers.js' %}" defer></script>
   <script src="{% static 'js/plantings.js' %}" defer></script>
 </head>
 <body hx-history="false">
+  {% include 'components/icons.html' %}
   <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
   <header class="site-header">
     <a class="brand" href="{% url 'diary:list' %}">growbook</a>
     {% if user.is_authenticated %}
     <nav aria-label="{% translate 'Main navigation' %}">
-      <a href="{% url 'diary:list' %}">{% translate 'Diary' %}</a>
-      <a href="{% url 'diary:capture' %}">{% translate 'New observation' %}</a>
-      <a href="{% url 'garden:planting-list' %}">{% translate 'Plantings' %}</a>
-      <a href="{% url 'garden:area-list' %}">{% translate 'Registers' %}</a>
+      <a href="{% url 'diary:list' %}"{% if request.resolver_match.namespace == 'diary' %} aria-current="page"{% endif %}>{% translate 'Diary' %}</a>
+      <a href="{% url 'garden:home' %}"{% if request.resolver_match.namespace == 'garden' and 'planting' not in request.resolver_match.url_name and 'event' not in request.resolver_match.url_name and 'history' not in request.resolver_match.url_name %} aria-current="page"{% endif %}>{% translate 'Garden' %}</a>
+      <a href="{% url 'garden:planting-list' %}"{% if request.resolver_match.namespace == 'garden' %}{% if 'planting' in request.resolver_match.url_name or 'event' in request.resolver_match.url_name or 'history' in request.resolver_match.url_name %} aria-current="page"{% endif %}{% endif %}>{% translate 'Plantings' %}</a>
     </nav>
     {% endif %}
     <div class="account-controls">
-      <form method="post" action="{% url 'set_language' %}" class="language-form">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.path }}">
-        <label for="language">{% translate 'Language' %}</label>
-        <select id="language" name="language">
-          <option value="sv" {% if language == 'sv' %}selected{% endif %}>Svenska</option>
-          <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
-        </select>
-        <button type="submit">{% translate 'Change' %}</button>
-      </form>
       {% if user.is_authenticated %}
-      <form method="post" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit" class="quiet">{% translate 'Log out' %}</button>
-      </form>
+      <details class="disclosure-menu account-menu" id="account-menu">
+        <summary class="button quiet icon-button" aria-label="{% translate 'Account menu' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-user-round"/></svg></summary>
+        <div class="menu-panel">
+          <p class="account-name">{{ user.get_username }}</p>
+          {% include 'components/language_form.html' %}
+          {% if user.is_staff %}<a class="menu-link" href="{% url 'admin:index' %}">{% translate 'Operator' %}</a>{% endif %}
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="quiet">{% translate 'Log out' %}</button>
+          </form>
+        </div>
+      </details>
+      {% else %}
+      {% include 'components/language_form.html' %}
       {% endif %}
     </div>
   </header>

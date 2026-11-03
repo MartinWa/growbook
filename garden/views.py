@@ -60,6 +60,19 @@ def _context(kind):
 
 
 @require_GET
+def garden_home(request):
+    return render(
+        request,
+        "garden/home.html",
+        {
+            "crop_count": Crop.objects.filter(is_archived=False).count(),
+            "variety_count": Variety.objects.filter(is_archived=False).count(),
+            "area_count": GrowingArea.objects.filter(is_archived=False).count(),
+        },
+    )
+
+
+@require_GET
 def register_list(request, kind):
     model = REGISTERS[kind][0]
     context = _context(kind)
@@ -78,6 +91,34 @@ def register_list(request, kind):
         for record in records:
             record.parent_path = paths.get(record.parent_id, "")
     context.update(records=records, show_archived=request.GET.get("archived") == "1")
+    if not records:
+        context.update(
+            empty_heading={
+                "crop": _("No crops yet"),
+                "variety": _("No varieties yet"),
+                "area": _("No growing areas yet"),
+            }[kind],
+            empty_description={
+                "crop": _("Add a crop to organize varieties and start planning plantings."),
+                "variety": _("Add a variety to a crop when you want to record more detail."),
+                "area": _("Add a growing area to record where you grow and link observations."),
+            }[kind],
+            empty_action_url=context["create_url"],
+            empty_action_label=context["create_label"],
+        )
+        if not context["show_archived"] and model.objects.filter(is_archived=True).exists():
+            context.update(
+                empty_heading=_("No active records"),
+                empty_description=_("Your archived records are available in the archive view."),
+                empty_action_url=context["list_url"] + "?archived=1",
+                empty_action_label=_("Show archived records"),
+            )
+        elif kind == "variety" and not Crop.objects.filter(is_archived=False).exists():
+            context.update(
+                empty_description=_("Add a crop first, then record its varieties."),
+                empty_action_url=reverse("garden:crop-create"),
+                empty_action_label=_("New crop"),
+            )
     return render(request, "garden/list.html", context)
 
 
@@ -411,6 +452,50 @@ def planting_list(request, history=False, kind=None, pk=None):
     for field in ("crop", "variety", "area"):
         if valid and form.cleaned_data[field] is not None:
             create[field] = form.cleaned_data[field].pk
+    create_url = reverse("garden:planting-create") + ("?" + urlencode(create) if create else "")
+    empty = {}
+    if not records:
+        empty = {
+            "empty_heading": _("No plantings yet"),
+            "empty_description": _(
+                "Start a planting with a crop and growing year; add details later."
+            ),
+            "empty_action_url": create_url,
+            "empty_action_label": _("New planting"),
+        }
+        scope_filters = {kind: scope} if scope else {}
+        history_path = request.path if history else reverse("garden:planting-history")
+        if not valid:
+            empty.update(
+                empty_heading=_("Check the filters"),
+                empty_description=_("Choose a valid value, or clear the filters and try again."),
+                empty_action_url=history_path,
+                empty_action_label=_("Clear filters"),
+                empty_filter_link=True,
+            )
+        elif planting_history(**scope_filters).exists():
+            adjustable_filters = any(
+                filters[field]
+                for field in ("crop", "variety", "area", "unassigned", "unknown_variety")
+                if field not in locked
+            )
+            empty.update(
+                empty_heading=_("No plantings match these filters.")
+                if adjustable_filters
+                else _("No plantings in this growing year"),
+                empty_description=_("Clear the filters to see the planting history.")
+                if adjustable_filters
+                else _("See all years to find earlier plans and ongoing plantings."),
+                empty_action_url=history_path,
+                empty_action_label=_("Clear filters") if adjustable_filters else _("All years"),
+                empty_filter_link=True,
+            )
+        elif not Crop.objects.filter(is_archived=False).exists():
+            empty.update(
+                empty_description=_("Add a crop first, then plan where and when to grow it."),
+                empty_action_url=reverse("garden:crop-create"),
+                empty_action_label=_("New crop"),
+            )
     all_years_data = data.copy()
     all_years_data.pop("year", None)
     overview_data = data.copy()
@@ -422,9 +507,13 @@ def planting_list(request, history=False, kind=None, pk=None):
         observations = observations_for(kind, scope)
         observation_total = observation_count(kind, scope)
         observations_url = reverse("diary:list") + "?" + urlencode({kind: scope.pk})
+    partial = (
+        request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-Target") == "planting-results"
+    )
     return render(
         request,
-        "garden/planting_list.html",
+        "garden/planting_results.html" if partial else "garden/planting_list.html",
         {
             "heading": _("Planting history") if history else _("Plantings"),
             "form": form,
@@ -437,13 +526,13 @@ def planting_list(request, history=False, kind=None, pk=None):
             "observations": observations,
             "observation_count": observation_total,
             "observations_url": observations_url,
-            "create_url": reverse("garden:planting-create")
-            + ("?" + urlencode(create) if create else ""),
+            "create_url": create_url,
             "previous_url": previous_url,
             "next_url": next_url,
             "overview_url": reverse("garden:planting-list") + "?" + overview_data.urlencode(),
             "all_years_url": reverse("garden:planting-history")
             + ("?" + all_years_data.urlencode() if all_years_data else ""),
+            **empty,
         },
         status=200 if valid else 422,
     )

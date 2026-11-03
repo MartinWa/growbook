@@ -3,6 +3,7 @@
 {% block title %}{% translate 'Log in' %} · growbook{% endblock %}
 {% block content %}
 <section class="panel login-panel">
+  {% include 'components/brand_mark.html' %}
   <h1>{% translate 'Log in' %}</h1>
   <p>{% translate 'Your private garden diary.' %}</p>
   <form method="post">

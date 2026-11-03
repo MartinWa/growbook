@@ -28,7 +28,8 @@ The interface defaults to Swedish, with English available.
   area descendants.
 - Authors edit and delete their own entries; active staff administrators can edit and
   delete any entry. Photo captions, ordering, addition and removal are editable too.
-- Separate camera and photo-library inputs, multiple photos, previews and upload feedback.
+- Inline diary quick-add and a dedicated capture page, with camera/library choices,
+  multiple photos, previews and upload feedback; native inputs remain without JavaScript.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped
   WebP display images/thumbnails. Received originals are retained privately.
 - Authenticated photo viewing in a CSP-safe HTML page and private original downloads;
@@ -78,6 +79,8 @@ The interface defaults to Swedish, with English available.
 
 Run all commands from the repository root. There is no frontend build step or
 runtime CDN dependency: CSS, HTMX and the small JavaScript modules are self-hosted.
+The [interface foundation guide](docs/design.md) describes the shared styles,
+tokens and capture form conventions.
 
 ## Run locally
 
@@ -106,7 +109,7 @@ uv run python manage.py runserver 127.0.0.1:8000
 
 Open **http://127.0.0.1:8000/**. Use **`/operator/`** to create or deactivate other
 accounts. There are no seeded credentials. Diary/photo/register/planting admin
-screens are read-only; use the diary pages for observations, **Registers** for
+screens are read-only; use the diary pages for observations, **Garden** for
 garden records and **Plantings** for plans and milestones.
 
 `manage.py` defaults to development settings with loopback-only allowed hosts,
@@ -117,9 +120,11 @@ be set in the process environment.
 
 ### Registers
 
-Open **Registers** to switch between growing areas, crops and varieties. Each
-compact table has a labelled **Details** control: several rows can stay expanded
-at once, and ordinary record links work without JavaScript.
+Open **Garden** for crop, variety and growing-area cards with active record
+counts and creation links. Each register table has a labelled **Details** control:
+several rows can stay expanded
+at once, and ordinary record links work without JavaScript. On phones, secondary
+columns are available in expanded details.
 
 - Crop names are unique globally; variety names are unique within a crop. Area
   names are unique among top-level areas or among siblings with the same parent.
@@ -131,7 +136,9 @@ at once, and ordinary record links work without JavaScript.
   dimensions do not enforce a rectangular layout or capacity.
 - Archive hides a record from default lists and new associations, not from direct
   links or existing associations. It does not archive child areas or varieties.
-  Use **Include archived records** to find and restore it to active selections.
+  Open **Archive options** and use **Include archived records** to find it.
+  The checkbox applies on change with JavaScript; **Apply** is the fallback.
+  **Hide archived records** returns to the default list.
 - Edit an area or variety to add photos; edit photo details to change captions or
   ordering. Deletion requires confirmation. A crop with varieties or an area with
   children cannot be deleted; archive it or deliberately reorganize its dependents.
@@ -144,8 +151,8 @@ at once, and ordinary record links work without JavaScript.
 Register, planting and event forms reject stale edits instead of overwriting
 another member's changes. On a failed or uncertain create/edit save, keep the form
 open and retry the same content and save key; photos are not appended twice. With
-JavaScript, validation
-replaces only the error summary, preserving fields and selected files. Without it,
+JavaScript, validation updates feedback beside the fields while preserving fields
+and selected files. Without it,
 reselect photos as instructed before retrying. A genuinely changed form is a new
 submission; do not reuse a confirmed key for different content.
 
@@ -154,9 +161,23 @@ ineligible after the original save. If a save may have committed, check the save
 record before starting a new submission. Planting saves resolve matching immutable
 receipts before checking current association eligibility.
 
+Observation, variety, area and planting upload forms share **Add photos**, with
+camera/library choices, selected-file previews and removal controls. With JavaScript,
+successive choices accumulate where the browser supports assigning FileLists.
+Otherwise, a new choice replaces that source and **Clear selected photos** empties
+the selection.
+Without JavaScript, both native inputs remain visible; choose all library photos at once.
+Selected-photo counts show the number chosen out of the available capacity.
+**Photo limits** opens the formats and byte limits. A count warning includes existing
+photos and, when editing an observation, subtracts photos marked for removal; the
+server enforces the limit. On phone-sized screens with sufficient height, full forms
+keep Save and Cancel visible at the bottom while scrolling.
+
 ### Plantings and histories
 
-Open **Plantings** for a growing-year table; enter a year or use **Previous year**
+Open **Plantings** for a growing-year table; filters use a sidebar at 900 px and
+a drawer below that width. Changes apply automatically; Enter submits a typed year.
+Without JavaScript, use **Apply**. Enter a year or use **Previous year**
 and **Next year**. **All years** shows one row per planting across its full history.
 Crop, variety and area histories default to all years; table links keep an
 explicitly selected year.
@@ -165,6 +186,9 @@ evaluation and photos. Register details link to their **Planting history**.
 
 - **New planting** requires only a crop and start year (1–9999). Variety and final
   growing area may be left unknown; no placeholder register records are created.
+  **More details** groups variety, area, lifespan, end year, batch label and quantity;
+  **Notes and photos** groups notes, evaluation and uploads. Populated fields and
+  fields with validation errors keep their group open.
   Variety choices follow the crop without reloading and clear an incompatible
   selection. Without JavaScript, use **Update variety choices** before choosing a
   variety. The server also rejects mismatches and ineligible new associations.
@@ -172,7 +196,9 @@ evaluation and photos. Register details link to their **Planting history**.
   year/crop/variety/area values. Quantity is a nonnegative plant count: blank means
   unknown and zero is a known zero, not an omitted value.
 - **Annual** is the default and belongs only to the start year, with no end year.
-  **Persistent** belongs to every year from start through its optional end year,
+  With JavaScript, a blank end year is hidden for annual plantings; an entered end
+  year is preserved for correction. **Persistent** belongs to every year from start
+  through its optional end year,
   inclusive; a blank end year means ongoing. Set the end year to end a planting
   without deleting its events, evaluation or photos. Viewing another year never
   creates a copy or counts the original quantity as repeated production.
@@ -198,11 +224,25 @@ year-level presence, not exact movement dates, lineage or historical layouts.
 
 ### Diary
 
-Open **Diary** to browse observations newest first. The search field matches the
-note text only; the year, area, crop, variety and planting controls combine in one
+Open **Diary** to add an observation directly or browse observations newest first.
+Quick-add accepts a note, photos or both; **More options** opens the dedicated capture
+page. With JavaScript, a confirmed save clears quick-add, shows a receipt and refreshes
+the results. Failed saves keep the draft and selected files in the open form; without
+JavaScript, reselect photos as instructed before retrying with the same save key.
+
+Search and filters use a sidebar on wide screens and a drawer on phones. With
+JavaScript, search applies after a short pause or Enter, other filters apply on
+change, and chips remove individual filters. Paging and Back preserve filter URLs;
+updating results keeps an unfinished quick-add and its selected files. Without
+JavaScript, open the filter disclosure and submit the form. The search field matches
+the note text only; the year, area, crop, variety and planting controls combine in one
 form. Clear all filters to return to every year. A planting filter also matches its
 crop, variety and area; an area filter includes descendant areas. Results are
 deduplicated, and paging preserves the active filters.
+
+The account menu contains Language, Log out and, for staff, Operator. Language
+changes apply immediately with JavaScript and retain the current page and filters;
+a submit button remains without JavaScript. The login page has its own selector.
 
 - Search is a literal substring match after Unicode NFC normalization and casefolding,
   so uppercase and lowercase match but diacritics do not: `Ångström` finds

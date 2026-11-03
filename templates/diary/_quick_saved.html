@@ -1,0 +1,5 @@
+{% load i18n %}
+<p class="save-confirmation" role="status" data-capture-saved="{{ entry.pk }}" data-next-key="{{ next_key }}">
+  {% if created %}{% translate 'Observation saved.' %}{% else %}{% translate 'Observation already saved.' %}{% endif %}
+  <a href="{{ entry.get_absolute_url }}">{% translate 'View observation' %}</a>
+</p>

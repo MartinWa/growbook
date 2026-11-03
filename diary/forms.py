@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from core.forms import MultipleFileField, MultipleFileInput, VersionField
+from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
 from garden.models import Crop, GrowingArea, Planting, Variety
 from garden.queries import area_paths
 
@@ -16,21 +16,47 @@ class CaptureForm(forms.Form):
     date = forms.DateField(
         label=_("Date"),
         initial=timezone.localdate,
-        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "aria-describedby": "capture-date-help capture-date-errors",
+            },
+            format="%Y-%m-%d",
+        ),
     )
     body = forms.CharField(
-        label=_("Note"), required=False, widget=forms.Textarea(attrs={"rows": 4})
+        label=_("Note"),
+        required=False,
+        widget=forms.Textarea(
+            attrs={"rows": 4, "aria-describedby": "capture-note-help capture-body-errors"}
+        ),
     )
     camera = MultipleFileField(
         label=_("Take a photo"),
         required=False,
-        widget=MultipleFileInput(attrs={"accept": "image/*", "capture": "environment"}),
+        widget=MultipleFileInput(
+            attrs={
+                "accept": "image/*",
+                "capture": "environment",
+                "aria-describedby": "capture-photo-help capture-camera-errors",
+            }
+        ),
     )
     library = MultipleFileField(
         label=_("Choose photos"),
         required=False,
-        widget=MultipleFileInput(attrs={"accept": "image/*"}),
+        widget=MultipleFileInput(
+            attrs={
+                "accept": "image/*",
+                "aria-describedby": "capture-photo-help capture-library-errors",
+            }
+        ),
     )
+
+    def __init__(self, *args, quick=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if quick:
+            self.fields["body"].widget.attrs["rows"] = 3
 
     def clean(self):
         cleaned = super().clean()
@@ -110,6 +136,7 @@ class EntryEditForm(forms.Form):
     def __init__(self, *args, entry, **kwargs):
         self.entry = entry
         super().__init__(*args, **kwargs)
+        describe_fields(self)
         photos = list(entry.photos.all())
         self.fields["remove_photos"].choices = [
             (str(photo.pk), photo.caption or _("Photo %(number)s") % {"number": number})
@@ -175,7 +202,11 @@ class PlantingFilterField(forms.ModelChoiceField):
 
 
 class DiaryFilterForm(forms.Form):
-    q = forms.CharField(label=_("Search"), required=False)
+    q = forms.CharField(
+        label=_("Search"),
+        required=False,
+        widget=forms.TextInput(attrs={"type": "search", "autocomplete": "off"}),
+    )
     year = forms.TypedChoiceField(
         label=_("Year"), required=False, coerce=int, empty_value=None, choices=()
     )

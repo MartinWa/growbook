@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from core.forms import MultipleFileField, MultipleFileInput, VersionField
+from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
 
 from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 from .queries import area_paths, descendant_ids
@@ -18,6 +18,10 @@ class CropForm(forms.Form):
     notes = forms.CharField(
         label=_("Notes"), required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        describe_fields(self)
 
 
 class VarietyForm(forms.Form):
@@ -41,6 +45,7 @@ class VarietyForm(forms.Form):
 
     def __init__(self, *args, record=None, **kwargs):
         super().__init__(*args, **kwargs)
+        describe_fields(self)
         current = record.crop_id if record else None
         self.fields["crop"].queryset = Crop.objects.filter(Q(is_archived=False) | Q(pk=current))
 
@@ -79,6 +84,7 @@ class AreaForm(forms.Form):
 
     def __init__(self, *args, record=None, **kwargs):
         super().__init__(*args, **kwargs)
+        describe_fields(self)
         areas = list(GrowingArea.objects.all())
         excluded = descendant_ids(areas, record.pk) if record else set()
         eligible = [
@@ -122,6 +128,8 @@ def planting_variety_choices(crop_id, record=None):
 
 
 class PlantingForm(forms.Form):
+    detail_names = ("variety", "area", "lifespan", "end_year", "label", "quantity")
+    note_names = ("notes", "evaluation", "photos")
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
     crop = RecordIDChoiceField(label=_("Crop"), queryset=Crop.objects.none())
@@ -179,6 +187,7 @@ class PlantingForm(forms.Form):
 
     def __init__(self, *args, record=None, **kwargs):
         super().__init__(*args, **kwargs)
+        describe_fields(self)
         self.fields["crop"].queryset = Crop.objects.filter(
             Q(is_archived=False) | Q(pk=record.crop_id if record else None)
         )
@@ -219,6 +228,31 @@ class PlantingForm(forms.Form):
                             )
                     field.choices = choices
 
+        values = self.data if self.is_bound else self.initial
+        self._details_open = any(
+            values.get(name) not in (None, "", Planting.Lifespan.ANNUAL)
+            for name in self.detail_names
+        )
+        self._notes_open = any(values.get(name) for name in self.note_names) or bool(self.files)
+        if record is not None and record.photos.exists():
+            self._notes_open = True
+
+    @property
+    def details_open(self):
+        return self._details_open or any(self[name].errors for name in self.detail_names)
+
+    @property
+    def notes_open(self):
+        return self._notes_open or any(self[name].errors for name in self.note_names)
+
+    @property
+    def detail_fields(self):
+        return [self[name] for name in self.detail_names]
+
+    @property
+    def note_fields(self):
+        return [self[name] for name in self.note_names]
+
     def clean(self):
         data = super().clean()
         start_year, end_year = data.get("start_year"), data.get("end_year")
@@ -246,6 +280,10 @@ class PlantingEventForm(forms.Form):
     note = forms.CharField(
         label=_("Note"), required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        describe_fields(self)
 
     def clean(self):
         data = super().clean()

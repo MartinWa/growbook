@@ -1,0 +1,6 @@
+<section class="panel empty-state">
+  {% include 'components/brand_mark.html' %}
+  <h2>{{ empty_heading }}</h2>
+  <p>{{ empty_description }}</p>
+  <a class="button" href="{{ empty_action_url }}"{% if empty_filter_link %} data-filter-link{% endif %}>{{ empty_action_label }}</a>
+</section>

@@ -30,3 +30,15 @@ class VersionField(forms.DateTimeField):
 class DeleteForm(forms.Form):
     expected_updated_at = VersionField()
     confirm = forms.BooleanField(label=_("I confirm this deletion."))
+
+
+def describe_fields(form):
+    """Keep help and validation IDs stable when only the error summary is replaced."""
+    for name, field in form.fields.items():
+        if field.widget.is_hidden:
+            continue
+        field_id = form[name].auto_id
+        descriptions = [f"{field_id}_errors"]
+        if field.help_text or name == "photos":
+            descriptions.append(f"{field_id}_helptext")
+        field.widget.attrs["aria-describedby"] = " ".join(descriptions)
