@@ -11,6 +11,42 @@ from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 from .queries import area_paths, descendant_ids
 
 
+def clean_record_id(value, *, required=False):
+    """Validate positive signed 64-bit IDs without checking record eligibility."""
+    message = _("Choose a valid record.")
+    return forms.IntegerField(
+        min_value=1,
+        max_value=2**63 - 1,
+        required=required,
+        error_messages={"invalid": message, "min_value": message, "max_value": message},
+    ).clean(getattr(value, "pk", value))
+
+
+class RecordIDChoiceField(forms.ModelChoiceField):
+    """Render model choices but clean IDs only; writers resolve receipts before eligibility."""
+
+    def label_from_instance(self, obj):
+        return getattr(self, "paths", {}).get(obj.pk, str(obj))
+
+    def to_python(self, value):
+        return clean_record_id(value, required=self.required)
+
+    def preserve_selection(self, value):
+        """Keep an unavailable ID in a failed draft without granting it eligibility."""
+        try:
+            selected = clean_record_id(value)
+        except forms.ValidationError:
+            return
+        if selected is None:
+            return
+        choices = list(self.choices)
+        if str(selected) not in {str(value) for value, _label in choices}:
+            choices.append(
+                (selected, _("Unavailable selection (%(number)s)") % {"number": selected})
+            )
+        self.choices = choices
+
+
 class CropForm(forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
@@ -27,7 +63,7 @@ class CropForm(forms.Form):
 class VarietyForm(forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
-    crop = forms.ModelChoiceField(label=_("Crop"), queryset=Crop.objects.none())
+    crop = RecordIDChoiceField(label=_("Crop"), queryset=Crop.objects.none())
     name = forms.CharField(label=_("Name"), max_length=150)
     category = forms.CharField(label=_("Category"), max_length=150, required=False)
     description = forms.CharField(
@@ -48,6 +84,8 @@ class VarietyForm(forms.Form):
         describe_fields(self)
         current = record.crop_id if record else None
         self.fields["crop"].queryset = Crop.objects.filter(Q(is_archived=False) | Q(pk=current))
+        if self.is_bound:
+            self.fields["crop"].preserve_selection(self.data.get("crop"))
 
 
 class AreaChoiceField(forms.ModelChoiceField):
@@ -59,7 +97,7 @@ class AreaForm(forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
     name = forms.CharField(label=_("Name"), max_length=150)
-    parent = AreaChoiceField(
+    parent = RecordIDChoiceField(
         label=_("Parent area"), queryset=GrowingArea.objects.none(), required=False
     )
     area_type = forms.CharField(
@@ -95,27 +133,8 @@ class AreaForm(forms.Form):
         ]
         self.fields["parent"].paths = area_paths(areas)
         self.fields["parent"].queryset = GrowingArea.objects.filter(pk__in=eligible)
-
-
-def clean_record_id(value, *, required=False):
-    """Validate positive signed 64-bit IDs without checking record eligibility."""
-    message = _("Choose a valid record.")
-    return forms.IntegerField(
-        min_value=1,
-        max_value=2**63 - 1,
-        required=required,
-        error_messages={"invalid": message, "min_value": message, "max_value": message},
-    ).clean(getattr(value, "pk", value))
-
-
-class RecordIDChoiceField(forms.ModelChoiceField):
-    """Render model choices but clean IDs only; writers resolve receipts before eligibility."""
-
-    def label_from_instance(self, obj):
-        return getattr(self, "paths", {}).get(obj.pk, str(obj))
-
-    def to_python(self, value):
-        return clean_record_id(value, required=self.required)
+        if self.is_bound:
+            self.fields["parent"].preserve_selection(self.data.get("parent"))
 
 
 def planting_variety_choices(crop_id, record=None):

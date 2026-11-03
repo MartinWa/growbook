@@ -10,7 +10,7 @@ from django.urls import reverse
 from core.media import private_path
 from core.models import Photo
 from diary.services import create_entry
-from garden.models import Crop, GrowingArea, Variety
+from garden.models import Crop, GrowingArea, RegisterSubmission, Variety
 from garden.services import (
     archive_area,
     archive_crop,
@@ -18,7 +18,10 @@ from garden.services import (
     create_area,
     create_crop,
     create_variety,
+    delete_area,
+    delete_crop,
     edit_area,
+    edit_variety,
 )
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -241,6 +244,7 @@ def test_parent_choices_exclude_cycles_archives_but_preserve_current_archived_pa
     assert child.pk not in offered and grandchild.pk not in offered and other.pk not in offered
     root_form = client.get(reverse("garden:area-edit", args=[root.pk])).context["form"]
     assert not root_form.fields["parent"].queryset.exists()
+    root.refresh_from_db()
     invalid = client.post(
         reverse("garden:area-edit", args=[root.pk]), payload("area", root, parent=grandchild.pk)
     )
@@ -417,6 +421,184 @@ def test_lost_register_http_response_retries_once_and_conflicts_on_changed_conte
     )
     assert response.status_code == 409
     assert GrowingArea.objects.count() == 1 and Photo.objects.count() == 1
+
+
+@pytest.mark.parametrize("kind", ["variety", "area"])
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("with_photo", [False, True])
+def test_register_create_retry_after_archive_preserves_receipt_and_draft(
+    client, user, image_upload, monkeypatch, kind, hx, with_photo
+):
+    from garden import views
+
+    association = (
+        create_crop(actor=user, name="Original crop").record
+        if kind == "variety"
+        else create_area(actor=user, name="Original parent").record
+    )
+    field = "crop" if kind == "variety" else "parent"
+    model = Variety if kind == "variety" else GrowingArea
+    writer = getattr(views.services, f"create_{kind}")
+    attempts = 0
+
+    def lost_response(**values):
+        nonlocal attempts
+        result = writer(**values)
+        attempts += 1
+        if attempts == 1:
+            raise OperationalError("Synthetic lost response after commit")
+        return result
+
+    monkeypatch.setattr(views.services, f"create_{kind}", lost_response)
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    path = reverse(f"garden:{kind}-create")
+    data = payload(kind, **{field: association.pk})
+
+    def post(**overrides):
+        photos = {"photos": image_upload()} if with_photo else {}
+        return client.post(path, {**data, **photos, **overrides}, **headers)
+
+    assert post().status_code == 503
+    saved = model.objects.get(name=data["name"])
+    version = saved.updated_at
+    photo_ids = list(saved.photos.values_list("pk", flat=True))
+    assert len(photo_ids) == int(with_photo)
+    originals = [private_path(photo.original.name) for photo in saved.photos.all()]
+    receipt_count = RegisterSubmission.objects.count()
+    {"variety": archive_crop, "area": archive_area}[kind](actor=user, pk=association.pk)
+
+    # An ordinary failed form must keep unavailable selections for the next retry.
+    invalid = post(name="")
+    assert invalid.status_code == 422
+    if not hx:
+        draft = invalid.context["form"]
+        assert f'value="{association.pk}" selected' in str(draft[field])
+        assert draft["submission_key"].value() == data["submission_key"]
+
+    response = post()
+    assert response.status_code == (204 if hx else 302)
+    assert response["HX-Redirect" if hx else "Location"] == saved.get_absolute_url()
+    assert post(name="Different content").status_code == 409
+    if with_photo:
+        assert post(photos=image_upload(color=(100, 20, 30))).status_code == 409
+    saved.refresh_from_db()
+    assert saved.updated_at == version
+    assert model.objects.count() == (1 if kind == "variety" else 2)
+    assert list(saved.photos.values_list("pk", flat=True)) == photo_ids
+    assert all(original.is_file() for original in originals)
+    assert RegisterSubmission.objects.count() == receipt_count
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize(
+    ("kind", "change"),
+    [
+        ("variety", "archive"),
+        ("variety", "delete"),
+        ("area", "archive"),
+        ("area", "delete"),
+        ("area", "cycle"),
+    ],
+)
+def test_register_edit_retry_after_later_association_change_keeps_latest_record(
+    client, user, image_upload, kind, change, hx
+):
+    if kind == "variety":
+        original = create_crop(actor=user, name="Original crop").record
+        replacement = create_crop(actor=user, name="Replacement crop").record
+        record = create_variety(actor=user, name="Original variety", crop=original).record
+        writer, field = edit_variety, "crop"
+    else:
+        original = create_area(actor=user, name="Original parent").record
+        replacement = create_area(actor=user, name="Replacement parent").record
+        record = create_area(actor=user, name="Original child", parent=original).record
+        writer, field = edit_area, "parent"
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    path = reverse(f"garden:{kind}-edit", args=[record.pk])
+    data = payload(kind, record, name="First edit")
+    assert client.post(path, {**data, "photos": image_upload()}, **headers).status_code == (
+        204 if hx else 302
+    )
+    latest = writer(actor=user, pk=record.pk, name="Later edit", **{field: replacement}).record
+    if change == "archive":
+        {"variety": archive_crop, "area": archive_area}[kind](actor=user, pk=original.pk)
+    elif change == "delete":
+        {"variety": delete_crop, "area": delete_area}[kind](actor=user, pk=original.pk)
+    else:
+        edit_area(actor=user, pk=original.pk, name=original.name, parent=latest)
+    receipt_count = RegisterSubmission.objects.count()
+    photo_ids = list(record.photos.values_list("pk", flat=True))
+
+    response = client.post(path, {**data, "photos": image_upload()}, **headers)
+    assert response.status_code == (204 if hx else 302)
+    assert response["HX-Redirect" if hx else "Location"] == record.get_absolute_url()
+    assert (
+        client.post(
+            path, {**data, "name": "Changed payload", "photos": image_upload()}, **headers
+        ).status_code
+        == 409
+    )
+    assert client.post(path, {**data, "submission_key": str(uuid4())}, **headers).status_code == 409
+    record.refresh_from_db()
+    assert record.name == latest.name and record.updated_at == latest.updated_at
+    assert getattr(record, f"{field}_id") == replacement.pk
+    assert list(record.photos.values_list("pk", flat=True)) == photo_ids
+    assert RegisterSubmission.objects.count() == receipt_count
+
+
+@pytest.mark.parametrize("kind", ["variety", "area"])
+@pytest.mark.parametrize("hx", [False, True])
+def test_register_receipt_after_archive_rejects_other_author(client, user, other_user, kind, hx):
+    association = (
+        create_crop(actor=user, name="Original crop").record
+        if kind == "variety"
+        else create_area(actor=user, name="Original parent").record
+    )
+    field = "crop" if kind == "variety" else "parent"
+    data = payload(kind, **{field: association.pk})
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    path = reverse(f"garden:{kind}-create")
+    client.force_login(user)
+    assert client.post(path, data, **headers).status_code == (204 if hx else 302)
+    {"variety": archive_crop, "area": archive_area}[kind](actor=user, pk=association.pk)
+    receipt_count = RegisterSubmission.objects.count()
+    client.force_login(other_user)
+    assert client.post(path, data, **headers).status_code == 409
+    assert RegisterSubmission.objects.count() == receipt_count
+
+
+@pytest.mark.parametrize("kind", ["variety", "area"])
+@pytest.mark.parametrize("selection", ["archived", "missing", "0", "-1", "1.5", str(2**63)])
+def test_new_register_submission_rejects_ineligible_and_malformed_associations(
+    client, user, image_upload, kind, selection
+):
+    association = (
+        create_crop(actor=user, name="Original crop").record
+        if kind == "variety"
+        else create_area(actor=user, name="Original parent").record
+    )
+    field = "crop" if kind == "variety" else "parent"
+    if selection == "archived":
+        {"variety": archive_crop, "area": archive_area}[kind](actor=user, pk=association.pk)
+        selection = association.pk
+    elif selection == "missing":
+        selection = association.pk + 1000
+    receipt_count = RegisterSubmission.objects.count()
+    client.force_login(user)
+    response = client.post(
+        reverse(f"garden:{kind}-create"),
+        payload(kind, **{field: selection}, photos=image_upload()),
+    )
+    assert response.status_code == 422 and field in response.context["form"].errors
+    assert not Photo.objects.exists()
+    assert (
+        not (Variety if kind == "variety" else GrowingArea)
+        .objects.filter(name="Synthetic new record")
+        .exists()
+    )
+    assert RegisterSubmission.objects.count() == receipt_count
 
 
 def test_register_csrf_and_shared_member_permissions(user, django_user_model):

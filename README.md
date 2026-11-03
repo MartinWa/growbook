@@ -158,10 +158,10 @@ and selected files. Without it,
 reselect photos as instructed before retrying. A genuinely changed form is a new
 submission; do not reuse a confirmed key for different content.
 
-A register retry can still be rejected if its selected crop/parent became
-ineligible after the original save. If a save may have committed, check the saved
-record before starting a new submission. Planting saves resolve matching immutable
-receipts before checking current association eligibility.
+Register and planting retries resolve matching immutable receipts before checking
+current association eligibility. Identical retries return the saved record even
+if the original crop/parent was archived or the record's associations changed
+later. New submissions still validate current associations and edit versions.
 
 Observation, variety, area and planting upload forms share **Add photos**, which
 opens the native image picker directly with JavaScript. Camera/library options
