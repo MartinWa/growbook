@@ -507,7 +507,7 @@ def test_edit_links_filter_and_delete_round_trip(page, live_server, user):
 
     page.locator('a[href$="/delete/"]').click()
     page.locator("#id_confirm").check()
-    page.locator("button.danger").click()
+    page.locator("button.btn-error").click()
     expect(page).to_have_url(live_server.url + "/")
     expect(page.locator(".diary-card")).to_have_count(0)
     expect(page.get_by_text("Browser edited observation")).to_have_count(0)
@@ -952,7 +952,7 @@ def test_account_disclosure_and_language_change_keep_the_filtered_page(page, liv
     page.locator("#language").select_option("en")
     expect(page.locator("html")).to_have_attribute("lang", "en")
     expect(page).to_have_url(live_server.url + "/?q=synthetic")
-    expect(page.locator(".site-header nav [aria-current=page]")).to_have_text("Diary")
+    expect(page.locator("header nav [aria-current=page]")).to_have_text("Diary")
 
 
 def test_quick_add_and_filters_work_without_javascript(page, live_server, user, image_upload):

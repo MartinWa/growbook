@@ -11,7 +11,7 @@
 {% if scope %}<p class="related-actions"><a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a></p>{% endif %}
 {% if records %}
 <div class="table-scroll">
-<table class="register-table planting-table responsive-table">
+<table class="register-table planting-table responsive-table table table-sm">
   <caption class="visually-hidden">{{ heading }}{% if year %} · {{ year }}{% endif %}</caption>
   <thead><tr>
     <th scope="col">{% translate 'Batch' %}</th><th scope="col">{% translate 'Crop' %}</th>

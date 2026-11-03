@@ -27,7 +27,7 @@
   {% endfor %}
   {% if can_edit %}
   <div class="form-actions">
-    <a class="button" href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit observation' %}</a>
+    <a class="btn btn-primary" href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit observation' %}</a>
     <a href="{% url 'diary:delete' entry.pk %}">{% translate 'Delete observation' %}</a>
   </div>
   {% endif %}

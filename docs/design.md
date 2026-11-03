@@ -1,26 +1,31 @@
 # Interface foundations
 
-The interface uses the existing self-hosted `static/css/growbook.css`, system
-fonts and server-rendered Django templates. There is no frontend build step.
+The interface uses the committed, self-hosted `static/css/app.css`, built from
+`assets/app.css` with the pinned Tailwind CSS and daisyUI versions in `package.json`,
+system fonts and server-rendered Django templates. Rebuilding that stylesheet needs
+Node.js and pnpm; running the application does not.
 
 ## Tokens
 
-Colour roles are `--paper`, `--surface`, `--ink`, `--muted`, `--green`,
-`--line`, `--error`, `--warning` and `--focus`. Warning and success surfaces
-have separate tokens, and `--field-line` provides the stronger border used
-by inputs. Keep error and status meaning in text as well as colour.
+Colour roles map to daisyUI theme variables: `--color-base-100`, `--color-base-200`,
+`--color-base-300`, `--color-base-content`, `--color-primary`, `--color-secondary`,
+`--color-accent`, `--color-neutral`, `--color-info`, `--color-success`,
+`--color-warning`, `--color-error` and `--color-focus`. Warning, success and error
+surfaces have their own roles and content colours. Keep error and status meaning in
+text as well as colour.
 
-Spacing uses `--space-1`, `2`, `3`, `4`, `6`, `8` and `12`, in quarter-rem
-increments. The rem unit follows the user's preferred font size. Small,
-medium and large radii are quarter-, half- and three-quarter-rem. The base
-font is 106.25% of the browser default, with a 1.6 line height.
+The `growbook` theme in `assets/app.css` fixes the warm paper surfaces, the green
+primary action and the amber focus colour. Spacing uses Tailwind's quarter-rem
+steps. `--radius-selector`, `--radius-field` and `--radius-box` set the small,
+medium and large radii. The base font is 106.25% of the browser default, with a
+1.6 line height, and `--size-field` gives a 44 px control target at that size.
 
 ## Components
 
-- Buttons and `.button` links share a minimum 44 by 44 px target. The default
-  is the primary green action; `.quiet` is secondary and `.danger` is
-  destructive. Use one primary action in a form. Disabled controls retain
-  their label; an uploading form uses `aria-busy` and a visible status line.
+- Buttons and links use daisyUI's `btn` with `btn-primary` for the primary green
+  action, `btn-outline` for secondary actions and `btn-error` for destructive ones.
+  Use one primary action in a form. Disabled controls retain their label; an
+  uploading form uses `aria-busy` and a visible status line.
 - `.field` places a label above its control, with `.field-help` and
   `.field-errors` underneath. Create/edit forms mark required and optional
   fields in words and associate help/errors through `aria-describedby`.
@@ -37,8 +42,9 @@ font is 106.25% of the browser default, with a 1.6 line height.
   with a two-pixel stroke. Icons accompany text labels and are hidden from
   assistive technology with `aria-hidden="true"` and `focusable="false"`.
   A control's accessible name comes from its text.
-- `.disclosure-menu` uses native `details`/`summary` with a bordered overlay.
-  Account and photo-options menus are nonmodal. Escape returns focus to their summary;
+- `.disclosure-menu` uses native `details`/`summary`. The account menu and the
+  viewer's Photo options open as bordered overlays; photo limits open inline
+  below their summary. All are nonmodal. Escape returns focus to their summary;
   clicking outside closes them without taking focus from the clicked control.
 - `.filter-drawer` uses a modal `dialog`, with first/last Tab handling, Escape,
   a labelled close action and focus returned to its trigger. The same filter
@@ -89,10 +95,10 @@ successful quick save returns a receipt and a fresh submission key; focus moves 
 the saved entry when it matches the current results, or stays on the receipt link
 otherwise.
 
-Keyboard focus uses a visible three-pixel outline. Button transitions last
-140 ms and are disabled when `prefers-reduced-motion` requests reduced motion.
-The strict content security policy remains unchanged; icons, styles and
-scripts require no runtime downloads from third parties.
+Keyboard focus uses a visible three-pixel outline. Button transitions use
+daisyUI's 200 ms timing and are disabled when `prefers-reduced-motion` requests
+reduced motion. The strict content security policy remains unchanged; icons,
+styles and scripts require no runtime downloads from third parties.
 
 Original downloads are available in the photo viewer's Photo options disclosure,
 with keyboard and Escape handling shared with the account menu. Diary photos link

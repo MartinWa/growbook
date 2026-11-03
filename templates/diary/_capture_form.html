@@ -29,9 +29,9 @@
   <p id="capture-status" role="status" aria-live="polite"></p>
   <progress id="capture-progress" max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
   <div class="form-actions capture-actions">
-    <button type="submit" id="save-entry"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-check"/></svg> {% translate 'Save observation' %}</button>
+    <button type="submit" id="save-entry" class="btn btn-primary"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-check"/></svg> {% translate 'Save observation' %}</button>
     {% if quick %}<a href="{% url 'diary:capture' %}" data-more-options data-confirm="{% translate 'Open the full form? Your quick draft is not carried over.' %}">{% translate 'More options' %}</a>
-    {% else %}<a class="button quiet" href="{% url 'diary:list' %}">{% translate 'Cancel' %}</a>{% endif %}
+    {% else %}<a class="btn btn-outline" href="{% url 'diary:list' %}">{% translate 'Cancel' %}</a>{% endif %}
   </div>
   {% if not quick %}<p class="field-help capture-link-help">{% translate 'Garden links are added after saving: open the observation and choose Edit observation.' %}</p>{% endif %}
   <noscript><p class="field-help">{% translate 'Without JavaScript, select all library photos at once. A failed save requires selecting the photos again.' %}</p>{% if quick %}<p class="field-help">{% translate 'More options opens a new page and does not keep a quick draft.' %}</p>{% endif %}</noscript>

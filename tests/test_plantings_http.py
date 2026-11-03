@@ -255,7 +255,7 @@ def test_default_year_and_all_years_do_not_infer_years_from_event_dates(client, 
     assert response.context["records"] == [catalog["planting"]]
     assert client.get(reverse("garden:planting-list"), {"year": 2025}).context["records"] == []
     response = client.get(reverse("garden:planting-list"), {"year": 2026})
-    assert '<table class="register-table planting-table responsive-table">' in response.text
+    assert '<table class="register-table planting-table' in response.text
     assert f'aria-controls="details-planting-{catalog["planting"].pk}"' in response.text
     assert "Synthetic event note" not in response.text
     assert "Unknown variety" not in response.text  # Swedish is the default locale.

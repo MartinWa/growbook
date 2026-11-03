@@ -38,11 +38,11 @@
   </div>
   {% endif %}
   <div class="form-actions">
-    <a class="button" href="{{ edit_url }}">{% translate 'Edit' %}</a>
+    <a class="btn btn-primary" href="{{ edit_url }}">{% translate 'Edit' %}</a>
     <form method="post" action="{{ archive_url }}">
       {% csrf_token %}
-      {% if record.is_archived %}<input type="hidden" name="archived" value="false"><button type="submit" class="quiet">{% translate 'Restore to active selections' %}</button>
-      {% else %}<input type="hidden" name="archived" value="true"><button type="submit" class="quiet">{% translate 'Archive' %}</button>{% endif %}
+      {% if record.is_archived %}<input type="hidden" name="archived" value="false"><button type="submit" class="btn btn-outline">{% translate 'Restore to active selections' %}</button>
+      {% else %}<input type="hidden" name="archived" value="true"><button type="submit" class="btn btn-outline">{% translate 'Archive' %}</button>{% endif %}
     </form>
     <a href="{{ delete_url }}">{% translate 'Delete' %}</a>
   </div>

@@ -79,10 +79,11 @@ The interface defaults to Swedish, with English available.
 - Docker with Linux-container support and Compose v2 for the optional
   [container workflow](#build-and-run-with-docker).
 
-Run all commands from the repository root. There is no frontend build step or
-runtime CDN dependency: CSS, HTMX and the small JavaScript modules are self-hosted.
-The [interface foundation guide](docs/design.md) describes the shared styles,
-tokens and capture form conventions.
+Run all commands from the repository root. There is no runtime frontend build step or
+runtime CDN dependency: the compiled CSS, HTMX and the small JavaScript modules are
+self-hosted. The [interface foundation guide](docs/design.md) describes the shared
+styles, tokens and capture form conventions; [rebuilding the styles](#styles) needs
+Node.js and pnpm only while editing templates.
 
 ## Run locally
 
@@ -345,6 +346,20 @@ uv run python tools/run_tests.py -q -m browser
 These tests exercise Chromium and real browser/form interaction. They do not
 verify a phone's native camera/library picker or a deployment's private-network
 routing; check those on the intended devices and installation.
+
+### Styles
+
+The committed `static/css/app.css` is built from `assets/app.css` with the pinned
+Tailwind CSS and daisyUI versions in `package.json`. Node.js and pnpm are needed only
+to rebuild styles; the application and container do not run them.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run build:css
+```
+
+`pnpm run watch:css` rebuilds while editing templates. Commit the regenerated
+`static/css/app.css` with the template changes that require it.
 
 ### GitHub Actions
 

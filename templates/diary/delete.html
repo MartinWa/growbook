@@ -10,7 +10,7 @@
     <div role="alert">{% include 'diary/form_errors.html' %}</div>
     {{ form.expected_updated_at }}
     <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
-    <div class="form-actions"><button type="submit" class="danger">{% translate 'Delete observation' %}</button><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete observation' %}</button><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
   </form>
 </section>
 {% endblock %}
