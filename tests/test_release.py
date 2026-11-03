@@ -207,13 +207,16 @@ def test_tag_script_requires_clean_main_checkout(tag_repository, state):
     assert git(repository, environment, "show-ref", "--tags").stdout == before
 
 
-def test_tag_script_pushes_only_the_new_tag_to_local_remote(tag_repository):
+@pytest.mark.parametrize("follow_tags", [False, True])
+def test_tag_script_pushes_only_the_new_tag_to_local_remote(tag_repository, follow_tags):
     repository, environment, _ = tag_repository
     remote = repository.parent / "origin.git"
     git(repository.parent, environment, "init", "--bare", str(remote))
     git(repository, environment, "remote", "add", "origin", str(remote))
     git(repository, environment, "push", "origin", "main")
     git(repository, environment, "tag", "work-in-progress")
+    git(repository, environment, "tag", "-a", "0.1.2", "-m", "Pending synthetic release")
+    git(repository, environment, "config", "push.followTags", str(follow_tags).lower())
     result = run_tag_script(tag_repository, "-Push")
     assert result.returncode == 0, result.stderr
     assert git(remote, environment, "tag", "--list").stdout.strip() == "0.1.4"
@@ -227,7 +230,7 @@ def test_tag_script_reports_failed_push_and_preserves_local_tag(tag_repository):
     repository, environment, _ = tag_repository
     result = run_tag_script(tag_repository, "-Push")
     assert result.returncode != 0
-    assert "git push origin refs/tags/0.1.4" in result.stderr
+    assert "git push --no-follow-tags origin refs/tags/0.1.4" in result.stderr
     assert git(repository, environment, "tag", "--list").stdout.splitlines() == ["0.1.3", "0.1.4"]
 
 

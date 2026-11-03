@@ -57,10 +57,10 @@ if ($PSCmdlet.ShouldProcess("$Version at $commit", $action)) {
     Write-Host "Created tag $Version."
     if ($Push) {
         try {
-            Invoke-Git push origin "refs/tags/$Version"
+            Invoke-Git push --no-follow-tags origin "refs/tags/$Version"
         }
         catch {
-            throw "Tag $Version remains local. Retry with: git push origin refs/tags/$Version. $($_.Exception.Message)"
+            throw "Tag $Version remains local. Retry with: git push --no-follow-tags origin refs/tags/$Version. $($_.Exception.Message)"
         }
         Write-Host "Pushed tag $Version to origin."
     }
