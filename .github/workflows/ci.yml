@@ -79,11 +79,18 @@ jobs:
           persist-credentials: false
       - name: Install the pinned frontend toolchain
         run: |
-          npm install --global pnpm@11.28.5
-          pnpm install --frozen-lockfile
+          curl --fail --silent --show-error --location --retry 3 \
+            https://registry.npmjs.org/pnpm/-/pnpm-11.28.5.tgz \
+            --output "$RUNNER_TEMP/pnpm.tgz"
+          printf '%s  %s\n' \
+            '1ef4e447a68713656064f3f174c0f44719960a043a3fe2299169d08cf1dbf8ee' \
+            "$RUNNER_TEMP/pnpm.tgz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/pnpm"
+          tar -xzf "$RUNNER_TEMP/pnpm.tgz" -C "$RUNNER_TEMP/pnpm"
+          node "$RUNNER_TEMP/pnpm/package/bin/pnpm.mjs" install --frozen-lockfile
       - name: Verify the committed stylesheet
         run: |
-          pnpm run build:css
+          node "$RUNNER_TEMP/pnpm/package/bin/pnpm.mjs" run build:css
           git diff --exit-code -- static/css/app.css
 
   browser:

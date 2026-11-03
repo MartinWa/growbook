@@ -66,7 +66,8 @@ pnpm run build:css
 
 `pnpm run watch:css` rebuilds while editing templates. Commit the regenerated
 `static/css/app.css` with the template or JavaScript class changes that require it.
-CI rebuilds the stylesheet and fails if the committed file differs.
+CI verifies the pnpm archive checksum, installs from the frozen lockfile, rebuilds
+the stylesheet and fails if the committed file differs.
 
 ## GitHub Actions
 
