@@ -120,9 +120,9 @@ Creation retries compare the original immutable payload fingerprint and author
 against the stored receipt, not mutable record fields. Register, planting and event
 create/edit saves retain receipts; an uncertain photo retry cannot append images
 twice. A reused key with different content conflicts; a missing receipt target
-fails instead of recreating a deleted record. Matching planting receipts are
-checked before current association eligibility. Register forms retain the
-[crop/parent retry limitation](../README.md#garden) described in the README.
+fails instead of recreating a deleted record. Matching register and planting
+receipts are checked before current association eligibility; see the
+[register retry workflow](../README.md#garden).
 Diary edits use version checks and reject stale writes; an uncertain edit may
 already have committed, so follow the conflict message and reload the observation
 to check the saved state before submitting further changes. See the
