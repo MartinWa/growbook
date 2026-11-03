@@ -58,6 +58,13 @@ jobs:
           uv run python tools/compile_translations.py
           uv run python manage.py check --database default
           uv run python manage.py makemigrations --check --dry-run
+      - name: Check the local development startup path
+        env:
+          DJANGO_SETTINGS_MODULE: growbook.settings.development
+          GROWBOOK_DATA_DIR: ${{ runner.temp }}/growbook-development
+        run: |
+          uv run python manage.py migrate --noinput
+          uv run python manage.py check --database default
       - name: Run application tests
         run: uv run python tools/run_tests.py -q
 
