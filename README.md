@@ -359,7 +359,8 @@ pnpm run build:css
 ```
 
 `pnpm run watch:css` rebuilds while editing templates. Commit the regenerated
-`static/css/app.css` with the template changes that require it.
+`static/css/app.css` with the template changes that require it. CI rebuilds the
+stylesheet and fails if the committed file differs.
 
 ### GitHub Actions
 

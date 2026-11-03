@@ -68,6 +68,24 @@ jobs:
       - name: Run application tests
         run: uv run python tools/run_tests.py -q
 
+  styles:
+    name: Styles (Node)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned frontend toolchain
+        run: |
+          npm install --global pnpm@11.28.5
+          pnpm install --frozen-lockfile
+      - name: Verify the committed stylesheet
+        run: |
+          pnpm run build:css
+          git diff --exit-code -- static/css/app.css
+
   browser:
     name: Browser (Chromium)
     runs-on: windows-2025
