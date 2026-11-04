@@ -26,8 +26,7 @@ env:
 
 jobs:
   checks:
-    # Existing main rules require this exact status name; execution is Linux-only.
-    name: Checks (Windows)
+    name: Checks (Linux)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
