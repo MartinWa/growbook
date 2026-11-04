@@ -191,7 +191,7 @@ jobs:
           from django.core.checks import run_checks
           assert os.geteuid() != 0
           assert application
-          assert all(importlib.util.find_spec(name) is None for name in ("pip", "pytest", "playwright"))
+          assert all(importlib.util.find_spec(name) is None for name in (\"pip\", \"pytest\", \"playwright\"))
           issues = run_checks(include_deployment_checks=True, databases=[\"default\"])
           assert {issue.id for issue in issues} <= {\"security.W005\", \"security.W021\"}, issues
           "
