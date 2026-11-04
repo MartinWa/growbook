@@ -388,10 +388,10 @@ def test_native_multipart_count_guard_also_applies_to_register_edit(client, user
 def test_lost_register_http_response_retries_once_and_conflicts_on_changed_content(
     client, user, image_upload, monkeypatch
 ):
-    from garden import views
+    from garden.views import registers
 
     client.force_login(user)
-    real_create, count = views.services.create_area, 0
+    real_create, count = registers.services.create_area, 0
 
     def lost_response(**kwargs):
         nonlocal count
@@ -401,7 +401,7 @@ def test_lost_register_http_response_retries_once_and_conflicts_on_changed_conte
             raise OperationalError("Synthetic response lost after commit")
         return result
 
-    monkeypatch.setattr(views.services, "create_area", lost_response)
+    monkeypatch.setattr(registers.services, "create_area", lost_response)
     key = uuid4()
     path = reverse("garden:area-create")
     assert (
@@ -432,7 +432,7 @@ def test_lost_register_http_response_retries_once_and_conflicts_on_changed_conte
 def test_register_create_retry_after_archive_preserves_receipt_and_draft(
     client, user, image_upload, monkeypatch, kind, hx, with_photo
 ):
-    from garden import views
+    from garden.views import registers
 
     association = (
         create_crop(actor=user, name="Original crop").record
@@ -441,7 +441,7 @@ def test_register_create_retry_after_archive_preserves_receipt_and_draft(
     )
     field = "crop" if kind == "variety" else "parent"
     model = Variety if kind == "variety" else GrowingArea
-    writer = getattr(views.services, f"create_{kind}")
+    writer = getattr(registers.services, f"create_{kind}")
     attempts = 0
 
     def lost_response(**values):
@@ -452,7 +452,7 @@ def test_register_create_retry_after_archive_preserves_receipt_and_draft(
             raise OperationalError("Synthetic lost response after commit")
         return result
 
-    monkeypatch.setattr(views.services, f"create_{kind}", lost_response)
+    monkeypatch.setattr(registers.services, f"create_{kind}", lost_response)
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
     path = reverse(f"garden:{kind}-create")

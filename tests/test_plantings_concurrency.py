@@ -46,12 +46,12 @@ def catalog(user):
 def test_variety_reclassification_and_planting_creation_serialize_both_orderings(
     user, catalog, monkeypatch, first_writer
 ):
-    from garden import services
+    from garden.services import plantings, registers
 
     crop, other, variety = catalog
     locked, release, started = threading.Event(), threading.Event(), threading.Event()
-    validate = services._validate
-    validate_planting = services._validate_planting
+    validate = registers._validate
+    validate_planting = plantings._validate_planting
 
     def pause_taxonomy(record, previous_parent_id=None):
         result = validate(record, previous_parent_id)
@@ -82,7 +82,7 @@ def test_variety_reclassification_and_planting_creation_serialize_both_orderings
 
     first, second = (planting, taxonomy) if first_writer == "planting" else (taxonomy, planting)
     monkeypatch.setattr(
-        services,
+        plantings if first_writer == "planting" else registers,
         "_validate_planting" if first_writer == "planting" else "_validate",
         pause_planting if first_writer == "planting" else pause_taxonomy,
     )
@@ -138,11 +138,11 @@ def test_taxonomy_changes_during_image_processing_are_revalidated_without_files(
 def test_planting_creation_waits_for_archive_then_rejects_new_association(
     user, catalog, monkeypatch
 ):
-    from garden import services
+    from garden.services import registers
 
     crop, _, _ = catalog
     locked, release, started = threading.Event(), threading.Event(), threading.Event()
-    validate = services._validate
+    validate = registers._validate
 
     def pause_archive(record, previous_parent_id=None):
         result = validate(record, previous_parent_id)
@@ -151,7 +151,7 @@ def test_planting_creation_waits_for_archive_then_rejects_new_association(
             assert release.wait(timeout=10)
         return result
 
-    monkeypatch.setattr(services, "_validate", pause_archive)
+    monkeypatch.setattr(registers, "_validate", pause_archive)
 
     def create():
         started.set()

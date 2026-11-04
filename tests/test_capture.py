@@ -34,7 +34,7 @@ def assert_no_save(settings):
     assert DiarySubmission.objects.count() == 0
     assert Photo.objects.count() == 0
     assert list(settings.MEDIA_ROOT.glob("photos/*/*/*/*")) == []
-    assert list((settings.MEDIA_ROOT / ".staging").glob("capture-*")) == []
+    assert list((settings.MEDIA_ROOT / ".staging").glob("*")) == []
 
 
 def test_text_only_entry(user):
@@ -315,6 +315,25 @@ def test_identical_retry_returns_original_entry(user, image_upload):
     assert Photo.objects.count() == 1
 
 
+def test_photo_retry_resolves_receipt_before_processing_or_publication(
+    user, image_upload, monkeypatch, settings
+):
+    from core import photo_storage
+
+    key = uuid4()
+    first = capture(user, key=key, uploads=[image_upload()])
+
+    def unavailable(photo):
+        raise OSError("Synthetic image processing unavailable on retry")
+
+    monkeypatch.setattr(photo_storage, "process_staged", unavailable)
+    monkeypatch.setattr(photo_storage, "publish_staged", unavailable)
+    retry = capture(user, key=key, uploads=[image_upload()])
+    assert not retry.created and retry.entry.pk == first.entry.pk
+    assert Photo.objects.count() == 1
+    assert list((settings.MEDIA_ROOT / ".staging").glob("*")) == []
+
+
 def test_changed_payload_conflicts_without_overwriting(user):
     key = uuid4()
     first = capture(user, key=key)
@@ -372,25 +391,25 @@ def test_deactivated_author_is_rejected(user):
 def test_author_deactivation_during_processing_is_revalidated(
     user, image_upload, monkeypatch, settings
 ):
-    from diary import services
+    from core import photo_storage
 
-    original = services.process_staged
+    original = photo_storage.process_staged
 
     def deactivate(photo):
         original(photo)
         type(user).objects.filter(pk=user.pk).update(is_active=False)
 
-    monkeypatch.setattr(services, "process_staged", deactivate)
+    monkeypatch.setattr(photo_storage, "process_staged", deactivate)
     with pytest.raises(PermissionDenied):
         capture(user, uploads=[image_upload()])
     assert_no_save(settings)
 
 
 def test_image_processing_and_publication_are_outside_atomic(user, image_upload, monkeypatch):
-    from diary import services
+    from core import photo_storage
 
-    original_process = services.process_staged
-    original_publish = services.publish_staged
+    original_process = photo_storage.process_staged
+    original_publish = photo_storage.publish_staged
 
     def process(photo):
         assert not connection.in_atomic_block
@@ -400,8 +419,8 @@ def test_image_processing_and_publication_are_outside_atomic(user, image_upload,
         assert not connection.in_atomic_block
         return original_publish(photo)
 
-    monkeypatch.setattr(services, "process_staged", process)
-    monkeypatch.setattr(services, "publish_staged", publish)
+    monkeypatch.setattr(photo_storage, "process_staged", process)
+    monkeypatch.setattr(photo_storage, "publish_staged", publish)
     capture(user, uploads=[image_upload()])
 
 
@@ -510,6 +529,53 @@ def test_uncertain_commit_preserves_referenced_files_and_can_be_retried(
     assert not retry.created
     assert private_path(retry.entry.photos.get().original.name).is_file()
     assert cleanup_orphans(apply=True, minimum_age=0) == []
+
+
+@pytest.mark.parametrize("committed", [False, True])
+def test_capture_defers_cleanup_when_commit_references_cannot_be_checked(
+    user, image_upload, monkeypatch, settings, committed
+):
+    from django.db.models import QuerySet
+
+    key = uuid4()
+    real_commit, real_exists = connection.commit, QuerySet.exists
+    calls = 0
+
+    def failed_acknowledgement():
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            if committed:
+                real_commit()
+            raise OperationalError("Synthetic uncertain commit")
+        real_commit()
+
+    def unavailable_references(queryset):
+        if queryset.model is Photo and not connection.in_atomic_block:
+            raise OperationalError("Synthetic reference check unavailable")
+        return real_exists(queryset)
+
+    monkeypatch.setattr(connection, "commit", failed_acknowledgement)
+    monkeypatch.setattr(QuerySet, "exists", unavailable_references)
+    with pytest.raises(OperationalError, match="uncertain commit"):
+        capture(user, key=key, uploads=[image_upload()])
+    monkeypatch.undo()
+
+    bundles = list(settings.MEDIA_ROOT.glob("photos/*/*/*"))
+    assert len(bundles) == 1
+    assert len(list(bundles[0].iterdir())) == 3
+    assert list((settings.MEDIA_ROOT / ".staging").glob("*")) == []
+    assert DiaryEntry.objects.count() == int(committed)
+    assert DiarySubmission.objects.count() == int(committed)
+    assert Photo.objects.count() == int(committed)
+    if committed:
+        retry = capture(user, key=key, uploads=[image_upload()])
+        assert not retry.created and retry.entry.photos.count() == 1
+        assert cleanup_orphans(apply=True, minimum_age=0) == []
+        assert bundles[0].exists()
+    else:
+        assert len(cleanup_orphans(apply=True, minimum_age=0)) == 1
+        assert not bundles[0].exists()
 
 
 @pytest.mark.parametrize("operation", ["save", "update", "bulk_create", "bulk_update", "delete"])

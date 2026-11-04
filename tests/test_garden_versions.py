@@ -3,6 +3,7 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
+from importlib import import_module
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -245,7 +246,8 @@ def test_waiting_writer_rechecks_the_version_after_commit(
     user, target, monkeypatch, first_operation, second_operation
 ):
     locked, release, started = threading.Event(), threading.Event(), threading.Event()
-    current = services._current
+    writer_module = import_module(target.edit.__module__)
+    current = writer_module._current
 
     def paused_current(model, pk, expected_updated_at=None):
         record = current(model, pk, expected_updated_at)
@@ -255,7 +257,7 @@ def test_waiting_writer_rechecks_the_version_after_commit(
             assert release.wait(timeout=10)
         return record
 
-    monkeypatch.setattr(services, "_current", paused_current)
+    monkeypatch.setattr(writer_module, "_current", paused_current)
 
     def invoke(operation):
         values = target.values if operation == "edit" else {"pk": target.record.pk}
