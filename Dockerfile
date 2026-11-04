@@ -52,10 +52,12 @@ RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements-b
       --no-binary=pillow-heif --prefix=/opt/python -r /tmp/requirements.txt
 
 FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527
+ARG GROWBOOK_VERSION=development
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
     && python -m pip uninstall --yes pip \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    GROWBOOK_VERSION=${GROWBOOK_VERSION} \
     LD_LIBRARY_PATH=/opt/native/lib \
     GROWBOOK_DATA_DIR=/data \
     DJANGO_SETTINGS_MODULE=growbook.settings.production

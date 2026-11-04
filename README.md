@@ -15,6 +15,8 @@ interface defaults to Swedish, with English available.
 ## Current features
 
 - Administrator-managed accounts and a shared garden; no public signup.
+- Discreet footer links to GitHub and releases, the deployed release version, and an
+  orange indicator when a newer stable release is available.
 - Crop, variety and optionally nested growing-area registers with compact, expandable
   tables, editing and non-cascading archive.
 - Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed

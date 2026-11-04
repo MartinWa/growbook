@@ -81,6 +81,8 @@ jobs:
           push: false
           provenance: false
           tags: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
+          build-args: |
+            GROWBOOK_VERSION=${{ steps.release.outputs.version }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -91,9 +93,10 @@ jobs:
         shell: bash
         env:
           IMAGE: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          docker run --rm --network none --read-only "$IMAGE" python -c \
-            'import os; from PIL import Image; import pillow_heif; assert os.geteuid() != 0; pillow_heif.register_heif_opener(); image = Image.open("tests/fixtures/synthetic.heic"); image.load(); assert image.size == (80, 60)'
+          docker run --rm --network none --read-only --env EXPECTED_VERSION="$VERSION" "$IMAGE" python -c \
+            'import os; from PIL import Image; import pillow_heif; assert os.environ["GROWBOOK_VERSION"] == os.environ["EXPECTED_VERSION"]; assert os.geteuid() != 0; pillow_heif.register_heif_opener(); image = Image.open("tests/fixtures/synthetic.heic"); image.load(); assert image.size == (80, 60)'
           curl --fail --silent --show-error --location --retry 3 \
             https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz \
             --output "$RUNNER_TEMP/trivy.tar.gz"

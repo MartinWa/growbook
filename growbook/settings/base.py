@@ -56,6 +56,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.photo_limits",
+                "core.context_processors.app_release",
             ],
         },
     },
@@ -116,6 +117,8 @@ PHOTO_THUMBNAIL_EDGE = 300
 MEDIA_LOCK_TIMEOUT = 30
 MIGRATE_ON_START = env_bool("GROWBOOK_MIGRATE_ON_START", True)
 MIGRATION_LOCK_TIMEOUT = 300
+APP_VERSION = os.environ.get("GROWBOOK_VERSION", "development").strip() or "development"
+UPDATE_CHECK_ENABLED = env_bool("GROWBOOK_UPDATE_CHECK", True)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"

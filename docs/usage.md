@@ -5,6 +5,19 @@ This guide covers the screens, save behavior and no-JavaScript fallbacks. The
 implemented features and deliberate limitations. Setup commands are in the
 [main README](../README.md#run-locally) and [deployment guide](deployment.md).
 
+## Application version
+
+The muted footer at the bottom right shows **GrowBook**, the version and **GitHub**.
+The version links to releases and **GitHub** links to the project. A small orange dot
+beside the version means a newer stable release is available; its tooltip and
+screen-reader text say **Update available**. Signed-in pages
+check through the application server with JavaScript. Without JavaScript, or if the
+check cannot reach GitHub, the version and links remain usable. Local development runs
+show the base version. Hover over the version for its exact Git identifier, including
+local changes or commits after a release. Builds without version metadata show
+**Development**. See
+[deployment configuration](deployment.md#application-version-and-update-check).
+
 ## Garden
 
 Open **Garden** for crop, variety and growing-area cards with active record counts and

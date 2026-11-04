@@ -134,6 +134,25 @@
 }
 
 @layer components {
+  .app-footer {
+    @apply mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-end gap-x-2 px-4 py-3 text-xs;
+    color: #626b64;
+  }
+
+  .app-footer a {
+    @apply inline-flex min-h-6 items-center gap-1 no-underline;
+    color: inherit;
+  }
+
+  .app-footer a:hover {
+    @apply underline;
+  }
+
+  .update-indicator {
+    @apply inline-block h-2 w-2 shrink-0 rounded-full;
+    background: #b96a19;
+  }
+
   .site-header-sticky {
     @apply sticky top-0;
   }
