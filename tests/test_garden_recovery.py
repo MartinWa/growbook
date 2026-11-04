@@ -87,11 +87,13 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
         note="Synthetic overwintered sowing",
         submission_key=event_key,
     ).record
+    planting.refresh_from_db()
     edit_register_photo(
         actor=user,
         pk=planting.photos.get().pk,
         caption="Synthetic evaluation caption",
         position=4,
+        expected_updated_at=planting.updated_at,
     )
     early_plan = create_planting(
         actor=user, crop=crop, start_year=2027, label="Synthetic crop-only plan"
@@ -112,7 +114,7 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
         label="Synthetic removed plan",
         submission_key=deleted_key,
     ).record
-    delete_planting(actor=user, pk=deleted.pk)
+    delete_planting(actor=user, pk=deleted.pk, expected_updated_at=deleted.updated_at)
     archive_crop(actor=user, pk=crop.pk)
     archive_variety(actor=user, pk=variety.pk)
     archive_area(actor=user, pk=parent.pk)
@@ -220,7 +222,8 @@ for photo in Photo.objects.all():
 parent = GrowingArea.objects.get(name='Greenhouse')
 child = GrowingArea.objects.get(name='Bed')
 assert parent.is_archived and not child.is_archived
-edit_area(actor=user, pk=child.pk, parent=parent, name=child.name, notes='Restored write')
+edit_area(actor=user, pk=child.pk, parent=parent, name=child.name, notes='Restored write',
+          expected_updated_at=child.updated_at)
 crop = create_crop(actor=user, name='New restored crop').record
 create_variety(actor=user, crop=crop, name='New restored variety')
 create_area(actor=user, name='New restored bed')
@@ -268,8 +271,10 @@ for model in (Planting, Crop, Variety, GrowingArea):
         anonymous = Client(HTTP_HOST='localhost')
         assert anonymous.get(record.get_absolute_url()).status_code == 302
 from garden.services import edit_variety
+variety = Variety.objects.get(pk=planting.variety_id)
 try:
-    edit_variety(actor=user, pk=planting.variety_id, crop=crop, name='Invalid reclassification')
+    edit_variety(actor=user, pk=variety.pk, crop=crop, name='Invalid reclassification',
+                 expected_updated_at=variety.updated_at)
 except ValidationError:
     pass
 else:

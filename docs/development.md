@@ -27,6 +27,30 @@ For UI-copy changes, update the English source messages and
 `tools/compile_translations.py`. Compiled `.mo` files are generated; tests and Docker
 compile them automatically.
 
+## Validated garden writes
+
+Call `garden.services` operations with an active actor and outside an existing database
+transaction. Every public garden edit and delete requires the keyword
+`expected_updated_at`: a timezone-aware `datetime` containing the version the caller
+read. Omitting it is a call error; `None`, strings, malformed values and timezone-naive
+datetimes raise `ValidationError`. Forms preserve microseconds and require a timestamp
+with an explicit timezone.
+
+Register and planting edits/deletes use the target record's `updated_at`. Event
+edits/deletes use the event's timestamp. `edit_register_photo` and
+`delete_register_photo` use the photo owner's timestamp, including planting owners.
+Photo and event writes also advance the owner's version. Read the saved state before
+starting a subsequent independent edit; do not fetch a fresh timestamp merely to submit
+values from a stale read. Creation needs no version token, and archive operations keep
+their explicit desired-state contract.
+
+For create/edit saves with submission receipts, retry the original payload, version
+token and `submission_key`. Writers check the active actor and matching immutable
+receipt before current association eligibility and stale-state checks within short
+serialized writes. A matching retry returns the saved record; changed content or another
+author conflicts. See [Saving changes and retries](usage.md#saving-changes-and-retries)
+for the form workflow.
+
 ## Browser tests
 
 Install Playwright's Chromium, then run the browser suite separately:

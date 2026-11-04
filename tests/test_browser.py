@@ -14,6 +14,7 @@ from PIL import Image
 from playwright.sync_api import expect, sync_playwright
 
 from diary.services import create_entry
+from garden.models import Crop
 from garden.services import create_crop, delete_crop
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
@@ -968,7 +969,8 @@ def test_stale_diary_filter_errors_identify_the_field_and_clear_on_retry(
             actor = type(user).objects.get(pk=user.pk)
             if pk is None:
                 return create_crop(actor=actor, name="Synthetic temporary crop").record.pk
-            delete_crop(actor=actor, pk=pk)
+            crop = Crop.objects.get(pk=pk)
+            delete_crop(actor=actor, pk=pk, expected_updated_at=crop.updated_at)
         finally:
             connection.close()
 

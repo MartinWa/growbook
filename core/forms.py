@@ -1,4 +1,8 @@
+from datetime import datetime
+
 from django import forms
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
 
 
@@ -25,6 +29,17 @@ class VersionField(forms.DateTimeField):
 
     def prepare_value(self, value):
         return value.isoformat() if hasattr(value, "isoformat") else value
+
+    def to_python(self, value):
+        if value in self.empty_values:
+            return None
+        try:
+            parsed = value if isinstance(value, datetime) else parse_datetime(value.strip())
+        except AttributeError, TypeError, ValueError:
+            parsed = None
+        if parsed is None or timezone.is_naive(parsed):
+            raise forms.ValidationError(self.error_messages["invalid"], code="invalid")
+        return parsed
 
 
 class DeleteForm(forms.Form):

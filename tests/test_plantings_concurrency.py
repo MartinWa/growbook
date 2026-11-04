@@ -73,7 +73,11 @@ def test_variety_reclassification_and_planting_creation_serialize_both_orderings
 
     def taxonomy():
         return edit_variety(
-            actor=User.objects.get(pk=user.pk), pk=variety.pk, crop=other.pk, name=variety.name
+            actor=User.objects.get(pk=user.pk),
+            pk=variety.pk,
+            crop=other.pk,
+            name=variety.name,
+            expected_updated_at=variety.updated_at,
         )
 
     first, second = (planting, taxonomy) if first_writer == "planting" else (taxonomy, planting)
@@ -114,7 +118,13 @@ def test_taxonomy_changes_during_image_processing_are_revalidated_without_files(
     def reclassify(photo):
         assert not connection.in_atomic_block
         real_process(photo)
-        edit_variety(actor=user, pk=variety.pk, crop=other.pk, name=variety.name)
+        edit_variety(
+            actor=user,
+            pk=variety.pk,
+            crop=other.pk,
+            name=variety.name,
+            expected_updated_at=variety.updated_at,
+        )
 
     monkeypatch.setattr(photo_storage, "process_staged", reclassify)
     with pytest.raises(ValidationError):

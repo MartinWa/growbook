@@ -223,7 +223,9 @@ def test_edit_rejects_missing_or_stale_version_without_losing_existing_fields(cl
     client.force_login(user)
     path = reverse("garden:area-edit", args=[area.pk])
     assert client.post(path, payload("area", name="No token")).status_code == 422
-    changed = edit_area(actor=user, pk=area.pk, name="Changed").record
+    changed = edit_area(
+        actor=user, pk=area.pk, name="Changed", expected_updated_at=area.updated_at
+    ).record
     response = client.post(path, payload("area", area, name="Old tab"), HTTP_HX_REQUEST="true")
     assert response.status_code == 409
     assert "error-summary" in response.text
@@ -522,13 +524,28 @@ def test_register_edit_retry_after_later_association_change_keeps_latest_record(
     assert client.post(path, {**data, "photos": image_upload()}, **headers).status_code == (
         204 if hx else 302
     )
-    latest = writer(actor=user, pk=record.pk, name="Later edit", **{field: replacement}).record
+    record.refresh_from_db()
+    latest = writer(
+        actor=user,
+        pk=record.pk,
+        name="Later edit",
+        expected_updated_at=record.updated_at,
+        **{field: replacement},
+    ).record
     if change == "archive":
         {"variety": archive_crop, "area": archive_area}[kind](actor=user, pk=original.pk)
     elif change == "delete":
-        {"variety": delete_crop, "area": delete_area}[kind](actor=user, pk=original.pk)
+        {"variety": delete_crop, "area": delete_area}[kind](
+            actor=user, pk=original.pk, expected_updated_at=original.updated_at
+        )
     else:
-        edit_area(actor=user, pk=original.pk, name=original.name, parent=latest)
+        edit_area(
+            actor=user,
+            pk=original.pk,
+            name=original.name,
+            parent=latest,
+            expected_updated_at=original.updated_at,
+        )
     receipt_count = RegisterSubmission.objects.count()
     photo_ids = list(record.photos.values_list("pk", flat=True))
 

@@ -48,14 +48,15 @@ def owner_name(owner):
     return owner.label if isinstance(owner, Planting) else owner.name
 
 
-def save_owner(user, owner, *, name=None, uploads=(), key=None, expected_updated_at=None):
-    values = dict(
-        actor=user,
-        pk=owner.pk,
-        uploads=uploads,
-        submission_key=key or uuid4(),
-        expected_updated_at=expected_updated_at,
-    )
+def save_owner(user, owner, *, name=None, uploads=(), key=None, **overrides):
+    values = {
+        "actor": user,
+        "pk": owner.pk,
+        "uploads": uploads,
+        "submission_key": key or uuid4(),
+        "expected_updated_at": owner.updated_at,
+        **overrides,
+    }
     if isinstance(owner, Planting):
         return edit_planting(
             **values,
@@ -78,14 +79,16 @@ def delete_owner(user, owner):
         if isinstance(owner, GrowingArea)
         else delete_variety
     )
-    writer(actor=user, pk=owner.pk)
+    writer(actor=user, pk=owner.pk, expected_updated_at=owner.updated_at)
 
 
 def test_new_owners_share_private_pipeline_and_append_in_stable_order(
     user, register_owner, image_upload
 ):
     owner = register_owner
-    save_owner(user, owner, uploads=[image_upload(format="HEIF"), image_upload(format="PNG")])
+    owner = save_owner(
+        user, owner, uploads=[image_upload(format="HEIF"), image_upload(format="PNG")]
+    ).record
     save_owner(user, owner, uploads=[image_upload(format="WEBP")])
     assert list(owner.photos.values_list("position", flat=True)) == [0, 1, 2]
     assert list(owner.photos.values_list("original_format", flat=True)) == ["HEIF", "PNG", "WEBP"]
@@ -194,7 +197,7 @@ def test_deleted_owner_receipt_does_not_recreate_record_or_photos(user, image_up
     owner = create_area(
         actor=user, name="Deleted", uploads=[image_upload()], submission_key=key
     ).record
-    delete_area(actor=user, pk=owner.pk)
+    delete_area(actor=user, pk=owner.pk, expected_updated_at=owner.updated_at)
     with pytest.raises(RegisterConflict):
         create_area(actor=user, name="Deleted", uploads=[image_upload()], submission_key=key)
     assert not GrowingArea.objects.exists() and not Photo.objects.exists()
@@ -219,9 +222,9 @@ def test_owner_photo_count_limit_includes_existing_images(
     user, register_owner, image_upload, settings
 ):
     settings.PHOTO_MAX_COUNT = 2
-    save_owner(user, register_owner, uploads=[image_upload(), image_upload()])
+    owner = save_owner(user, register_owner, uploads=[image_upload(), image_upload()]).record
     with pytest.raises(ValidationError):
-        save_owner(user, register_owner, uploads=[image_upload()])
+        save_owner(user, owner, uploads=[image_upload()])
     assert register_owner.photos.count() == 2
     assert len(list(settings.MEDIA_ROOT.glob("photos/*/*/*"))) == 2
 
@@ -229,15 +232,26 @@ def test_owner_photo_count_limit_includes_existing_images(
 def test_register_photo_captions_order_and_last_photo_removal(user, register_owner, image_upload):
     owner = save_owner(user, register_owner, uploads=[image_upload(), image_upload()]).record
     first, second = owner.photos.all()
-    updated = edit_register_photo(actor=user, pk=second.pk, caption="Synthetic caption", position=0)
+    updated = edit_register_photo(
+        actor=user,
+        pk=second.pk,
+        caption="Synthetic caption",
+        position=0,
+        expected_updated_at=owner.updated_at,
+    )
     assert updated.caption == "Synthetic caption"
     assert list(owner.photos.values_list("pk", flat=True)) == [first.pk, second.pk]
-    edit_register_photo(actor=user, pk=first.pk, caption="First", position=10)
+    owner.refresh_from_db()
+    edit_register_photo(
+        actor=user, pk=first.pk, caption="First", position=10, expected_updated_at=owner.updated_at
+    )
     assert list(owner.photos.values_list("pk", flat=True)) == [second.pk, first.pk]
     bundle = private_path(first.original.name).parent
-    delete_register_photo(actor=user, pk=first.pk)
+    owner.refresh_from_db()
+    delete_register_photo(actor=user, pk=first.pk, expected_updated_at=owner.updated_at)
     assert not bundle.exists() and owner.photos.count() == 1
-    delete_register_photo(actor=user, pk=second.pk)
+    owner.refresh_from_db()
+    delete_register_photo(actor=user, pk=second.pk, expected_updated_at=owner.updated_at)
     assert owner.photos.count() == 0 and type(owner).objects.filter(pk=owner.pk).exists()
 
 
@@ -259,7 +273,13 @@ def test_photo_writes_invalidate_open_owner_form_versions(user, register_owner, 
 def test_photo_order_is_validated(user, register_owner, image_upload, position):
     photo = save_owner(user, register_owner, uploads=[image_upload()]).record.photos.get()
     with pytest.raises(ValidationError):
-        edit_register_photo(actor=user, pk=photo.pk, caption="No change", position=position)
+        edit_register_photo(
+            actor=user,
+            pk=photo.pk,
+            caption="No change",
+            position=position,
+            expected_updated_at=photo.owner.updated_at,
+        )
     photo.refresh_from_db()
     assert photo.caption == "" and photo.position == 0
 
@@ -274,9 +294,11 @@ def test_register_photo_mutations_cannot_edit_or_delete_diary_photos(user, image
     ).entry
     photo = entry.photos.get()
     with pytest.raises(PermissionDenied):
-        edit_register_photo(actor=user, pk=photo.pk, caption="No", position=1)
+        edit_register_photo(
+            actor=user, pk=photo.pk, caption="No", position=1, expected_updated_at=entry.updated_at
+        )
     with pytest.raises(PermissionDenied):
-        delete_register_photo(actor=user, pk=photo.pk)
+        delete_register_photo(actor=user, pk=photo.pk, expected_updated_at=entry.updated_at)
     assert entry.photos.count() == 1 and private_path(photo.original.name).is_file()
 
 
@@ -297,7 +319,7 @@ def test_rejected_parent_delete_keeps_photo_bundles(user, image_upload):
     create_area(actor=user, name="Child", parent=parent)
     photo = parent.photos.get()
     with pytest.raises(ValidationError):
-        delete_area(actor=user, pk=parent.pk)
+        delete_area(actor=user, pk=parent.pk, expected_updated_at=parent.updated_at)
     assert parent.photos.count() == 1 and private_path(photo.original.name).is_file()
 
 
@@ -335,11 +357,24 @@ def test_reparent_during_processing_is_revalidated_before_save(user, image_uploa
     def changed_parent(photo):
         real_process(photo)
         # No media lock is required for a text-only hierarchy edit; it can overlap decoding.
-        edit_area(actor=user, pk=second.pk, name=second.name, parent=first)
+        edit_area(
+            actor=user,
+            pk=second.pk,
+            name=second.name,
+            parent=first,
+            expected_updated_at=second.updated_at,
+        )
 
     monkeypatch.setattr(photo_storage, "process_staged", changed_parent)
     with pytest.raises(ValidationError):
-        edit_area(actor=user, pk=first.pk, name=first.name, parent=second, uploads=[image_upload()])
+        edit_area(
+            actor=user,
+            pk=first.pk,
+            name=first.name,
+            parent=second,
+            uploads=[image_upload()],
+            expected_updated_at=first.updated_at,
+        )
     first.refresh_from_db()
     second.refresh_from_db()
     assert first.parent_id is None and second.parent_id == first.pk
@@ -351,7 +386,7 @@ def test_photo_publication_failure_cleans_only_new_unreferenced_bundles(
 ):
     from core import photo_storage
 
-    save_owner(user, register_owner, uploads=[image_upload()])
+    register_owner = save_owner(user, register_owner, uploads=[image_upload()]).record
     existing = register_owner.photos.get()
     real_publish, count = photo_storage.publish_staged, 0
 

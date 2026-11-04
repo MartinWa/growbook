@@ -75,6 +75,11 @@ def _key(value):
         raise ValidationError(_("The save key is invalid. Reload the form.")) from exc
 
 
+def _version(value):
+    if not isinstance(value, datetime) or timezone.is_naive(value):
+        raise ValidationError(_("Reload the edit form before saving."))
+
+
 def _fingerprint(kind, pk, expected_updated_at, values, photos):
     payload = {
         "version": 1,
@@ -210,10 +215,8 @@ def _write_record(actor, model, kind, pk, values, key, fingerprint, rows, expect
 
 def _save(actor, model, kind, pk, values, uploads, submission_key, expected_updated_at):
     _outside_transaction(actor)
-    if expected_updated_at is not None and (
-        not isinstance(expected_updated_at, datetime) or timezone.is_naive(expected_updated_at)
-    ):
-        raise ValidationError(_("Reload the edit form before saving."))
+    if pk is not None:
+        _version(expected_updated_at)
     values = dict(values)
     values["name"] = normalize_name(values["name"])[0]
     for field, value in values.items():
@@ -253,12 +256,12 @@ def create_crop(*, actor, name, notes="", submission_key=None):
     )
 
 
-def edit_crop(*, actor, pk, name, notes="", submission_key=None, expected_updated_at=None):
+def edit_crop(*, actor, pk, name, notes="", submission_key=None, expected_updated_at):
     return _save(
         actor,
         Crop,
         "crop",
-        pk,
+        _identifier(pk, "id"),
         {"name": name, "notes": notes},
         [],
         submission_key,
@@ -301,7 +304,7 @@ def edit_variety(
     experiences="",
     uploads=(),
     submission_key=None,
-    expected_updated_at=None,
+    expected_updated_at,
 ):
     values = {
         "crop_id": _identifier(crop, "crop", model=Crop),
@@ -312,7 +315,14 @@ def edit_variety(
         "experiences": experiences,
     }
     return _save(
-        actor, Variety, "variety", pk, values, uploads, submission_key, expected_updated_at
+        actor,
+        Variety,
+        "variety",
+        _identifier(pk, "id"),
+        values,
+        uploads,
+        submission_key,
+        expected_updated_at,
     )
 
 
@@ -354,7 +364,7 @@ def edit_area(
     notes="",
     uploads=(),
     submission_key=None,
-    expected_updated_at=None,
+    expected_updated_at,
 ):
     values = {
         "name": name,
@@ -366,7 +376,14 @@ def edit_area(
         "notes": notes,
     }
     return _save(
-        actor, GrowingArea, "area", pk, values, uploads, submission_key, expected_updated_at
+        actor,
+        GrowingArea,
+        "area",
+        _identifier(pk, "id"),
+        values,
+        uploads,
+        submission_key,
+        expected_updated_at,
     )
 
 
@@ -420,6 +437,7 @@ def _delete_rows(actor, model, pk, expected_updated_at, folders):
 
 def _delete(actor, model, pk, expected_updated_at):
     _outside_transaction(actor)
+    _version(expected_updated_at)
     if model is Crop:
         return _delete_rows(actor, model, pk, expected_updated_at, [])
     with media_operation():
@@ -430,15 +448,15 @@ def _delete(actor, model, pk, expected_updated_at):
             discard_unreferenced_bundles(folders)
 
 
-def delete_crop(*, actor, pk, expected_updated_at=None):
+def delete_crop(*, actor, pk, expected_updated_at):
     _delete(actor, Crop, pk, expected_updated_at)
 
 
-def delete_variety(*, actor, pk, expected_updated_at=None):
+def delete_variety(*, actor, pk, expected_updated_at):
     _delete(actor, Variety, pk, expected_updated_at)
 
 
-def delete_area(*, actor, pk, expected_updated_at=None):
+def delete_area(*, actor, pk, expected_updated_at):
     _delete(actor, GrowingArea, pk, expected_updated_at)
 
 
@@ -454,9 +472,10 @@ def _garden_photo_owner(photo, expected_updated_at):
     return _current(model, owner_id, expected_updated_at)
 
 
-def edit_register_photo(*, actor, pk, caption, position, expected_updated_at=None):
+def edit_register_photo(*, actor, pk, caption, position, expected_updated_at):
     """Edit caption/order only; owner/file reassignment is deliberately not supported."""
     _outside_transaction(actor)
+    _version(expected_updated_at)
     if not isinstance(caption, str):
         raise ValidationError({"caption": _("Enter text, or leave this field blank.")})
     with transaction.atomic(), validated_write():
@@ -472,8 +491,9 @@ def edit_register_photo(*, actor, pk, caption, position, expected_updated_at=Non
         return photo
 
 
-def delete_register_photo(*, actor, pk, expected_updated_at=None):
+def delete_register_photo(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
+    _version(expected_updated_at)
     with media_operation():
         folders = []
         try:
@@ -522,11 +542,6 @@ def _planting_fingerprint(kind, pk, expected_updated_at, values, photos=()):
         for field, value in values.items()
     }
     return _fingerprint(kind, pk, expected_updated_at, canonical, photos)
-
-
-def _planting_version(value):
-    if value is not None and (not isinstance(value, datetime) or timezone.is_naive(value)):
-        raise ValidationError(_("Reload the edit form before saving."))
 
 
 def _planting_values(
@@ -626,8 +641,8 @@ def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_
 
 def _save_planting(actor, pk, values, uploads, submission_key, expected_updated_at):
     _outside_transaction(actor)
-    _planting_version(expected_updated_at)
     if pk is not None:
+        _version(expected_updated_at)
         pk = _identifier(pk, "id")
     key = _key(submission_key)
     uploads = list(uploads)
@@ -683,16 +698,17 @@ def edit_planting(
     evaluation="",
     uploads=(),
     submission_key=None,
-    expected_updated_at=None,
+    expected_updated_at,
 ):
     values = _planting_values(
         crop, start_year, variety, area, lifespan, end_year, label, quantity, notes, evaluation
     )
-    return _save_planting(actor, pk, values, uploads, submission_key, expected_updated_at)
+    return _save_planting(
+        actor, _identifier(pk, "id"), values, uploads, submission_key, expected_updated_at
+    )
 
 
-def delete_planting(*, actor, pk, expected_updated_at=None):
-    _planting_version(expected_updated_at)
+def delete_planting(*, actor, pk, expected_updated_at):
     _delete(actor, Planting, pk, expected_updated_at)
 
 
@@ -700,9 +716,9 @@ def _save_event(
     actor, planting, pk, kind, planned_date, actual_date, note, submission_key, expected_updated_at
 ):
     _outside_transaction(actor)
-    _planting_version(expected_updated_at)
     planting_id = _identifier(planting, "planting", model=Planting)
     if pk is not None:
+        _version(expected_updated_at)
         pk = _identifier(pk, "id")
     for field, value in (("planned_date", planned_date), ("actual_date", actual_date)):
         if value is not None and type(value) is not date:
@@ -760,12 +776,12 @@ def edit_planting_event(
     actual_date=None,
     note="",
     submission_key=None,
-    expected_updated_at=None,
+    expected_updated_at,
 ):
     return _save_event(
         actor,
         planting,
-        pk,
+        _identifier(pk, "id"),
         kind,
         planned_date,
         actual_date,
@@ -775,9 +791,9 @@ def edit_planting_event(
     )
 
 
-def delete_planting_event(*, actor, pk, expected_updated_at=None):
+def delete_planting_event(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
-    _planting_version(expected_updated_at)
+    _version(expected_updated_at)
     with transaction.atomic(), validated_write():
         _active_actor(actor)
         event = _current(PlantingEvent, _identifier(pk, "id"), expected_updated_at)

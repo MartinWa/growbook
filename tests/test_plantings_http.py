@@ -618,19 +618,37 @@ def test_immutable_http_retry_precedes_mutable_association_eligibility(
     else:
         # Explicit reconciliation permits later variety reclassification or deletion.
         edit_planting(
-            actor=user, pk=saved.pk, crop=catalog["crop"], start_year=2026, label="Later edit"
+            actor=user,
+            pk=saved.pk,
+            crop=catalog["crop"],
+            start_year=2026,
+            label="Later edit",
+            expected_updated_at=saved.updated_at,
         )
-        edit_planting(actor=user, pk=catalog["planting"].pk, crop=catalog["crop"], start_year=2026)
+        edit_planting(
+            actor=user,
+            pk=catalog["planting"].pk,
+            crop=catalog["crop"],
+            start_year=2026,
+            expected_updated_at=catalog["planting"].updated_at,
+        )
         if change == "reclassify":
             edit_variety(
                 actor=user,
                 pk=catalog["variety"].pk,
                 crop=catalog["other_crop"],
                 name="Reclassified",
+                expected_updated_at=catalog["variety"].updated_at,
             )
         else:
-            delete_variety(actor=user, pk=catalog["variety"].pk)
-            delete_area(actor=user, pk=catalog["child"].pk)
+            delete_variety(
+                actor=user,
+                pk=catalog["variety"].pk,
+                expected_updated_at=catalog["variety"].updated_at,
+            )
+            delete_area(
+                actor=user, pk=catalog["child"].pk, expected_updated_at=catalog["child"].updated_at
+            )
     # Ordinary-page validation must still render the original selections for a
     # second retry after mutable choices disappeared, not silently submit blanks.
     draft_response = client.post(path, {**data, "start_year": 0}, **headers)
@@ -658,8 +676,14 @@ def test_edit_retry_resolves_after_later_edit_but_stale_new_submission_conflicts
     path = reverse("garden:planting-edit", args=[record.pk])
     data = edit_payload(catalog, record)
     assert client.post(path, {**data, "photos": image_upload()}).status_code == 302
+    record.refresh_from_db()
     edit_planting(
-        actor=user, pk=record.pk, crop=catalog["other_crop"], start_year=2027, label="Later edit"
+        actor=user,
+        pk=record.pk,
+        crop=catalog["other_crop"],
+        start_year=2027,
+        label="Later edit",
+        expected_updated_at=record.updated_at,
     )
     archive_variety(actor=user, pk=catalog["variety"].pk)
     archive_area(actor=user, pk=catalog["child"].pk)
@@ -746,7 +770,14 @@ def test_planting_delete_is_confirmed_and_stale_safe_and_receipts_prevent_recrea
     assert (
         client.post(path, {"expected_updated_at": record.updated_at.isoformat()}).status_code == 422
     )
-    edit_planting(actor=user, pk=record.pk, crop=record.crop_id, start_year=2026, label="Changed")
+    edit_planting(
+        actor=user,
+        pk=record.pk,
+        crop=record.crop_id,
+        start_year=2026,
+        label="Changed",
+        expected_updated_at=record.updated_at,
+    )
     assert (
         client.post(
             path, {"expected_updated_at": record.updated_at.isoformat(), "confirm": "on"}

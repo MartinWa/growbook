@@ -33,7 +33,6 @@ node_modules/
 
 # Private material that is never published
 /planning/
-/baserow export/
 .pi/
 .playwright-cli/
 

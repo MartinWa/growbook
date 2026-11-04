@@ -79,11 +79,22 @@ def test_variety_names_are_per_crop_and_reclassification_revalidates_duplicates(
     with pytest.raises(ValidationError):
         create_variety(actor=user, crop=first_crop, name=" golden ")
     with pytest.raises(ValidationError):
-        edit_variety(actor=user, pk=first.pk, crop=second_crop, name="Golden")
+        edit_variety(
+            actor=user,
+            pk=first.pk,
+            crop=second_crop,
+            name="Golden",
+            expected_updated_at=first.updated_at,
+        )
     first.refresh_from_db()
     assert first.crop_id == first_crop.pk and first.source == "Synthetic source"
     changed = edit_variety(
-        actor=user, pk=first.pk, crop=second_crop, name="Golden Two", experiences="Good in trial"
+        actor=user,
+        pk=first.pk,
+        crop=second_crop,
+        name="Golden Two",
+        experiences="Good in trial",
+        expected_updated_at=first.updated_at,
     ).record
     assert changed.crop_id == second_crop.pk
     assert changed.experiences == "Good in trial"
@@ -99,12 +110,16 @@ def test_area_top_level_and_sibling_uniqueness_have_distinct_scopes(user):
     with pytest.raises(ValidationError):
         create_area(actor=user, name="bed", parent=root)
     with pytest.raises(ValidationError):
-        edit_area(actor=user, pk=child.pk, name="Bed", parent=other)
+        edit_area(
+            actor=user, pk=child.pk, name="Bed", parent=other, expected_updated_at=child.updated_at
+        )
     with pytest.raises(ValidationError):
-        edit_area(actor=user, pk=child.pk, name="Bed")
+        edit_area(actor=user, pk=child.pk, name="Bed", expected_updated_at=child.updated_at)
     child.refresh_from_db()
     assert child.parent_id == root.pk
-    renamed = edit_area(actor=user, pk=child.pk, name="New Bed", parent=other).record
+    renamed = edit_area(
+        actor=user, pk=child.pk, name="New Bed", parent=other, expected_updated_at=child.updated_at
+    ).record
     assert renamed.parent_id == other.pk
     assert GrowingArea.objects.count() == 4
 
@@ -116,7 +131,9 @@ def test_area_reparenting_rejects_cycles(user, target):
     grandchild = create_area(actor=user, name="Grandchild", parent=child).record
     parent = {"self": root, "child": child, "grandchild": grandchild}[target]
     with pytest.raises(ValidationError) as rejected:
-        edit_area(actor=user, pk=root.pk, name="Root", parent=parent)
+        edit_area(
+            actor=user, pk=root.pk, name="Root", parent=parent, expected_updated_at=root.updated_at
+        )
     assert "parent" in rejected.value.message_dict
     root.refresh_from_db()
     assert root.parent_id is None
@@ -174,10 +191,23 @@ def test_archive_is_non_cascading_reserves_names_and_keeps_existing_associations
     with pytest.raises(ValidationError):
         create_area(actor=user, name="New", parent=parent)
     assert (
-        edit_variety(actor=user, pk=variety.pk, crop=crop, name="Renamed").record.crop_id == crop.pk
+        edit_variety(
+            actor=user,
+            pk=variety.pk,
+            crop=crop,
+            name="Renamed",
+            expected_updated_at=variety.updated_at,
+        ).record.crop_id
+        == crop.pk
     )
     assert (
-        edit_area(actor=user, pk=child.pk, parent=parent, name="Renamed").record.parent_id
+        edit_area(
+            actor=user,
+            pk=child.pk,
+            parent=parent,
+            name="Renamed",
+            expected_updated_at=child.updated_at,
+        ).record.parent_id
         == parent.pk
     )
     archive_variety(actor=user, pk=variety.pk)
@@ -192,16 +222,16 @@ def test_deletion_protects_varieties_and_child_areas_and_keeps_archive_as_an_opt
     parent = create_area(actor=user, name="Root").record
     child = create_area(actor=user, name="Child", parent=parent).record
     with pytest.raises(ValidationError):
-        delete_crop(actor=user, pk=crop.pk)
+        delete_crop(actor=user, pk=crop.pk, expected_updated_at=crop.updated_at)
     with pytest.raises(ValidationError):
-        delete_area(actor=user, pk=parent.pk)
-    archive_area(actor=user, pk=child.pk)
+        delete_area(actor=user, pk=parent.pk, expected_updated_at=parent.updated_at)
+    child = archive_area(actor=user, pk=child.pk)
     with pytest.raises(ValidationError):
-        delete_area(actor=user, pk=parent.pk)
-    delete_variety(actor=user, pk=variety.pk)
-    delete_crop(actor=user, pk=crop.pk)
-    delete_area(actor=user, pk=child.pk)
-    delete_area(actor=user, pk=parent.pk)
+        delete_area(actor=user, pk=parent.pk, expected_updated_at=parent.updated_at)
+    delete_variety(actor=user, pk=variety.pk, expected_updated_at=variety.updated_at)
+    delete_crop(actor=user, pk=crop.pk, expected_updated_at=crop.updated_at)
+    delete_area(actor=user, pk=child.pk, expected_updated_at=child.updated_at)
+    delete_area(actor=user, pk=parent.pk, expected_updated_at=parent.updated_at)
     assert (
         not Crop.objects.exists()
         and not Variety.objects.exists()
@@ -237,7 +267,7 @@ def test_edits_and_delete_reject_stale_versions_but_creation_retries_use_receipt
     assert retry.replayed and retry.record.name == "Renamed"
     with pytest.raises(RegisterConflict):
         create_crop(actor=user, name="Changed", submission_key=key)
-    delete_crop(actor=user, pk=first.pk)
+    delete_crop(actor=user, pk=first.pk, expected_updated_at=edited.updated_at)
     with pytest.raises(RegisterConflict):
         create_crop(actor=user, name="Tomato", notes="Original", submission_key=key)
     assert not Crop.objects.exists()
@@ -333,7 +363,7 @@ def test_all_domain_operations_reject_existing_atomic_wrapper(user):
         lambda: create_area(actor=user, name="Bed"),
         lambda: create_variety(actor=user, crop=crop, name="Golden"),
         lambda: archive_crop(actor=user, pk=crop.pk),
-        lambda: delete_crop(actor=user, pk=crop.pk),
+        lambda: delete_crop(actor=user, pk=crop.pk, expected_updated_at=crop.updated_at),
     ):
         with transaction.atomic(), pytest.raises(RuntimeError, match="outside"):
             operation()
