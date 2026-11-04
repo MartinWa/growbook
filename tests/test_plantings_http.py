@@ -584,11 +584,11 @@ def test_new_choices_hide_archives_edit_retains_existing_and_server_rechecks(cli
 def test_immutable_http_retry_precedes_mutable_association_eligibility(
     client, user, catalog, image_upload, monkeypatch, hx, change
 ):
-    from garden import views
     from garden.services import delete_area, delete_variety
+    from garden.views import plantings
 
     client.force_login(user)
-    writer, attempts = views.services.create_planting, 0
+    writer, attempts = plantings.services.create_planting, 0
 
     def lost_response(**values):
         nonlocal attempts
@@ -598,7 +598,7 @@ def test_immutable_http_retry_precedes_mutable_association_eligibility(
             raise OperationalError("Synthetic lost response after commit")
         return result
 
-    monkeypatch.setattr(views.services, "create_planting", lost_response)
+    monkeypatch.setattr(plantings.services, "create_planting", lost_response)
     headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
     key = uuid4()
     data = payload(

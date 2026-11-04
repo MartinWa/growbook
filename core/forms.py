@@ -60,3 +60,28 @@ def describe_fields(form):
             if identifier not in descriptions:
                 descriptions.append(identifier)
         field.widget.attrs["aria-describedby"] = " ".join(descriptions)
+
+
+def form_error(form, error):
+    """Attach domain validation errors to known fields, or the form summary."""
+    if hasattr(error, "error_dict"):
+        for field, errors in error.error_dict.items():
+            form.add_error(field if field in form.fields else None, errors)
+    else:
+        form.add_error(None, error)
+
+
+def valid_post(request, form, photo_fields=(), *, unexpected_photo_message=None):
+    """Validate the form and multipart guard errors, including unexpected uploads."""
+    valid = form.is_valid()
+    if getattr(request, "photo_upload_error", None):
+        form.add_error(None, request.photo_upload_error)
+        valid = False
+    if set(request.FILES) - set(photo_fields):
+        form.add_error(
+            None,
+            unexpected_photo_message
+            or _("An unexpected photo field was submitted. Nothing was saved."),
+        )
+        valid = False
+    return valid

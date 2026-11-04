@@ -268,8 +268,10 @@ def test_request_byte_limit_cannot_silently_drop_last_file(client, user, image_u
 
 def test_unexpected_file_field_cannot_be_silently_ignored(client, user, image_upload):
     client.force_login(user)
+    client.cookies["django_language"] = "en"
     response = client.post("/capture/", post_data(unexpected=image_upload()))
     assert response.status_code == 422
+    assert "An unexpected photo field was submitted. No entry was saved." in response.text
     assert DiaryEntry.objects.count() == 0
 
 

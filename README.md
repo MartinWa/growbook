@@ -183,9 +183,9 @@ operational recovery, not portable import/export.
 | Path | Purpose |
 |---|---|
 | `growbook/` | Project settings, routing, runtime bootstrap and WSGI server. |
-| `core/` | Users, private photos, security, SQLite configuration and operational commands. |
+| `core/` | Users, shared form and photo-storage helpers, security, SQLite configuration and operational commands. |
 | `diary/` | Diary models, forms, views, filtering and validated create/edit/delete operations. |
-| `garden/` | Registers, plantings/events, year/history queries, forms and validated writes. |
+| `garden/` | Models, forms and year/history queries; `views/` and `services/` separate registers, photos, plantings and events. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
 | `assets/` | Stylesheet source compiled into the committed application CSS. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |

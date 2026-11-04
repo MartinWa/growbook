@@ -1,0 +1,214 @@
+"""Explicit planting writes, revalidating current associations after acquiring the writer."""
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models.deletion import ProtectedError
+from django.utils.translation import gettext as _
+
+from core.media import media_operation
+from core.models import Photo
+from core.photo_storage import (
+    discard_unreferenced_bundles,
+    photo_bundles,
+    published_uploads,
+    staged_uploads,
+)
+from core.writes import validated_write
+
+from ..models import Crop, GrowingArea, Planting, PlantingSubmission, Variety
+from ._shared import (
+    PlantingResult,
+    _active_actor,
+    _current,
+    _identifier,
+    _key,
+    _outside_transaction,
+    _planting_fingerprint,
+    _planting_receipt,
+    _version,
+)
+
+
+def _planting_values(
+    crop, start_year, variety, area, lifespan, end_year, label, quantity, notes, evaluation
+):
+    values = {
+        "crop_id": _identifier(crop, "crop", model=Crop),
+        "variety_id": _identifier(variety, "variety", optional=True, model=Variety),
+        "area_id": _identifier(area, "area", optional=True, model=GrowingArea),
+        "start_year": start_year,
+        "lifespan": lifespan,
+        "end_year": end_year,
+        "label": label,
+        "quantity": quantity,
+        "notes": notes,
+        "evaluation": evaluation,
+    }
+    for field in ("start_year", "end_year"):
+        value = values[field]
+        if value is None and field == "end_year":
+            continue
+        if type(value) is not int or not 1 <= value <= 9999:
+            raise ValidationError({field: _("Enter a growing year from 1 to 9999.")})
+    if quantity is not None and (type(quantity) is not int or quantity < 0):
+        raise ValidationError(
+            {"quantity": _("Enter a nonnegative whole number, or leave it blank.")}
+        )
+    for field in ("lifespan", "label", "notes", "evaluation"):
+        if not isinstance(values[field], str):
+            raise ValidationError({field: _("Enter text, or leave this field blank.")})
+        if field != "lifespan":
+            values[field] = values[field].strip()
+    return values
+
+
+def _validate_planting(record, previous):
+    """Current FK eligibility and taxonomy must be checked after acquiring the writer."""
+    try:
+        crop = Crop.objects.get(pk=record.crop_id)
+    except Crop.DoesNotExist as exc:
+        raise ValidationError({"crop": _("Choose a valid record.")}) from exc
+    if crop.is_archived and record.crop_id != previous.get("crop_id"):
+        raise ValidationError({"crop": _("Choose an active crop for a new association.")})
+    if record.variety_id is not None:
+        try:
+            variety = Variety.objects.get(pk=record.variety_id)
+        except Variety.DoesNotExist as exc:
+            raise ValidationError({"variety": _("Choose a valid record.")}) from exc
+        if variety.crop_id != record.crop_id:
+            raise ValidationError(
+                {"variety": _("Choose a variety of the selected crop, or leave it blank.")}
+            )
+        if record.variety_id != previous.get("variety_id") and (
+            variety.is_archived or crop.is_archived
+        ):
+            raise ValidationError({"variety": _("Choose an active variety for a new association.")})
+    if record.area_id is not None:
+        try:
+            area = GrowingArea.objects.get(pk=record.area_id)
+        except GrowingArea.DoesNotExist as exc:
+            raise ValidationError({"area": _("Choose a valid record.")}) from exc
+        if area.is_archived and record.area_id != previous.get("area_id"):
+            raise ValidationError({"area": _("Choose an active area for a new association.")})
+    record.full_clean()
+
+
+def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_at):
+    with transaction.atomic(), validated_write():
+        _active_actor(actor)
+        retry = _planting_receipt(key, actor, "planting", fingerprint)
+        if retry is not None:
+            return retry
+        record = _current(Planting, pk, expected_updated_at) if pk is not None else Planting()
+        previous = {field: getattr(record, field) for field in ("crop_id", "variety_id", "area_id")}
+        for field, value in values.items():
+            setattr(record, field, value)
+        _validate_planting(record, previous)
+        photos = list(record.photos.all()) if pk is not None else []
+        if len(photos) + len(rows) > settings.PHOTO_MAX_COUNT:
+            raise ValidationError(
+                _("A record can have no more than %(count)s photos."),
+                params={"count": settings.PHOTO_MAX_COUNT},
+            )
+        record.save()
+        position = max((photo.position for photo in photos), default=-1) + 1
+        for offset, photo_values in enumerate(rows):
+            photo = Photo(planting=record, **photo_values, position=position + offset)
+            photo.full_clean()
+            photo.save()
+        receipt = PlantingSubmission(
+            key=key, author=actor, kind="planting", payload_sha256=fingerprint, planting=record
+        )
+        receipt.full_clean()
+        receipt.save()
+        return PlantingResult(record)
+
+
+def _save_planting(actor, pk, values, uploads, submission_key, expected_updated_at):
+    _outside_transaction(actor)
+    if pk is not None:
+        _version(expected_updated_at)
+        pk = _identifier(pk, "id")
+    key = _key(submission_key)
+    uploads = list(uploads)
+    if not uploads:
+        fingerprint = _planting_fingerprint("planting", pk, expected_updated_at, values)
+        return _write_planting(actor, pk, values, key, fingerprint, [], expected_updated_at)
+    with media_operation(), staged_uploads(uploads) as photos:
+        fingerprint = _planting_fingerprint("planting", pk, expected_updated_at, values, photos)
+        with transaction.atomic():
+            _active_actor(actor)
+            retry = _planting_receipt(key, actor, "planting", fingerprint)
+            if retry is not None:
+                return retry
+        with published_uploads(photos) as rows:
+            return _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_at)
+
+
+def create_planting(
+    *,
+    actor,
+    crop,
+    start_year,
+    variety=None,
+    area=None,
+    lifespan=Planting.Lifespan.ANNUAL,
+    end_year=None,
+    label="",
+    quantity=None,
+    notes="",
+    evaluation="",
+    uploads=(),
+    submission_key=None,
+):
+    values = _planting_values(
+        crop, start_year, variety, area, lifespan, end_year, label, quantity, notes, evaluation
+    )
+    return _save_planting(actor, None, values, uploads, submission_key, None)
+
+
+def edit_planting(
+    *,
+    actor,
+    pk,
+    crop,
+    start_year,
+    variety=None,
+    area=None,
+    lifespan=Planting.Lifespan.ANNUAL,
+    end_year=None,
+    label="",
+    quantity=None,
+    notes="",
+    evaluation="",
+    uploads=(),
+    submission_key=None,
+    expected_updated_at,
+):
+    values = _planting_values(
+        crop, start_year, variety, area, lifespan, end_year, label, quantity, notes, evaluation
+    )
+    return _save_planting(
+        actor, _identifier(pk, "id"), values, uploads, submission_key, expected_updated_at
+    )
+
+
+def delete_planting(*, actor, pk, expected_updated_at):
+    _outside_transaction(actor)
+    _version(expected_updated_at)
+    with media_operation():
+        folders = []
+        try:
+            with transaction.atomic(), validated_write():
+                _active_actor(actor)
+                record = _current(Planting, _identifier(pk, "id"), expected_updated_at)
+                folders.extend(photo_bundles(record.photos.all()))
+                try:
+                    record.delete()
+                except ProtectedError as exc:
+                    raise ValidationError(
+                        _("This planting is still referenced and cannot be deleted.")
+                    ) from exc
+        finally:
+            discard_unreferenced_bundles(folders)

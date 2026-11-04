@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods
 
-from core.forms import DeleteForm
+from core.forms import DeleteForm, form_error, valid_post
 from core.media import MediaBusy
 from core.models import Photo
 
@@ -39,25 +39,6 @@ ENTRY_RELATIONS = (
     "links__variety__crop",
     "links__planting__crop",
 )
-
-
-def _form_error(form, error):
-    if hasattr(error, "error_dict"):
-        for field, errors in error.error_dict.items():
-            form.add_error(field if field in form.fields else None, errors)
-    else:
-        form.add_error(None, error)
-
-
-def _valid_post(request, form, photo_fields=()):
-    valid = form.is_valid()
-    if getattr(request, "photo_upload_error", None):
-        form.add_error(None, request.photo_upload_error)
-        valid = False
-    if set(request.FILES) - set(photo_fields):
-        form.add_error(None, _("An unexpected photo field was submitted. Nothing was saved."))
-        valid = False
-    return valid
 
 
 def _editable_entry(request, pk):
@@ -174,7 +155,7 @@ def entry_edit(request, pk):
         "action": request.path,
     }
     if request.method == "POST":
-        valid = _valid_post(request, form, photo_fields={"photos"})
+        valid = valid_post(request, form, photo_fields={"photos"})
         status = 422
         if valid:
             values = form.cleaned_data
@@ -195,10 +176,10 @@ def entry_edit(request, pk):
                     expected_updated_at=values["expected_updated_at"],
                 )
             except EntryConflict as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
                 status = 409
             except ValidationError as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except MediaBusy, OperationalError, OSError:
                 logger.exception("Entry edit failed; keep the form open for a retry.")
                 form.add_error(
@@ -240,9 +221,9 @@ def entry_delete(request, pk):
                     expected_updated_at=form.cleaned_data["expected_updated_at"],
                 )
             except EntryConflict as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except ValidationError as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except MediaBusy, OperationalError, OSError:
                 form.add_error(
                     None, _("Deletion could not be confirmed. Reload the entry before retrying.")
@@ -285,9 +266,9 @@ def photo_edit(request, pk):
                     expected_updated_at=form.cleaned_data["expected_updated_at"],
                 )
             except EntryConflict as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except ValidationError as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except OperationalError:
                 form.add_error(
                     None, _("The action could not be confirmed. Reload the entry before retrying.")
@@ -317,9 +298,9 @@ def photo_delete(request, pk):
                     expected_updated_at=form.cleaned_data["expected_updated_at"],
                 )
             except EntryConflict as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except ValidationError as exc:
-                _form_error(form, exc)
+                form_error(form, exc)
             except MediaBusy, OperationalError, OSError:
                 form.add_error(
                     None, _("Deletion could not be confirmed. Reload the entry before retrying.")
@@ -342,13 +323,14 @@ def capture(request):
     )
     status = 422
     if request.method == "POST":
-        valid = form.is_valid()
-        if getattr(request, "photo_upload_error", None):
-            form.add_error(None, request.photo_upload_error)
-            valid = False
-        if set(request.FILES) - {"camera", "library"}:
-            form.add_error(None, _("An unexpected photo field was submitted. No entry was saved."))
-            valid = False
+        valid = valid_post(
+            request,
+            form,
+            photo_fields={"camera", "library"},
+            unexpected_photo_message=_(
+                "An unexpected photo field was submitted. No entry was saved."
+            ),
+        )
         if valid:
             try:
                 result = create_entry(

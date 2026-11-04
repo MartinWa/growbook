@@ -2,13 +2,9 @@
 
 import hashlib
 import json
-import logging
-import shutil
-import tempfile
 from dataclasses import dataclass
 from datetime import date as Date
 from datetime import datetime
-from pathlib import Path
 from uuid import UUID
 
 from django.conf import settings
@@ -17,7 +13,6 @@ from django.db import connection, transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from core.images import process_staged, publish_staged, stage_uploads
 from core.media import media_operation
 from core.models import Photo, User
 from core.photo_storage import (
@@ -32,8 +27,6 @@ from garden.models import Crop, GrowingArea, Planting, Variety
 from .models import DiaryEntry, DiaryLink, DiarySubmission
 from .permissions import can_edit_entry
 from .search import normalize_search
-
-logger = logging.getLogger(__name__)
 
 
 class SubmissionConflict(ValidationError):
@@ -98,29 +91,16 @@ def create_entry(*, author, date, body, uploads, submission_key):
     uploads = list(uploads)
     if not body and not uploads:
         raise ValidationError(_("Write a note or add at least one photo."))
-    with media_operation():
-        staging_root = settings.MEDIA_ROOT / ".staging"
-        staging_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        staging = Path(tempfile.mkdtemp(prefix="capture-", dir=staging_root))
-        published = []
-        committed = False
-        try:
-            photos = stage_uploads(uploads, staging)
-            fingerprint = payload_fingerprint(date, body, photos)
-            # Match retries against the receipt, not mutable entry fields.
-            with transaction.atomic():
-                if not User.objects.filter(pk=author.pk, is_active=True).exists():
-                    raise PermissionDenied
-                result = check_receipt(key, author.pk, fingerprint)
-                if result:
-                    return result
-            for photo in photos:
-                process_staged(photo)
-            rows = []
-            for position, photo in enumerate(photos):
-                values, folder = publish_staged(photo)
-                published.append(folder)
-                rows.append({**values, "position": position})
+    with media_operation(), staged_uploads(uploads) as photos:
+        fingerprint = payload_fingerprint(date, body, photos)
+        # Match retries before decoding against the receipt, not mutable entry fields.
+        with transaction.atomic():
+            if not User.objects.filter(pk=author.pk, is_active=True).exists():
+                raise PermissionDenied
+            result = check_receipt(key, author.pk, fingerprint)
+            if result:
+                return result
+        with published_uploads(photos) as rows:
             with transaction.atomic(), validated_write():
                 if not User.objects.filter(pk=author.pk, is_active=True).exists():
                     raise PermissionDenied
@@ -136,8 +116,8 @@ def create_entry(*, author, date, body, uploads, submission_key):
                 )
                 entry.full_clean()
                 entry.save()
-                for values in rows:
-                    image = Photo(entry=entry, **values)
+                for position, values in enumerate(rows):
+                    image = Photo(entry=entry, **values, position=position)
                     image.full_clean()
                     image.save()
                 receipt = DiarySubmission(
@@ -145,20 +125,7 @@ def create_entry(*, author, date, body, uploads, submission_key):
                 )
                 receipt.full_clean()
                 receipt.save()
-            committed = True
             return CaptureResult(entry, created=True)
-        finally:
-            if not committed:
-                # Do not delete potentially committed files after an uncertain commit error.
-                # Confirm references using a fresh autocommit query; otherwise leave an orphan.
-                for folder in published:
-                    relative = folder.relative_to(settings.MEDIA_ROOT).as_posix() + "/"
-                    try:
-                        if not Photo.objects.filter(original__startswith=relative).exists():
-                            shutil.rmtree(folder)
-                    except Exception:
-                        logger.exception("Deferred uncertain media cleanup to cleanup_media.")
-            shutil.rmtree(staging, ignore_errors=True)
 
 
 LINK_FIELDS = {

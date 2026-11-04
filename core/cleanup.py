@@ -25,6 +25,7 @@ def cleanup_orphans(*, apply=False, minimum_age=86400, limit=1000):
         candidates = []
         candidates.extend((root / ".staging").glob("capture-*"))
         candidates.extend((root / ".staging").glob("register-*"))
+        candidates.extend((root / ".staging").glob("upload-*"))
         candidates.extend((root / "photos").glob("*/*/*"))
         threshold = time.time() - minimum_age
         for folder in sorted(candidates):

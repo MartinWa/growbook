@@ -509,13 +509,17 @@ def test_file_delete_is_after_commit_and_failed_cleanup_is_retryable(
     assert not bundle.exists()
 
 
-def test_cleanup_recognizes_abandoned_register_staging_directories(settings):
+@pytest.mark.parametrize("prefix", ["capture", "register", "upload"])
+def test_cleanup_recognizes_current_and_legacy_staging_directories(settings, prefix):
     import os
 
-    abandoned = settings.MEDIA_ROOT / ".staging" / "register-abandoned"
+    relative = f".staging/{prefix}-abandoned"
+    abandoned = settings.MEDIA_ROOT / relative
     abandoned.mkdir(parents=True)
     os.utime(abandoned, (0, 0))
-    assert cleanup_orphans(apply=True, minimum_age=1) == [".staging/register-abandoned"]
+    assert cleanup_orphans(minimum_age=1) == [relative]
+    assert abandoned.exists()
+    assert cleanup_orphans(apply=True, minimum_age=1) == [relative]
     assert not abandoned.exists()
 
 

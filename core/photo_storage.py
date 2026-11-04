@@ -23,7 +23,7 @@ def staged_uploads(uploads):
         raise RuntimeError("Stage photos outside any existing transaction.")
     root = Path(settings.MEDIA_ROOT) / ".staging"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    staging = Path(tempfile.mkdtemp(prefix="register-", dir=root))
+    staging = Path(tempfile.mkdtemp(prefix="upload-", dir=root))
     try:
         yield stage_uploads(uploads, staging)
     finally:

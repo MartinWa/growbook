@@ -110,14 +110,14 @@ def test_cleanup_waits_for_inflight_save_and_never_deletes_published_photo(
     settings,
     monkeypatch,
 ):
-    from diary import services
+    from core import photo_storage
 
     buffer = io.BytesIO()
     Image.new("RGB", (40, 40), "green").save(buffer, format="JPEG")
     data = buffer.getvalue()
     published = threading.Event()
     release = threading.Event()
-    original_publish = services.publish_staged
+    original_publish = photo_storage.publish_staged
 
     def paused_publish(photo):
         result = original_publish(photo)
@@ -125,7 +125,7 @@ def test_cleanup_waits_for_inflight_save_and_never_deletes_published_photo(
         assert release.wait(timeout=10)
         return result
 
-    monkeypatch.setattr(services, "publish_staged", paused_publish)
+    monkeypatch.setattr(photo_storage, "publish_staged", paused_publish)
 
     def capture():
         author = User.objects.get(pk=user.pk)

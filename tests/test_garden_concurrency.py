@@ -112,11 +112,11 @@ def test_simultaneous_reparenting_into_same_scope_rechecks_unique_name(user):
 
 
 def test_variety_creation_waits_for_crop_archive_then_revalidates(user, monkeypatch):
-    from garden import services
+    from garden.services import registers
 
     crop = create_crop(actor=user, name="Tomato").record
     acquired, release, started = threading.Event(), threading.Event(), threading.Event()
-    real_validate = services._validate
+    real_validate = registers._validate
 
     def pause_archive(record, previous_parent_id=None):
         result = real_validate(record, previous_parent_id)
@@ -125,7 +125,7 @@ def test_variety_creation_waits_for_crop_archive_then_revalidates(user, monkeypa
             assert release.wait(timeout=10)
         return result
 
-    monkeypatch.setattr(services, "_validate", pause_archive)
+    monkeypatch.setattr(registers, "_validate", pause_archive)
 
     def add_variety():
         started.set()
