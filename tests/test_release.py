@@ -98,7 +98,7 @@ helper.main()
     )
 
 
-@pytest.fixture(params=["pwsh", "powershell"])
+@pytest.fixture(params=["pwsh", "powershell"] if sys.platform == "win32" else ["pwsh"])
 def tag_repository(release_repository, request):
     powershell = shutil.which(request.param)
     if not powershell:

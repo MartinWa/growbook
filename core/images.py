@@ -195,13 +195,11 @@ def process_staged(photo):
 
 
 def sync_directory(path):
-    # Windows has no portable directory fsync. NTFS rename semantics are used there.
-    if os.name == "posix":
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def sync_directory_tree(root):

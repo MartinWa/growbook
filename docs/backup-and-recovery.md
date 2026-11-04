@@ -12,27 +12,29 @@ sensitive. There is no portable import/export feature.
 ## Create and verify
 
 Run against the intended instance and settings; production configuration belongs in
-an untracked environment file or a private operations repository.
+an untracked environment file or a private operations repository. The production examples
+below use a private `local/recovery.compose.yaml` override that mounts host-local backup
+storage at `/backups`, recovery configuration read-only at `/recovery`, and a separate
+restore parent at `/restores`. Give the configured non-root user access to these mounts.
+The supplied `compose.yaml` mounts none of them. Keep backups outside live media storage.
 
 ```sh
-uv run python manage.py backup_garden local/backups/example-001 --config local/operator.env
-uv run python manage.py verify_backup local/backups/example-001
+docker compose -f compose.yaml -f local/recovery.compose.yaml run --rm growbook python manage.py backup_garden /backups/example-001 --config /recovery/operator.env
+docker compose -f compose.yaml -f local/recovery.compose.yaml run --rm growbook python manage.py verify_backup /backups/example-001
 ```
 
 The example paths are generic. Supply the actual configuration needed for recovery
 using repeated `--config` arguments. For a disposable local instance configured by
-the [local setup](../README.md#run-locally), the generated development secret can
+the [container setup](development.md#container-development), the generated development secret can
 be used instead of the example operator configuration:
 
 ```sh
-uv run python manage.py backup_garden local/backups/example-001 --config local/development/.development-secret
+docker compose -f compose.development.yaml run --rm app python manage.py backup_garden /state/backups/example-001 --config /state/development/.development-secret
 ```
 
 That includes only the local secret; supply any additional configuration required
-by the instance. For container operations, explicitly mount private backup and
-configuration paths: `compose.yaml` mounts neither a backup destination nor its
-`.env` file by default. Use the intended production settings for those operations,
-not the disposable development defaults.
+by the instance. This disposable backup shares the development volume and is not an
+independent copy. Use the intended production settings for production operations.
 
 The backup never guesses or exports all environment variables. Configuration
 files must stay stable during the operation and must be protected independently
@@ -63,13 +65,13 @@ while a backup is running. Any new media writer must use the same coordination l
 
 Keep at least one independent copy outside live storage. Retention, access
 controls and encryption are operator responsibilities; the application does not
-choose a backup service or automate retention. Windows development requires private
-directory ACLs because POSIX `chmod` modes do not establish ACLs.
+choose a backup service or automate retention. Protect any copies exported to Windows
+with private directory ACLs; POSIX `chmod` modes do not establish Windows ACLs.
 
 ## Restore into a clean instance
 
 ```sh
-uv run python manage.py restore_garden local/backups/example-001 local/restored-example
+docker compose -f compose.yaml -f local/recovery.compose.yaml run --rm growbook python manage.py restore_garden /backups/example-001 /restores/example-001
 ```
 
 The destination must **not exist**. Restore never merges with or replaces the live
@@ -104,8 +106,8 @@ the schema or media handling changes.
 ## Orphan cleanup
 
 ```sh
-uv run python manage.py cleanup_media
-uv run python manage.py cleanup_media --apply
+docker compose run --rm growbook python manage.py cleanup_media
+docker compose run --rm growbook python manage.py cleanup_media --apply
 ```
 
 Without `--apply`, the command lists what it would remove. It considers only

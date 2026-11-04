@@ -53,7 +53,6 @@ print('secure settings')
     assert not (tmp_path / "state").exists()
 
 
-@pytest.mark.skipif(os.name != "posix", reason="POSIX modes do not define Windows ACLs.")
 def test_collected_static_assets_are_readable_without_relaxing_private_uploads(tmp_path):
     result = run_settings(
         tmp_path,

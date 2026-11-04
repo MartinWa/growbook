@@ -75,15 +75,16 @@ interface defaults to Swedish, with English available.
 
 ## Requirements
 
-- [uv](https://docs.astral.sh/uv/) 0.13.6 or newer (CI pins 0.13.6);
-  `.python-version` pins Python 3.14.10 and `uv.lock` pins dependencies including Django
-  5.2 LTS. `requires-python` allows 3.14.9 for dependency tooling, but development and
-  production use 3.14.10 for its security fixes.
+- Docker Desktop with Linux containers and Compose v2 or newer for development.
+  Keep the checkout on Windows and edit in VS Code; application execution and tests
+  run in Linux containers. Native Windows application execution is not supported.
+- The images pin Python 3.14.10 and use `uv.lock` dependencies including Django 5.2 LTS.
+  `requires-python` allows 3.14.9 for dependency tooling only.
 - A local filesystem for SQLite and photos, with the fixed SQLite runtime described in
   the [deployment guide](docs/deployment.md#sqlite-runtime). SMB/NFS-mounted databases
   are not supported.
-- Docker with Linux containers and Compose v2 for the optional
-  [container workflow](docs/deployment.md#build-and-run-with-docker).
+- Docker with Linux containers and Compose for
+  [production deployment](docs/deployment.md#build-and-run-with-docker).
 
 Run commands from the repository root. The compiled CSS, HTMX and JavaScript are
 self-hosted. Rebuilding the committed stylesheet needs Node.js and pnpm only during
@@ -93,39 +94,17 @@ conventions.
 
 ## Run locally
 
-```sh
-uv sync --locked
-```
-
-On Windows x64, install the project-local patched SQLite DLL before running Django or
-tests:
-
-```sh
-uv run python tools/bootstrap_sqlite.py
-```
-
-On Linux and macOS, provide a fixed native SQLite runtime instead; the Windows helper
-is not supported there.
-
-Compile translations, create the database and an administrator account, then start the
-development server:
-
-```sh
-uv run python tools/compile_translations.py
-uv run python manage.py migrate
-uv run python manage.py createsuperuser
-uv run python manage.py runserver 127.0.0.1:8000
-```
+Follow [Container development](docs/development.md#container-development) for setup,
+startup, automatic reload, VS Code debugging and persistent development storage.
 
 Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts. There
 are no seeded credentials. Diary, photo, register and planting admin screens are
 read-only; use the diary pages for observations, **Garden** for records and
 **Plantings** for plans and milestones.
 
-`manage.py` uses development settings: loopback-only allowed hosts, HTTP cookies, a
-generated local secret and data in ignored `local/development/`. Do not expose the
-development server or point it at production data. A local `.env` file is not loaded
-automatically; set overrides in the process environment.
+The separate development Compose configuration publishes HTTP only on host loopback.
+Its database, photos, generated secret, Linux virtualenv and test scratch files live in
+Docker volumes. Do not expose the development server or point it at production data.
 
 ## Using growbook
 
@@ -146,11 +125,10 @@ behavior.
 ## Test and check
 
 The [development guide](docs/development.md#test-and-check) lists the test, lint,
-migration and deployment-check commands. On Windows, run tests through
-`tools/run_tests.py`: it activates the fixed SQLite runtime before test plugins import it,
-compiles translations and keeps artifacts in ignored `local/`. Tests use real file-backed
-SQLite/WAL and synthetic images; browser tests are excluded. The guide also covers browser
-tests, styles, translations, CI checks and dependency updates.
+migration and deployment-check commands. Run `tools/run_tests.py` inside the development
+container: it compiles translations and keeps artifacts on Linux storage. Tests use real
+file-backed SQLite/WAL and synthetic images; browser tests are excluded. The guide also
+covers browser tests, styles, translations, CI checks and dependency updates.
 
 ## Run with Docker
 
@@ -182,7 +160,7 @@ operational recovery, not portable import/export.
 
 | Path | Purpose |
 |---|---|
-| `growbook/` | Project settings, routing, runtime bootstrap and WSGI server. |
+| `growbook/` | Project settings, routing, SQLite safety checks and WSGI server. |
 | `core/` | Users, shared form and photo-storage helpers, security, SQLite configuration and operational commands. |
 | `diary/` | Diary models, forms, views, filtering and validated create/edit/delete operations. |
 | `garden/` | Models, forms and year/history queries; `views/` and `services/` separate registers, photos, plantings and events. |
@@ -190,7 +168,7 @@ operational recovery, not portable import/export.
 | `assets/` | Stylesheet source compiled into the committed application CSS. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |
 | `tests/` | Domain, integration and browser tests with synthetic fixtures. |
-| `tools/` | SQLite setup, translation compilation and the test entry point. |
+| `tools/` | Container startup/checks, translation compilation and the test entry point. |
 | `docs/` | Usage, development, deployment, design and recovery guides. |
 | `third_party/` | Dependency licenses, notices and native build provenance. |
 

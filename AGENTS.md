@@ -116,14 +116,15 @@ operational commands), `diary` (entries and validated creation), and `garden`
 modules only when a feature needs them; do not add a generic repository, event
 bus or separate API layer before it is needed.
 
-Use `pytest-django` for domain and integration tests. On Windows run tests through
-`uv run python tools/run_tests.py` so the fixed SQLite runtime is activated before
-test plugins. Tests use real file-backed SQLite/WAL, not an in-memory substitute for
-contention checks.
+Use `pytest-django` for domain and integration tests. Run application commands and tests
+in the Linux development container, using `docker compose -f compose.development.yaml
+run --rm app python tools/run_tests.py`. Windows hosts editing, PowerShell launchers
+and Docker Desktop; native Windows application execution is unsupported. Tests use real
+file-backed SQLite/WAL in container volumes, not an in-memory substitute for contention.
 
 For a request to run locally and confirm Playwright works, run the
-[browser suite](docs/development.md#browser-tests), using an installed Chrome with
-`GROWBOOK_BROWSER_CHANNEL=chrome` when Chromium has not been downloaded. Run the
+[browser suite](docs/development.md#browser-tests) in the development image with its
+installed Chromium. Run the
 full browser suite when requested or when interactive changes need regression
 coverage. Reuse instructions already read in the current conversation. This
 repository uses `AGENTS.md` and `README.md`; do not probe for a repository

@@ -1,23 +1,83 @@
 # Development, CI and releases
 
 Canonical guide for local checks, browser tests, styles, translations, workflow audits,
-dependency updates and release publishing. First-time setup is in the
-[main README](../README.md#run-locally). Deployment procedures are in the
-[deployment guide](deployment.md).
+dependency updates and release publishing. The
+[main README](../README.md#run-locally) links here for first-time setup. Deployment
+procedures are in the [deployment guide](deployment.md).
+
+## Container development
+
+Install Docker Desktop on an x64 host, select Linux containers, and keep this checkout
+on Windows. Use PowerShell from the repository root; neither a WSL checkout nor a WSL terminal is
+required. Application execution and tests are supported in the Linux images, sharing
+production's pinned Python, SQLite and decoder-only image libraries.
+
+```powershell
+docker version
+docker compose -f compose.development.yaml build app
+docker compose -f compose.development.yaml up -d app
+docker compose -f compose.development.yaml logs --tail=50 app
+docker compose -f compose.development.yaml exec app python manage.py createsuperuser
+```
+
+Open **http://127.0.0.1:8000/**. Startup compiles translations, applies migrations and
+starts Django's development server. There are no seeded credentials. The service binds
+port 8000 only to host loopback. `compose.development.yaml` is independent of the
+production `compose.yaml`; it needs no production `.env`, proxy or private network.
+
+The Windows checkout is mounted at `/app`. Save Python edits in Windows VS Code to
+trigger Django's polling reloader; template and static edits also use the mounted
+source immediately. Ordinary edits require no image rebuild. For translation edits,
+run `python tools/compile_translations.py` in the container and restart the server.
+
+The named `development-state` volume stores `/state/development` (database, photos
+and generated secret), `/state/venv`, compiled translations and test/scratch files.
+`editor-home` stores the container user's editor state. SQLite and photo files stay on
+Docker's Linux filesystem, rather than on the Windows bind mount. Recreating containers
+or running `docker compose -f compose.development.yaml down` preserves these volumes.
+Do not use `down --volumes` unless all of this disposable state should be deleted.
+Never mount production storage into this service.
+
+The development virtualenv inherits production packages. Its separately exported dev
+group installs without dependency resolution, preserving the source-built HEIC wrapper.
+Startup checks the active Python, SQLite and codec inventory. After dependency or
+Dockerfile changes, stop the service, rebuild, and recreate it with the commands above;
+the virtualenv refreshes from the image while development records remain intact. Do not
+run `uv sync` or install upstream HEIC wheels in this environment.
+
+PowerShell Core is included only in the development image to exercise host-side release
+launcher logic on Linux. These checks do not claim Windows application runtime support.
+
+For a Linux terminal without rebuilding:
+
+```powershell
+docker compose -f compose.development.yaml exec app bash
+```
+
+Alternatively install VS Code's **Dev Containers** extension and choose **Dev Containers:
+Reopen in Container**. It attaches to the same service and Windows source mount, with
+`/state/venv/bin/python` as interpreter. Run checks directly with `python` or `ruff` in
+that terminal. The supplied Django debug configuration starts a second server on container
+loopback port 8001 without the reloader; forward that port to local loopback in VS Code's
+Ports panel. The normal server on port 8000 continues to reload on saves.
+
+Test runs share a disposable test database under `/state/test-state`; run suites
+sequentially within one Compose project. Temporary `compose run --rm` containers share
+the development volumes but do not publish the service's HTTP port.
 
 ## Test and check
 
-```sh
-uv run python tools/run_tests.py -q
-uv run ruff check .
-uv run ruff format --check .
-uv run python manage.py check --database default
-uv run python manage.py makemigrations --check --dry-run
+```powershell
+docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q
+docker compose -f compose.development.yaml run --rm app ruff check .
+docker compose -f compose.development.yaml run --rm app ruff format --check .
+docker compose -f compose.development.yaml run --rm app python manage.py check --database default
+docker compose -f compose.development.yaml run --rm app python manage.py makemigrations --check --dry-run
 ```
 
-Use `tools/run_tests.py`, especially on Windows: it activates the fixed SQLite runtime
-before test plugins import it, compiles translations and keeps temporary artifacts under
-ignored `local/`. Tests use real file-backed SQLite/WAL and synthetic images, covering
+Use `tools/run_tests.py` inside the container: it compiles translations and keeps
+temporary artifacts in the Linux state volume. Tests use real file-backed SQLite/WAL and
+synthetic images, covering
 capture, observation editing and deletion, permissions, links and derived filters,
 Unicode search, image failures, authorization, retries, concurrency and clean-instance
 recovery. Browser tests are excluded from the default run.
@@ -53,24 +113,11 @@ for the form workflow.
 
 ## Browser tests
 
-Install Playwright's Chromium, then run the browser suite separately:
-
-```sh
-uv run python -m playwright install chromium --no-shell
-uv run python tools/run_tests.py -q -m browser
-```
-
-To use an installed Chrome instead:
-
-```sh
-# POSIX shell
-GROWBOOK_BROWSER_CHANNEL=chrome uv run python tools/run_tests.py -q -m browser
-```
+The development image includes Playwright's pinned Chromium and Linux browser libraries.
+Run the full browser suite separately:
 
 ```powershell
-# PowerShell
-$env:GROWBOOK_BROWSER_CHANNEL = "chrome"
-uv run python tools/run_tests.py -q -m browser
+docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser
 ```
 
 The suite exercises Chromium and real form interaction. It does not verify a phone's
@@ -96,11 +143,15 @@ the stylesheet and fails if the committed file differs.
 ## GitHub Actions
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`, manual
-dispatch and weekly. Windows jobs check locked dependencies, generated Docker
-requirements, Ruff, translations, database and migration checks, and the application and
-Chromium suites with the fixed SQLite helper. The Linux job validates workflow syntax,
+dispatch and weekly. Linux jobs check locked dependencies, both generated Docker
+requirements files, Ruff, translations, database and migration checks, and the application
+and Chromium suites in the development image. Development and production share the same
+native builds and application dependencies. The container job validates workflow syntax,
 builds the production image, and checks migrations, deployment settings and non-root WSGI
 initialization with disposable storage.
+
+The historical status label **Checks (Windows)** is retained because the repository's
+required checks match that exact name; that job runs on Linux along with the browser job.
 
 The stylesheet job verifies the generated CSS with the pinned frontend toolchain;
 see [Styles](#styles).
@@ -131,10 +182,13 @@ required checks pass; minor and major updates still require review. Django stays
 LTS and Python stays on the current minor series. Dependabot resolves with its bundled
 Python 3.14.9; CI and containers use the pinned 3.14.10.
 
-After a uv update, regenerate the Docker requirements on the PR branch before merging:
+After a uv update, regenerate both Docker requirements files on the PR branch before
+merging. Use uv 0.13.6 (also pinned in CI) for lockfile/export tooling; this can run on the
+editing host without installing or running the application there:
 
 ```sh
 uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
+uv export --locked --only-group dev --no-emit-project --format requirements-txt --output-file requirements-dev.txt
 ```
 
 Review `requirements-build.txt`, the pinned uv/audit tools, checksum-pinned native sources

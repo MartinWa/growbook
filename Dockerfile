@@ -51,20 +51,62 @@ RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements-b
     && python -m pip install --no-cache-dir --require-hashes --no-build-isolation \
       --no-binary=pillow-heif --prefix=/opt/python -r /tmp/requirements.txt
 
-FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527
-ARG GROWBOOK_VERSION=development
+FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527 AS runtime-base
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
-    && python -m pip uninstall --yes pip \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    GROWBOOK_VERSION=${GROWBOOK_VERSION} \
-    LD_LIBRARY_PATH=/opt/native/lib \
-    GROWBOOK_DATA_DIR=/data \
-    DJANGO_SETTINGS_MODULE=growbook.settings.production
+    LD_LIBRARY_PATH=/opt/native/lib
 COPY --from=native-build /opt/native/lib /opt/native/lib
 COPY --from=native-build /opt/native/share/sources /opt/native/share/sources
 COPY --from=python-build /opt/python /usr/local
 WORKDIR /app
+COPY tools/check_runtime.py /usr/local/bin/growbook-check-runtime.py
+RUN python /usr/local/bin/growbook-check-runtime.py
+
+FROM runtime-base AS development
+# Only the dev group is installed, without dependency resolution. The shared
+# source-built pillow-heif stays in the base interpreter's site-packages.
+COPY requirements-dev.txt /opt/requirements-dev.txt
+RUN python -m venv --system-site-packages /state/venv \
+    && /state/venv/bin/python -m pip install --no-cache-dir --require-hashes --no-deps \
+       -r /opt/requirements-dev.txt \
+    && /state/venv/bin/python /usr/local/bin/growbook-check-runtime.py \
+    && mv /state/venv /opt/venv-seed \
+    && tar -C /opt/venv-seed -cf - . | sha256sum > /opt/venv-seed.sha256
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
+# PowerShell Core keeps the host-side release launcher integration tests on Linux.
+ADD https://github.com/PowerShell/PowerShell/releases/download/v7.6.9/powershell-7.6.9-linux-x64.tar.gz /tmp/powershell.tar.gz
+RUN echo '1da6d6d6035d651f20e70ddee7c4c15ac6ab8b9fb40ee92240d91263f28a884b  /tmp/powershell.tar.gz' | sha256sum -c - \
+    && mkdir -p /opt/powershell \
+    && tar -xzf /tmp/powershell.tar.gz -C /opt/powershell \
+    && chmod +x /opt/powershell/pwsh \
+    && ln -s /opt/powershell/pwsh /usr/local/bin/pwsh \
+    && rm /tmp/powershell.tar.gz
+RUN apt-get update && apt-get install -y --no-install-recommends git libicu72 libgssapi-krb5-2 \
+    && git config --system --add safe.directory /app \
+    && /opt/venv-seed/bin/python -m playwright install --with-deps chromium --no-shell \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 1000 --create-home developer \
+    && mkdir -p /state/tmp && chown -R 1000:1000 /state
+ENV PATH=/state/venv/bin:$PATH \
+    GROWBOOK_DATA_DIR=/state/development GROWBOOK_STATE_DIR=/state \
+    GROWBOOK_LOCALE_DIR=/state/locale \
+    TMPDIR=/state/tmp RUFF_CACHE_DIR=/state/ruff-cache \
+    PYTEST_ADDOPTS="-o cache_dir=/state/pytest-cache" \
+    PIP_REQUIRE_VIRTUALENV=true
+COPY tools/dev_entrypoint.py /usr/local/bin/growbook-dev.py
+COPY . /app
+USER 1000:1000
+ENTRYPOINT ["/usr/local/bin/python", "/usr/local/bin/growbook-dev.py"]
+CMD ["python", "tools/dev_server.py"]
+
+# Keep production last so plain docker build still produces the shipped image.
+FROM runtime-base AS production
+ARG GROWBOOK_VERSION=development
+RUN python -m pip uninstall --yes pip
+ENV GROWBOOK_VERSION=${GROWBOOK_VERSION} \
+    GROWBOOK_DATA_DIR=/data \
+    DJANGO_SETTINGS_MODULE=growbook.settings.production
 COPY . /app
 COPY --from=python-build /tmp/translations/locale /app/locale
 RUN python -c 'import sqlite3; assert sqlite3.sqlite_version_info >= (3,51,3)' \

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = Path(os.environ.get("GROWBOOK_DATA_DIR", BASE_DIR / "local" / "development")).resolve()
+DATA_DIR = Path(os.environ.get("GROWBOOK_DATA_DIR", "/state/development")).resolve()
 
 
 def env_bool(name, default=False):
@@ -84,7 +84,7 @@ LOGOUT_REDIRECT_URL = "login"
 CSRF_FAILURE_VIEW = "core.views.csrf_failure"
 LANGUAGE_CODE = "sv"
 LANGUAGES = [("sv", "Svenska"), ("en", "English")]
-LOCALE_PATHS = [BASE_DIR / "locale"]
+LOCALE_PATHS = [Path(os.environ.get("GROWBOOK_LOCALE_DIR", BASE_DIR / "locale"))]
 TIME_ZONE = os.environ.get("GROWBOOK_TIME_ZONE", "Europe/Stockholm")
 USE_I18N = True
 USE_TZ = True
