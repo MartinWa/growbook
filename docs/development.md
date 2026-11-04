@@ -150,8 +150,8 @@ native builds and application dependencies. The container job validates workflow
 builds the production image, and checks migrations, deployment settings and non-root WSGI
 initialization with disposable storage.
 
-The historical status label **Checks (Windows)** is retained because the repository's
-required checks match that exact name; that job runs on Linux along with the browser job.
+The application check job is named **Checks (Linux)**. GitHub required status checks
+match job names exactly; keep the `main` ruleset aligned when renaming a required job.
 
 The stylesheet job verifies the generated CSS with the pinned frontend toolchain;
 see [Styles](#styles).
