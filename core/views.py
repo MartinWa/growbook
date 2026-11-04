@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from django.contrib.auth.decorators import login_not_required
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.views.decorators.cache import never_cache
@@ -13,12 +13,19 @@ from diary.permissions import can_edit_entry
 from .images import FORMATS
 from .media import private_path
 from .models import Photo
+from .releases import update_available
 
 
 @login_not_required
 @require_safe
 def favicon(request):
     return redirect(static("icons/favicon.svg"), permanent=True)
+
+
+@require_GET
+@never_cache
+def release_status(request):
+    return JsonResponse({"update_available": update_available()})
 
 
 @require_GET

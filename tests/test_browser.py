@@ -77,6 +77,119 @@ def test_more_options_warns_before_dropping_a_quick_draft(page, live_server, use
     assert page.locator("#id_body").input_value() == "Keep this quick note"
 
 
+@pytest.mark.parametrize("language", ["sv", "en"])
+def test_release_footer_links_update_indicator_and_no_javascript(
+    page, live_server, user, settings, language, tmp_path
+):
+    settings.APP_VERSION = "0.1.9"
+    settings.UPDATE_CHECK_ENABLED = True
+    page.context.add_cookies(
+        [{"name": "django_language", "value": language, "url": live_server.url}]
+    )
+    checks, errors = [], []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+
+    def status(route):
+        checks.append(route.request.url)
+        route.fulfill(json={"update_available": True})
+
+    page.route("**/release-status/", status)
+    page.goto(live_server.url + "/accounts/login/")
+    expect(page.locator("[data-update-indicator]")).to_be_hidden()
+    assert checks == []
+    page.locator("#id_username").fill(user.username)
+    page.locator("#id_password").fill("Synthetic-password-42")
+    page.locator('.login-panel button[type="submit"]').click()
+    expect(page).to_have_url(live_server.url + "/")
+    footer = page.locator(".app-footer")
+    version = footer.locator("[data-release-link]")
+    indicator = footer.locator("[data-update-indicator]")
+    label = "Uppdatering tillgänglig" if language == "sv" else "Update available"
+    expect(indicator).to_be_visible()
+    expect(indicator).to_have_attribute("title", label)
+    expect(version).to_have_accessible_name("0.1.9 " + label)
+    expect(version).to_have_attribute("href", "https://github.com/MartinWa/growbook/releases")
+    github = footer.get_by_role("link", name="GitHub", exact=True)
+    expect(github).to_have_attribute("href", "https://github.com/MartinWa/growbook")
+    version.focus()
+    page.keyboard.press("Tab")
+    expect(github).to_be_focused()
+    for width in (320, 1280):
+        page.set_viewport_size({"width": width, "height": 844})
+        footer.scroll_into_view_if_needed()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert footer.evaluate("element => getComputedStyle(element).position") == "static"
+    footer.screenshot(path=str(tmp_path / "release-footer.png"))
+    assert errors == []
+
+    plain_context = page.context.browser.new_context(
+        java_script_enabled=False, viewport={"width": 320, "height": 844}
+    )
+    try:
+        plain_context.add_cookies(page.context.cookies())
+        plain = plain_context.new_page()
+        plain.goto(live_server.url + "/")
+        expect(plain.locator("[data-release-link]")).to_have_text("0.1.9", use_inner_text=True)
+        expect(plain.locator("[data-update-indicator]")).to_be_hidden()
+        expect(plain.locator(".app-footer").get_by_role("link", name="GitHub")).to_be_visible()
+    finally:
+        plain_context.close()
+
+
+@pytest.mark.parametrize("result", [False, None, "unavailable"])
+def test_release_check_without_known_update_keeps_footer_quiet(
+    page, live_server, user, settings, result
+):
+    settings.APP_VERSION = "0.1.9"
+    settings.UPDATE_CHECK_ENABLED = True
+    page.route(
+        "**/release-status/",
+        lambda route: (
+            route.fulfill(status=503, body="Unavailable")
+            if result == "unavailable"
+            else route.fulfill(json={"update_available": result})
+        ),
+    )
+    login(page, live_server, user)
+    with page.expect_response("**/release-status/"):
+        page.goto(live_server.url + "/")
+    expect(page.locator("[data-release-link]")).to_have_text("0.1.9", use_inner_text=True)
+    expect(page.locator("[data-update-indicator]")).to_be_hidden()
+
+
+@pytest.mark.parametrize("language", ["sv", "en"])
+def test_development_footer_is_readable_and_keeps_exact_version_in_tooltip(
+    page, live_server, user, settings, language, tmp_path
+):
+    settings.APP_VERSION = "0.1.8-2-gabcdef0-dirty"
+    settings.UPDATE_CHECK_ENABLED = True
+    checks = []
+    page.on(
+        "request",
+        lambda request: (
+            checks.append(request.url) if request.url.endswith("/release-status/") else None
+        ),
+    )
+    login(page, live_server, user)
+    page.context.add_cookies(
+        [{"name": "django_language", "value": language, "url": live_server.url}]
+    )
+    page.goto(live_server.url + "/")
+    footer = page.locator(".app-footer")
+    expect(footer).to_have_text("GrowBook 0.1.8 · GitHub", use_inner_text=True)
+    version = footer.locator("[data-release-link]")
+    expect(version).to_have_accessible_name("0.1.8")
+    expect(version).to_have_attribute("title", "0.1.8-2-gabcdef0-dirty")
+    expect(version).not_to_have_attribute("data-release-status-url", re.compile(".+"))
+    expect(footer.locator("[data-update-indicator]")).to_be_hidden()
+    for width in (320, 1280):
+        page.set_viewport_size({"width": width, "height": 844})
+        footer.scroll_into_view_if_needed()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    footer.screenshot(path=str(tmp_path / "development-footer.png"))
+    assert checks == []
+
+
 def test_apple_hdr_library_photo_saves_from_the_edit_form(
     page, live_server, user, apple_hdr_upload
 ):

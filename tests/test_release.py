@@ -495,6 +495,7 @@ def test_release_workflow_publishes_images_before_creating_the_release():
     assert "ref: ${{ github.sha }}" in workflow
     assert "TAG_CREATED: ${{ github.event.created }}" in workflow
     assert "org.opencontainers.image.version=${{ steps.release.outputs.version }}" in workflow
+    assert "GROWBOOK_VERSION=${{ steps.release.outputs.version }}" in workflow
     assert (
         "tags: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}" in workflow
     )

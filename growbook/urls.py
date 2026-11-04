@@ -4,10 +4,11 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import include, path
 from django.views.i18n import set_language
 
-from core.views import favicon
+from core.views import favicon, release_status
 
 urlpatterns = [
     path("favicon.ico", favicon, name="favicon"),
+    path("release-status/", release_status, name="release-status"),
     path("accounts/login/", LoginView.as_view(), name="login"),
     path("accounts/logout/", LogoutView.as_view(), name="logout"),
     path("accounts/language/", login_not_required(set_language), name="set_language"),

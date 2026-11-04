@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load i18n %}
-{% block title %}{{ record.display_label }} · growbook{% endblock %}
+{% block title %}{{ record.display_label }} · GrowBook{% endblock %}
 {% block content %}
 <p><a href="{% url 'garden:planting-list' %}?year={{ record.start_year }}">← {% translate 'Year overview' %}</a></p>
 <h1>{{ record.display_label }}</h1>

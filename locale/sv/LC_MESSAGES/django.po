@@ -10,6 +10,12 @@ msgstr ""
 msgid "Skip to content"
 msgstr "Hoppa till innehåll"
 
+msgid "Development"
+msgstr "Utveckling"
+
+msgid "Update available"
+msgstr "Uppdatering tillgänglig"
+
 msgid "Main navigation"
 msgstr "Huvudmeny"
 

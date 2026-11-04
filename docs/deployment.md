@@ -45,6 +45,38 @@ linked LGPL decoder libraries without x265. Do not copy development wheel binari
 distributable image. Review the [dependency notices](../third_party/README.md) before
 publishing binaries or images.
 
+### Application version and update check
+
+Published images contain their release tag in `GROWBOOK_VERSION`, which the footer
+displays. Local builds default to **Development** and skip update checks. When building
+an unmodified release checkout locally, stamp its actual tag explicitly:
+
+```sh
+docker build --build-arg GROWBOOK_VERSION=X.Y.Z --tag growbook:X.Y.Z .
+```
+
+Local development runs detect the checkout's Git version at startup when
+`GROWBOOK_VERSION` is unset. A clean release checkout shows its tag; tracked local changes
+append `-dirty` to the exact identifier (for example, `0.1.8-dirty`), and commits after a
+tag include their distance and commit hash. The footer shows the base version and
+retains the exact identifier in the version tooltip.
+These development versions skip update checks. Without Git metadata,
+the label remains **Development**. Restart the server after changing the checkout to
+refresh its version. The static package version is not a deployed release version.
+
+For a production source installation, set `GROWBOOK_VERSION=X.Y.Z` in the process
+environment when running that release.
+
+On signed-in page loads, JavaScript requests release status from the application.
+The server contacts GitHub's public latest-release API without credentials or garden
+data and caches valid metadata for six hours per application process. Network errors,
+rate limits and invalid responses are cached for one hour; the footer keeps its links
+and leaves the indicator hidden while status is unknown. Checks use a three-second
+network timeout, happen separately from page rendering, and compare stable numeric
+versions. Development builds skip them. Set `GROWBOOK_UPDATE_CHECK=false` to disable
+outbound checks; version and GitHub links still appear. Updates are installed manually
+using the [upgrade procedure](#upgrade-an-existing-installation).
+
 ### Configure the private installation
 
 Copy `.env.example` to an untracked `.env` (`cp .env.example .env`, or
@@ -63,6 +95,7 @@ uv run python -c "import secrets; print(secrets.token_urlsafe(64))"
 | `GROWBOOK_ALLOWED_HOSTS` | Comma-separated exact hostnames, without schemes; no wildcard. |
 | `GROWBOOK_CSRF_TRUSTED_ORIGINS` | Comma-separated trusted HTTPS origins. |
 | `GROWBOOK_TIME_ZONE` | Garden timezone; defaults to `Europe/Stockholm`. |
+| `GROWBOOK_UPDATE_CHECK` | Check public stable release metadata; defaults to `true`. Set `false` to disable outbound update checks. |
 | `GROWBOOK_MIGRATE_ON_START` | Apply pending migrations at startup; defaults to `true`. Set `false` for a separate migration step. |
 | `GROWBOOK_TRUST_PROXY` | Set `true` only for a trusted TLS-terminating proxy that strips or replaces forwarding headers. |
 | `GROWBOOK_TRUSTED_PROXY_IP` | Exact proxy IP when trust is enabled; wildcard trust is rejected. |

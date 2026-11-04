@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"historyCacheSize":0,"selfRequestsOnly":true}'>
-  <title>{% block title %}growbook{% endblock %}</title>
+  <title>{% block title %}GrowBook{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{% static 'icons/favicon.svg' %}">
   <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
@@ -14,6 +14,7 @@
   <script src="{% static 'js/photos.js' %}" defer></script>
   <script src="{% static 'js/capture.js' %}" defer></script>
   <script src="{% static 'js/site.js' %}" defer></script>
+  <script src="{% static 'js/releases.js' %}" defer></script>
   <script src="{% static 'js/filters.js' %}" defer></script>
   <script src="{% static 'js/registers.js' %}" defer></script>
   <script src="{% static 'js/plantings.js' %}" defer></script>
@@ -23,7 +24,7 @@
   <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
   <header id="site-header" class="z-40 border-b border-base-300 bg-base-100/90 backdrop-blur">
     <div class="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1 sm:px-6">
-      <a class="brand py-2 text-xl font-extrabold tracking-tight text-base-content no-underline" href="{% url 'diary:list' %}">growbook</a>
+      <a class="brand py-2 text-xl font-extrabold tracking-tight text-base-content no-underline" href="{% url 'diary:list' %}">GrowBook</a>
       {% if user.is_authenticated %}
       <nav class="flex flex-wrap items-center gap-1" aria-label="{% translate 'Main navigation' %}">
         <a class="btn btn-ghost{% if request.resolver_match.namespace == 'diary' %} btn-active{% endif %}" href="{% url 'diary:list' %}"{% if request.resolver_match.namespace == 'diary' %} aria-current="page"{% endif %}>{% translate 'Diary' %}</a>
@@ -55,5 +56,14 @@
     {% for message in messages %}<p class="save-confirmation" role="status">{{ message }}</p>{% endfor %}
     {% block content %}{% endblock %}
   </main>
+  <footer class="app-footer">
+    <span>GrowBook</span>
+    <a href="{{ app_releases_url }}" rel="noreferrer"{% if app_version != 'development' %} title="{{ app_version }}"{% endif %} data-release-link{% if app_check_updates and app_is_release %} data-release-status-url="{% url 'release-status' %}"{% endif %}>
+      {% if app_version_label %}{{ app_version_label }}{% else %}{% translate 'Development' %}{% endif %}
+      <span class="update-indicator" data-update-indicator hidden title="{% translate 'Update available' %}"><span class="visually-hidden">{% translate 'Update available' %}</span></span>
+    </a>
+    <span aria-hidden="true">·</span>
+    <a href="{{ app_repository_url }}" rel="noreferrer">GitHub</a>
+  </footer>
 </body>
 </html>

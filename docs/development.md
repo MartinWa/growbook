@@ -121,7 +121,8 @@ and vendored HTMX manually. Base-image Python patch updates must stay aligned wi
 
 [`release.yml`](../.github/workflows/release.yml) creates a GitHub Release and publishes a
 Linux/amd64 image to `ghcr.io/martinwa/growbook` when an `X.Y.Z` tag is pushed. The Git tag
-is the release version used for the image tag and OCI version label; no version bump in
+is the release version used for the image tag, OCI version label and application footer;
+the workflow passes it as the Docker build argument `GROWBOOK_VERSION`. No version bump in
 `pyproject.toml` or `uv.lock` is needed. The static project version is local tooling
 metadata, not the container release version. Tags have no `v` prefix or prerelease suffix
 and must point to a commit from `main` whose push CI run has passed. Merge the changes,
