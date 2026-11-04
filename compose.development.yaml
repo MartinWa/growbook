@@ -1,0 +1,30 @@
+# Windows remains the source/editing host; all runtime state lives on Linux storage.
+name: growbook-development
+services:
+  app:
+    build:
+      context: .
+      target: development
+    image: growbook:development
+    init: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+      - development-state:/state
+      - editor-home:/home/developer
+    shm_size: 1gb
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  development-state:
+  editor-home:

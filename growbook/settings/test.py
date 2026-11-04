@@ -1,14 +1,15 @@
 """Isolated filesystem/WAL tests, separate from local development state."""
 
 import os
+from pathlib import Path
 
 from .base import *  # noqa: F403
-from .base import BASE_DIR, DATABASES
+from .base import DATABASES
 
 SECRET_KEY = "synthetic-test-secret-not-for-real-installations-" * 2
 DEBUG = False
 ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
-TEST_DATA_DIR = BASE_DIR / "local" / "test-state"
+TEST_DATA_DIR = Path(os.environ.get("GROWBOOK_STATE_DIR", "/state")) / "test-state"
 TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASES["default"]["NAME"] = TEST_DATA_DIR / "db.sqlite3"
 DATABASES["default"]["TEST"] = {"NAME": TEST_DATA_DIR / "test.sqlite3"}

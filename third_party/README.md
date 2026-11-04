@@ -26,14 +26,14 @@ text is included in that installed license file.
 | daisyUI, 5.7.50 | MIT, original copyright and permission notice in [`daisyui/LICENSE`](daisyui/LICENSE). |
 | Lucide icon subset, 0.468.0 | Free ISC-licensed icons; original SVGs and attribution in [`lucide/README.md`](lucide/README.md) and [`lucide/LICENSE`](lucide/LICENSE). |
 | SQLite | Public domain; source/runtime inputs are checksum-pinned. |
+| PowerShell Core | MIT with bundled .NET/dependency notices under `/opt/powershell`; included only in the development/test image for launcher checks. |
 
 ## HEIC packaging boundary
 
-Local `uv sync` installs an upstream pillow-heif wheel for private development.
-That wheel's full bundled license is authoritative, not its BSD source-package
-metadata. Do not publish `.venv`, copy its binaries into the application, or build
-production deployment from that wheel. Private use does not establish permission
-to distribute the combined application under incompatible terms.
+Development, test and production images share the source-built pillow-heif wrapper.
+The development virtualenv installs only the separately exported development group,
+without dependency resolution, so it does not replace that wrapper with an upstream wheel.
+Do not run `uv sync` in the container or copy host virtualenv binaries into an image.
 
 The Docker definition builds the BSD wrapper from source against decoder-only
 libheif/libde265 shared libraries. It disables x265, x264, other external codecs

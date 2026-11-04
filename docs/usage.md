@@ -3,7 +3,7 @@
 This guide covers the screens, save behavior and no-JavaScript fallbacks. The
 [main README](../README.md#current-features) remains the source of truth for
 implemented features and deliberate limitations. Setup commands are in the
-[main README](../README.md#run-locally) and [deployment guide](deployment.md).
+[development guide](development.md#container-development) and [deployment guide](deployment.md).
 
 ## Application version
 

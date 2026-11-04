@@ -26,11 +26,10 @@ env:
 
 jobs:
   checks:
+    # Existing main rules require this exact status name; execution is Linux-only.
     name: Checks (Windows)
-    runs-on: windows-2025
-    timeout-minutes: 20
-    env:
-      DJANGO_SETTINGS_MODULE: growbook.settings.test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,32 +40,43 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: false
-      - name: Install locked dependencies and fixed SQLite
-        run: |
-          uv sync --locked --managed-python
-          uv run python tools/bootstrap_sqlite.py
       - name: Check Docker requirements match the lockfile
         run: |
           uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
-          git diff --exit-code -- requirements.txt
+          uv export --locked --only-group dev --no-emit-project --format requirements-txt --output-file requirements-dev.txt
+          git diff --exit-code -- requirements.txt requirements-dev.txt
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build development and test image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: development
+          load: true
+          push: false
+          provenance: false
+          tags: growbook:development
+          cache-from: type=gha,scope=ci-development
+          cache-to: type=gha,scope=ci-development,mode=max
+          github-token: ""
       - name: Lint and check formatting
         run: |
-          uv run ruff check .
-          uv run ruff format --check .
+          docker compose -f compose.development.yaml run --rm app ruff check .
+          docker compose -f compose.development.yaml run --rm app ruff format --check .
       - name: Check translations, database configuration, and migrations
         run: |
-          uv run python tools/compile_translations.py
-          uv run python manage.py check --database default
-          uv run python manage.py makemigrations --check --dry-run
+          docker compose -f compose.development.yaml run --rm app python tools/compile_translations.py
+          docker compose -f compose.development.yaml run --rm app python manage.py check --database default
+          docker compose -f compose.development.yaml run --rm app python manage.py makemigrations --check --dry-run
       - name: Check the local development startup path
-        env:
-          DJANGO_SETTINGS_MODULE: growbook.settings.development
-          GROWBOOK_DATA_DIR: ${{ runner.temp }}/growbook-development
         run: |
-          uv run python manage.py migrate --noinput
-          uv run python manage.py check --database default
+          docker compose -f compose.development.yaml up -d --no-build app
+          docker compose -f compose.development.yaml exec -T app python tools/check_development.py
       - name: Run application tests
-        run: uv run python tools/run_tests.py -q
+        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q
+      - name: Stop development containers
+        if: always()
+        run: docker compose -f compose.development.yaml down
 
   styles:
     name: Styles (Node)
@@ -95,26 +105,31 @@ jobs:
 
   browser:
     name: Browser (Chromium)
-    runs-on: windows-2025
-    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build development and test image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
-          version: ${{ env.UV_VERSION }}
-          enable-cache: false
-      - name: Install locked dependencies and fixed SQLite
-        run: |
-          uv sync --locked --managed-python
-          uv run python tools/bootstrap_sqlite.py
-      - name: Install Chromium
-        run: uv run python -m playwright install chromium --no-shell
+          context: .
+          target: development
+          load: true
+          push: false
+          provenance: false
+          tags: growbook:development
+          cache-from: type=gha,scope=ci-development
+          github-token: ""
       - name: Run browser tests
-        run: uv run python tools/run_tests.py -q -m browser
+        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser
+      - name: Stop development containers
+        if: always()
+        run: docker compose -f compose.development.yaml down
 
   container:
     name: Container (Linux)
@@ -171,10 +186,12 @@ jobs:
               python manage.py check --deploy --database default
               python -c "
           import os
+          import importlib.util
           from growbook.wsgi import application
           from django.core.checks import run_checks
           assert os.geteuid() != 0
           assert application
+          assert all(importlib.util.find_spec(name) is None for name in (\"pip\", \"pytest\", \"playwright\"))
           issues = run_checks(include_deployment_checks=True, databases=[\"default\"])
           assert {issue.id for issue in issues} <= {\"security.W005\", \"security.W021\"}, issues
           "

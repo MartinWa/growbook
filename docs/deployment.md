@@ -6,15 +6,12 @@ procedures here.
 
 ## SQLite runtime
 
-The available Windows Python runtimes bundle SQLite 3.50.4, which lacks the upstream
-WAL-reset fix. The bootstrap helper downloads SQLite 3.51.3, verifies its checksum and
-writes only `local/sqlite/sqlite3.dll`; it does not modify the global Python installation.
-Restart existing application and test processes after updating that DLL.
-
-Other hosts need SQLite 3.51.3+ or a supported fixed backport (3.50.7 or 3.44.6 within
-their release series). Application checks reject unfixed runtimes; installing a newer
-Python package alone does not establish SQLite safety. The Dockerfile builds a pinned,
-fixed SQLite from source.
+Development, tests and production run in Linux containers with checksum-pinned SQLite
+3.51.3 built from source. Application checks reject runtimes without the WAL-reset fix;
+recognized fixed backports are 3.50.7 and 3.44.6 within their release series. Installing
+a newer Python package alone does not establish SQLite safety. Native Windows execution
+and the former project-local DLL installer are unsupported; see
+[Container development](development.md#container-development).
 
 Connections use WAL, `synchronous=FULL`, a 10-second busy timeout and `IMMEDIATE` for
 explicit transactions. Image processing and file copying happen outside short database
@@ -39,10 +36,9 @@ the final runtime image. Build-time checks initialize WSGI as the default non-ro
 catch unreadable collected assets. No local databases, photos, `.env` files or virtual
 environments enter the build context.
 
-**HEIC packaging:** upstream `pillow-heif` development wheels bundle the GPL x265 encoder.
-The production image instead builds its BSD wrapper from source against dynamically
-linked LGPL decoder libraries without x265. Do not copy development wheel binaries into a
-distributable image. Review the [dependency notices](../third_party/README.md) before
+**HEIC packaging:** upstream `pillow-heif` wheels bundle the GPL x265 encoder.
+Development and production images share the BSD wrapper built from source against
+dynamically linked LGPL decoder libraries without x265. Review the [dependency notices](../third_party/README.md) before
 publishing binaries or images.
 
 ### Application version and update check
@@ -64,9 +60,6 @@ These development versions skip update checks. Without Git metadata,
 the label remains **Development**. Restart the server after changing the checkout to
 refresh its version. The static package version is not a deployed release version.
 
-For a production source installation, set `GROWBOOK_VERSION=X.Y.Z` in the process
-environment when running that release.
-
 On signed-in page loads, JavaScript requests release status from the application.
 The server contacts GitHub's public latest-release API without credentials or garden
 data and caches valid metadata for six hours per application process. Network errors,
@@ -86,7 +79,7 @@ deliberately not runnable production configuration.
 Generate a secret, for example:
 
 ```sh
-uv run python -c "import secrets; print(secrets.token_urlsafe(64))"
+docker run --rm growbook:local python -c "import secrets; print(secrets.token_urlsafe(64))"
 ```
 
 | Setting | Meaning |
