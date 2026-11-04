@@ -186,9 +186,11 @@ def test_linked_garden_records_cannot_be_deleted_while_a_diary_link_exists(user,
     record = entry(user)
     edit(record, links=[garden.crop, garden.planting])
     with pytest.raises(ValidationError):
-        delete_crop(actor=user, pk=garden.crop.pk)
+        delete_crop(actor=user, pk=garden.crop.pk, expected_updated_at=garden.crop.updated_at)
     with pytest.raises(ValidationError):
-        delete_planting(actor=user, pk=garden.planting.pk)
+        delete_planting(
+            actor=user, pk=garden.planting.pk, expected_updated_at=garden.planting.updated_at
+        )
     assert DiaryLink.objects.filter(entry=record).count() == 2
     garden.crop.refresh_from_db()
     assert garden.crop.pk

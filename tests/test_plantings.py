@@ -61,6 +61,7 @@ def catalog(user):
 def edit_values(record, **overrides):
     return {
         "pk": record.pk,
+        "expected_updated_at": record.updated_at,
         "crop": record.crop_id,
         "variety": record.variety_id,
         "area": record.area_id,
@@ -178,7 +179,13 @@ def test_every_planting_writer_rejects_crop_variety_mismatch_and_never_infers_cr
 
 def test_model_validation_uses_current_not_cached_taxonomy(user, catalog):
     variety = catalog["variety"]
-    edit_variety(actor=user, pk=variety.pk, name="Reclassified", crop=catalog["other_crop"])
+    edit_variety(
+        actor=user,
+        pk=variety.pk,
+        name="Reclassified",
+        crop=catalog["other_crop"],
+        expected_updated_at=variety.updated_at,
+    )
     # The caller's model object still points at the former crop.
     record = Planting(crop=catalog["crop"], start_year=2026, variety=variety)
     with pytest.raises(ValidationError) as rejected:
@@ -262,6 +269,7 @@ def test_ending_persistent_planting_keeps_cumulative_evaluation_and_events(user,
         planned_date=date(2023, 12, 20),
         actual_date=date(2024, 1, 2),
     ).record
+    record.refresh_from_db()
     ended = edit_planting(actor=user, **edit_values(record, end_year=2026)).record
     assert ended.evaluation == record.evaluation
     assert ended.events.get().pk == event.pk
@@ -308,7 +316,13 @@ def test_descendants_archives_unknown_varieties_and_current_area_corrections(use
     assert corrected.pk not in set(
         planting_history(area=catalog["root"]).values_list("pk", flat=True)
     )
-    edit_area(actor=user, pk=catalog["grandchild"].pk, name="Pot", parent=catalog["other_area"])
+    edit_area(
+        actor=user,
+        pk=catalog["grandchild"].pk,
+        name="Pot",
+        parent=catalog["other_area"],
+        expected_updated_at=catalog["grandchild"].updated_at,
+    )
     assert list(planting_history(area=catalog["root"])) == [rows["own"]]
     assert set(planting_history(year=2026, area=catalog["other_area"])) == {
         corrected,
@@ -358,28 +372,52 @@ def test_referenced_variety_crop_changes_and_register_deletion_are_protected(use
     ).record
     with pytest.raises(ValidationError) as rejected:
         edit_variety(
-            actor=user, pk=catalog["variety"].pk, crop=catalog["other_crop"], name="New name"
+            actor=user,
+            pk=catalog["variety"].pk,
+            crop=catalog["other_crop"],
+            name="New name",
+            expected_updated_at=catalog["variety"].updated_at,
         )
     assert "crop" in rejected.value.message_dict
-    for writer, pk in (
-        (delete_crop, catalog["crop"].pk),
-        (delete_variety, catalog["variety"].pk),
-        (delete_area, catalog["other_area"].pk),
+    for writer, target in (
+        (delete_crop, catalog["crop"]),
+        (delete_variety, catalog["variety"]),
+        (delete_area, catalog["other_area"]),
     ):
         with pytest.raises(ValidationError):
-            writer(actor=user, pk=pk)
-    edit_variety(actor=user, pk=catalog["variety"].pk, crop=catalog["crop"], name="Renamed")
+            writer(actor=user, pk=target.pk, expected_updated_at=target.updated_at)
+    variety = edit_variety(
+        actor=user,
+        pk=catalog["variety"].pk,
+        crop=catalog["crop"],
+        name="Renamed",
+        expected_updated_at=catalog["variety"].updated_at,
+    ).record
     # Explicitly remove the reference first, not automatic planting reclassification.
     edit_planting(actor=user, **edit_values(record, variety=None))
-    edit_variety(actor=user, pk=catalog["variety"].pk, crop=catalog["other_crop"], name="Renamed")
+    edit_variety(
+        actor=user,
+        pk=variety.pk,
+        crop=catalog["other_crop"],
+        name="Renamed",
+        expected_updated_at=variety.updated_at,
+    )
     assert list(planting_history(crop=catalog["crop"]))[0].variety_id is None
 
 
 def test_crop_only_planting_also_prevents_deleting_its_crop(user, catalog):
     create_planting(actor=user, crop=catalog["other_crop"], start_year=2027)
-    delete_variety(actor=user, pk=catalog["other_variety"].pk)
+    delete_variety(
+        actor=user,
+        pk=catalog["other_variety"].pk,
+        expected_updated_at=catalog["other_variety"].updated_at,
+    )
     with pytest.raises(ValidationError):
-        delete_crop(actor=user, pk=catalog["other_crop"].pk)
+        delete_crop(
+            actor=user,
+            pk=catalog["other_crop"].pk,
+            expected_updated_at=catalog["other_crop"].updated_at,
+        )
 
 
 def test_calendar_date_event_kinds_stay_separate_from_growing_year(user, catalog):
@@ -459,7 +497,12 @@ def test_events_repeat_edit_with_versions_and_cannot_be_moved_to_another_plantin
         delete_planting_event(actor=user, pk=first.pk, expected_updated_at=first.updated_at)
     with pytest.raises(ValidationError):
         edit_planting_event(
-            actor=user, pk=first.pk, planting=another, kind="other", actual_date=date(2026, 5, 1)
+            actor=user,
+            pk=first.pk,
+            planting=another,
+            kind="other",
+            actual_date=date(2026, 5, 1),
+            expected_updated_at=edited.updated_at,
         )
     delete_planting_event(actor=user, pk=first.pk, expected_updated_at=edited.updated_at)
     assert list(record.events.all()) == [second]
@@ -484,7 +527,8 @@ def test_event_save_receipts_and_planting_deletion_tombstones(user, catalog):
         create_planting_event(**{**event_values, "actual_date": date(2026, 1, 1)})
     with pytest.raises(RegisterConflict):
         create_planting(**{**values, "submission_key": event_key})
-    delete_planting(actor=user, pk=record.pk)
+    record.refresh_from_db()
+    delete_planting(actor=user, pk=record.pk, expected_updated_at=record.updated_at)
     assert not Planting.objects.exists() and not PlantingEvent.objects.exists()
     assert PlantingSubmission.objects.filter(key=key, planting=None).exists()
     assert PlantingSubmission.objects.filter(key=event_key, event=None).exists()
@@ -528,21 +572,21 @@ def test_planting_receipts_are_immutable_across_archives_edits_and_different_act
     with pytest.raises(RegisterConflict):
         create_planting(**{**original, "start_year": 2027})
     with pytest.raises(RegisterConflict):
-        edit_planting(actor=user, **edit_values(record), expected_updated_at=version)
+        edit_planting(actor=user, **edit_values(record, expected_updated_at=version))
     other = django_user_model.objects.create_user(username="other-gardener")
     with pytest.raises(RegisterConflict):
         create_planting(**{**original, "actor": other})
     assert Planting.objects.count() == 1
 
 
-@pytest.mark.parametrize("token", ["not-a-version", datetime(2026, 5, 9)])
+@pytest.mark.parametrize("token", [None, "not-a-version", datetime(2026, 5, 9)])
 def test_planting_and_event_version_tokens_require_aware_datetimes(user, catalog, token):
     record = create_planting(actor=user, crop=catalog["crop"], start_year=2026).record
     event = create_planting_event(
         actor=user, planting=record, kind="other", actual_date=date(2026, 5, 9)
     ).record
     operations = [
-        lambda: edit_planting(actor=user, **edit_values(record), expected_updated_at=token),
+        lambda: edit_planting(actor=user, **edit_values(record, expected_updated_at=token)),
         lambda: delete_planting(actor=user, pk=record.pk, expected_updated_at=token),
         lambda: edit_planting_event(
             actor=user,
@@ -629,14 +673,23 @@ def test_planting_operations_require_active_actor_outside_atomic_wrappers(user, 
     operations = [
         lambda actor: create_planting(actor=actor, crop=catalog["crop"], start_year=2026),
         lambda actor: edit_planting(actor=actor, **edit_values(record)),
-        lambda actor: delete_planting(actor=actor, pk=record.pk),
+        lambda actor: delete_planting(
+            actor=actor, pk=record.pk, expected_updated_at=record.updated_at
+        ),
         lambda actor: create_planting_event(
             actor=actor, planting=record, kind="other", actual_date=date(2026, 1, 1)
         ),
         lambda actor: edit_planting_event(
-            actor=actor, pk=event.pk, planting=record, kind="other", actual_date=date(2026, 1, 2)
+            actor=actor,
+            pk=event.pk,
+            planting=record,
+            kind="other",
+            actual_date=date(2026, 1, 2),
+            expected_updated_at=event.updated_at,
         ),
-        lambda actor: delete_planting_event(actor=actor, pk=event.pk),
+        lambda actor: delete_planting_event(
+            actor=actor, pk=event.pk, expected_updated_at=event.updated_at
+        ),
     ]
     for operation in operations:
         with transaction.atomic(), pytest.raises(RuntimeError, match="outside"):

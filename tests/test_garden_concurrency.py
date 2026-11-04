@@ -59,7 +59,11 @@ def test_simultaneous_reparenting_cannot_make_two_record_cycle(user):
         start.wait(timeout=10)
         try:
             return edit_area(
-                actor=User.objects.get(pk=user.pk), pk=record.pk, name=record.name, parent=parent.pk
+                actor=User.objects.get(pk=user.pk),
+                pk=record.pk,
+                name=record.name,
+                parent=parent.pk,
+                expected_updated_at=record.updated_at,
             )
         except ValidationError:
             return None
@@ -88,7 +92,11 @@ def test_simultaneous_reparenting_into_same_scope_rechecks_unique_name(user):
         start.wait(timeout=10)
         try:
             return edit_area(
-                actor=User.objects.get(pk=user.pk), pk=record.pk, name=record.name, parent=parent.pk
+                actor=User.objects.get(pk=user.pk),
+                pk=record.pk,
+                name=record.name,
+                parent=parent.pk,
+                expected_updated_at=record.updated_at,
             )
         except ValidationError:
             return None
@@ -154,7 +162,11 @@ def test_delete_waits_for_child_commit_and_protects_new_reference(user):
     def remove_parent():
         started.set()
         with pytest.raises(ValidationError):
-            delete_area(actor=User.objects.get(pk=user.pk), pk=parent.pk)
+            delete_area(
+                actor=User.objects.get(pk=user.pk),
+                pk=parent.pk,
+                expected_updated_at=parent.updated_at,
+            )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         create = executor.submit(worker, create_child)
