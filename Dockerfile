@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Build native dependencies from checksum-pinned sources. Do not ship the GPL x265 wheel.
-FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527 AS os-base
+FROM python:3.14.10-slim-bookworm@sha256:3fe1a0b6c2d6b2ebb572906cdabeca75aeb558c0c17db5ffefbcf8094871c32b AS os-base
 # Apply Debian fixes to inherited packages before building development or production.
 RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
