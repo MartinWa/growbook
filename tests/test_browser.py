@@ -960,6 +960,68 @@ def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_pag
 
 
 @pytest.mark.parametrize("width", [390, 1280])
+@pytest.mark.parametrize("query, expected_count", [("missing-term", 0), ("synthetic", 1)])
+def test_quick_capture_during_pending_search_keeps_selected_filters(
+    page, live_server, user, width, query, expected_count
+):
+    login(page, live_server, user)
+    page.set_viewport_size({"width": width, "height": 844})
+    page.goto(live_server.url + "/")
+    page.locator("#id_body").fill("Synthetic unrelated observation")
+    page.evaluate(
+        """query => {
+            const originalFetch = window.fetch.bind(window);
+            window.pendingSearch = { held: false, aborted: false };
+            window.fetch = (url, options) => {
+                if (!window.pendingSearch.held &&
+                    new URL(url, location.href).searchParams.get("q") === query) {
+                    window.pendingSearch.held = true;
+                    return new Promise((resolve, reject) => {
+                        options.signal.addEventListener("abort", () => {
+                            window.pendingSearch.aborted = true;
+                            reject(new DOMException("Aborted", "AbortError"));
+                        });
+                    });
+                }
+                return originalFetch(url, options);
+            };
+        }""",
+        query,
+    )
+    if width < 900:
+        page.locator("#open-filters").click()
+    page.locator("#id_q").fill(query)
+    page.locator("#id_q").press("Enter")
+    page.wait_for_function("window.pendingSearch.held")
+    expect(page.locator("#diary-filter-form")).to_have_attribute("aria-busy", "true")
+    expect(page).to_have_url(live_server.url + "/")
+    if width < 900:
+        page.locator("[data-dialog-close]").click()
+    page.locator("#save-entry").click()
+    saved = page.locator("#quick-receipt [data-capture-saved]")
+    expect(saved).to_be_attached()
+    entry_id = saved.get_attribute("data-capture-saved")
+    expect(page).to_have_url(live_server.url + "/?" + urlencode({"q": query}))
+    expect(page.locator("#id_q")).to_have_value(query)
+    expect(page.locator("#diary-filter-form")).not_to_have_attribute("aria-busy", "true")
+    expect(page.locator("#filter-status")).to_be_empty()
+    expect(page.locator("#filter-drawer-status")).to_be_empty()
+    expect(page.locator("#capture-errors")).to_be_empty()
+    expect(page.locator("#diary-result-count")).to_have_text(re.compile(rf"^{expected_count} "))
+    expect(page.locator("#diary-results .diary-card")).to_have_count(expected_count)
+    expect(page.locator(".filter-chip")).to_contain_text(query)
+    expect(page.locator('input[name="filter_query"]')).to_have_value(urlencode({"q": query}))
+    assert page.evaluate("window.pendingSearch.aborted")
+    page.reload()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(expected_count)
+    page.goto(live_server.url + "/")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    expect(page.locator(f"#entry-{entry_id} .entry-body")).to_have_text(
+        "Synthetic unrelated observation"
+    )
+
+
+@pytest.mark.parametrize("width", [390, 1280])
 def test_stale_diary_filter_errors_identify_the_field_and_clear_on_retry(
     page, live_server, user, image_upload, width
 ):
