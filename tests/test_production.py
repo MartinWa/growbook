@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from django.core.exceptions import ImproperlyConfigured
 
 from growbook.server import server_options
 
@@ -223,6 +222,7 @@ def test_server_migrates_before_serving_by_default(monkeypatch):
 
 def test_waitress_proxy_trust_is_off_by_default(monkeypatch):
     monkeypatch.delenv("GROWBOOK_TRUST_PROXY", raising=False)
+    monkeypatch.setenv("GROWBOOK_TRUSTED_PROXY_IP", "192.0.2.10")
     options = server_options()
     assert "trusted_proxy" not in options
     assert options["clear_untrusted_proxy_headers"] is True
@@ -230,18 +230,102 @@ def test_waitress_proxy_trust_is_off_by_default(monkeypatch):
     assert options["connection_limit"] == 20
 
 
-@pytest.mark.parametrize("address", ["", "*", "private-proxy-name"])
-def test_waitress_requires_exact_proxy_ip(monkeypatch, address):
+def test_waitress_only_trusts_proxy_scheme_header_without_a_proxy_ip(monkeypatch):
     monkeypatch.setenv("GROWBOOK_TRUST_PROXY", "true")
-    monkeypatch.setenv("GROWBOOK_TRUSTED_PROXY_IP", address)
-    with pytest.raises(ImproperlyConfigured):
-        server_options()
-
-
-def test_waitress_only_trusts_configured_proxy_scheme_header(monkeypatch):
-    monkeypatch.setenv("GROWBOOK_TRUST_PROXY", "true")
-    monkeypatch.setenv("GROWBOOK_TRUSTED_PROXY_IP", "192.0.2.10")
+    monkeypatch.delenv("GROWBOOK_TRUSTED_PROXY_IP", raising=False)
     options = server_options()
-    assert options["trusted_proxy"] == "192.0.2.10"
+    assert options["trusted_proxy"] == "*"
     assert options["trusted_proxy_headers"] == {"x-forwarded-proto"}
     assert options["trusted_proxy_count"] == 1
+    assert options["clear_untrusted_proxy_headers"] is True
+
+
+@pytest.mark.parametrize("trust_proxy", ["false", "true"])
+def test_production_proxy_requests_with_changing_peers(tmp_path, trust_proxy):
+    result = run_settings(
+        tmp_path,
+        """
+import json
+from http.client import HTTPConnection
+from threading import Thread
+
+import django
+django.setup()
+from django.conf import settings
+from django.core.handlers.wsgi import WSGIHandler
+from django.http import JsonResponse
+from django.urls import path
+from waitress.server import create_server
+from growbook.server import server_options
+
+# Exercise production HTTPS settings with a view that needs no database or static assets.
+settings.MIDDLEWARE = ['django.middleware.security.SecurityMiddleware']
+settings.ROOT_URLCONF = '__main__'
+
+def probe(request):
+    return JsonResponse({
+        'secure': request.is_secure(),
+        'host': request.get_host(),
+        'peer': request.META['REMOTE_ADDR'],
+        'forwarding': {
+            name: value for name, value in request.META.items()
+            if name.startswith('HTTP_X_FORWARDED_') or name == 'HTTP_FORWARDED'
+        },
+    })
+
+urlpatterns = [path('probe/', probe)]
+options = server_options()
+options.update(listen='127.0.0.1:0', asyncore_loop_timeout=0.05)
+server = create_server(WSGIHandler(), **options)
+thread = Thread(target=server.run, daemon=True)
+thread.start()
+try:
+    # Linux loopback supplies two real peer addresses without external network access.
+    for peer in ('127.0.0.1', '127.0.0.2'):
+        for proto in (None, 'http', 'https'):
+            headers = {
+                'Host': 'garden.example.internal',
+                'Connection': 'close',
+                'Forwarded': 'for=203.0.113.50;host=untrusted.example.invalid;proto=https',
+                'X-Forwarded-For': '203.0.113.50',
+                'X-Forwarded-Host': 'untrusted.example.invalid',
+                'X-Forwarded-Port': '444',
+                'X-Forwarded-By': '203.0.113.51',
+            }
+            if proto is not None:
+                headers['X-Forwarded-Proto'] = proto
+            connection = HTTPConnection(
+                '127.0.0.1', int(server.effective_port), timeout=5,
+                source_address=(peer, 0),
+            )
+            try:
+                connection.request('GET', '/probe/', headers=headers)
+                response = connection.getresponse()
+                body = response.read()
+                if settings.SECURE_PROXY_SSL_HEADER and proto == 'https':
+                    assert response.status == 200, (peer, proto, response.status, body)
+                    assert response.getheader('Location') is None
+                    assert json.loads(body) == {
+                        'secure': True,
+                        'host': 'garden.example.internal',
+                        'peer': peer,
+                        'forwarding': {'HTTP_X_FORWARDED_PROTO': 'https'},
+                    }
+                    assert response.getheader('Strict-Transport-Security')
+                else:
+                    assert response.status == 301, (peer, proto, response.status, body)
+                    assert response.getheader('Location') == 'https://garden.example.internal/probe/'
+            finally:
+                connection.close()
+finally:
+    server.task_dispatcher.shutdown()
+    server.close()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+print('production proxy requests verified')
+""",
+        GROWBOOK_TRUST_PROXY=trust_proxy,
+        GROWBOOK_TRUSTED_PROXY_IP="192.0.2.10",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "production proxy requests verified" in result.stdout

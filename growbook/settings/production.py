@@ -28,6 +28,6 @@ SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
-# Enable only when the sole reachable proxy strips/replaces this header itself.
+# Enable only behind a trusted proxy that replaces this header on a private network.
 if env_bool("GROWBOOK_TRUST_PROXY"):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

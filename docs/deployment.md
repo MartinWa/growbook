@@ -90,8 +90,7 @@ docker run --rm growbook:local python -c "import secrets; print(secrets.token_ur
 | `GROWBOOK_TIME_ZONE` | Garden timezone; defaults to `Europe/Stockholm`. |
 | `GROWBOOK_UPDATE_CHECK` | Check public stable release metadata; defaults to `true`. Set `false` to disable outbound update checks. |
 | `GROWBOOK_MIGRATE_ON_START` | Apply pending migrations at startup; defaults to `true`. Set `false` for a separate migration step. |
-| `GROWBOOK_TRUST_PROXY` | Set `true` only for a trusted TLS-terminating proxy that strips or replaces forwarding headers. |
-| `GROWBOOK_TRUSTED_PROXY_IP` | Exact proxy IP when trust is enabled; wildcard trust is rejected. |
+| `GROWBOOK_TRUST_PROXY` | Set `true` behind a trusted HTTPS reverse proxy that replaces `X-Forwarded-Proto`; defaults to `false`. No fixed proxy IP is needed. |
 | `APP_UID`, `APP_GID` | Non-root numeric process IDs. |
 | `APP_DATA_PATH` | Absolute private directory on the application host's local filesystem. |
 | `PROXY_NETWORK` | Existing private Docker network used by the managed reverse proxy. |
@@ -102,9 +101,17 @@ directory at `/data`, sets production settings, uses a read-only root filesystem
 temporary scratch storage, and limits log retention.
 
 Configure the existing reverse proxy to reach the application on container port `8000`
-over the private network. When the proxy terminates HTTPS and forwards HTTP, set proxy
-trust and its exact IP so the application recognizes the external HTTPS scheme. Do not
-relax secure cookies or HTTPS redirects to work around proxy errors.
+over the private network. When the proxy terminates HTTPS and forwards HTTP, set
+`GROWBOOK_TRUST_PROXY=true` so the application recognizes the external HTTPS scheme.
+The proxy must discard any visitor-supplied `X-Forwarded-Proto` value and set it to the
+original connection's scheme (`https` for HTTPS). Only this forwarding header is trusted;
+client address, host and port forwarding headers are removed.
+
+Proxy trust applies to every peer that can reach the application port. Keep the port
+private and limit access to the trusted proxy and trusted network peers; use a dedicated
+proxy-to-application network when other containers are untrusted. With proxy trust
+disabled, forwarding headers are removed and cannot mark an HTTP request as HTTPS.
+Secure cookies and HTTPS redirects remain enabled in either mode.
 
 There are **no published host ports or bundled proxy** in `compose.yaml`. Keep access
 private through LAN/VPN and HTTPS; do not add public DNS exposure or router port
