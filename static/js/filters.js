@@ -219,7 +219,8 @@
     load(url, { push: false });
   });
   document.addEventListener("diary:saved", event => {
-    const url = new URL(location.href);
+    // Selected filters may still be loading and not yet appear in the current URL.
+    const url = formURL();
     url.search = filterState(url);
     load(url, { push: false, replace: true, focusEntry: event.detail.entryId });
   });
