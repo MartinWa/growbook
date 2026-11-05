@@ -153,6 +153,11 @@ initialization with disposable storage.
 The application check job is named **Checks (Linux)**. GitHub required status checks
 match job names exactly; keep the `main` ruleset aligned when renaming a required job.
 
+Weekly scheduled and manually dispatched CI runs build both images without the build
+cache, refreshing Debian package upgrades and installed system dependencies. Pull
+requests and pushes to `main` reuse the cache. A passing scheduled build refreshes CI
+caches; it does not publish an image or update a running installation.
+
 The stylesheet job verifies the generated CSS with the pinned frontend toolchain;
 see [Styles](#styles).
 
@@ -174,13 +179,20 @@ do not replace the build, test, audit and image checks above.
 
 ## Dependency updates
 
-[`dependabot.yml`](../.github/dependabot.yml) requests weekly updates for uv, GitHub
-Actions and the Docker base image. Version updates use a seven-day cooldown so a release
-can age before review; security updates are not delayed. Patch updates may be auto-merged
-by [`dependabot-auto-merge.yml`](../.github/workflows/dependabot-auto-merge.yml) after
+[`dependabot.yml`](../.github/dependabot.yml) checks uv and GitHub Actions weekly, with a
+seven-day version-update cooldown so releases can age before review. Docker base-image
+tags and digests are checked daily and excluded from cooldown because image rebuilds
+can carry Debian security fixes. Dependabot does not update individual Debian packages;
+the shared Docker base stage upgrades inherited packages within the pinned Debian
+release. Dependabot security updates are not delayed by cooldown. Patch updates may be
+auto-merged by [`dependabot-auto-merge.yml`](../.github/workflows/dependabot-auto-merge.yml) after
 required checks pass; minor and major updates still require review. Django stays on 5.2
 LTS and Python stays on the current minor series. Dependabot resolves with its bundled
 Python 3.14.9; CI and containers use the pinned 3.14.10.
+
+Debian repositories can change between builds from the same commit. The release image
+digest and SBOM identify the resulting runtime; use the published digest for repeatable
+deployments as described in [Release images](#release-images).
 
 After a uv update, regenerate both Docker requirements files on the PR branch before
 merging. Use uv 0.13.6 (also pinned in CI) for lockfile/export tooling; this can run on the

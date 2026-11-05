@@ -55,6 +55,7 @@ jobs:
           push: false
           provenance: false
           tags: growbook:development
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=ci-development
           cache-to: type=gha,scope=ci-development,mode=max
           github-token: ""
@@ -122,6 +123,7 @@ jobs:
           push: false
           provenance: false
           tags: growbook:development
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=ci-development
           github-token: ""
       - name: Run browser tests
@@ -169,6 +171,7 @@ jobs:
           push: false
           provenance: false
           tags: growbook:ci
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=ci-production
           cache-to: type=gha,scope=ci-production,mode=max
           github-token: ""

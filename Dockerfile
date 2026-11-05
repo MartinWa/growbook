@@ -1,6 +1,11 @@
 # syntax=docker/dockerfile:1
 # Build native dependencies from checksum-pinned sources. Do not ship the GPL x265 wheel.
-FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527 AS native-build
+FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527 AS os-base
+# Apply Debian fixes to inherited packages before building development or production.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM os-base AS native-build
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake pkg-config ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -51,7 +56,7 @@ RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements-b
     && python -m pip install --no-cache-dir --require-hashes --no-build-isolation \
       --no-binary=pillow-heif --prefix=/opt/python -r /tmp/requirements.txt
 
-FROM python:3.14.10-slim-bookworm@sha256:516b51cb9db2ef061e465c803e50f64361b82cefd91e525b889b967b83e83527 AS runtime-base
+FROM os-base AS runtime-base
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
