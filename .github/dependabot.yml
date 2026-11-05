@@ -16,9 +16,10 @@ updates:
       # Stay on Django 5.2 LTS; larger upgrades require an explicit review.
       - dependency-name: django
         versions: [">=5.3"]
-    # requirements.txt is exported from uv.lock, not maintained independently.
+    # Runtime and development requirements are exported from uv.lock.
     exclude-paths:
       - requirements.txt
+      - requirements-dev.txt
       - requirements-build.txt
 
   - package-ecosystem: github-actions
