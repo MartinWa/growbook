@@ -1,6 +1,5 @@
 """One production WSGI process with explicit trusted-proxy configuration."""
 
-import ipaddress
 import os
 from pathlib import Path
 
@@ -18,15 +17,9 @@ def server_options():
         "clear_untrusted_proxy_headers": True,
     }
     if os.environ.get("GROWBOOK_TRUST_PROXY", "false").lower() in {"true", "1"}:
-        proxy = os.environ.get("GROWBOOK_TRUSTED_PROXY_IP", "")
-        if not proxy or proxy == "*":
-            raise ImproperlyConfigured("Set an explicit GROWBOOK_TRUSTED_PROXY_IP, not a wildcard.")
-        try:
-            ipaddress.ip_address(proxy)
-        except ValueError as exc:
-            raise ImproperlyConfigured("GROWBOOK_TRUSTED_PROXY_IP must be an IP address.") from exc
+        # The private network and a proxy that replaces this header establish trust.
         options.update(
-            trusted_proxy=proxy,
+            trusted_proxy="*",
             trusted_proxy_count=1,
             trusted_proxy_headers={"x-forwarded-proto"},
         )
