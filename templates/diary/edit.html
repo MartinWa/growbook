@@ -6,7 +6,7 @@
   <h1>{% translate 'Edit observation' %}</h1>
   <p class="muted">{% translate 'The author never changes. Only the author or an administrator can save these changes.' %}</p>
   <form id="entry-form" method="post" action="{{ action }}" enctype="multipart/form-data"
-        hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#entry-errors" hx-swap="innerHTML"
+        hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#entry-errors" hx-swap="innerHTML" hx-sync="this:drop"
         data-register-form data-uploading="{% translate 'Uploading photos…' %}"
         data-processing="{% translate 'Processing photos and saving…' %}"
         data-network-error="{% translate 'The connection failed. Keep this form open and retry the same submission.' %}"

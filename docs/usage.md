@@ -55,6 +55,9 @@ validation updates feedback beside the fields while preserving fields and select
 files. Without it, reselect photos as instructed before retrying. A genuinely changed
 form is a new submission; do not reuse a confirmed key for different content.
 
+With JavaScript, save forms ignore repeated submissions while a save is running.
+Diary filters can still update results without changing the draft or selected photos.
+
 Create/edit retries resolve matching immutable receipts before checking current
 association eligibility and edit versions. An identical retry acknowledges the saved
 submission and returns the record's current state, even if associations changed later.
@@ -95,6 +98,8 @@ evaluation and photos. Register details link to their **Planting history**.
   follow the crop without reloading and clear an incompatible selection. Without
   JavaScript, use **Update variety choices** before choosing a variety; the server also
   rejects mismatches and ineligible new associations.
+  If a save interrupts loading variety choices and then fails, use **Retry variety
+  choices** to reload them while keeping the draft and selected photos.
 - **Batch label** distinguishes similar rows; several batches may share identical
   year/crop/variety/area values. Quantity is a nonnegative plant count: blank is unknown,
   zero is a known zero.
