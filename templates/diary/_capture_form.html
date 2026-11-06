@@ -1,5 +1,5 @@
 {% load i18n %}
-<form id="capture-form" method="post" action="{% url 'diary:capture' %}" enctype="multipart/form-data" hx-post="{% url 'diary:capture' %}" hx-encoding="multipart/form-data" hx-target="#capture-errors" hx-swap="innerHTML"
+<form id="capture-form" method="post" action="{% url 'diary:capture' %}" enctype="multipart/form-data" hx-post="{% url 'diary:capture' %}" hx-encoding="multipart/form-data" hx-target="#capture-errors" hx-swap="innerHTML" hx-sync="this:drop"
       data-uploading="{% translate 'Uploading photos…' %}"
       data-processing="{% translate 'Processing photos and saving…' %}"
       data-network-error="{% translate 'The connection failed. Keep this form open and retry; your save key prevents duplicates.' %}"

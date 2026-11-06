@@ -228,6 +228,74 @@ def test_dependent_variety_switch_does_not_reload_or_lose_draft_and_is_csp_safe(
     assert page.evaluate("Object.keys(localStorage).length") == 0
 
 
+def test_slow_variety_choices_are_superseded_and_save_cancellation_keeps_the_form_locked(
+    page, live_server, user, catalog, image_upload
+):
+    login(page, live_server, user)
+    page.goto(live_server.url + "/garden/plantings/new/")
+    open_optional(page)
+    page.locator("#id_label").fill("Synthetic overlapping choices")
+    page.locator("#id_start_year").fill("2027")
+    page.locator("#id_notes").fill("Preserve this draft and photo")
+    page.locator("#id_photos").set_input_files(image_file(image_upload))
+    key = page.locator("#id_submission_key").input_value()
+    choices, submissions = [], []
+    page.evaluate("window.choiceRequestCount = 0")
+
+    def hold_choices(route):
+        choices.append(route)
+        page.evaluate("window.choiceRequestCount += 1")
+
+    page.route("**/garden/plantings/varieties/**", hold_choices)
+    crop = page.locator("#id_crop")
+    crop.select_option(str(catalog["crop"].pk))
+    expect(page.locator("#variety-status")).to_have_attribute("aria-busy", "true")
+    assert len(choices) == 1
+    crop.select_option(str(catalog["other_crop"].pk))
+    page.wait_for_function("() => window.choiceRequestCount === 2")
+    assert len(choices) == 2
+    choices[1].continue_()
+    expect(page.locator("#id_variety option")).to_have_text(["Okänd sort", "Blue (Bean)"])
+    expect(page.locator("#id_notes")).to_have_value("Preserve this draft and photo")
+    crop.select_option(str(catalog["crop"].pk))
+    expect(page.locator("#variety-status")).to_have_attribute("aria-busy", "true")
+    page.wait_for_function("() => window.choiceRequestCount === 3")
+    page.route("**/garden/plantings/new/", lambda route: submissions.append(route))
+    save(page)
+    form = page.locator("#register-form")
+    expect(form).to_have_attribute("aria-busy", "true")
+    expect(crop).to_be_disabled()
+    expect(page.locator("#id_variety")).to_be_disabled()
+    expect(page.locator("#id_photos")).to_be_disabled()
+    expect(page.locator("[data-photo-chooser]")).to_be_disabled()
+    expect(page.locator("#id_notes")).not_to_be_editable()
+    form.evaluate("form => form.requestSubmit()")
+    assert len(submissions) == 1
+    submissions[0].fulfill(
+        status=503,
+        content_type="text/html",
+        body='<div class="error-summary">Synthetic temporary failure</div>',
+    )
+    expect(page.locator("#register-errors")).to_contain_text("Synthetic temporary failure")
+    expect(crop).to_be_enabled()
+    expect(page.locator("#id_variety")).to_be_enabled()
+    expect(page.locator("#id_photos")).to_be_enabled()
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+    assert len(submissions) == 1
+    for request in (choices[0], choices[-1]):
+        request.abort()
+    page.unroute("**/garden/plantings/varieties/**")
+    page.unroute("**/garden/plantings/new/")
+    page.locator("[data-variety-retry]").click()
+    expect(page.locator("#id_variety option")).to_have_text(["Okänd sort", "Golden (Tomato)"])
+    save(page)
+    expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
+    expect(page.locator("h1")).to_contain_text("Synthetic overlapping choices")
+    expect(page.locator(".record-fields")).to_contain_text("Preserve this draft and photo")
+    expect(page.locator(".register-photos figure")).to_have_count(1)
+
+
 def test_year_area_history_rows_expand_independently_with_keyboard(
     page, live_server, user, catalog
 ):

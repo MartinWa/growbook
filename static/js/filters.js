@@ -114,11 +114,12 @@
     }
     return url;
   }
-  async function load(url, { push = true, replace = false, focusEntry } = {}) {
+  async function load(url, { push = true, replace = false, focusEntry, focusResults = false } = {}) {
     clearTimeout(debounce);
     controller?.abort();
     const request = new AbortController();
     controller = request;
+    const focusOrigin = document.activeElement;
     form.setAttribute("aria-busy", "true");
     status.textContent = "";
     drawerStatus.textContent = "";
@@ -166,9 +167,15 @@
         else if (push) history.pushState(null, "", url);
       }
       setLinks(url);
-      if (focusEntry) document.getElementById(`entry-${focusEntry}`)?.querySelector("h2").focus();
+      // Only a completed, current request may move focus, and only if the user has
+      // not moved elsewhere while it was loading. Removed paging links leave focus on body.
+      if (document.activeElement === focusOrigin ||
+          (!focusOrigin.isConnected && document.activeElement === document.body)) {
+        if (focusEntry) document.getElementById(`entry-${focusEntry}`)?.querySelector("h2").focus();
+        else if (focusResults) results.querySelector("[data-result-focus]")?.focus();
+      }
     } catch (error) {
-      if (error.name !== "AbortError") {
+      if (!request.signal.aborted && error.name !== "AbortError") {
         status.textContent = error.message === page.dataset.sessionError
           ? page.dataset.sessionError : page.dataset.filterError;
         drawerStatus.textContent = status.textContent;
@@ -209,9 +216,7 @@
     event.preventDefault();
     setFields(url);
     const fromResults = !!link.closest("#" + resultsId);
-    load(url).then(() => {
-      if (fromResults) document.getElementById(resultsId).querySelector("[data-result-focus]").focus();
-    });
+    load(url, { focusResults: fromResults });
   });
   window.addEventListener("popstate", () => {
     const url = new URL(location.href);

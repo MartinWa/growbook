@@ -938,6 +938,196 @@ def test_quick_capture_lost_response_keeps_draft_and_retries_without_duplicates(
     expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
 
 
+@pytest.mark.parametrize("failure", [None, 503, "network"])
+def test_slow_capture_drops_repeated_submits_and_keeps_controls_locked(
+    page, live_server, user, image_upload, failure
+):
+    login(page, live_server, user)
+    page.set_viewport_size({"width": 1280, "height": 844})
+    page.locator("#id_body").fill("Synthetic slow save")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    pending = []
+    page.route("**/capture/", lambda route: pending.append(route))
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-form")).to_have_attribute("aria-busy", "true")
+    expect(page.locator("[data-photo-chooser]")).to_be_disabled()
+    expect(page.locator("#photo-previews button")).to_be_disabled()
+    expect(page.locator("[data-tag-trigger]")).to_be_disabled()
+    # Exercise the submit event path as well as the disabled button.
+    page.locator("#capture-form").evaluate(
+        "form => { form.requestSubmit(); form.requestSubmit(); }"
+    )
+    assert len(pending) == 1
+    # Results can change independently without unlocking the payload being saved.
+    page.locator("#id_q").fill("slow")
+    page.locator("#id_q").press("Enter")
+    expect(page).to_have_url(live_server.url + "/?q=slow")
+    expect(page.locator("#save-entry")).to_be_disabled()
+    expect(page.locator("[data-photo-chooser]")).to_be_disabled()
+    expect(page.locator("#id_library")).to_be_disabled()
+    expect(page.locator("#id_body")).not_to_be_editable()
+    if failure:
+        if failure == "network":
+            pending[0].abort()
+        else:
+            pending[0].fulfill(
+                status=failure,
+                content_type="text/html",
+                body='<div class="error-summary">Synthetic temporary failure</div>',
+            )
+        expect(page.locator("#capture-errors")).not_to_be_empty()
+        expect(page.locator("#save-entry")).to_be_enabled()
+        expect(page.locator("#id_body")).to_have_value("Synthetic slow save")
+        expect(page.locator("#id_submission_key")).to_have_value(key)
+        assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+        assert len(pending) == 1
+        page.unroute("**/capture/")
+        page.locator("#save-entry").click()
+    else:
+        pending[0].continue_()
+    expect(page.locator("#quick-receipt")).to_contain_text("har sparats")
+    expect(page.locator("#save-entry")).to_be_enabled()
+    expect(page.locator("#capture-errors")).to_be_empty()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
+    expect(page.locator('input[name="filter_query"]')).to_have_value("q=slow")
+    assert len(pending) == 1
+    page.unroute("**/capture/")
+
+
+def test_superseded_filter_link_keeps_focus_on_the_new_search_and_preserves_draft(
+    page, live_server, user, image_upload
+):
+    login(page, live_server, user)
+    page.set_viewport_size({"width": 1280, "height": 844})
+    page.locator("#id_q").fill("first")
+    page.locator("#id_q").press("Enter")
+    expect(page).to_have_url(live_server.url + "/?q=first")
+    page.locator("#id_body").fill("Synthetic unsubmitted draft")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    pending = []
+    page.route(live_server.url + "/", lambda route: pending.append(route))
+    page.locator(".filter-chip").click()
+    expect(page.locator("#diary-filter-form")).to_have_attribute("aria-busy", "true")
+    assert len(pending) == 1
+    page.locator("#id_q").fill("second")
+    page.locator("#id_q").press("Enter")
+    expect(page).to_have_url(live_server.url + "/?q=second")
+    expect(page.locator("#id_q")).to_be_focused()
+    expect(page.locator(".filter-chip")).to_contain_text("second")
+    expect(page.locator("#filter-status")).to_be_empty()
+    expect(page.locator("#id_body")).to_have_value("Synthetic unsubmitted draft")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    pending[0].abort()
+    page.unroute(live_server.url + "/")
+    page.go_back()
+    expect(page.locator(".filter-chip")).to_contain_text("first")
+    expect(page.locator("#id_q")).to_have_value("first")
+    expect(page.locator('input[name="filter_query"]')).to_have_value("q=first")
+
+
+@pytest.mark.parametrize("late_failure", [False, True])
+def test_back_during_slow_filter_body_ignores_the_old_completion(
+    page, live_server, user, image_upload, late_failure
+):
+    login(page, live_server, user)
+    page.set_viewport_size({"width": 1280, "height": 844})
+    page.locator("#id_q").fill("first")
+    page.locator("#id_q").press("Enter")
+    expect(page).to_have_url(live_server.url + "/?q=first")
+    page.locator("#id_body").fill("Synthetic history draft")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    page.evaluate(
+        """lateFailure => {
+            const originalFetch = window.fetch.bind(window);
+            window.slowFilter = { held: false, completed: false };
+            window.fetch = async (url, options) => {
+                const response = await originalFetch(url, options);
+                if (new URL(url, location.href).searchParams.get('q') === 'second') {
+                    const body = await response.text();
+                    response.text = () => new Promise((resolve, reject) => {
+                        window.releaseSlowFilter = () => {
+                            if (lateFailure) reject(new Error('Synthetic late body failure'));
+                            else resolve(body);
+                        };
+                        window.slowFilter.held = true;
+                    }).finally(() => { window.slowFilter.completed = true; });
+                }
+                return response;
+            };
+        }""",
+        late_failure,
+    )
+    page.locator("#id_q").fill("second")
+    page.locator("#id_q").press("Enter")
+    page.wait_for_function("() => window.slowFilter.held")
+    page.go_back()
+    expect(page).to_have_url(live_server.url + "/")
+    expect(page.locator("#diary-filter-form")).not_to_have_attribute("aria-busy", "true")
+    page.evaluate("window.releaseSlowFilter()")
+    page.wait_for_function("() => window.slowFilter.completed")
+    expect(page.locator("#id_q")).to_have_value("")
+    expect(page.locator(".filter-chip")).to_have_count(0)
+    expect(page.locator("#filter-status")).to_be_empty()
+    expect(page.locator("#filter-drawer-status")).to_be_empty()
+    expect(page.locator('input[name="filter_query"]')).to_have_value("")
+    expect(page.locator("#id_body")).to_have_value("Synthetic history draft")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    expect(page).to_have_url(live_server.url + "/")
+    page.go_forward()
+    expect(page).to_have_url(live_server.url + "/?q=first")
+    expect(page.locator(".filter-chip")).to_contain_text("first")
+
+
+def test_session_expires_during_filter_request_and_new_tab_login_preserves_the_draft(
+    page, live_server, user, image_upload
+):
+    login(page, live_server, user)
+    page.locator("#id_body").fill("Synthetic recovered filter draft")
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    pending = []
+    page.route("**/?q=*", lambda route: pending.append(route))
+    page.locator("#open-filters").click()
+    page.locator("#id_q").fill("recovered")
+    page.locator("#id_q").press("Enter")
+    expect(page.locator("#diary-filter-form")).to_have_attribute("aria-busy", "true")
+    assert len(pending) == 1
+    other = page.context.new_page()
+    other.goto(live_server.url + "/")
+    other.locator("#account-menu > summary").click()
+    other.get_by_role("button", name="Logga ut", exact=True).click()
+    with page.expect_response(lambda response: "?q=recovered" in response.url) as expired:
+        pending[0].continue_()
+    assert expired.value.status == 401
+    expect(page.locator("#filter-drawer-status")).to_contain_text("session")
+    expect(page.locator("#id_q")).to_be_focused()
+    expect(page.locator("#diary-filter-form")).not_to_have_attribute("aria-busy", "true")
+    expect(page).to_have_url(live_server.url + "/")
+    page.unroute("**/?q=*")
+    other.locator("#id_username").fill(user.username)
+    other.locator("#id_password").fill("Synthetic-password-42")
+    other.get_by_role("button", name="Logga in", exact=True).click()
+    expect(other).to_have_url(live_server.url + "/")
+    page.locator("#id_q").press("Enter")
+    expect(page).to_have_url(live_server.url + "/?q=recovered")
+    expect(page.locator("#filter-drawer-status")).to_be_empty()
+    expect(page.locator("#filter-status")).to_be_empty()
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    expect(page.locator("#id_body")).to_have_value("Synthetic recovered filter draft")
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    page.locator("[data-dialog-close]").click()
+    page.locator("#save-entry").click()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
+    other.close()
+
+
 @pytest.mark.parametrize("refresh_fails", [False, True])
 def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_page(
     page, live_server, user, image_upload, refresh_fails
