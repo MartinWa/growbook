@@ -111,6 +111,13 @@ serialized writes. A matching retry returns the saved record; changed content or
 author conflicts. See [Saving changes and retries](usage.md#saving-changes-and-retries)
 for the form workflow.
 
+`diary.services.update_entry` follows the same receipt contract and returns the current
+`DiaryEntry` on both a first save and an identical retry. Pass the original
+`submission_key`, `expected_updated_at`, date, note, typed tag IDs, removal IDs and
+uploads when retrying. Omitting a key generates a new submission for service callers;
+browser edit forms require and preserve their key. Existing diary creation receipts
+remain unchanged. Separate photo edits and deletions continue to use version checks.
+
 ## Browser tests
 
 The development image includes Playwright's pinned Chromium and Linux browser libraries.

@@ -135,3 +135,15 @@ class DiarySubmission(ValidatedModel):
     payload_sha256 = models.CharField(max_length=64)
     entry = models.OneToOneField(DiaryEntry, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class DiaryEditSubmission(ValidatedModel):
+    """Immutable edit receipt, retained as a tombstone when its entry is removed."""
+
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    payload_sha256 = models.CharField(max_length=64)
+    entry = models.ForeignKey(
+        DiaryEntry, on_delete=models.SET_NULL, null=True, related_name="edit_submissions"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)

@@ -48,17 +48,19 @@ columns inside expanded details.
 
 ## Saving changes and retries
 
-Register, planting and event forms reject stale edits instead of overwriting another
-member's changes. After a failed or uncertain create/edit save, keep the form open and
+Diary, register, planting and event forms reject stale edits instead of overwriting
+another member's changes. After a failed or uncertain create/edit save, keep the form open and
 retry the same content and save key; photos are not appended twice. With JavaScript,
 validation updates feedback beside the fields while preserving fields and selected
 files. Without it, reselect photos as instructed before retrying. A genuinely changed
 form is a new submission; do not reuse a confirmed key for different content.
 
-Register and planting retries resolve matching immutable receipts before checking
-current association eligibility. An identical retry returns the saved record even if
-the original crop or parent was archived or associations changed later. New submissions
-still validate current associations and edit versions.
+Create/edit retries resolve matching immutable receipts before checking current
+association eligibility and edit versions. An identical retry acknowledges the saved
+submission and returns the record's current state, even if associations changed later.
+Diary edit retries also work after the original photo removals were applied; selected
+uploads are not appended again. New submissions still validate current associations,
+photo limits and edit versions. A deleted target is not recreated by a retry.
 
 ## Photos and uploads
 
@@ -184,9 +186,11 @@ remains without JavaScript. The login page has its own selector.
   Older or ended plantings, including those with archived associations, stay selectable.
   Ordinary **Edit** includes the same picker and preserves existing explicit links.
 - Edits use the entry's version token; a stale form is rejected rather than overwriting a
-  newer change. Reload to see saved values. With JavaScript only errors are replaced and
-  the form stays open; without it, date, note and link selections are kept, but photos
-  must be reselected before retrying.
+  newer change. Identical retries use immutable edit receipts; follow
+  [Saving changes and retries](#saving-changes-and-retries) after an uncertain save.
+  Reload after a version conflict to see saved values. With JavaScript only errors are
+  replaced and the form stays open; without it, date, note and link selections are kept,
+  but photos must be reselected before retrying.
 - Delete requires confirmation and permanently removes the note, links and photos,
   including private originals. Linked registers, plantings and their photos remain. A
   stale deletion is rejected and asks you to reload.

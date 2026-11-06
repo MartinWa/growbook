@@ -169,6 +169,7 @@ def entry_edit(request, pk):
                     uploads=values["photos"],
                     remove_photo_ids=values["remove_photos"],
                     expected_updated_at=values["expected_updated_at"],
+                    submission_key=values["submission_key"],
                 )
             except EntryConflict as exc:
                 form_error(form, exc)

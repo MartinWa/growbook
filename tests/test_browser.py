@@ -795,6 +795,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     page.locator("#id_body").fill("Retry the edited observation")
     page.locator("#id_photos").set_input_files(upload(image_upload()))
     version = page.locator("#id_expected_updated_at").input_value()
+    key = page.locator("#id_submission_key").input_value()
     pending = []
 
     def hold_post(route):
@@ -829,6 +830,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     expect(page.locator("#id_body")).to_be_editable()
     expect(page.locator("#id_body")).to_have_value("Retry the edited observation")
     expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    expect(page.locator("#id_submission_key")).to_have_value(key)
     assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
 
     page.unroute(entry_url + "edit/")
@@ -836,6 +838,50 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-body")).to_have_text("Retry the edited observation")
     expect(page.locator(".large-photo")).to_have_count(1)
+
+
+@pytest.mark.parametrize("photo_count", [0, 1, 3])
+def test_edit_lost_response_retries_committed_save_without_reapplying_photos(
+    page, live_server, user, image_upload, photo_count
+):
+    entry_url = open_entry_edit(page, live_server, user, photos=[upload(image_upload())])
+    edit_url = entry_url + "edit/"
+    key = page.locator("#id_submission_key").input_value()
+    version = page.locator("#id_expected_updated_at").input_value()
+    page.locator('input[name="remove_photos"]').check()
+    page.locator("#id_body").fill("" if photo_count else "Retry after a lost response")
+    if photo_count:
+        page.locator("#id_photos").set_input_files(
+            [upload(image_upload(), f"synthetic-{number}.jpg") for number in range(photo_count)]
+        )
+    saved_responses = []
+
+    def lose_response(route):
+        if route.request.method == "POST":
+            response = route.fetch()
+            saved_responses.append(response.status)
+            route.abort()
+        else:
+            route.continue_()
+
+    page.route(edit_url, lose_response)
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page.locator("#entry-errors")).not_to_be_empty()
+    expect(page.locator("#entry-form button[type=submit]")).to_be_enabled()
+    assert saved_responses == [204]
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    expect(page.locator('input[name="remove_photos"]')).to_be_checked()
+    assert page.locator("#id_photos").evaluate("input => input.files.length") == photo_count
+
+    page.unroute(edit_url)
+    with page.expect_response(
+        lambda response: response.url == edit_url and response.request.method == "POST"
+    ) as replayed:
+        page.locator("#entry-form button[type=submit]").click()
+    assert replayed.value.status == 204
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".large-photo")).to_have_count(photo_count)
 
 
 def test_edit_session_recovery_keeps_draft_and_refreshes_csrf(

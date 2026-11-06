@@ -6,7 +6,7 @@ import pytest
 from django.urls import reverse
 
 from core.media import private_path
-from diary.models import DiaryEntry, DiarySubmission
+from diary.models import DiaryEditSubmission, DiaryEntry, DiarySubmission
 from diary.services import create_entry, update_entry
 from garden.services import create_area, create_crop, create_planting, create_variety
 
@@ -54,6 +54,7 @@ def garden_records(user):
 
 def edit_data(record, **overrides):
     data = {
+        "submission_key": str(uuid4()),
         "expected_updated_at": record.updated_at.isoformat(),
         "date": record.date.isoformat(),
         "body": record.body,
@@ -210,6 +211,7 @@ def test_stale_edit_returns_409_and_keeps_saved_value(client, user):
     response = client.post(
         reverse("diary:edit", args=[record.pk]),
         {
+            "submission_key": str(uuid4()),
             "expected_updated_at": original.isoformat(),
             "date": record.date.isoformat(),
             "body": "Stale save",
@@ -219,6 +221,71 @@ def test_stale_edit_returns_409_and_keeps_saved_value(client, user):
     assert "changed while the form was open" in response.text
     record.refresh_from_db()
     assert record.body == "First save"
+
+
+@pytest.mark.parametrize("htmx", [False, True])
+def test_edit_retry_after_removals_and_later_changes_acknowledges_saved_submission(
+    client, user, image_upload, htmx
+):
+    record = make_entry(user, uploads=[image_upload()])
+    removed = record.photos.get()
+    crop = create_crop(actor=user, name="Synthetic retry crop").record
+    data = edit_data(record, remove_photos=[str(removed.pk)], link_crops=[str(crop.pk)])
+    path = reverse("diary:edit", args=[record.pk])
+    headers = {"HTTP_HX_REQUEST": "true"} if htmx else {}
+    client.force_login(user)
+    first = client.post(path, {**data, "photos": image_upload()}, **headers)
+    assert first.status_code == (204 if htmx else 302)
+    record.refresh_from_db()
+    latest = update_entry(
+        actor=user,
+        pk=record.pk,
+        date=record.date,
+        body="Later correction",
+        links=(),
+        expected_updated_at=record.updated_at,
+    )
+    from garden.services import delete_crop
+
+    delete_crop(actor=user, pk=crop.pk, expected_updated_at=crop.updated_at)
+    photos = list(latest.photos.values_list("pk", "original"))
+    retry = client.post(path, {**data, "photos": image_upload()}, **headers)
+    assert retry.status_code == (204 if htmx else 302)
+    record.refresh_from_db()
+    assert record.body == "Later correction" and record.updated_at == latest.updated_at
+    assert not record.links.exists()
+    assert list(record.photos.values_list("pk", "original")) == photos
+    changed = client.post(
+        path, {**data, "body": "Changed retry", "photos": image_upload()}, **headers
+    )
+    assert changed.status_code == 409
+    fresh = client.post(
+        path, {**data, "submission_key": str(uuid4()), "photos": image_upload()}, **headers
+    )
+    assert fresh.status_code == 409
+
+
+def test_edit_form_requires_key_and_preserves_unavailable_removals_on_failure(
+    client, user, image_upload
+):
+    record = make_entry(user, uploads=[image_upload()])
+    removed = record.photos.get()
+    path = reverse("diary:edit", args=[record.pk])
+    client.force_login(user)
+    form = client.get(path).context["form"]
+    data = edit_data(
+        record, submission_key=str(form["submission_key"].value()), remove_photos=[str(removed.pk)]
+    )
+    assert client.post(path, data).status_code == 302
+    response = client.post(path, {**data, "body": "Changed retry"})
+    assert response.status_code == 409
+    assert response.context["form"]["submission_key"].value() == data["submission_key"]
+    assert f'name="remove_photos" value="{removed.pk}"' in response.text
+    # The returned form retains the original receipt payload for a corrected retry.
+    assert client.post(path, data).status_code == 302
+    data.pop("submission_key")
+    assert client.post(path, data).status_code == 422
+    assert DiaryEditSubmission.objects.count() == 1
 
 
 def test_edit_post_by_other_member_is_forbidden_without_changes(client, user, other_user):

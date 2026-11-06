@@ -13,6 +13,7 @@
         data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
         data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
     {% csrf_token %}
+    {{ form.submission_key }}
     {{ form.expected_updated_at }}
     <div id="entry-errors" role="alert" tabindex="-1">{% include 'diary/form_errors.html' %}</div>
     {% if failed %}<p role="alert">{% translate 'Your date, note and link selections were kept. Select any photos again before retrying.' %}</p>{% endif %}
@@ -21,6 +22,7 @@
 
     <fieldset class="photo-picker" id="id_remove_photos" tabindex="-1">
       <legend>{% translate 'Existing photos' %}</legend>
+      {% for photo_id in form.unavailable_photo_ids %}<input type="hidden" name="remove_photos" value="{{ photo_id }}">{% endfor %}
       {% if entry.photos.all %}
       <div class="photo-grid">
         {% for photo in entry.photos.all %}

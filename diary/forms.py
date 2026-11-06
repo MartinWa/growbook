@@ -2,7 +2,6 @@ import re
 from uuid import uuid4
 
 from django import forms
-from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -22,11 +21,10 @@ TAG_FIELDS = {
 
 
 class TagIdsField(forms.TypedMultipleChoiceField):
-    """Validate typed IDs; capture eligibility belongs after immutable receipt lookup."""
+    """Validate typed IDs; association eligibility belongs after immutable receipt lookup."""
 
     def __init__(self, **kwargs):
         super().__init__(required=False, coerce=int, widget=forms.CheckboxSelectMultiple, **kwargs)
-        self.eligible_ids = None
 
     def validate(self, value):
         forms.Field.validate(self, value)
@@ -34,8 +32,17 @@ class TagIdsField(forms.TypedMultipleChoiceField):
             raise forms.ValidationError(_("Choose a valid record."))
         if len(set(value)) != len(value):
             raise forms.ValidationError(_("A record can only be linked once."))
-        if self.eligible_ids is not None and not {int(item) for item in value} <= self.eligible_ids:
-            raise forms.ValidationError(_("Choose a valid record."))
+
+
+class PhotoIdsField(forms.TypedMultipleChoiceField):
+    """Validate photo IDs without rejecting removals already applied by a saved edit."""
+
+    def validate(self, value):
+        forms.Field.validate(self, value)
+        if any(re.fullmatch(r"[1-9][0-9]*", item) is None for item in value):
+            raise forms.ValidationError(
+                _("A selected photo is no longer available. Reload the entry.")
+            )
 
 
 class TaggedForm(forms.Form):
@@ -54,12 +61,6 @@ class TaggedForm(forms.Form):
 
     def setup_tags(self, current=None):
         self.current_tags = current
-        if current is not None:
-            for name, (model, _kind, _label) in TAG_FIELDS.items():
-                queryset = (
-                    model.objects.all() if model is Planting else _eligible(model, current[name])
-                )
-                self.fields[name].eligible_ids = set(queryset.values_list("pk", flat=True))
 
     @cached_property
     def tag_groups(self):
@@ -209,6 +210,7 @@ def _eligible(model, current_ids):
 
 
 class EntryEditForm(TaggedForm):
+    submission_key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField()
     date = forms.DateField(
         label=_("Date"),
@@ -223,7 +225,7 @@ class EntryEditForm(TaggedForm):
         required=False,
         widget=MultipleFileInput(attrs={"accept": "image/*"}),
     )
-    remove_photos = forms.TypedMultipleChoiceField(
+    remove_photos = PhotoIdsField(
         label=_("Remove photos"),
         coerce=int,
         required=False,
@@ -240,6 +242,13 @@ class EntryEditForm(TaggedForm):
             (str(photo.pk), photo.caption or _("Photo %(number)s") % {"number": number})
             for number, photo in enumerate(photos, 1)
         ]
+        selected = self["remove_photos"].value() or []
+        available = {str(photo.pk) for photo in photos}
+        self.unavailable_photo_ids = [
+            str(pk)
+            for pk in selected
+            if re.fullmatch(r"[1-9][0-9]*", str(pk)) and str(pk) not in available
+        ]
         links = list(entry.links.all())
         self.setup_tags(
             {
@@ -250,18 +259,8 @@ class EntryEditForm(TaggedForm):
 
     def clean(self):
         data = super().clean()
-        body = (data.get("body") or "").strip()
-        data["body"] = body
-        removed = set(data.get("remove_photos") or [])
-        remaining = self.entry.photos.exclude(pk__in=removed).count()
-        additions = data.get("photos") or []
-        if not body and not remaining and not additions:
-            raise forms.ValidationError(_("Write a note or keep at least one photo."))
-        if remaining + len(additions) > settings.PHOTO_MAX_COUNT:
-            raise forms.ValidationError(
-                _("An entry can have no more than %(count)s photos."),
-                params={"count": settings.PHOTO_MAX_COUNT},
-            )
+        # Current photo counts and links are validated by the writer after receipt lookup.
+        data["body"] = (data.get("body") or "").strip()
         return data
 
 

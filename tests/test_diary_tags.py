@@ -304,6 +304,7 @@ def test_edit_keeps_archived_explicit_links_and_does_not_add_derived_links(user,
         "link_varieties": [tags.variety.pk],
         "link_plantings": [tags.planting.pk],
     }
+    data["submission_key"] = str(uuid4())
     form = EntryEditForm(data, entry=record)
     assert form.is_valid(), form.errors
     updated = update_entry(
