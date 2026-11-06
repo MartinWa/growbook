@@ -17,9 +17,10 @@ from core.forms import DeleteForm, form_error, valid_post
 from core.media import MediaBusy
 from diary.queries import observation_count, observations_for
 
-from ..forms import ArchiveForm
+from ..forms import ArchiveForm, VarietyFilterForm
 from ..models import Crop, GrowingArea, Variety
-from ..queries import area_paths
+from ..names import normalize_name
+from ..queries import area_tree
 from ..services import RegisterConflict
 from ..services import registers as services
 from ._shared import REGISTERS
@@ -54,21 +55,55 @@ def garden_home(request):
 def register_list(request, kind):
     model = REGISTERS[kind][0]
     context = _context(kind)
+    show_archived = request.GET.get("archived") == "1"
     records = model.objects.all()
-    if request.GET.get("archived") != "1":
+    areas = list(records) if kind == "area" else None
+    if not show_archived:
         records = records.filter(is_archived=False)
     if kind == "crop":
         records = records.annotate(variety_count=Count("varieties"))
     elif kind == "variety":
-        records = records.select_related("crop")
-    else:
-        records = records.select_related("parent")
-    records = list(records)
-    if kind == "area":
-        paths = area_paths(list(GrowingArea.objects.all()))
+        records = records.select_related("crop").order_by(
+            "crop__name_key", "crop_id", "name_key", "id"
+        )
+    records = (
+        [area for area in areas if show_archived or not area.is_archived]
+        if kind == "area"
+        else list(records)
+    )
+    search = ""
+    valid = True
+    if kind == "variety":
+        form = VarietyFilterForm(request.GET)
+        valid = form.is_valid()
+        search = form.cleaned_data.get("q", "")
+        if not valid:
+            records = []
+        if search:
+            key = normalize_name(search)[1]
+            records = [
+                record
+                for record in records
+                if key in record.name_key or key in record.crop.name_key
+            ]
+        groups = []
         for record in records:
-            record.parent_path = paths.get(record.parent_id, "")
-    context.update(records=records, show_archived=request.GET.get("archived") == "1")
+            if not groups or groups[-1]["crop"].pk != record.crop_id:
+                groups.append({"crop": record.crop, "records": []})
+            groups[-1]["records"].append(record)
+        context.update(form=form, variety_groups=groups)
+    if kind == "area":
+        context["area_events"] = area_tree(
+            areas=areas, visible_ids={record.pk for record in records}
+        )["events"]
+    filters = {"q": search} if search else {}
+    context.update(
+        records=records,
+        show_archived=show_archived,
+        hide_archived_url=context["list_url"] + ("?" + urlencode(filters) if filters else ""),
+        clear_search_url=context["list_url"] + ("?archived=1" if show_archived else ""),
+        expand_label=_("Varieties") if kind == "crop" else _("Notes"),
+    )
     if not records:
         context.update(
             empty_heading={
@@ -84,7 +119,23 @@ def register_list(request, kind):
             empty_action_url=context["create_url"],
             empty_action_label=context["create_label"],
         )
-        if not context["show_archived"] and model.objects.filter(is_archived=True).exists():
+        if not valid:
+            context.update(
+                empty_heading=_("Check the filters"),
+                empty_description=_("Choose a valid value, or clear the filters and try again."),
+                empty_action_url=context["clear_search_url"],
+                empty_action_label=_("Clear search"),
+                empty_filter_link=True,
+            )
+        elif search:
+            context.update(
+                empty_heading=_("No varieties match this search"),
+                empty_description=_("Search variety or crop names, or clear the search to browse."),
+                empty_action_url=context["clear_search_url"],
+                empty_action_label=_("Clear search"),
+                empty_filter_link=True,
+            )
+        elif not show_archived and model.objects.filter(is_archived=True).exists():
             context.update(
                 empty_heading=_("No active records"),
                 empty_description=_("Your archived records are available in the archive view."),
@@ -97,7 +148,17 @@ def register_list(request, kind):
                 empty_action_url=reverse("garden:crop-create"),
                 empty_action_label=_("New crop"),
             )
-    return render(request, "garden/list.html", context)
+    partial = (
+        kind == "variety"
+        and request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-Target") == "register-results"
+    )
+    return render(
+        request,
+        "garden/register_results.html" if partial else "garden/list.html",
+        context,
+        status=200 if valid else 422,
+    )
 
 
 def _detail_context(kind, pk):

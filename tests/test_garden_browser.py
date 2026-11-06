@@ -205,7 +205,7 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
         "link => link.textContent = 'Synthetic'.repeat(20)"
     )
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-    page.get_by_role("button", name=f"Detaljer: {registers['first'].name}", exact=True).click()
+    page.get_by_role("button", name=f"Sorter: {registers['first'].name}", exact=True).click()
     expect(page.locator(f"#details-crop-{registers['first'].pk}")).to_contain_text(
         "Full first crop note"
     )
@@ -256,8 +256,8 @@ def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
     ).click()
     expect(page.locator("h1")).to_have_text("Trädgård")
     page.locator(".garden-cards").get_by_role("link", name="Grödor", exact=True).click()
-    first_toggle = page.get_by_role("button", name=f"Detaljer: {first.name}", exact=True)
-    second_toggle = page.get_by_role("button", name=f"Detaljer: {second.name}", exact=True)
+    first_toggle = page.get_by_role("button", name=f"Sorter: {first.name}", exact=True)
+    second_toggle = page.get_by_role("button", name=f"Sorter: {second.name}", exact=True)
     first_details = page.locator(f"#details-crop-{first.pk}")
     second_details = page.locator(f"#details-crop-{second.pk}")
     expect(first_toggle).to_have_attribute("aria-expanded", "false")
@@ -290,8 +290,9 @@ def test_inline_details_retry_after_failed_request_and_links_navigate_normally(
     area = registers["child"]
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/areas/")
+    page.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').click()
     details = page.locator(f"#details-area-{area.pk}")
-    toggle = page.get_by_role("button", name=f"Detaljer: {area.name}", exact=True)
+    toggle = page.get_by_role("button", name=f"Anteckningar: {area.name}", exact=True)
     page.route(
         f"**{area.get_absolute_url()}",
         lambda route: route.fulfill(status=503, body="Synthetic failure"),
@@ -304,9 +305,7 @@ def test_inline_details_retry_after_failed_request_and_links_navigate_normally(
     toggle.click()
     expect(details).to_contain_text("Full notes")
     expect(details.locator(".register-photos figure")).to_have_count(2)
-    page.locator(".register-table th[scope=row]").get_by_role(
-        "link", name="Child", exact=True
-    ).click()
+    page.get_by_role("link", name="Öppna post: Child", exact=True).click()
     expect(page).to_have_url(live_server.url + area.get_absolute_url())
     expect(page.locator("h1")).to_have_text("Child")
 
@@ -449,7 +448,8 @@ def test_register_detail_without_javascript_keeps_links_forms_and_drafts(
     )
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/areas/")
-    plain.get_by_role("link", name=f"Detaljer: {area.name}", exact=True).click()
+    plain.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').click()
+    plain.get_by_role("link", name=f"Anteckningar: {area.name}", exact=True).click()
     expect(plain).to_have_url(live_server.url + area.get_absolute_url())
     expect(plain.locator(".record-fields")).to_contain_text("Full notes")
     plain.get_by_role("link", name="Redigera", exact=True).click()

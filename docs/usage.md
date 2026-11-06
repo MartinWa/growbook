@@ -21,9 +21,29 @@ local changes or commits after a release. Builds without version metadata show
 ## Garden
 
 Open **Garden** for crop, variety and growing-area cards with active record counts and
-creation links. Each register table has a labelled **Details** control; several rows can
-stay expanded, ordinary record links work without JavaScript, and phones show secondary
-columns inside expanded details.
+creation links. Crops have a **Varieties** control that shows that crop's linked varieties
+first, including archived varieties with badges, followed by notes and maintenance links.
+The count includes the same archived varieties. Varieties and areas have separate **Notes**
+controls. Several records can stay expanded, and ordinary links open full records without
+JavaScript.
+
+Varieties are grouped by crop, with linked crop headings and normalized name ordering.
+**Search varieties** matches literal substrings of variety or crop names after Unicode NFC,
+whitespace normalization and casefolding. Diacritics remain significant; notes and other
+fields are not searched. Search and the archive choice combine in one form. Clearing search
+keeps the archive choice; hiding archived varieties keeps the search. With JavaScript,
+search applies after a short pause or Enter, and Back restores the filter URL and results.
+Failed requests keep the current results and show **Retry**. Without JavaScript, use **Apply**.
+Active varieties remain visible under archived crops, marked by the crop's archive badge.
+
+Growing areas appear beneath their actual parents. Activate a parent's name to reveal its
+children using the mouse, Enter or Space. Branches start collapsed; several can remain open,
+and closing a parent preserves nested disclosure and notes states until it is reopened.
+Leaf areas have no empty expansion control. **Notes** and **Open record** are separate
+from the hierarchy control. Archived ancestors of active areas appear as labelled
+structural headings, without increasing active counts; unrelated archived branches stay
+hidden until **Include archived records** is selected. The hierarchy works without JavaScript;
+**Notes** opens the full record in that case.
 
 - Crop names are unique globally; variety names within a crop. Area names are unique
   among top-level areas or among siblings with the same parent. Comparison uses Unicode
@@ -83,13 +103,25 @@ full forms keep their save actions visible at the bottom while scrolling.
 
 ## Plantings and histories
 
-Open **Plantings** for a growing-year table. Filters use a sidebar at 900 px and a
-drawer below that width; changes apply automatically and Enter submits a typed year.
+Open **Plantings** for growing-year results grouped by area. Filters use a sidebar at
+900 px and a drawer below that width; changes apply automatically and Enter submits a typed year.
 Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
 **Next year**; **All years** shows one row per planting across its full history. Crop,
 variety and area histories default to all years, and table links keep an explicitly
-selected year. **Details** expands multiple rows independently to show events, notes,
+selected year. **Details** expands multiple batches independently to show events, notes,
 evaluation and photos. Register details link to their **Planting history**.
+
+Matching plantings attach only to their exact assigned areas, with ancestors retained for
+context and empty branches omitted. Area counts include all matching batches in that subtree;
+parent assignments and child assignments remain distinct. A subtree with one crop/variety
+combination opens automatically, showing every batch; mixed combinations start collapsed.
+Unknown variety counts as a distinct combination. Activate an area name to expand or collapse
+its batches and children. Unassigned plantings appear in a final **Unassigned area** group.
+Batch labels, variety (including unknown) and quantities remain visible on narrow screens;
+blank quantity is shown as a dash and zero as zero. Area history and record links are separate
+from expansion controls. Filters and Back recalculate the default disclosure states;
+manual open states last only in the currently rendered results. These rules also apply to
+crop, variety and area histories and work without JavaScript.
 
 - **New planting** requires a crop and start year (1–9999). Variety and final growing
   area may be unknown; no placeholder records are created. **More details** groups

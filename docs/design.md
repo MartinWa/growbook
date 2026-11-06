@@ -119,8 +119,23 @@ verify device-native camera/library pickers; those require the intended phone.
 ## Garden layout and interaction
 
 Garden cards link to each register and its creation form, with active record counts.
-Archive controls use a native disclosure, apply on checkbox change and retain an
-Apply fallback without JavaScript. An active archive state includes a clear link.
+Crops use Varieties controls; varieties and areas use Notes. Linked varieties precede
+crop notes and include archived records in both their count and badges. Variety results
+use linked crop headings and a compact search/archive form with the shared filter module,
+debounced search, request cancellation, URL history, visible errors and a Retry action.
+The compact form stays above results at every width. Archive controls use a native
+disclosure and retain an Apply fallback without JavaScript.
+
+Registers and planting results share a server-rendered area hierarchy built from bounded
+area reads and parent IDs. Its iterative presentation supports deep nesting and cuts
+legacy cycles defensively. Native details/summary controls keep parent-name expansion
+usable with keyboard and without JavaScript. Notes, record and history links sit outside
+the summary. Register branches start collapsed; archived ancestors of active children
+remain labelled context. Planting branches retain ancestors, omit empty subtrees and open
+when their matching subtree has one crop/variety pair. Batches attach only to their own
+area, with independent quantities and detail controls. An unassigned group follows the
+hierarchy. Indentation is reduced on narrow screens, names wrap and controls retain
+their touch targets and focus outlines. Nested open states last until results are replaced.
 
 Planting forms show crop and start year first. Native disclosures group additional
 details and notes/photos; populated or invalid groups open automatically. A typed
@@ -130,6 +145,7 @@ variety failures open their group and expose a retry action.
 Planting filters share the diary sidebar/drawer and URL history behavior. Returned
 rows initialize independent expansion controls after each filter update. Tables
 keep one Details control in the identifying cell. Below 650 px, planting rows show
-batch, crop and area; other values remain in expanded details. Register rows hide
+batch, crop, variety and quantity under their area heading; other values remain in
+expanded details. Register rows hide
 the status column but keep archived badges alongside names. Nested event tables
 retain their own horizontal scrolling.

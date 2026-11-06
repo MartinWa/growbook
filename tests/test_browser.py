@@ -1227,6 +1227,8 @@ def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_pag
         page.locator("#open-filters").click()
         page.locator("#id_q").press("Enter")
         page.keyboard.press("Escape")
+        expect(page.locator("#filter-dialog")).not_to_be_visible()
+        expect(page.locator("#id_q")).to_have_value("pagination")
     expect(page).to_have_url(first_url)
     expect(page.locator("#diary-result-count")).to_contain_text("22")
     expect(page.locator("#diary-results .diary-card")).to_have_count(20)

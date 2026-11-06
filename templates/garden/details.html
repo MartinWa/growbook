@@ -6,9 +6,9 @@
   </div>
   <dl class="record-fields">
   {% if kind == 'crop' %}
-    {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
     <dt>{% translate 'Varieties' %}</dt>
-    <dd>{% for variety in record.varieties.all %}<a href="{{ variety.get_absolute_url }}">{{ variety.name }}</a>{% if variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
+    <dd><ul class="crop-varieties">{% for variety in record.varieties.all %}<li><a href="{{ variety.get_absolute_url }}">{{ variety.name }}</a>{% if variety.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</li>{% empty %}<li>{% translate 'No varieties for this crop yet.' %}</li>{% endfor %}</ul></dd>
+    {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
   {% elif kind == 'variety' %}
     <dt>{% translate 'Crop' %}</dt><dd><a href="{{ record.crop.get_absolute_url }}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
     {% if record.category %}<dt>{% translate 'Category' %}</dt><dd>{{ record.category }}</dd>{% endif %}

@@ -6,8 +6,28 @@
 {% include 'garden/nav.html' %}
 <div class="page-heading">
   <h1>{{ heading }}</h1>
-  {% if records %}<a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>{% endif %}
+  <a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>
 </div>
+{% if kind == 'variety' %}
+<div class="compact-filters" data-filter-page data-filter-compact data-results-id="register-results"
+  data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
+  data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
+  data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
+  <form method="get" action="{{ request.path }}" class="variety-filter" data-filter-form>
+    <div class="field">{{ form.q.label_tag }}{{ form.q }}<p id="id_q_help" class="field-help">{% translate 'Search variety and crop names.' %}</p><div id="id_q_errors" class="field-errors" data-filter-field-errors="q">{{ form.q.errors }}</div></div>
+    <details class="archive-options">
+      <summary>{% translate 'Archive options' %}</summary>
+      <label>{{ form.archived }} {% translate 'Include archived records' %}</label>
+    </details>
+    <div class="related-actions">
+      <button type="submit" class="btn btn-outline" data-filter-submit>{% translate 'Apply' %}</button>
+      <button type="submit" class="btn btn-outline" data-filter-retry hidden>{% translate 'Retry' %}</button>
+    </div>
+  </form>
+  <p id="filter-status" class="field-errors" role="alert"></p>
+  {% include 'garden/register_results.html' %}
+</div>
+{% else %}
 <details class="archive-options">
   <summary>{% translate 'Archive options' %}</summary>
   <form method="get" class="register-filter" data-auto-submit>
@@ -15,41 +35,6 @@
     <button type="submit" class="btn btn-outline">{% translate 'Apply' %}</button>
   </form>
 </details>
-{% if show_archived %}<p class="archive-state">{% translate 'Showing archived records' %} · <a href="{{ request.path }}">{% translate 'Hide archived records' %}</a></p>{% endif %}
-{% if records %}
-<p class="muted">{% translate 'Expand several rows at once to compare details.' %}</p>
-<div class="table-scroll">
-<table class="register-table responsive-table table table-sm">
-  <caption class="visually-hidden">{{ heading }}</caption>
-  <thead><tr>
-    <th scope="col">{% translate 'Name' %}</th>
-    {% if kind == 'crop' %}<th scope="col">{% translate 'Varieties' %}</th>
-    {% elif kind == 'variety' %}<th scope="col">{% translate 'Crop' %}</th><th scope="col">{% translate 'Category' %}</th>
-    {% else %}<th scope="col">{% translate 'Parent area' %}</th><th scope="col">{% translate 'Type' %}</th>{% endif %}
-    <th scope="col" class="secondary-column">{% translate 'Status' %}</th>
-  </tr></thead>
-  {% for record in records %}
-  <tbody class="register-row-group">
-    <tr>
-      <th scope="row"><a href="{{ record.get_absolute_url }}">{{ record.name }}</a>{% if record.is_archived %}<span class="archive-label phone-archive">{% translate 'Archived' %}</span>{% endif %}<br><a class="row-toggle" href="{{ record.get_absolute_url }}" aria-controls="details-{{ kind }}-{{ record.pk }}" aria-expanded="false"
-             aria-label="{% translate 'Details' %}: {{ record.name }}" data-register-toggle data-details-url="{{ record.get_absolute_url }}"
-             data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Collapse and expand to retry, or follow the record link.' %}">{% translate 'Details' %}</a></th>
-      {% if kind == 'crop' %}<td>{{ record.variety_count }}</td>
-      {% elif kind == 'variety' %}<td><a href="{{ record.crop.get_absolute_url }}">{{ record.crop.name }}</a></td><td>{{ record.category|default:'—' }}</td>
-      {% else %}<td>{% if record.parent %}<a href="{{ record.parent.get_absolute_url }}">{{ record.parent_path }}</a>{% else %}—{% endif %}</td><td>{{ record.area_type|default:'—' }}</td>{% endif %}
-      <td class="secondary-column">{% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% else %}{% translate 'Active' %}{% endif %}</td>
-
-    </tr>
-    <tr id="details-{{ kind }}-{{ record.pk }}" class="register-expanded" hidden>
-      <td colspan="{% if kind == 'crop' %}3{% else %}4{% endif %}">
-        <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.name }}" aria-live="polite"></div>
-      </td>
-    </tr>
-  </tbody>
-  {% endfor %}
-</table>
-</div>
-{% else %}
-{% include 'components/empty_state.html' %}
+{% include 'garden/register_results.html' %}
 {% endif %}
 {% endblock %}
