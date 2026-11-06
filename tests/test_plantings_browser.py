@@ -175,6 +175,7 @@ def test_phone_filters_retry_back_and_reinitialize_rows(page, live_server, user,
     page.locator("#id_year").press("Enter")
     expect(page.locator("#planting-results .error-summary")).to_have_count(0)
     page.keyboard.press("Escape")
+    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     page.get_by_role("button", name="Detaljer: First batch", exact=True).click()
     expect(page.locator(f"#details-planting-{catalog['first'].pk}")).to_contain_text("Golden")
     page.locator(".planting-table > tbody > tr:first-child > th > a:first-child").first.evaluate(
@@ -301,12 +302,13 @@ def test_year_area_history_rows_expand_independently_with_keyboard(
 ):
     login(page, live_server, user)
     page.goto(live_server.url + f"/garden/areas/{catalog['parent'].pk}/history/?year=2026")
+    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     first, second = catalog["first"], catalog["second"]
     first_toggle = page.get_by_role("button", name="Detaljer: First batch", exact=True)
     second_toggle = page.get_by_role("button", name="Detaljer: Persistent batch", exact=True)
     first_details = page.locator(f"#details-planting-{first.pk}")
     second_details = page.locator(f"#details-planting-{second.pk}")
-    expect(page.locator(".register-table").first).to_contain_text("Greenhouse / Bed")
+    expect(page.locator("#planting-results")).to_contain_text("Greenhouse / Bed")
     first_toggle.focus()
     first_toggle.press("Enter")
     expect(first_details).to_contain_text("Synthetic overwintered sowing")
@@ -326,6 +328,7 @@ def test_year_area_history_rows_expand_independently_with_keyboard(
         "Inga odlingar detta odlingsår"
     )
     page.get_by_role("link", name="Föregående år", exact=True).click()
+    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     page.locator(".register-table th[scope=row]").get_by_role(
         "link", name="First batch", exact=True
     ).click()
@@ -344,10 +347,11 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
 ):
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/history/")
+    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     table = page.locator(".register-table")
     expect(page.locator("#id_year")).to_have_value("")
-    expect(table).to_contain_text("First batch")
-    expect(table).to_contain_text("Persistent batch")
+    expect(page.locator("#planting-results")).to_contain_text("First batch")
+    expect(page.locator("#planting-results")).to_contain_text("Persistent batch")
     table.get_by_role("link", name="Greenhouse / Bed", exact=True).click()
     expect(page).to_have_url(live_server.url + f"/garden/areas/{catalog['child'].pk}/history/")
     expect(page.locator("#id_year")).to_have_value("")

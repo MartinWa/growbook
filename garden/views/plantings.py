@@ -20,7 +20,7 @@ from diary.queries import observation_count, observations_for
 
 from ..forms import PlantingFilterForm, PlantingForm, clean_record_id
 from ..models import Crop, GrowingArea, Planting
-from ..queries import area_paths, planting_history, planting_rows
+from ..queries import area_paths, planting_history, planting_tree
 from ..services import RegisterConflict
 from ..services import plantings as services
 from ._shared import REGISTERS
@@ -44,11 +44,13 @@ def planting_list(request, history=False, kind=None, pk=None):
             locked.add("crop")
     form = PlantingFilterForm(data)
     records, year = [], None
+    tree = {"events": [], "unassigned": []}
     valid = form.is_valid()
     if valid:
         filters = form.cleaned_data
         year = filters["year"]
-        records = planting_rows(planting_history(**filters))
+        tree = planting_tree(**filters)
+        records = tree["records"]
     previous_url = next_url = None
     if year is not None:
         if year > 1:
@@ -131,6 +133,8 @@ def planting_list(request, history=False, kind=None, pk=None):
             "heading": _("Planting history") if history else _("Plantings"),
             "form": form,
             "records": records,
+            "area_events": tree["events"],
+            "unassigned_records": tree["unassigned"],
             "year": year,
             "scope": scope,
             "kind": kind or "planting",

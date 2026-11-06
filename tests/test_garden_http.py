@@ -135,8 +135,9 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
     client.force_login(user)
     response = client.get(reverse(f"garden:{kind}-list"))
     assert response.status_code == 200
-    assert '<table class="register-table' in response.text
-    assert "table table-sm" in response.text
+    assert (
+        '<table class="register-table' if kind != "area" else 'class="area-tree"'
+    ) in response.text
     assert f'aria-controls="details-{kind}-{record.pk}"' in response.text
     assert 'aria-expanded="false"' in response.text
     assert f'href="{record.get_absolute_url()}"' in response.text

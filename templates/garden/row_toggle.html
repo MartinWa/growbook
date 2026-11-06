@@ -1,0 +1,4 @@
+{% load i18n %}
+<a class="row-toggle" href="{{ record.get_absolute_url }}" aria-controls="details-{{ kind }}-{{ record.pk }}" aria-expanded="false"
+  aria-label="{{ expand_label }}: {{ record.name }}" data-register-toggle data-details-url="{{ record.get_absolute_url }}"
+  data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Collapse and expand to retry, or follow the record link.' %}">{{ expand_label }}</a>

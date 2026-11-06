@@ -698,6 +698,35 @@
     @apply inline-flex min-h-11 items-center gap-2;
   }
 
+  .variety-filter { @apply max-w-2xl; }
+  .variety-filter .archive-options label { @apply inline-flex min-h-11 items-center gap-2; }
+  .variety-group { @apply my-6; }
+  .variety-group h2 { @apply mb-3; }
+  .crop-varieties { @apply m-0 list-none p-0; }
+  .crop-varieties a { @apply inline-flex min-h-11 items-center; }
+  .area-tree { @apply m-0 list-none p-0; }
+  .area-node { @apply my-3 min-w-0 rounded-lg border border-base-300 bg-base-100 p-3; display: flow-root; }
+  .area-actions { @apply float-right ml-3 flex flex-wrap items-center gap-x-3 text-sm; max-width: 60%; }
+  .area-actions a { @apply inline-flex min-h-11 items-center; overflow-wrap: anywhere; }
+  .area-branch > summary {
+    @apply min-h-11 min-w-11 cursor-pointer py-2 font-semibold text-primary;
+    width: fit-content;
+    max-width: calc(40% - 0.75rem);
+    overflow-wrap: anywhere;
+  }
+  .area-leaf { @apply min-h-11 py-2; }
+  .area-content, .area-notes { clear: both; }
+  .area-children { @apply border-l border-base-300 pl-3; }
+  .area-notes { @apply rounded-lg bg-base-200 p-3; }
+  .area-count, .structural-label { @apply ml-2 text-sm font-normal text-base-content; }
+  .unassigned-group { @apply my-6; }
+  .unassigned-group h2 { @apply mb-3; }
+  @media (max-width: 650px) {
+    .area-node { @apply px-2; }
+    .area-children { @apply pl-1; }
+    .area-actions { @apply gap-x-2; }
+  }
+
   .planting-required-help {
     @apply mb-4;
   }

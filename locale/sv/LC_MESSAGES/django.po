@@ -244,6 +244,38 @@ msgstr "Namn"
 msgid "Notes"
 msgstr "Anteckningar"
 
+msgid "Search varieties"
+msgstr "Sök sorter"
+
+msgid "Search variety and crop names."
+msgstr "Sök på sortnamn och grödnamn."
+
+msgid "No varieties match this search"
+msgstr "Inga sorter matchar sökningen"
+
+msgid "Search variety or crop names, or clear the search to browse."
+msgstr "Sök på sortnamn eller grödnamn, eller rensa sökningen för att bläddra."
+
+msgid "Clear search"
+msgstr "Rensa sökning"
+
+msgid "Retry"
+msgstr "Försök igen"
+
+msgid "Open record"
+msgstr "Öppna post"
+
+msgid "Ancestor area"
+msgstr "Överordnad odlingsyta"
+
+msgid "No varieties for this crop yet."
+msgstr "Det finns inga sorter för denna gröda ännu."
+
+msgid "%(count)s variety"
+msgid_plural "%(count)s varieties"
+msgstr[0] "%(count)s sort"
+msgstr[1] "%(count)s sorter"
+
 msgid "Category"
 msgstr "Kategori"
 
