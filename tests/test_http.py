@@ -73,7 +73,7 @@ def test_swedish_default_does_not_follow_browser_language(client):
 def test_english_locale_is_available(client, user):
     client.force_login(user)
     client.cookies["django_language"] = "en"
-    response = client.get("/capture/")
+    response = client.get("/")
     assert '<html lang="en">' in response.text
     assert "Save observation" in response.text
 
@@ -91,8 +91,15 @@ def test_empty_diary_copy_describes_supported_capture(client, user):
 def test_garden_local_today_is_default(client, user, monkeypatch):
     monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 1, 2, tzinfo=UTC))
     client.force_login(user)
+    response = client.get("/")
+    assert response.context["capture_form"]["date"].value() == date(2026, 1, 2)
+
+
+def test_capture_page_redirects_to_the_single_diary_composer(client, user):
+    client.force_login(user)
     response = client.get("/capture/")
-    assert response.context["form"]["date"].value() == date(2026, 1, 2)
+    assert response.status_code == 302
+    assert response.url == "/#id_body"
 
 
 def test_capture_normal_form_redirects_after_save(client, user):
@@ -225,7 +232,7 @@ def test_empty_post_has_visible_error(client, user):
     client.force_login(user)
     response = client.post("/capture/", {"date": "2026-05-09", "submission_key": str(uuid4())})
     assert response.status_code == 422
-    assert response.context["form"].errors
+    assert response.context["capture_form"].errors
     assert DiaryEntry.objects.count() == 0
 
 
@@ -243,9 +250,9 @@ def test_non_javascript_failure_preserves_note_date_and_key(client, user):
     data = post_data(body="Keep this note", library=SimpleUploadedFile("bad.jpg", b"invalid"))
     response = client.post("/capture/", data)
     assert response.status_code == 422
-    assert response.context["form"]["body"].value() == data["body"]
-    assert response.context["form"]["date"].value() == data["date"]
-    assert response.context["form"]["submission_key"].value() == data["submission_key"]
+    assert response.context["capture_form"]["body"].value() == data["body"]
+    assert response.context["capture_form"]["date"].value() == data["date"]
+    assert response.context["capture_form"]["submission_key"].value() == data["submission_key"]
     with translation.override("en"):
         assert DiaryEntry.objects.count() == 0
 
@@ -291,7 +298,7 @@ def test_native_count_limit_has_visible_validation_and_no_partial_save(client, u
     client.force_login(user)
     response = client.post("/capture/", post_data(library=[image_upload() for _ in range(11)]))
     assert response.status_code == 422
-    assert response.context["form"].errors
+    assert response.context["capture_form"].errors
     assert DiaryEntry.objects.count() == 0
 
 

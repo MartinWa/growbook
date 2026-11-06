@@ -6,7 +6,7 @@
   </header>
   {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
   {% include 'diary/_links.html' with entry=entry %}
-  {% if entry.can_edit %}<p class="muted"><a href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit and tag' %}</a></p>{% endif %}
+  {% if entry.can_edit %}<p class="muted entry-actions"><a href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit' %}</a></p>{% endif %}
   {% if entry.photos.all %}
   <div class="photo-grid">
     {% for photo in entry.photos.all %}

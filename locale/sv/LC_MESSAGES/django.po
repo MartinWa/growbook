@@ -100,9 +100,6 @@ msgstr "Ta bort"
 msgid "Preview unavailable; the original photo will still be uploaded."
 msgstr "Förhandsvisning saknas; originalbilden kommer ändå att laddas upp."
 
-msgid "Your note and date were kept. Select your photos again before retrying."
-msgstr "Din anteckning och ditt datum har behållits. Välj bilderna igen innan du försöker på nytt."
-
 msgid "Photos (optional)"
 msgstr "Bilder (valfritt)"
 
@@ -120,12 +117,6 @@ msgstr "Avbryt"
 
 msgid "Without JavaScript, select all library photos at once. A failed save requires selecting the photos again."
 msgstr "Utan JavaScript behöver alla biblioteksbilder väljas samtidigt. Om sparandet misslyckas måste bilderna väljas igen."
-
-msgid "More options opens a new page and does not keep a quick draft."
-msgstr "Fler alternativ öppnar en ny sida och behåller inte ett snabbutkast."
-
-msgid "Open the full form? Your quick draft is not carried over."
-msgstr "Öppna det fullständiga formuläret? Ditt snabbutkast följer inte med."
 
 msgid "Your form could not be verified"
 msgstr "Formuläret kunde inte verifieras"
@@ -339,6 +330,51 @@ msgstr "Lägg till bilder"
 
 msgid "Edit"
 msgstr "Redigera"
+
+msgid "Add tags"
+msgstr "Lägg till taggar"
+
+msgid "Search tags"
+msgstr "Sök taggar"
+
+msgid "Choose a planting or growing area. You can add several."
+msgstr "Välj en odling eller odlingsyta. Du kan lägga till flera."
+
+msgid "Selected garden records"
+msgstr "Valda trädgårdsposter"
+
+msgid "Planting context follows its current crop, variety and area."
+msgstr "Odlingens sammanhang följer dess aktuella gröda, sort och odlingsyta."
+
+msgid "Also found under:"
+msgstr "Visas även under:"
+
+msgid "Other years"
+msgstr "Andra år"
+
+msgid "Crops and varieties"
+msgstr "Grödor och sorter"
+
+msgid "No records available."
+msgstr "Inga poster tillgängliga."
+
+msgid "No matches. Try a crop, place, batch or year."
+msgstr "Ingen träff. Prova en gröda, plats, omgång eller ett år."
+
+msgid "Done"
+msgstr "Klart"
+
+msgid "Selected:"
+msgstr "Valt:"
+
+msgid "Removed:"
+msgstr "Borttaget:"
+
+msgid "matches"
+msgstr "träffar"
+
+msgid "Unavailable record (%(number)s)"
+msgstr "Otillgänglig post (%(number)s)"
 
 msgid "Save"
 msgstr "Spara"
@@ -777,9 +813,6 @@ msgstr "Sparar…"
 msgid "A photo-only observation keeps at least one photo."
 msgstr "En observation med bara bild måste behålla minst en bild."
 
-msgid "A planting link also matches its crop, variety and area. Select several with Ctrl or Cmd; nothing else is required."
-msgstr "En odlingslänk matchar även dess gröda, sort och odlingsyta. Markera flera med Ctrl eller Cmd; inget annat krävs."
-
 msgid "A record can only be linked once."
 msgstr "En post kan bara länkas en gång."
 
@@ -803,9 +836,6 @@ msgstr "Alla sorter"
 
 msgid "An entry can have no more than %(count)s photos."
 msgstr "En observation kan inte ha fler än %(count)s bilder."
-
-msgid "Archived records stay selectable only when this entry already links to them."
-msgstr "Arkiverade poster går bara att välja när observationen redan länkar till dem."
 
 msgid "Area"
 msgstr "Odlingsyta"
@@ -863,9 +893,6 @@ msgstr "JPEG, PNG, WebP och HEIC. Upp till 10 bilder per observation, 20 MiB var
 
 msgid "Keep at least one photo when the note is empty."
 msgstr "Behåll minst en bild när anteckningen är tom."
-
-msgid "Link to garden records (optional)"
-msgstr "Länka till odlingsposter (valfritt)"
 
 msgid "Linked garden records"
 msgstr "Länkade odlingsposter"
@@ -936,18 +963,6 @@ msgstr "Kontrollera filtren"
 msgid "Choose a valid value, or clear the filters and try again."
 msgstr "Välj ett giltigt värde, eller rensa filtren och försök igen."
 
-msgid "Garden links are added after saving: open the observation and choose Edit observation."
-msgstr "Odlingslänkar läggs till efter sparningen: öppna observationen och välj Redigera observation."
-
-msgid "No garden links yet."
-msgstr "Inga odlingslänkar än."
-
-msgid "Add garden links"
-msgstr "Lägg till odlingslänkar"
-
-msgid "Edit and tag"
-msgstr "Redigera och tagga"
-
 msgid "(required)"
 msgstr "(obligatoriskt)"
 
@@ -978,26 +993,17 @@ msgstr "Filtren kunde inte uppdateras. Försök igen eller ladda om sidan."
 msgid "How filters work"
 msgstr "Så fungerar filtren"
 
-msgid "More options"
-msgstr "Fler alternativ"
-
 msgid "Observations"
 msgstr "Observationer"
 
 msgid "Operator"
 msgstr "Administration"
 
-msgid "Photo limits"
-msgstr "Bildgränser"
-
 msgid "Remove filter"
 msgstr "Ta bort filter"
 
 msgid "Search and filters"
 msgstr "Sök och filtrera"
-
-msgid "Up to %(photo_max_count)s photos"
-msgstr "Högst %(photo_max_count)s bilder"
 
 msgid "View observation"
 msgstr "Visa observationen"
@@ -1066,8 +1072,8 @@ msgid_plural "%(count)s plantings"
 msgstr[0] "%(count)s odling"
 msgstr[1] "%(count)s odlingar"
 
-msgid "Photos selected: {selected} of {limit}"
-msgstr "Valda bilder: {selected} av {limit}"
+msgid "Photos selected: {selected}"
+msgstr "Valda bilder: {selected}"
 
 msgid "No crops yet"
 msgstr "Inga grödor ännu"

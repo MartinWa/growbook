@@ -1,0 +1,45 @@
+{% load i18n %}
+<div class="field tag-picker" data-tag-picker role="group" aria-label="{% translate 'Add tags' %}"
+     data-remove="{% translate 'Remove' %}" data-found="{% translate 'Also found under:' %}"
+     data-matches="{% translate 'matches' %}" data-selected="{% translate 'Selected:' %}" data-removed="{% translate 'Removed:' %}">
+  <ul data-tag-chips class="tag-chips" aria-label="{% translate 'Selected garden records' %}" hidden></ul>
+  <p data-tag-context class="field-help" hidden></p>
+  <p data-tag-current class="field-help" hidden>{% translate 'Planting context follows its current crop, variety and area.' %}</p>
+  <button data-tag-trigger type="button" class="btn btn-outline" aria-controls="tag-choices" aria-expanded="false" hidden>+ {% translate 'Add tags' %}</button>
+  <div id="tag-choices" data-tag-popover role="group" aria-label="{% translate 'Add tags' %}">
+    <div data-tag-search-panel class="tag-search" hidden>
+      <label for="tag-search" class="visually-hidden">{% translate 'Search tags' %}</label>
+      <input id="tag-search" data-tag-search type="search" autocomplete="off" placeholder="{% translate 'Search tags' %}" aria-describedby="tag-help" aria-controls="tag-groups">
+      <p id="tag-help" class="field-help">{% translate 'Choose a planting or growing area. You can add several.' %}</p>
+    </div>
+    <div class="tag-options">
+      <div id="tag-groups" data-tag-groups>
+      {% for group in form.tag_groups %}
+        <fieldset data-tag-group="{{ group.kind }}" id="id_{{ group.name }}">
+          <legend>{{ group.label }}</legend>
+          {% for option in group.options %}
+          <label class="tag-option" data-tag-option data-kind="{{ group.kind }}" data-derived="{{ option.derived }}"
+                 data-start="{{ option.start_year }}" data-end="{{ option.end_year }}" data-persistent="{{ option.persistent|yesno:'true,false' }}">
+            <input type="checkbox" name="{{ group.name }}" value="{{ option.pk }}" id="id_{{ group.name }}_{{ option.pk }}" aria-describedby="id_{{ group.name }}_errors"{% if option.selected %} checked{% endif %}>
+            <span><span class="tag-title">{{ option.title }}</span>{% if option.context %}<span class="tag-meta">{{ option.context }}</span>{% endif %}</span>
+          </label>
+          {% empty %}<p class="field-help" data-tag-empty>{% translate 'No records available.' %}</p>{% endfor %}
+        </fieldset>
+      {% endfor %}
+      </div>
+      <p data-tag-no-results class="field-help" hidden>{% translate 'No matches. Try a crop, place, batch or year.' %}</p>
+    </div>
+    <div data-tag-footer class="tag-footer" hidden>
+      <span data-tag-count role="status"></span><button data-tag-done type="button" class="btn btn-ghost">{% translate 'Done' %}</button>
+    </div>
+  </div>
+  <div class="tag-errors">
+    <div id="id_link_plantings_errors" class="field-errors" data-register-field-errors="link_plantings">{{ form.link_plantings.errors }}</div>
+    <div id="id_link_areas_errors" class="field-errors" data-register-field-errors="link_areas">{{ form.link_areas.errors }}</div>
+    <div id="id_link_crops_errors" class="field-errors" data-register-field-errors="link_crops">{{ form.link_crops.errors }}</div>
+    <div id="id_link_varieties_errors" class="field-errors" data-register-field-errors="link_varieties">{{ form.link_varieties.errors }}</div>
+  </div>
+  <span data-tag-status class="visually-hidden" role="status"></span>
+  <template data-tag-other-years><details class="tag-secondary"><summary>{% translate 'Other years' %}</summary><fieldset data-tag-group="other"><legend>{% translate 'Plantings' %}</legend></fieldset></details></template>
+  <template data-tag-taxonomy><details class="tag-secondary"><summary>{% translate 'Crops and varieties' %}</summary></details></template>
+</div>

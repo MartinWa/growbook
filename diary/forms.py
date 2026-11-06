@@ -1,17 +1,155 @@
+import re
 from uuid import uuid4
 
 from django import forms
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.dateparse import parse_date
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
 from garden.models import Crop, GrowingArea, Planting, Variety
 from garden.queries import area_paths
 
+TAG_FIELDS = {
+    "link_plantings": (Planting, "planting", _("Plantings")),
+    "link_areas": (GrowingArea, "area", _("Growing areas")),
+    "link_crops": (Crop, "crop", _("Crops")),
+    "link_varieties": (Variety, "variety", _("Varieties")),
+}
 
-class CaptureForm(forms.Form):
+
+class TagIdsField(forms.TypedMultipleChoiceField):
+    """Validate typed IDs; capture eligibility belongs after immutable receipt lookup."""
+
+    def __init__(self, **kwargs):
+        super().__init__(required=False, coerce=int, widget=forms.CheckboxSelectMultiple, **kwargs)
+        self.eligible_ids = None
+
+    def validate(self, value):
+        forms.Field.validate(self, value)
+        if any(re.fullmatch(r"[1-9][0-9]*", item) is None for item in value):
+            raise forms.ValidationError(_("Choose a valid record."))
+        if len(set(value)) != len(value):
+            raise forms.ValidationError(_("A record can only be linked once."))
+        if self.eligible_ids is not None and not {int(item) for item in value} <= self.eligible_ids:
+            raise forms.ValidationError(_("Choose a valid record."))
+
+
+class TaggedForm(forms.Form):
+    link_plantings = TagIdsField(label=_("Plantings"))
+    link_areas = TagIdsField(label=_("Growing areas"))
+    link_crops = TagIdsField(label=_("Crops"))
+    link_varieties = TagIdsField(label=_("Varieties"))
+
+    @property
+    def selected_links(self):
+        return [
+            (kind, pk)
+            for name, (_model, kind, _label) in TAG_FIELDS.items()
+            for pk in self.cleaned_data[name]
+        ]
+
+    def setup_tags(self, current=None):
+        self.current_tags = current
+        if current is not None:
+            for name, (model, _kind, _label) in TAG_FIELDS.items():
+                queryset = (
+                    model.objects.all() if model is Planting else _eligible(model, current[name])
+                )
+                self.fields[name].eligible_ids = set(queryset.values_list("pk", flat=True))
+
+    @cached_property
+    def tag_groups(self):
+        """Render the same native checkboxes in capture/edit, progressively enhanced."""
+        areas = list(GrowingArea.objects.all())
+        paths = area_paths(areas)
+        try:
+            value = self["date"].value()
+            observed = value if hasattr(value, "year") else parse_date(str(value))
+        except ValueError:
+            observed = None
+        year = observed.year if observed else timezone.localdate().year
+        groups = []
+        for name, (model, kind, label) in TAG_FIELDS.items():
+            selected = {str(pk) for pk in self[name].value() or []}
+            current = self.current_tags[name] if self.current_tags is not None else ()
+            queryset = model.objects.all() if model is Planting else _eligible(model, current)
+            if model is Planting:
+                queryset = queryset.select_related("crop", "variety", "area")
+            elif model is Variety:
+                queryset = queryset.select_related("crop")
+            options = []
+            for record in queryset:
+                context, derived = "", ""
+                in_year = True
+                if model is Planting:
+                    variety = record.variety.name if record.variety_id else _("Unknown variety")
+                    title = f"{record.crop.name} · {variety}"
+                    span = str(record.start_year)
+                    if record.lifespan == Planting.Lifespan.PERSISTENT:
+                        span += f"–{record.end_year or _('Ongoing')}"
+                    place = paths.get(record.area_id, str(_("Unassigned area")))
+                    batch = record.label or _("Batch %(number)s") % {"number": record.pk}
+                    context = " · ".join([place, span, batch])
+                    in_year = record.start_year == year or (
+                        record.lifespan == Planting.Lifespan.PERSISTENT
+                        and record.start_year <= year
+                        and (record.end_year is None or record.end_year >= year)
+                    )
+                    related = [record.crop.name]
+                    if record.variety_id:
+                        related.append(record.variety.name)
+                    if record.area_id:
+                        related.append(paths[record.area_id])
+                    derived = " · ".join(related)
+                else:
+                    title = paths[record.pk] if model is GrowingArea else record.name
+                    if model is Variety:
+                        context = record.crop.name
+                        derived = record.crop.name
+                    if record.is_archived:
+                        context = " · ".join(filter(None, [context, str(_("Archived"))]))
+                options.append(
+                    {
+                        "pk": record.pk,
+                        "title": title,
+                        "context": context,
+                        "selected": str(record.pk) in selected,
+                        "in_year": in_year,
+                        "derived": derived,
+                        "start_year": getattr(record, "start_year", ""),
+                        "end_year": getattr(record, "end_year", "") or "",
+                        "persistent": getattr(record, "lifespan", "")
+                        == Planting.Lifespan.PERSISTENT,
+                    }
+                )
+            shown = {str(option["pk"]) for option in options}
+            for pk in sorted(selected - shown):
+                if re.fullmatch(r"[1-9][0-9]*", pk):
+                    options.append(
+                        {
+                            "pk": pk,
+                            "title": _("Unavailable record (%(number)s)") % {"number": pk},
+                            "context": label,
+                            "selected": True,
+                            "in_year": False,
+                        }
+                    )
+            groups.append(
+                {
+                    "name": name,
+                    "kind": kind,
+                    "label": label,
+                    "options": sorted(options, key=lambda option: not option["in_year"]),
+                }
+            )
+        return groups
+
+
+class CaptureForm(TaggedForm):
     submission_key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid4)
     date = forms.DateField(
         label=_("Date"),
@@ -55,6 +193,7 @@ class CaptureForm(forms.Form):
 
     def __init__(self, *args, quick=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setup_tags()
         if quick:
             self.fields["body"].widget.attrs["rows"] = 3
 
@@ -65,28 +204,11 @@ class CaptureForm(forms.Form):
         return cleaned
 
 
-class AreaMultipleChoiceField(forms.ModelMultipleChoiceField):
-    def label_from_instance(self, obj):
-        return self.paths.get(obj.pk, obj.name)
-
-
-class PlantingMultipleChoiceField(forms.ModelMultipleChoiceField):
-    def label_from_instance(self, obj):
-        parts = [str(obj.crop)]
-        if obj.variety_id:
-            parts.append(obj.variety.name)
-        if obj.area_id:
-            parts.append(self.paths.get(obj.area_id, obj.area.name))
-        parts.append(str(obj.start_year))
-        parts.append(obj.label or _("Batch %(number)s") % {"number": obj.pk})
-        return " · ".join(parts)
-
-
 def _eligible(model, current_ids):
     return model.objects.filter(Q(is_archived=False) | Q(pk__in=current_ids))
 
 
-class EntryEditForm(forms.Form):
+class EntryEditForm(TaggedForm):
     expected_updated_at = VersionField()
     date = forms.DateField(
         label=_("Date"),
@@ -95,30 +217,6 @@ class EntryEditForm(forms.Form):
     )
     body = forms.CharField(
         label=_("Note"), required=False, widget=forms.Textarea(attrs={"rows": 5})
-    )
-    link_areas = AreaMultipleChoiceField(
-        label=_("Growing areas"),
-        queryset=GrowingArea.objects.none(),
-        required=False,
-        widget=forms.SelectMultiple(attrs={"size": 5}),
-    )
-    link_crops = forms.ModelMultipleChoiceField(
-        label=_("Crops"),
-        queryset=Crop.objects.none(),
-        required=False,
-        widget=forms.SelectMultiple(attrs={"size": 5}),
-    )
-    link_varieties = forms.ModelMultipleChoiceField(
-        label=_("Varieties"),
-        queryset=Variety.objects.none(),
-        required=False,
-        widget=forms.SelectMultiple(attrs={"size": 5}),
-    )
-    link_plantings = PlantingMultipleChoiceField(
-        label=_("Plantings"),
-        queryset=Planting.objects.none(),
-        required=False,
-        widget=forms.SelectMultiple(attrs={"size": 5}),
     )
     photos = MultipleFileField(
         label=_("Add photos"),
@@ -143,23 +241,12 @@ class EntryEditForm(forms.Form):
             for number, photo in enumerate(photos, 1)
         ]
         links = list(entry.links.all())
-        current = {
-            "area": {link.area_id for link in links if link.area_id},
-            "crop": {link.crop_id for link in links if link.crop_id},
-            "variety": {link.variety_id for link in links if link.variety_id},
-        }
-        areas = list(GrowingArea.objects.all())
-        paths = area_paths(areas)
-        self.fields["link_areas"].paths = paths
-        self.fields["link_plantings"].paths = paths
-        self.fields["link_areas"].queryset = _eligible(GrowingArea, current["area"])
-        self.fields["link_crops"].queryset = _eligible(Crop, current["crop"])
-        self.fields["link_varieties"].queryset = _eligible(
-            Variety, current["variety"]
-        ).select_related("crop")
-        self.fields["link_plantings"].queryset = Planting.objects.select_related(
-            "crop", "variety", "area"
-        ).order_by("-start_year", "crop__name_key", "variety__name_key", "id")
+        self.setup_tags(
+            {
+                name: {getattr(link, f"{kind}_id") for link in links if getattr(link, f"{kind}_id")}
+                for name, (_model, kind, _label) in TAG_FIELDS.items()
+            }
+        )
 
     def clean(self):
         data = super().clean()

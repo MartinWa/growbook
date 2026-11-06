@@ -47,13 +47,16 @@ class CaptureResult:
     created: bool
 
 
-def payload_fingerprint(date, body, photos):
+def payload_fingerprint(date, body, photos, links=()):
     payload = {
         "version": 1,
         "date": date.isoformat(),
         "body": body,
         "photos": [photo.sha256 for photo in photos],
     }
+    # Keep existing unlinked receipts byte-for-byte compatible.
+    if links:
+        payload["links"] = sorted(links)
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -75,7 +78,7 @@ def check_receipt(key, author_id, fingerprint):
     return CaptureResult(receipt.entry, created=False)
 
 
-def create_entry(*, author, date, body, uploads, submission_key):
+def create_entry(*, author, date, body, uploads, submission_key, links=()):
     """Process outside atomic; revalidate shared state inside the serialized write."""
     if connection.in_atomic_block:
         raise RuntimeError("Call create_entry outside any existing transaction.")
@@ -88,11 +91,12 @@ def create_entry(*, author, date, body, uploads, submission_key):
     except (ValueError, TypeError, AttributeError) as exc:
         raise ValidationError(_("The save key is invalid. Reload the capture form.")) from exc
     body = body.strip()
+    links = _normalize_links(links)
     uploads = list(uploads)
     if not body and not uploads:
         raise ValidationError(_("Write a note or add at least one photo."))
     with media_operation(), staged_uploads(uploads) as photos:
-        fingerprint = payload_fingerprint(date, body, photos)
+        fingerprint = payload_fingerprint(date, body, photos, links)
         # Match retries before decoding against the receipt, not mutable entry fields.
         with transaction.atomic():
             if not User.objects.filter(pk=author.pk, is_active=True).exists():
@@ -107,6 +111,7 @@ def create_entry(*, author, date, body, uploads, submission_key):
                 result = check_receipt(key, author.pk, fingerprint)
                 if result:
                     return result
+                resolved_links = _resolve_links(links)
                 entry = DiaryEntry(
                     date=date,
                     body=body,
@@ -116,6 +121,7 @@ def create_entry(*, author, date, body, uploads, submission_key):
                 )
                 entry.full_clean()
                 entry.save()
+                _save_links(entry, resolved_links)
                 for position, values in enumerate(rows):
                     image = Photo(entry=entry, **values, position=position)
                     image.full_clean()
@@ -135,6 +141,12 @@ LINK_FIELDS = {
     Planting: "planting",
 }
 LINK_MODELS = {field: model for model, field in LINK_FIELDS.items()}
+LINK_FORM_FIELDS = {
+    "area": "link_areas",
+    "crop": "link_crops",
+    "variety": "link_varieties",
+    "planting": "link_plantings",
+}
 
 
 def _outside_transaction(actor):
@@ -177,16 +189,44 @@ def _fresh_editor(actor, entry):
 def _normalize_links(links):
     normalized = {}
     for target in links:
-        field = next(
-            (name for model, name in LINK_FIELDS.items() if isinstance(target, model)), None
-        )
+        if isinstance(target, tuple) and len(target) == 2:
+            field, target_pk = target
+            if not isinstance(field, str) or field not in LINK_MODELS:
+                raise ValidationError(_("Choose a valid record to link."))
+        else:
+            field = next(
+                (name for model, name in LINK_FIELDS.items() if isinstance(target, model)), None
+            )
+            target_pk = getattr(target, "pk", None)
         if field is None:
             raise ValidationError(_("Choose a valid record to link."))
-        key = (field, _positive_id(getattr(target, "pk", None)))
+        key = (field, _positive_id(target_pk))
         if key in normalized:
             raise ValidationError(_("A record can only be linked once."))
         normalized[key] = target
     return normalized
+
+
+def _resolve_links(links, previous_links=()):
+    resolved = {}
+    for field, target_pk in links:
+        model = LINK_MODELS[field]
+        form_field = LINK_FORM_FIELDS[field]
+        try:
+            target = model.objects.get(pk=target_pk)
+        except model.DoesNotExist as exc:
+            raise ValidationError({form_field: _("Choose a valid record.")}) from exc
+        if field != "planting" and target.is_archived and (field, target_pk) not in previous_links:
+            raise ValidationError({form_field: _("Choose an active record for a new link.")})
+        resolved[(field, target_pk)] = target
+    return resolved
+
+
+def _save_links(entry, links):
+    for (field, _target_pk), target in links.items():
+        link = DiaryLink(entry=entry, **{field: target})
+        link.full_clean()
+        link.save()
 
 
 def _normalize_photo_ids(photo_ids):
@@ -229,20 +269,7 @@ def _write_entry_edit(
                 )
             )
         previous_links = {_link_key(link) for link in entry.links.all()}
-        resolved_links = {}
-        for (field, target_pk), _target in links.items():
-            model = LINK_MODELS[field]
-            try:
-                current_target = model.objects.get(pk=target_pk)
-            except model.DoesNotExist as exc:
-                raise ValidationError({field: _("Choose a valid record.")}) from exc
-            if (
-                field in {"area", "crop", "variety"}
-                and current_target.is_archived
-                and (field, target_pk) not in previous_links
-            ):
-                raise ValidationError({field: _("Choose an active record for a new link.")})
-            resolved_links[(field, target_pk)] = current_target
+        resolved_links = _resolve_links(links, previous_links)
 
         photos = list(entry.photos.all())
         photo_ids = {photo.pk for photo in photos}
@@ -260,10 +287,7 @@ def _write_entry_edit(
             )
 
         entry.links.all().delete()
-        for (field, _target_pk), target in resolved_links.items():
-            link = DiaryLink(entry=entry, **{field: target})
-            link.full_clean()
-            link.save()
+        _save_links(entry, resolved_links)
 
         removed = [photo for photo in photos if photo.pk in remove_photo_ids]
         folders.extend(photo_bundles(removed))
