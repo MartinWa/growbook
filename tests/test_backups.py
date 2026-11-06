@@ -16,7 +16,7 @@ from core.backups import BackupError, create_backup, open_snapshot, restore_back
 from core.cleanup import cleanup_orphans
 from core.media import private_path
 from diary.models import DiaryEntry
-from diary.services import create_entry
+from diary.services import create_entry, update_entry
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -87,6 +87,17 @@ def test_restored_instance_authenticates_and_reads_photos_in_fresh_process(
     user.password = hasher.encode("Synthetic-password-42", hasher.salt())
     user.save(update_fields=["password"])
     entry = capture(user, [image_upload()])
+    edit_payload = {
+        "pk": entry.pk,
+        "date": entry.date.isoformat(),
+        "body": "Edited synthetic recovery note",
+        "submission_key": str(uuid4()),
+        "expected_updated_at": entry.updated_at.isoformat(),
+    }
+    update_entry(
+        **{**edit_payload, "date": entry.date, "expected_updated_at": entry.updated_at},
+        actor=user,
+    )
     backup = tmp_path / "backup"
     restored = tmp_path / "new-instance"
     create_backup(backup, [recovery_config])
@@ -98,19 +109,30 @@ import django
 django.setup()
 from django.test import Client
 from core.models import Photo
-from diary.models import DiaryEntry
+from diary.models import DiaryEditSubmission, DiaryEntry
+from diary.services import update_entry
+from django.utils.dateparse import parse_date, parse_datetime
 from django.contrib.auth import authenticate
 user = authenticate(username='gardener', password='Synthetic-password-42')
 assert user is not None
 client = Client(HTTP_HOST='localhost')
 client.force_login(user)
 entry = DiaryEntry.objects.get()
+before = entry.updated_at
+assert DiaryEditSubmission.objects.get(key=edit_payload['submission_key']).entry_id == entry.pk
+retry = update_entry(
+    **{**edit_payload, 'date': parse_date(edit_payload['date']),
+       'expected_updated_at': parse_datetime(edit_payload['expected_updated_at'])}, actor=user,
+)
+assert retry.updated_at == before and retry.body == 'Edited synthetic recovery note'
+assert retry.photos.count() == 1 and DiaryEditSubmission.objects.count() == 1
 assert client.get(entry.get_absolute_url()).status_code == 200
 response = client.get(Photo.objects.get().display_url)
 assert response.status_code == 200
 assert len(b''.join(response.streaming_content)) > 0
 print('clean instance authenticated and rendered original relationships/photos')
 """
+    script = "edit_payload = " + repr(edit_payload) + "\n" + script
     environment = os.environ.copy()
     environment["GROWBOOK_DATA_DIR"] = str(restored)
     completed = subprocess.run(

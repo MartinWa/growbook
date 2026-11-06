@@ -57,8 +57,8 @@ interface defaults to Swedish, with English available.
   Structured harvest accounting and portable data import/export are
   not provided.
 - Entry deletion permanently removes the note, links and photos, including private
-  originals; linked registers and plantings remain. Creation receipts are kept only to
-  reject stale capture retries.
+  originals; linked registers and plantings remain. Creation and edit receipts are kept
+  to reject retries against deleted entries.
 - Diary search is a literal, Unicode-casefolded substring of the note. Diacritics remain
   significant (`Å` is not `A`, `å` is not `a`), and captions, author names and linked
   record names are not searched.

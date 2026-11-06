@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import date as Date
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -24,7 +24,7 @@ from core.photo_storage import (
 from core.writes import validated_write
 from garden.models import Crop, GrowingArea, Planting, Variety
 
-from .models import DiaryEntry, DiaryLink, DiarySubmission
+from .models import DiaryEditSubmission, DiaryEntry, DiaryLink, DiarySubmission
 from .permissions import can_edit_entry
 from .search import normalize_search
 
@@ -246,6 +246,38 @@ def _link_key(link):
     return None
 
 
+def _edit_fingerprint(pk, date, body, links, remove_photo_ids, expected_updated_at, photos):
+    payload = {
+        "version": 1,
+        "pk": pk,
+        "date": date.isoformat(),
+        "body": body,
+        "links": sorted(links),
+        "remove_photo_ids": sorted(remove_photo_ids),
+        "expected_updated_at": expected_updated_at.isoformat(),
+        "photos": [photo.sha256 for photo in photos],
+    }
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+
+
+def _check_edit_receipt(key, actor, fingerprint):
+    receipt = DiaryEditSubmission.objects.select_related("entry__author").filter(key=key).first()
+    if receipt is None:
+        return None
+    if receipt.author_id != actor.pk or receipt.payload_sha256 != fingerprint:
+        raise EntryConflict(
+            _("This save key was already used with different content. Nothing was overwritten.")
+        )
+    if receipt.entry_id is None:
+        raise EntryConflict(_("This entry was already deleted. It was not recreated."))
+    _fresh_editor(actor, receipt.entry)
+    return receipt.entry
+
+
 def _write_entry_edit(
     *,
     actor,
@@ -257,10 +289,15 @@ def _write_entry_edit(
     rows,
     expected_updated_at,
     folders,
+    key,
+    fingerprint,
 ):
     with transaction.atomic(), validated_write():
         entry = _entry_for_editor(actor, pk)
         _fresh_editor(actor, entry)
+        retry = _check_edit_receipt(key, actor, fingerprint)
+        if retry is not None:
+            return retry
         if entry.updated_at != expected_updated_at:
             raise EntryConflict(
                 _(
@@ -305,6 +342,11 @@ def _write_entry_edit(
             photo = Photo(entry=entry, **values, position=position + offset)
             photo.full_clean()
             photo.save()
+        receipt = DiaryEditSubmission(
+            key=key, author=actor, payload_sha256=fingerprint, entry=entry
+        )
+        receipt.full_clean()
+        receipt.save()
         return entry
 
 
@@ -318,8 +360,9 @@ def update_entry(
     uploads=(),
     remove_photo_ids=(),
     expected_updated_at,
+    submission_key=None,
 ):
-    """Edit date/note/links/photos together; photos are processed outside the write."""
+    """Edit atomically; an identical key/payload/version retry returns the current entry."""
     _outside_transaction(actor)
     pk = _positive_id(pk)
     if not isinstance(date, Date):
@@ -328,6 +371,10 @@ def update_entry(
         raise ValidationError(_("Enter text, or leave the note blank."))
     body = body.strip()
     expected_updated_at = _version(expected_updated_at)
+    try:
+        key = UUID(str(submission_key)) if submission_key is not None else uuid4()
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValidationError(_("The save key is invalid. Reload the form.")) from exc
     links = _normalize_links(links)
     remove_photo_ids = _normalize_photo_ids(remove_photo_ids)
     uploads = list(uploads)
@@ -335,41 +382,40 @@ def update_entry(
         raise ValidationError(
             _("Select no more than %(count)s photos."), params={"count": settings.PHOTO_MAX_COUNT}
         )
-    entry = _entry_for_editor(actor, pk)
-    photos = list(entry.photos.all())
-    if not remove_photo_ids <= {photo.pk for photo in photos}:
-        raise ValidationError(
-            _("A selected photo no longer belongs to this entry. Reload it before saving.")
-        )
-    remaining = len(photos) - len(remove_photo_ids)
-    if remaining + len(uploads) > settings.PHOTO_MAX_COUNT:
-        raise ValidationError(
-            _("An entry can have no more than %(count)s photos."),
-            params={"count": settings.PHOTO_MAX_COUNT},
-        )
-    if not body and remaining == 0 and not uploads:
-        raise ValidationError(_("Write a note or keep at least one photo."))
+    _entry_for_editor(actor, pk)
 
     folders = []
     with media_operation():
         try:
             if uploads:
-                with (
-                    staged_uploads(uploads) as staged,
-                    published_uploads(staged) as rows,
-                ):
-                    entry = _write_entry_edit(
-                        actor=actor,
-                        pk=pk,
-                        date=date,
-                        body=body,
-                        links=links,
-                        remove_photo_ids=remove_photo_ids,
-                        rows=rows,
-                        expected_updated_at=expected_updated_at,
-                        folders=folders,
+                with staged_uploads(uploads) as staged:
+                    fingerprint = _edit_fingerprint(
+                        pk, date, body, links, remove_photo_ids, expected_updated_at, staged
                     )
+                    with transaction.atomic():
+                        entry = _entry_for_editor(actor, pk)
+                        _fresh_editor(actor, entry)
+                        retry = _check_edit_receipt(key, actor, fingerprint)
+                        if retry is not None:
+                            return retry
+                    with published_uploads(staged) as rows:
+                        entry = _write_entry_edit(
+                            actor=actor,
+                            pk=pk,
+                            date=date,
+                            body=body,
+                            links=links,
+                            remove_photo_ids=remove_photo_ids,
+                            rows=rows,
+                            expected_updated_at=expected_updated_at,
+                            folders=folders,
+                            key=key,
+                            fingerprint=fingerprint,
+                        )
             else:
+                fingerprint = _edit_fingerprint(
+                    pk, date, body, links, remove_photo_ids, expected_updated_at, ()
+                )
                 entry = _write_entry_edit(
                     actor=actor,
                     pk=pk,
@@ -380,6 +426,8 @@ def update_entry(
                     rows=[],
                     expected_updated_at=expected_updated_at,
                     folders=folders,
+                    key=key,
+                    fingerprint=fingerprint,
                 )
         finally:
             discard_unreferenced_bundles(folders)
