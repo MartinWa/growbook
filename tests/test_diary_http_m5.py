@@ -67,14 +67,14 @@ def test_author_can_open_edit_and_other_member_cannot(client, user, other_user):
     client.force_login(user)
     client.cookies["django_language"] = "en"
     response = client.get(reverse("diary:list"))
-    assert f'href="{reverse("diary:edit", args=[record.pk])}">Edit and tag' in response.text
+    assert f'href="{reverse("diary:edit", args=[record.pk])}">Edit' in response.text
     response = client.get(reverse("diary:edit", args=[record.pk]))
     assert response.status_code == 200
     assert reverse("diary:edit", args=[record.pk]) in response.text
     client.cookies["django_language"] = "en"
     detail = client.get(record.get_absolute_url())
-    assert "No garden links yet." in detail.text
-    assert f'href="{reverse("diary:edit", args=[record.pk])}">Add garden links' in detail.text
+    assert "Add garden links" not in detail.text
+    assert f'href="{reverse("diary:edit", args=[record.pk])}">Edit' in detail.text
     client.force_login(other_user)
     response = client.get(reverse("diary:list"))
     assert f'href="{reverse("diary:edit", args=[record.pk])}"' not in response.text

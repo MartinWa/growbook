@@ -19,16 +19,6 @@
     {% include 'components/field.html' with field=form.date %}
     {% include 'components/field.html' with field=form.body %}
 
-    <details class="link-picker my-4 border-t border-base-300" open>
-      <summary class="inline-flex min-h-11 cursor-pointer items-center text-primary">{% translate 'Link to garden records (optional)' %}</summary>
-      <p class="muted">{% translate 'A planting link also matches its crop, variety and area. Select several with Ctrl or Cmd; nothing else is required.' %}</p>
-      {% include 'components/field.html' with field=form.link_areas %}
-      {% include 'components/field.html' with field=form.link_crops %}
-      {% include 'components/field.html' with field=form.link_varieties %}
-      {% include 'components/field.html' with field=form.link_plantings %}
-      <p class="muted">{% translate 'Archived records stay selectable only when this entry already links to them.' %}</p>
-    </details>
-
     <fieldset class="photo-picker" id="id_remove_photos" tabindex="-1">
       <legend>{% translate 'Existing photos' %}</legend>
       {% if entry.photos.all %}
@@ -48,14 +38,15 @@
       <p id="id_remove_photos_helptext" class="field-help">{{ form.remove_photos.help_text }}</p>
     </fieldset>
 
-    {% include 'components/photo_picker.html' with field=form.photos existing_photos=entry.photos.count %}
+    {% include 'components/photo_picker.html' with field=form.photos existing_photos=entry.photos.count quick=True %}
+    {% include 'diary/_tag_picker.html' %}
 
     <p data-register-status role="status" aria-live="polite"></p>
     <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{% translate 'Save observation' %}</button>
-      <a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a>
+    <div class="form-actions capture-actions">
+      <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-check"/></svg> {% translate 'Save observation' %}</button>
     </div>
+    <p class="entry-actions"><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></p>
   </form>
 </section>
 {% endblock %}

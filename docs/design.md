@@ -55,19 +55,22 @@ medium and large radii. The base font is 106.25% of the browser default, with a
 
 ## Capture layout and interaction
 
-The dedicated capture panel is at most 700 px wide. Save and Cancel are
-full-width actions on small screens, with Save first. Quick-add uses the same
-form, a three-row note, compact date and a link to the dedicated page. The
+The diary uses one inline composer with a three-row note and compact date. Editing
+an existing observation also includes its saved photos and a Cancel action. The
 note grows with its content where native `field-sizing` is supported, with
 a maximum height and ordinary textarea scrolling for longer text.
-Garden-link guidance follows the dedicated form's actions.
+The inline composer and observation editing put **Add tags** and **Add photos** on the
+left of one action row and **Save observation** on the right. The row wraps on narrow
+screens. Native grouped tag checkboxes are enhanced into a searchable popover with
+removable chips; see the [diary workflow](usage.md#diary). Existing observations align
+their edit actions to the right.
 
 With JavaScript, Add photos is one button that opens the native image picker
 directly. Camera/library options and their language are supplied by the browser
 and operating system. Without JavaScript, separate camera and library inputs
 are visible in one column below 600 px and
-two columns above it. Photo limits use a short line and a native disclosure
-with the full formats and byte limits.
+two columns above it. Photo limits appear with warnings after a selection exceeds
+the configured count or byte limits.
 
 `components/photo_picker.html` and `photos.js` share this behavior across capture,
 observation editing and Garden forms. Garden and edit inputs share the existing
@@ -75,11 +78,9 @@ observation editing and Garden forms. Garden and edit inputs share the existing
 widget. Selection and removal update native FileLists where supported; previews
 use object URLs, released on replacement or page exit. Removing a preview keeps
 focus on another removal control or the chooser. Errors link back to the chooser
-when native inputs are hidden. Selected counts show the chosen number out of the
-configured capacity; on edit forms the capacity subtracts existing photos kept after
-any marked removals.
-Count warnings include retained photos and do not
-discard files or replace server validation.
+when native inputs are hidden. Selected counts show the chosen number; count warnings
+include existing photos kept after any marked removals. Warnings do not discard files
+or replace server validation.
 When FileList assignment is unavailable, native replacement selection remains
 usable and a Clear selected photos action empties both inputs.
 

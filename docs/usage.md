@@ -70,11 +70,11 @@ FileLists; otherwise a new choice replaces files from that source, and **Clear s
 photos** empties it. Without JavaScript both native inputs remain visible; choose all
 library photos at once.
 
-Selected-photo counts show the number chosen out of the available capacity. **Photo
-limits** lists formats and byte limits. A count warning includes existing photos and,
-when editing an observation, subtracts photos marked for removal; the server enforces
-the limit. On phone-sized screens with enough height, full forms keep Save and Cancel
-visible at the bottom while scrolling.
+Selected-photo counts show the number chosen. Limits appear in a warning when the
+selected count, an individual file or the total upload exceeds them. A count warning
+includes existing photos and, when editing an observation, subtracts photos marked
+for removal; the server enforces the limit. On phone-sized screens with enough height,
+full forms keep their save actions visible at the bottom while scrolling.
 
 ## Plantings and histories
 
@@ -122,13 +122,37 @@ presence, not exact movement dates, lineage or historical layouts.
 
 ## Diary
 
-Open **Diary** to add an observation or browse observations newest first. Quick-add
-accepts a note, photos or both; **More options** opens the dedicated capture page and
-does not carry the quick draft over. With JavaScript, a confirmation warns before
-leaving a non-empty draft; a confirmed save clears quick-add, shows a receipt and
-refreshes the first results page with current filters. Failed saves keep the draft and
-selected files in the open form. Without JavaScript, reselect photos as instructed and
+Open **Diary** to add an observation or browse observations newest first. The inline
+composer accepts a note, photos or both, with optional tags. A confirmed save clears
+the composer, shows a receipt and refreshes the first results page with current
+filters. Failed saves keep the draft and selected files in the open form. Without
+JavaScript, reselect photos as instructed and
 retry with the same save key.
+
+The inline composer and observation editing place **Add tags** and **Add photos** on
+the left of the action row, with **Save observation** aligned right. The row wraps on
+narrow screens.
+Both forms share the same tag picker. **Add tags** opens a bounded selector with its own
+scrolling choices. Choose several using the checkboxes or click anywhere in a result
+row; each selection appears as a removable chip. Nothing needs to be selected for a
+general observation. Pointer activation keeps focus on the button; keyboard activation
+focuses search. **Done** or Escape closes the selector and returns focus to **Add tags**.
+
+Plantings for the observation's year, including ongoing persistent plantings, appear
+first, followed by growing areas. **Other years** and **Crops and varieties** reveal
+secondary choices. Search finds these immediately, including planting crop, variety,
+full area path, batch and year. Year ranks suggestions without restricting links.
+Without JavaScript, grouped native checkboxes remain available.
+
+Tags store only the explicit choices. A planting also supplies its current crop,
+known variety, assigned area and ancestor areas for retrieval; a variety supplies its
+crop. Changing a planting's relationships or area nesting changes past observations'
+filter results too. No redundant tags or location snapshot are created. Capture saves
+the observation, tags, photos and immutable receipt together. An identical retry matches
+that receipt before current tag eligibility, even if a target was later archived,
+changed or removed after unlinking. Choosing the same tags in a different order is an
+identical retry. A confirmed quick save clears tags and starts a fresh save key.
+Diary filters do not preselect tags for a new observation.
 
 Search and filters use a sidebar on wide screens and a drawer on phones. With JavaScript,
 search applies after a short pause or Enter, other filters apply on change, and chips
@@ -151,13 +175,14 @@ remains without JavaScript. The login page has its own selector.
   `Angstrom` does not). Captions and linked record names are not searched.
 - Open an observation to read its note, links and photos. The author may edit or delete
   it; an active staff administrator may edit or delete any entry; other active accounts
-  can read it. The list shows **Edit and tag** only on entries the signed-in account may
+  can read it. The list shows **Edit** only on entries the signed-in account may
   change. A deactivated author cannot write, even while signed in.
 - Edit changes the date, note, garden links and photos. A planting link also matches its
   crop, variety and area. Each link points to exactly one area, crop, variety or planting,
-  and the same record can be linked once. New links must target active records; existing
-  links to archived records remain selected and filterable. An entry without links shows
-  **Add garden links** on its page, and the edit form opens the link picker by default.
+  and the same record can be linked once. New direct links to crops, varieties and areas
+  must target active records; existing archived links remain visible and removable.
+  Older or ended plantings, including those with archived associations, stay selectable.
+  Ordinary **Edit** includes the same picker and preserves existing explicit links.
 - Edits use the entry's version token; a stale form is rejected rather than overwriting a
   newer change. Reload to see saved values. With JavaScript only errors are replaced and
   the form stays open; without it, date, note and link selections are kept, but photos

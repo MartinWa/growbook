@@ -1,6 +1,7 @@
 {% load i18n %}
 <fieldset class="photo-picker" data-photo-picker data-existing-photos="{{ existing_photos|default:0 }}" data-photo-limit="{{ photo_max_count }}"
-  data-photos-selected="{% translate 'Photos selected: {selected} of {limit}' %}" data-remove="{% translate 'Remove' %}" data-clear="{% translate 'Clear selected photos' %}"
+  data-photo-file-bytes="{{ photo_max_file_bytes }}" data-photo-total-bytes="{{ photo_max_total_bytes }}"
+  data-photos-selected="{% translate 'Photos selected: {selected}' %}" data-remove="{% translate 'Remove' %}" data-clear="{% translate 'Clear selected photos' %}"
   data-preview-unavailable="{% translate 'Preview unavailable; the original photo will still be uploaded.' %}">
   <legend{% if quick %} class="visually-hidden"{% endif %}>{% translate 'Photos (optional)' %}</legend>
   <button type="button" class="btn btn-outline" data-photo-chooser hidden><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-images"/></svg> {% translate 'Add photos' %}</button>
@@ -20,14 +21,10 @@
   <div id="capture-camera-errors" class="field-errors">{{ form.camera.errors }}</div>
   <div id="capture-library-errors" class="field-errors">{{ form.library.errors }}</div>
   {% endif %}
-  <div class="photo-limit-line">
-    <span class="field-help">{% blocktranslate %}Up to {{ photo_max_count }} photos{% endblocktranslate %}</span>
-    <details class="photo-limits disclosure-menu">
-      <summary>{% translate 'Photo limits' %}</summary>
-      <div class="menu-panel"><p id="{% if field %}{{ field.auto_id }}_helptext{% else %}capture-photo-help{% endif %}" class="field-help">{% blocktranslate %}JPEG, PNG, WebP and HEIC. Up to {{ photo_max_count }} photos per record, {{ photo_max_file_mib }} MiB each, {{ photo_max_total_mib }} MiB per upload.{% endblocktranslate %}</p></div>
-    </details>
-  </div>
   <p data-photo-count{% if not field %} id="photo-count"{% endif %} aria-live="polite"></p>
-  <p data-photo-limit-warning class="field-errors" role="alert" hidden>{% translate 'The photo limit is exceeded. Remove selected photos before saving.' %}</p>
+  <div data-photo-limit-warning role="alert" hidden>
+    <p class="field-errors">{% translate 'The photo limit is exceeded. Remove selected photos before saving.' %}</p>
+    <p id="{% if field %}{{ field.auto_id }}_helptext{% else %}capture-photo-help{% endif %}" class="field-help">{% blocktranslate %}JPEG, PNG, WebP and HEIC. Up to {{ photo_max_count }} photos per record, {{ photo_max_file_mib }} MiB each, {{ photo_max_total_mib }} MiB per upload.{% endblocktranslate %}</p>
+  </div>
   <div data-photo-previews{% if not field %} id="photo-previews"{% endif %} class="photo-grid"></div>
 </fieldset>

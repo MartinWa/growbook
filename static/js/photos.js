@@ -26,13 +26,15 @@
       input.files = transfer.files;
     }
     function updateCount() {
-      const selected = [...selections.values()].reduce((total, files) => total + files.length, 0);
+      const files = [...selections.values()].flat();
+      const selected = files.length;
       const removed = form.querySelectorAll('input[name="remove_photos"]:checked').length;
       const remaining = Math.max(0, Number(picker.dataset.existingPhotos) - removed);
-      const capacity = Math.max(0, Number(picker.dataset.photoLimit) - remaining);
       count.textContent = selected ? picker.dataset.photosSelected
-        .replaceAll("{selected}", String(selected)).replaceAll("{limit}", String(capacity)) : "";
-      warning.hidden = selected + remaining <= Number(picker.dataset.photoLimit);
+        .replaceAll("{selected}", String(selected)) : "";
+      warning.hidden = selected + remaining <= Number(picker.dataset.photoLimit) &&
+        files.every(file => file.size <= Number(picker.dataset.photoFileBytes)) &&
+        files.reduce((total, file) => total + file.size, 0) <= Number(picker.dataset.photoTotalBytes);
     }
     function renderPreviews() {
       urls.forEach(url => URL.revokeObjectURL(url));
@@ -113,6 +115,8 @@
     });
     chooser.setAttribute("aria-describedby",
       [...picker.querySelectorAll(".field-errors[id]")].map(slot => slot.id).join(" "));
+    const actions = form.querySelector(".capture-actions");
+    if (actions) actions.insertBefore(chooser, actions.querySelector('[type="submit"]'));
     picker.querySelector("[data-native-photos]").hidden = true;
     chooser.hidden = false;
 

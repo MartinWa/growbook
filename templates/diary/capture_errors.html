@@ -4,7 +4,7 @@
   {% for field in form %}
     {% if field.errors %}
     <div>
-      {% if field.is_hidden %}{{ field.label }}{% else %}<a href="#{{ field.id_for_label }}">{{ field.label }}</a>{% endif %}:
+      {% if field.is_hidden %}{{ field.label }}{% else %}<a href="#{{ field.id_for_label|default:field.auto_id }}">{{ field.label }}</a>{% endif %}:
       <div data-field-errors="{{ field.name }}"><ul class="errorlist">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
     </div>
     {% endif %}

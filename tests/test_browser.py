@@ -41,7 +41,7 @@ def login(page, live_server, user):
     page.locator("#id_password").fill("Synthetic-password-42")
     page.locator('button[type="submit"]').filter(has_text="Logga in").click()
     expect(page).to_have_url(live_server.url + "/")
-    page.goto(live_server.url + "/capture/")
+    page.goto(live_server.url + "/")
     page.wait_for_function("window.htmx !== undefined")
 
 
@@ -55,6 +55,7 @@ def open_entry_edit(page, live_server, user, photos=()):
     if photos:
         page.locator("#id_library").set_input_files(photos)
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     entry_url = page.url
     page.goto(entry_url + "edit/")
@@ -62,20 +63,15 @@ def open_entry_edit(page, live_server, user, photos=()):
     return entry_url
 
 
-def test_more_options_warns_before_dropping_a_quick_draft(page, live_server, user):
+def test_diary_has_one_composer_without_more_options(page, live_server, user):
     login(page, live_server, user)
-    page.goto(live_server.url + "/")
     expect(page.locator("#capture-form")).to_be_visible()
-    page.locator("#id_body").fill("Keep this quick note")
-    dialogs = []
-    page.on(
-        "dialog",
-        lambda dialog: (dialogs.append(dialog.message), dialog.dismiss()),
-    )
-    page.get_by_role("link", name="Fler alternativ").click()
-    assert dialogs
-    expect(page).to_have_url(live_server.url + "/")
-    assert page.locator("#id_body").input_value() == "Keep this quick note"
+    expect(page.locator("[data-more-options]")).to_have_count(0)
+    expect(page.locator(".photo-limits")).to_have_count(0)
+    expect(page.locator("[data-photo-limit-warning]")).to_be_hidden()
+    page.goto(live_server.url + "/capture/")
+    expect(page).to_have_url(live_server.url + "/#id_body")
+    expect(page.locator("#capture-form")).to_be_visible()
 
 
 @pytest.mark.parametrize("language", ["sv", "en"])
@@ -258,6 +254,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     login(page, live_server, user)
     page.locator("#id_library").set_input_files(upload(image_upload(size=(1600, 1200))))
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     entry_url = page.url
     photo_link = page.locator(".large-photo > a")
@@ -331,12 +328,12 @@ def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(
     page.locator("#id_library").set_input_files(upload(image_upload(), "library-1.jpg"))
     page.locator("#id_library").set_input_files(upload(image_upload(), "library-2.jpg"))
     expect(page.locator("#photo-previews figure")).to_have_count(3)
-    expect(page.locator("#photo-count")).to_have_text("Valda bilder: 3 av 10")
+    expect(page.locator("#photo-count")).to_have_text("Valda bilder: 3")
     page.locator("#id_body").fill("Synthetic browser observation — Ärtor")
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     expect(page.locator(".large-photo")).to_have_count(3)
-    expect(page.get_by_role("status")).to_contain_text("har sparats")
     expect(page.locator(".entry-body")).to_contain_text("Ärtor")
     assert errors == []
     assert page.evaluate("Object.keys(localStorage).length") == 0
@@ -406,6 +403,7 @@ def test_preview_rejects_unexpected_urls_without_losing_upload(
     assert page.evaluate("window.previewExecuted === undefined")
     assert page.locator("#id_library").evaluate("input => input.files.length") == 1
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     expect(page.locator(".large-photo")).to_have_count(1)
 
@@ -433,6 +431,7 @@ def test_validation_preserves_text_photos_and_submission_key(page, live_server, 
     expect(page.locator("#id_date")).to_be_focused()
     page.locator("#id_date").fill("2026-05-09")
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     expect(page.locator(".entry-body")).to_have_text("Keep this draft")
     expect(page.locator(".large-photo")).to_have_count(1)
@@ -442,6 +441,8 @@ def test_validation_preserves_text_photos_and_submission_key(page, live_server, 
 def test_capture_foundation_reflows_and_supports_keyboard(
     page, live_server, user, image_upload, language
 ):
+    # Enable interception before keyboard activation; a last-moment subscription can race.
+    page.on("filechooser", lambda chooser: None)
     login(page, live_server, user)
     page.context.add_cookies(
         [{"name": "django_language", "value": language, "url": live_server.url}]
@@ -451,18 +452,37 @@ def test_capture_foundation_reflows_and_supports_keyboard(
     for width in (320, 390, 1280):
         page.set_viewport_size({"width": width, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        for selector in ("#save-entry", ".capture-actions a", "#id_date", "#id_body"):
+        for selector in (
+            "#save-entry",
+            "[data-tag-trigger]",
+            "[data-photo-chooser]",
+            "#id_date",
+            "#id_body",
+        ):
             box = page.locator(selector).bounding_box()
             assert box["width"] >= 44 and box["height"] >= 44
+        actions = page.locator(".capture-actions").bounding_box()
+        save = page.locator("#save-entry").bounding_box()
+        assert abs(save["x"] + save["width"] - actions["x"] - actions["width"]) < 1
+    tag = page.locator("[data-tag-trigger]")
+    photos = page.locator("[data-photo-chooser]")
+    assert tag.bounding_box()["y"] == photos.bounding_box()["y"] == save["y"]
+    expect(page.locator(".about-label")).to_have_count(0)
     page.locator("#id_body").focus()
     page.keyboard.press("Tab")
-    expect(page.locator("[data-photo-chooser]")).to_be_focused()
+    expect(tag).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(page.locator("[data-tag-search]")).to_be_focused()
+    page.keyboard.press("Escape")
+    expect(tag).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(photos).to_be_focused()
     with page.expect_file_chooser() as selection:
         page.keyboard.press("Enter")
     assert selection.value.element.get_attribute("id") == "id_library"
     assert selection.value.element.get_attribute("capture") is None
     page.keyboard.press("Tab")
-    expect(page.locator(".photo-limits > summary")).to_be_focused()
+    expect(page.locator("#save-entry")).to_be_focused()
     assert page.locator("#capture-form").evaluate(
         """form => [...form.querySelectorAll('[aria-describedby]')].every(input =>
             input.getAttribute('aria-describedby').split(' ').every(id =>
@@ -474,7 +494,7 @@ def test_capture_foundation_reflows_and_supports_keyboard(
             .every(t => t.trim() === '0s')"""
     )
     page.locator("#id_library").set_input_files(upload(image_upload()))
-    expected = "Valda bilder: 1 av 10" if language == "sv" else "Photos selected: 1 of 10"
+    expected = "Valda bilder: 1" if language == "sv" else "Photos selected: 1"
     expect(page.locator("[data-photo-count]")).to_have_text(expected)
     removal = page.locator("[data-photo-previews] button").bounding_box()
     assert removal["width"] >= 44 and removal["height"] >= 44
@@ -531,10 +551,33 @@ def test_capture_without_javascript_keeps_native_inputs_and_retry_help(
         expect(plain.locator("#capture-form > p[role=alert]")).to_be_visible()
         plain.locator("#id_library").set_input_files(upload(image_upload()))
         plain.locator("#save-entry").click()
-        expect(plain).to_have_url(re.compile(r"/entries/\d+/$"))
+        expect(plain).to_have_url(re.compile(r"/#entry-\d+$"))
+        plain.locator(".diary-card .entry-heading a").click()
         expect(plain.locator(".large-photo")).to_have_count(1)
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("limit", ["count", "file", "total"])
+def test_photo_limits_appear_only_after_exceeding_a_selection_limit(
+    page, live_server, user, image_upload, settings, limit
+):
+    image = image_upload().read()
+    settings.PHOTO_MAX_COUNT = 1 if limit == "count" else 10
+    settings.PHOTO_MAX_FILE_BYTES = len(image) - 1 if limit == "file" else len(image) * 2
+    settings.PHOTO_MAX_TOTAL_BYTES = len(image) * 3 // 2 if limit == "total" else len(image) * 10
+    login(page, live_server, user)
+    warning = page.locator("[data-photo-limit-warning]")
+    expect(warning).to_be_hidden()
+    expect(page.locator(".photo-limit-line, .photo-limits")).to_have_count(0)
+    file = {"name": "synthetic.jpg", "mimeType": "image/jpeg", "buffer": image}
+    page.locator("#id_library").set_input_files([file] if limit == "file" else [file, file])
+    expect(warning).to_be_visible()
+    expect(warning).to_contain_text("JPEG, PNG, WebP")
+    page.locator("[data-photo-previews] button").first.click()
+    expect(warning).to_be_hidden()
+    if limit != "file":
+        expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 1")
 
 
 def test_network_error_preserves_selection_then_retry_saves_once(
@@ -555,6 +598,7 @@ def test_network_error_preserves_selection_then_retry_saves_once(
     expect(page.locator("#id_submission_key")).to_have_value(key)
     page.unroute("**/capture/")
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     expect(page.locator(".large-photo")).to_have_count(1)
 
@@ -582,6 +626,7 @@ def test_session_expiry_and_new_tab_login_keep_draft_and_rotate_csrf(
     other.locator('button[type="submit"]').filter(has_text="Logga in").click()
     expect(other).to_have_url(live_server.url + "/")
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     expect(page.locator(".large-photo")).to_have_count(1)
     other.close()
@@ -603,14 +648,17 @@ def test_edit_links_filter_and_delete_round_trip(page, live_server, user):
     login(page, live_server, user)
     page.locator("#id_body").fill("Before browser edit")
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     entry_url = page.url
 
     page.locator('a[href$="/edit/"]').first.click()
     expect(page.locator("#entry-form")).to_be_visible()
     page.locator("#id_body").fill("Browser edited observation")
-    expect(page.locator("#id_link_crops")).to_be_visible()
-    page.locator("#id_link_crops").select_option(label="Synthetic browser crop")
+    page.get_by_role("button", name="Lägg till taggar").click()
+    page.get_by_role("searchbox", name="Sök taggar").fill("Synthetic browser crop")
+    page.get_by_role("checkbox", name="Synthetic browser crop").check()
+    page.get_by_role("button", name="Klart", exact=True).click()
     page.locator("#entry-form button[type=submit]").click()
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-body")).to_contain_text("Browser edited observation")
@@ -690,14 +738,16 @@ def test_edit_photo_limit_counts_kept_photos_and_can_be_corrected(
         [upload(image_upload(), f"library-{number}.jpg") for number in range(9)]
     )
     expect(page.locator("[data-photo-limit-warning]")).to_be_visible()
-    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 10 av 8")
+    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 10")
     expect(page.locator("[data-photo-previews] figure")).to_have_count(10)
     page.locator("#entry-form button[type=submit]").click()
     expect(page.locator("#entry-errors")).to_contain_text("10")
     expect(page.locator("[data-photo-previews] figure")).to_have_count(10)
     for capacity, removal in enumerate(page.locator('input[name="remove_photos"]').all(), start=9):
         removal.check()
-        expect(page.locator("[data-photo-count]")).to_have_text(f"Valda bilder: 10 av {capacity}")
+        expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 10")
+        if capacity < 10:
+            expect(page.locator("[data-photo-limit-warning]")).to_be_visible()
     expect(page.locator("[data-photo-limit-warning]")).to_be_hidden()
     page.locator("#entry-form button[type=submit]").click()
     expect(page).to_have_url(entry_url)
@@ -758,7 +808,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     expect(form).to_have_attribute("aria-busy", "true")
     expect(save).to_be_disabled()
     expect(page.locator("#id_photos")).to_be_disabled()
-    expect(page.locator("#id_link_crops")).to_be_disabled()
+    expect(page.locator("[data-tag-trigger]")).to_be_disabled()
     expect(page.locator("#id_body")).not_to_be_editable()
     assert len(pending) == 1
     if failure == 503:
@@ -1074,6 +1124,7 @@ def test_diary_filters_chips_and_history_preserve_the_capture_draft(
     login(page, live_server, user)
     page.locator("#id_body").fill("Synthetic searchable tomato")
     page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     page.goto(live_server.url + "/")
     page.locator("#id_body").fill("Unsubmitted draft")

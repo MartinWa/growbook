@@ -293,6 +293,14 @@
     @apply [&>a:not(.btn)]:inline-flex [&>a:not(.btn)]:min-h-11 [&>a:not(.btn)]:items-center [&>a:not(.btn)]:px-1;
   }
 
+  .entry-actions {
+    @apply flex flex-wrap items-center justify-end gap-3;
+  }
+
+  .entry-actions > a {
+    @apply inline-flex min-h-11 items-center;
+  }
+
   .photo-picker {
     @apply m-0 min-w-0 rounded-box border border-base-300 p-4;
   }
@@ -316,35 +324,6 @@
 
   .photo-inputs .field {
     @apply mb-0;
-  }
-
-  .photo-limit-line {
-    @apply mt-2 flex flex-wrap items-center gap-2;
-  }
-
-  .photo-limit-line > .field-help {
-    @apply m-0;
-  }
-
-  .photo-limits {
-    @apply relative;
-  }
-
-  .photo-limits > .menu-panel {
-    @apply static mt-2 w-auto max-w-full border-0 p-0;
-    box-shadow: none;
-  }
-
-  .photo-limits > summary {
-    @apply inline-flex min-h-11 cursor-pointer items-center px-1 text-primary underline underline-offset-2;
-  }
-
-  .photo-limits .menu-panel {
-    @apply w-[min(18rem,calc(100vw-2rem))];
-  }
-
-  .photo-limits .field-help {
-    @apply m-0;
   }
 
   .photo-grid {
@@ -536,7 +515,8 @@
     @apply w-44 min-w-0;
   }
 
-  .quick-add .photo-picker {
+  .quick-add .photo-picker,
+  .capture-panel [data-photo-picker] {
     @apply border-0 p-0;
   }
 
@@ -739,12 +719,42 @@
   }
 
   .capture-actions {
-    @apply mt-6 flex flex-wrap items-center gap-3;
+    @apply mt-3 flex flex-wrap items-center gap-3;
   }
 
-  .capture-link-help {
-    @apply mt-4;
+  .capture-actions > .btn {
+    @apply h-auto min-h-11 max-w-full whitespace-normal;
   }
+
+  .capture-actions > [type="submit"] {
+    @apply ml-auto;
+  }
+
+  .tag-picker { @apply mt-4; }
+  .quick-add .tag-picker, .capture-panel .tag-picker { @apply m-0; }
+  .tag-chips { @apply mb-2 flex list-none flex-wrap gap-2 p-0; }
+  .tag-chips li { @apply flex max-w-full items-center gap-2 rounded-lg border border-base-300 bg-base-200 pl-3 text-sm; }
+  .tag-chips li > span { @apply min-w-0 break-words; }
+  .tag-chips button { @apply min-h-11 min-w-11 shrink-0 rounded-lg text-xl; }
+  .tag-option { @apply flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-3 py-2; }
+  .tag-option input { @apply mt-1 shrink-0; }
+  .tag-option > span { @apply min-w-0 break-words; }
+  .tag-title { @apply block font-semibold; }
+  .tag-meta { @apply block text-sm text-base-content/75; }
+  .tag-option-selected { @apply bg-base-200; }
+  .tags-enhanced [data-tag-popover] {
+    @apply fixed z-50 m-0 flex flex-col overflow-hidden rounded-lg border border-base-300 bg-base-100 p-0;
+    box-shadow: 0 6px 24px #202d2426;
+    inset: auto;
+  }
+  .tags-enhanced [data-tag-popover]:not(:popover-open) { display: none; }
+  .tag-search { @apply shrink-0 border-b border-base-300 p-3; }
+  .tag-search .field-help { @apply mb-0 text-sm; }
+  .tag-options { @apply min-h-0 overflow-y-auto p-2; overscroll-behavior: contain; }
+  .tag-options fieldset { @apply m-0 min-w-0 border-0 p-0; }
+  .tag-options legend { @apply px-3 py-2 text-sm font-bold; }
+  .tag-secondary summary { @apply min-h-11 cursor-pointer px-3 py-2 font-semibold text-primary; }
+  .tag-footer { @apply flex shrink-0 items-center justify-between border-t border-base-300 px-3 py-2 text-sm; }
 
   @media (min-width: 600px) {
     .photo-inputs {
@@ -838,7 +848,7 @@
     }
 
     .register-form-panel > form > .form-actions > .btn,
-    #entry-form > .form-actions > .btn {
+    #entry-form > .form-actions:not(.capture-actions) > .btn {
       @apply flex-1;
     }
 

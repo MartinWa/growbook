@@ -165,12 +165,7 @@ def entry_edit(request, pk):
                     pk=entry.pk,
                     date=values["date"],
                     body=values["body"],
-                    links=[
-                        *values["link_areas"],
-                        *values["link_crops"],
-                        *values["link_varieties"],
-                        *values["link_plantings"],
-                    ],
+                    links=form.selected_links,
                     uploads=values["photos"],
                     remove_photo_ids=values["remove_photos"],
                     expected_updated_at=values["expected_updated_at"],
@@ -315,6 +310,8 @@ def photo_delete(request, pk):
 
 @require_http_methods(["GET", "POST"])
 def capture(request):
+    if request.method == "GET":
+        return redirect(reverse("diary:list") + "#id_body")
     quick = request.method == "POST" and request.POST.get("capture_mode") == "quick"
     form = CaptureForm(
         request.POST if request.method == "POST" else None,
@@ -339,12 +336,13 @@ def capture(request):
                     body=form.cleaned_data["body"],
                     uploads=form.cleaned_data["camera"] + form.cleaned_data["library"],
                     submission_key=form.cleaned_data["submission_key"],
+                    links=form.selected_links,
                 )
             except (SubmissionConflict, SubmissionDeleted) as exc:
                 form.add_error(None, exc)
                 status = 409
             except ValidationError as exc:
-                form.add_error(None, exc)
+                form_error(form, exc)
             except MediaBusy, OperationalError, OSError:
                 logger.exception("Capture failed; a stable submission key makes retries safe.")
                 form.add_error(
@@ -380,13 +378,10 @@ def capture(request):
                 return redirect(result.entry)
         if request.headers.get("HX-Request") == "true":
             return render(request, "diary/capture_errors.html", {"form": form}, status=status)
-        if quick:
-            context = _list_context(
-                request,
-                data=QueryDict(request.POST.get("filter_query", "")),
-                capture_form=form,
-            )
-            context["failed"] = True
-            return render(request, "diary/list.html", context, status=status)
-        return render(request, "diary/capture.html", {"form": form, "failed": True}, status=status)
-    return render(request, "diary/capture.html", {"form": form})
+        context = _list_context(
+            request,
+            data=QueryDict(request.POST.get("filter_query", "")),
+            capture_form=form,
+        )
+        context["failed"] = True
+        return render(request, "diary/list.html", context, status=status)

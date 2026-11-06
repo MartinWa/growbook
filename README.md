@@ -31,11 +31,12 @@ interface defaults to Swedish, with English available.
   evaluation text and private photos.
 - Dated text-only, photo-only and text-plus-photo entries with chronological paging,
   note search and combined year, area, crop, variety and planting filters.
-- Explicit links from an entry to an area, crop, variety or planting; linked records
+- Optional tags during capture and editing, with one searchable picker for plantings,
+  growing areas, crops and varieties; linked records
   show their observations, and derived filters follow plantings and area descendants.
 - Authors edit and delete their own entries; active staff administrators can change any
   entry. Photo captions, ordering, addition and removal are editable.
-- Inline diary quick-add and a dedicated capture page, with native photo selection,
+- Inline diary capture with native photo selection,
   multiple photos, previews and upload feedback; native inputs also work without
   JavaScript.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped WebP
@@ -52,8 +53,8 @@ interface defaults to Swedish, with English available.
   entries, records, photos and original downloads, and maintain registers, plantings and
   events. Only an entry's author or an active staff administrator may edit or delete
   that entry. There are no per-user gardens or read-only member roles.
-- Diary links are chosen in the edit form; there is no capture-time link shortcut or
-  automatic matching. Structured harvest accounting and portable data import/export are
+- Diary tags are chosen explicitly; there is no automatic matching.
+  Structured harvest accounting and portable data import/export are
   not provided.
 - Entry deletion permanently removes the note, links and photos, including private
   originals; linked registers and plantings remain. Creation receipts are kept only to

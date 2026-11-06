@@ -112,7 +112,7 @@ def test_shared_photo_picker_accumulates_native_choices_and_retains_them_on_vali
     expect(page.locator("[data-photo-previews] figure")).to_have_count(3)
     page.get_by_role("button", name="Ta bort: extra.jpg", exact=True).click()
     expect(page.get_by_role("button", name="Ta bort: library.jpg", exact=True)).to_be_focused()
-    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 2 av 10")
+    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 2")
     key = page.locator("#id_submission_key").input_value()
     page.locator("#register-form button[type=submit]").click()
     expect(page.locator("#id_name_errors")).to_contain_text("Namnet används redan")
@@ -168,7 +168,7 @@ def test_photo_picker_fallback_replaces_choices_and_can_clear_them(
     page.locator("#id_photos").set_input_files(image_file(image_upload, "replacement.jpg"))
     expect(page.locator("[data-photo-previews] figure")).to_have_count(1)
     expect(page.locator("[data-photo-previews] figcaption")).to_have_text("replacement.jpg")
-    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 1 av 10")
+    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 1")
     clear = page.get_by_role("button", name="Rensa valda bilder", exact=True).bounding_box()
     assert clear["width"] >= 44 and clear["height"] >= 44
     page.get_by_role("button", name="Rensa valda bilder", exact=True).click()

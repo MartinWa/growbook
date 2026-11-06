@@ -62,6 +62,7 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
         body="Synthetic diary",
         uploads=[image_upload()],
         submission_key=uuid4(),
+        links=[crop, variety, child],
     ).entry
     planting_key, event_key = uuid4(), uuid4()
     planting = create_planting(
@@ -138,6 +139,15 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
             [child.pk],
         ).fetchone() == (parent.pk, 120, None, "Synthetic area notes", 0)
         assert snapshot.execute("SELECT COUNT(*) FROM garden_registersubmission").fetchone()[0] == 4
+        assert set(
+            snapshot.execute(
+                "SELECT area_id, crop_id, variety_id, planting_id FROM diary_diarylink"
+            ).fetchall()
+        ) == {
+            (child.pk, None, None, None),
+            (None, crop.pk, None, None),
+            (None, None, variety.pk, None),
+        }
         assert snapshot.execute(
             "SELECT crop_id, variety_id, area_id, start_year, lifespan, end_year, "
             "quantity, evaluation FROM garden_planting WHERE id=?",
@@ -201,6 +211,7 @@ from django.contrib.auth import authenticate
 from django.test import Client
 from core.models import Photo
 from diary.models import DiaryEntry
+from diary.services import create_entry
 from garden.models import Crop, Variety, GrowingArea, Planting, PlantingEvent, PlantingSubmission
 from garden.queries import plantings_in_year
 from garden.services import create_area, create_crop, create_variety, create_planting, edit_area
@@ -230,6 +241,19 @@ create_area(actor=user, name='New restored bed')
 from datetime import date
 from django.core.files.uploadedfile import SimpleUploadedFile
 from core.media import private_path
+entry = DiaryEntry.objects.get()
+diary_photo = entry.photos.get()
+variety = Variety.objects.get(name='Golden')
+replayed_diary = create_entry(
+    author=user, date=entry.date, body=entry.body,
+    uploads=[SimpleUploadedFile(
+        'synthetic.jpg', private_path(diary_photo.original.name).read_bytes()
+    )],
+    submission_key=entry.submission_key,
+    links=[('area', child.pk), ('variety', variety.pk), ('crop', variety.crop_id)],
+)
+assert not replayed_diary.created and replayed_diary.entry.pk == entry.pk
+assert entry.links.count() == 3
 from garden.services import create_planting_event, RegisterConflict
 planting = Planting.objects.get(label='Synthetic persistent batch')
 ongoing = Planting.objects.get(label='Synthetic ongoing batch')
