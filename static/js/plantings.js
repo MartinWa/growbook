@@ -39,11 +39,16 @@
     });
   });
   form.addEventListener("htmx:configRequest", event => {
-    if (event.detail.elt === form) window.htmx.trigger(crop, "htmx:abort");
+    if (event.detail.elt !== form) return;
+    const pending = status.hasAttribute("aria-busy");
+    window.htmx.trigger(crop, "htmx:abort");
+    // If saving fails, let the user reload the choices cancelled by that save.
+    if (pending) retry.hidden = false;
   });
   form.addEventListener("htmx:beforeRequest", event => {
     if (event.detail.elt === crop) {
       status.setAttribute("aria-busy", "true");
+      status.textContent = "";
       retry.hidden = true;
     }
   });

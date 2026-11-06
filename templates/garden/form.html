@@ -6,7 +6,7 @@
 <section class="panel register-form-panel">
 <h1>{{ title }}</h1>
 <form id="register-form" method="post" action="{{ action }}" enctype="multipart/form-data"
-      hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#register-errors" hx-swap="innerHTML"
+      hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#register-errors" hx-swap="innerHTML" hx-sync="this:drop"
       data-register-form data-uploading="{% if has_photos %}{% translate 'Uploading photos…' %}{% else %}{% translate 'Saving…' %}{% endif %}"
       data-processing="{% translate 'Processing photos and saving…' %}"
       data-network-error="{% translate 'The connection failed. Keep this form open and retry the same submission.' %}"
