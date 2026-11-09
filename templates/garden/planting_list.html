@@ -6,7 +6,6 @@
 <div class="page-heading">
   <h1>{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}</h1>
   <div class="heading-actions">
-    <button id="open-filters" type="button" class="btn btn-ghost btn-square" hidden aria-haspopup="dialog" aria-controls="filter-dialog" aria-label="{% translate 'Planting filters' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-search"/></svg></button>
     <a class="btn btn-primary" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
   </div>
 </div>
@@ -14,12 +13,11 @@
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
   data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
   data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
-  <aside>
-    <details class="diary-filters" data-filter-disclosure{% if form.errors %} open{% endif %}>
-      <summary class="btn btn-outline"><span class="filter-open-label">{% translate 'Planting filters' %}</span><span class="filter-close-label">{% translate 'Close filters' %}</span></summary>
-      {% include 'garden/planting_filters.html' %}
-    </details>
-  </aside>
+  <details class="filter-disclosure" data-filter-disclosure{% if form.errors %} open{% endif %}>
+    {% translate 'Planting filters' as filter_label %}
+    {% include 'components/filter_summary.html' %}
+    {% include 'garden/planting_filters.html' %}
+  </details>
   <div class="filter-stream">
     <p id="filter-status" class="field-errors" role="alert"></p>
     {% include 'garden/planting_results.html' %}

@@ -35,6 +35,14 @@ def page(live_server, settings, user):
         browser.close()
 
 
+def open_filters(page):
+    disclosure = page.locator("[data-filter-disclosure]")
+    summary = disclosure.locator(":scope > summary")
+    if disclosure.get_attribute("open") is None:
+        summary.click()
+    summary.press("Tab")
+
+
 def login(page, live_server, user):
     page.goto(live_server.url + "/accounts/login/")
     page.locator("#id_username").fill(user.username)
@@ -72,6 +80,67 @@ def test_diary_has_one_composer_without_more_options(page, live_server, user):
     page.goto(live_server.url + "/capture/")
     expect(page).to_have_url(live_server.url + "/#id_body")
     expect(page.locator("#capture-form")).to_be_visible()
+
+
+@pytest.mark.parametrize("path", ["/?q=synthetic", "/garden/plantings/?year=2026"])
+@pytest.mark.parametrize("javascript", [False, True])
+def test_filters_collapse_above_full_width_content_and_keep_choices_on_resize(
+    page, live_server, user, path, javascript
+):
+    login(page, live_server, user)
+    page.locator("#id_body").fill("Synthetic layout observation")
+    page.locator("#save-entry").click()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    context = page.context.browser.new_context(
+        java_script_enabled=javascript,
+        storage_state=page.context.storage_state(),
+        viewport={"width": 1280, "height": 1000},
+    )
+    try:
+        view = context.new_page()
+        view.goto(live_server.url + path)
+        disclosure = view.locator("[data-filter-disclosure]")
+        summary = disclosure.locator(":scope > summary")
+        field = view.locator("#id_q" if path.startswith("/?") else "#id_year")
+        content = view.locator(".diary-card" if path.startswith("/?") else "#planting-results")
+        for width in (1280, 900, 899, 390, 320):
+            view.set_viewport_size({"width": width, "height": 1000})
+            expect(field).to_be_hidden()
+            expect(view.locator(".filter-chip")).to_be_visible()
+            summary.focus()
+            summary.press("Enter")
+            expect(field).to_be_visible()
+            summary.press("Tab")
+            expect(field).to_be_focused()
+            panel_box, content_box = (
+                view.locator("#filter-panel").bounding_box(),
+                content.bounding_box(),
+            )
+            assert panel_box["y"] + panel_box["height"] <= content_box["y"]
+            assert abs(panel_box["width"] - content_box["width"]) < 2
+            assert abs(panel_box["x"] - content_box["x"]) < 2
+            clear = view.locator("#filter-panel .form-actions a")
+            expect(clear).to_have_class(re.compile(r"\bbtn\b"))
+            clear_box = clear.bounding_box()
+            help_box = view.locator(".filter-help > summary").bounding_box()
+            actions_box = view.locator(".filter-actions").bounding_box()
+            assert abs(clear_box["y"] - help_box["y"]) < 2
+            assert (
+                abs(help_box["x"] + help_box["width"] - actions_box["x"] - actions_box["width"]) < 2
+            )
+            assert view.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            # Crossing the former breakpoint keeps the same open disclosure and input.
+            view.set_viewport_size({"width": 390 if width >= 900 else 1280, "height": 1000})
+            expect(field).to_be_visible()
+            expect(field).to_have_value("synthetic" if path.startswith("/?") else "2026")
+            if javascript:
+                field.press("Escape")
+                expect(summary).to_be_focused()
+            else:
+                summary.press("Space")
+            expect(field).to_be_hidden()
+    finally:
+        context.close()
 
 
 @pytest.mark.parametrize("language", ["sv", "en"])
@@ -1006,6 +1075,7 @@ def test_slow_capture_drops_repeated_submits_and_keeps_controls_locked(
     )
     assert len(pending) == 1
     # Results can change independently without unlocking the payload being saved.
+    open_filters(page)
     page.locator("#id_q").fill("slow")
     page.locator("#id_q").press("Enter")
     expect(page).to_have_url(live_server.url + "/?q=slow")
@@ -1047,6 +1117,7 @@ def test_superseded_filter_link_keeps_focus_on_the_new_search_and_preserves_draf
 ):
     login(page, live_server, user)
     page.set_viewport_size({"width": 1280, "height": 844})
+    open_filters(page)
     page.locator("#id_q").fill("first")
     page.locator("#id_q").press("Enter")
     expect(page).to_have_url(live_server.url + "/?q=first")
@@ -1081,6 +1152,7 @@ def test_back_during_slow_filter_body_ignores_the_old_completion(
 ):
     login(page, live_server, user)
     page.set_viewport_size({"width": 1280, "height": 844})
+    open_filters(page)
     page.locator("#id_q").fill("first")
     page.locator("#id_q").press("Enter")
     expect(page).to_have_url(live_server.url + "/?q=first")
@@ -1119,7 +1191,6 @@ def test_back_during_slow_filter_body_ignores_the_old_completion(
     expect(page.locator("#id_q")).to_have_value("")
     expect(page.locator(".filter-chip")).to_have_count(0)
     expect(page.locator("#filter-status")).to_be_empty()
-    expect(page.locator("#filter-drawer-status")).to_be_empty()
     expect(page.locator('input[name="filter_query"]')).to_have_value("")
     expect(page.locator("#id_body")).to_have_value("Synthetic history draft")
     expect(page.locator("#id_submission_key")).to_have_value(key)
@@ -1139,7 +1210,7 @@ def test_session_expires_during_filter_request_and_new_tab_login_preserves_the_d
     key = page.locator("#id_submission_key").input_value()
     pending = []
     page.route("**/?q=*", lambda route: pending.append(route))
-    page.locator("#open-filters").click()
+    open_filters(page)
     page.locator("#id_q").fill("recovered")
     page.locator("#id_q").press("Enter")
     expect(page.locator("#diary-filter-form")).to_have_attribute("aria-busy", "true")
@@ -1151,7 +1222,7 @@ def test_session_expires_during_filter_request_and_new_tab_login_preserves_the_d
     with page.expect_response(lambda response: "?q=recovered" in response.url) as expired:
         pending[0].continue_()
     assert expired.value.status == 401
-    expect(page.locator("#filter-drawer-status")).to_contain_text("session")
+    expect(page.locator("#filter-status")).to_contain_text("session")
     expect(page.locator("#id_q")).to_be_focused()
     expect(page.locator("#diary-filter-form")).not_to_have_attribute("aria-busy", "true")
     expect(page).to_have_url(live_server.url + "/")
@@ -1162,12 +1233,11 @@ def test_session_expires_during_filter_request_and_new_tab_login_preserves_the_d
     expect(other).to_have_url(live_server.url + "/")
     page.locator("#id_q").press("Enter")
     expect(page).to_have_url(live_server.url + "/?q=recovered")
-    expect(page.locator("#filter-drawer-status")).to_be_empty()
     expect(page.locator("#filter-status")).to_be_empty()
     expect(page.locator("#id_submission_key")).to_have_value(key)
     expect(page.locator("#id_body")).to_have_value("Synthetic recovered filter draft")
     assert page.locator("#id_library").evaluate("input => input.files.length") == 1
-    page.locator("[data-dialog-close]").click()
+    page.locator("[data-filter-disclosure] > summary").click()
     page.locator("#save-entry").click()
     expect(page.locator("#diary-results .diary-card")).to_have_count(1)
     expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
@@ -1224,10 +1294,10 @@ def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_pag
         expect(page.locator("#diary-result-count")).to_contain_text("21")
         expect(saved.locator("a")).to_be_focused()
         page.unroute(first_url)
-        page.locator("#open-filters").click()
+        open_filters(page)
         page.locator("#id_q").press("Enter")
         page.keyboard.press("Escape")
-        expect(page.locator("#filter-dialog")).not_to_be_visible()
+        expect(page.locator("#filter-panel")).not_to_be_visible()
         expect(page.locator("#id_q")).to_have_value("pagination")
     expect(page).to_have_url(first_url)
     expect(page.locator("#diary-result-count")).to_contain_text("22")
@@ -1276,15 +1346,14 @@ def test_quick_capture_during_pending_search_keeps_selected_filters(
         }""",
         query,
     )
-    if width < 900:
-        page.locator("#open-filters").click()
+    open_filters(page)
     page.locator("#id_q").fill(query)
     page.locator("#id_q").press("Enter")
     page.wait_for_function("window.pendingSearch.held")
     expect(page.locator("#diary-filter-form")).to_have_attribute("aria-busy", "true")
     expect(page).to_have_url(live_server.url + "/")
     if width < 900:
-        page.locator("[data-dialog-close]").click()
+        page.locator("[data-filter-disclosure] > summary").click()
     page.locator("#save-entry").click()
     saved = page.locator("#quick-receipt [data-capture-saved]")
     expect(saved).to_be_attached()
@@ -1293,7 +1362,6 @@ def test_quick_capture_during_pending_search_keeps_selected_filters(
     expect(page.locator("#id_q")).to_have_value(query)
     expect(page.locator("#diary-filter-form")).not_to_have_attribute("aria-busy", "true")
     expect(page.locator("#filter-status")).to_be_empty()
-    expect(page.locator("#filter-drawer-status")).to_be_empty()
     expect(page.locator("#capture-errors")).to_be_empty()
     expect(page.locator("#diary-result-count")).to_have_text(re.compile(rf"^{expected_count} "))
     expect(page.locator("#diary-results .diary-card")).to_have_count(expected_count)
@@ -1334,13 +1402,12 @@ def test_stale_diary_filter_errors_identify_the_field_and_clear_on_retry(
     page.locator("#id_body").fill("Keep this draft while correcting filters")
     page.locator("#id_library").set_input_files(upload(image_upload()))
     key = page.locator("#id_submission_key").input_value()
-    if width < 900:
-        page.locator("#open-filters").click()
+    open_filters(page)
     page.locator("#id_crop").select_option(str(crop_pk))
     expect(page.locator("#id_crop")).to_have_attribute("aria-invalid", "true")
     expect(page.locator("#id_crop_errors")).not_to_be_empty()
     expect(page.locator('#diary-results [data-field-errors="crop"]')).not_to_be_empty()
-    feedback = "#filter-drawer-status" if width < 900 else "#filter-status"
+    feedback = "#filter-status"
     expect(page.locator(feedback)).not_to_be_empty()
     if width < 900:
         page.keyboard.press("Escape")
@@ -1368,19 +1435,23 @@ def test_diary_filters_chips_and_history_preserve_the_capture_draft(
     page.locator("#id_body").fill("Unsubmitted draft")
     page.locator("#id_library").set_input_files(upload(image_upload()))
     key = page.locator("#id_submission_key").input_value()
-    page.locator("#open-filters").click()
+    open_filters(page)
     expect(page.locator("#id_q")).to_be_focused()
     page.locator("#id_q").fill("tomato")
     expect(page).to_have_url(live_server.url + "/?q=tomato")
     expect(page.locator("#id_q")).to_be_focused()
     expect(page.locator(".filter-chip")).to_have_count(1)
     page.keyboard.press("Shift+Tab")
-    expect(page.locator("[data-dialog-close]")).to_be_focused()
-    for _ in range(14):
-        page.keyboard.press("Tab")
-        assert page.evaluate("document.activeElement.closest('#filter-dialog') !== null")
+    expect(page.locator("[data-filter-disclosure] > summary")).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(page.locator("#id_q")).to_be_focused()
+    # Filters are inline: keyboard users can move into the composer without closing them.
+    page.locator(".filter-help > summary").focus()
+    page.keyboard.press("Tab")
+    assert page.evaluate("document.activeElement.closest('#capture-form') !== null")
+    page.locator("#id_q").focus()
     page.keyboard.press("Escape")
-    expect(page.locator("#open-filters")).to_be_focused()
+    expect(page.locator("[data-filter-disclosure] > summary")).to_be_focused()
     page.locator(".filter-chip").click()
     expect(page).to_have_url(live_server.url + "/")
     expect(page.locator(".filter-chip")).to_have_count(0)
@@ -1423,19 +1494,19 @@ def test_filter_chips_wrap_inside_their_targets_and_remain_keyboard_operable(
     expect(page.locator(".filter-chip")).to_have_count(0)
 
 
-def test_filter_failure_is_visible_in_the_drawer_and_retry_keeps_the_draft(page, live_server, user):
+def test_filter_failure_is_visible_and_retry_keeps_the_draft(page, live_server, user):
     login(page, live_server, user)
     page.goto(live_server.url + "/")
     page.locator("#id_body").fill("Keep filtering draft")
-    page.locator("#open-filters").click()
+    open_filters(page)
     page.route("**/?q=*", lambda route: route.abort())
     page.locator("#id_q").fill("synthetic")
-    expect(page.locator("#filter-drawer-status")).not_to_be_empty()
+    expect(page.locator("#filter-status")).not_to_be_empty()
     expect(page.locator("#id_body")).to_have_value("Keep filtering draft")
     page.unroute("**/?q=*")
-    page.locator("#id_q").press("Enter")
+    page.locator("[data-filter-retry]").click()
     expect(page).to_have_url(live_server.url + "/?q=synthetic")
-    expect(page.locator("#filter-drawer-status")).to_be_empty()
+    expect(page.locator("#filter-status")).to_be_empty()
 
 
 def test_account_disclosure_and_language_change_keep_the_filtered_page(page, live_server, user):

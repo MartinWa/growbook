@@ -51,6 +51,28 @@ def planting_list(request, history=False, kind=None, pk=None):
         year = filters["year"]
         tree = planting_tree(**filters)
         records = tree["records"]
+    active_filters = []
+    for name, field in form.fields.items():
+        value = form.cleaned_data.get(name, data.get(name))
+        if not value:
+            continue
+        display = field.label_from_instance(value) if hasattr(value, "pk") else value
+        if name in ("unassigned", "unknown_variety"):
+            display = _("Yes")
+        remaining = data.copy()
+        remaining.pop(name, None)
+        # The overview defaults to the current year; its year stays visible while
+        # All years provides the explicit route to an unbounded history.
+        removable = name not in locked and (name != "year" or history)
+        active_filters.append(
+            {
+                "label": field.label,
+                "value": display,
+                "url": request.path + ("?" + remaining.urlencode() if remaining else "")
+                if removable
+                else "",
+            }
+        )
     previous_url = next_url = None
     if year is not None:
         if year > 1:
@@ -139,6 +161,7 @@ def planting_list(request, history=False, kind=None, pk=None):
             "scope": scope,
             "kind": kind or "planting",
             "locked_filters": locked,
+            "active_filters": active_filters,
             "history": history,
             "observations": observations,
             "observation_count": observation_total,

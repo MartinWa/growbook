@@ -3,14 +3,8 @@
   <div role="alert">{% include 'diary/form_errors.html' %}</div>
   <p id="diary-result-count" data-result-focus class="muted" role="status" tabindex="-1">{% blocktranslate count count=page_obj.paginator.count %}{{ count }} observation{% plural %}{{ count }} observations{% endblocktranslate %}</p>
   <template data-year-options>{% for value, label in form.fields.year.choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</template>
-  {% if active_filters %}
-  <div class="filter-chips" aria-label="{% translate 'Active filters' %}">
-    {% for filter in active_filters %}
-    <a class="filter-chip" href="{{ filter.url }}" data-filter-link aria-label="{% translate 'Remove filter' %}: {{ filter.label }}: {{ filter.value }}"><span class="min-w-0">{{ filter.label }}: {{ filter.value }}</span><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-x"/></svg></a>
-    {% endfor %}
-    <a href="{% url 'diary:list' %}" data-filter-link>{% translate 'Clear filters' %}</a>
-  </div>
-  {% endif %}
+  {% url 'diary:list' as clear_filters_url %}
+  {% include 'components/filter_chips.html' %}
   {% for entry in page_obj %}
     {% include 'diary/_card.html' %}
   {% empty %}

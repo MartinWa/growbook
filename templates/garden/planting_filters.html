@@ -1,26 +1,28 @@
 {% load i18n %}
 <div class="filter-panel" id="filter-panel">
-  <header class="filter-heading">
-    <h2 id="filter-title">{% translate 'Planting filters' %}</h2>
-    <button type="button" class="btn btn-ghost btn-square" data-dialog-close hidden aria-label="{% translate 'Close filters' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-x"/></svg></button>
-  </header>
-  <p id="filter-drawer-status" class="field-errors" role="alert"></p>
   <form data-filter-form method="get" action="{{ request.path }}">
-    {% for field in form %}
+    <div class="filter-fields">
+      {% for field in form %}
       {% if field.name in locked_filters %}{{ field.as_hidden }}{% else %}
       <div class="field{% if field.name == 'unassigned' or field.name == 'unknown_variety' %} checkbox-field{% endif %}">
         {{ field.label_tag }}{{ field }}
         <div id="{{ field.auto_id }}_errors" class="field-errors" data-filter-field-errors="{{ field.name }}">{{ field.errors }}</div>
       </div>
       {% endif %}
-    {% endfor %}
-    <button type="submit" class="btn btn-primary" data-filter-submit>{% translate 'Apply' %}</button>
-    <a href="{{ request.path }}" data-filter-link>{% translate 'Clear filters' %}</a>
-    <details class="filter-help">
-      <summary>{% translate 'How filters work' %}</summary>
-      <p class="field-help">{% translate 'Area filters include descendants and show the actual assigned place. Archived records remain in histories.' %}</p>
-      <p class="field-help">{% translate 'Histories use current area assignments and nesting, not historical layouts.' %}</p>
-      <p class="field-help">{% translate 'Expand several rows at once to compare details.' %}</p>
-    </details>
+      {% endfor %}
+    </div>
+    <div class="filter-actions">
+      <div class="form-actions">
+        <a class="btn btn-outline" href="{{ request.path }}" data-filter-link>{% translate 'Clear filters' %}</a>
+        <button type="submit" class="btn btn-primary" data-filter-submit>{% translate 'Apply' %}</button>
+        <button type="submit" class="btn btn-outline" data-filter-retry hidden>{% translate 'Retry' %}</button>
+      </div>
+      <details class="filter-help">
+        <summary>{% translate 'How filters work' %}</summary>
+        <p class="field-help">{% translate 'Area filters include descendants and show the actual assigned place. Archived records remain in histories.' %}</p>
+        <p class="field-help">{% translate 'Histories use current area assignments and nesting, not historical layouts.' %}</p>
+        <p class="field-help">{% translate 'Expand several rows at once to compare details.' %}</p>
+      </details>
+    </div>
   </form>
 </div>
