@@ -1,0 +1,7 @@
+{% load i18n %}
+<nav class="main-navigation" aria-label="{% translate 'Main navigation' %}">
+  <a class="btn {% if active == 'diary' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'diary:list' %}"{% if active == 'diary' %} aria-current="page"{% endif %}>{% translate 'Diary' %}</a>
+  <a class="btn {% if active == 'areas' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'garden:area-list' %}"{% if active == 'areas' %} aria-current="page"{% endif %}>{% translate 'Growing areas' %}</a>
+  <a class="btn {% if active == 'varieties' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'garden:variety-list' %}"{% if active == 'varieties' %} aria-current="page"{% endif %}>{% translate 'Crops and varieties' %}</a>
+  <a class="btn {% if active == 'plantings' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'garden:planting-list' %}"{% if active == 'plantings' %} aria-current="page"{% endif %}>{% translate 'Plantings' %}</a>
+</nav>

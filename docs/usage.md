@@ -18,10 +18,36 @@ local changes or commits after a release. Builds without version metadata show
 **Development**. See
 [deployment configuration](deployment.md#application-version-and-update-check).
 
-## Garden
+## Seasonal appearance
 
-Open **Garden** for growing areas, **Crops and varieties**, and this year's plantings, with
-record counts and creation links. Garden navigation stays visible on register pages.
+The account menu's **Season** selector changes the application's colours and the
+diary's tree illustration. **Spring**, **Summer**, **Autumn** and **Winter** keep that
+appearance until another choice is made. **Automatic (follow date)** is the default:
+March–May uses spring, June–August summer, September–November autumn and
+December–February winter, using today's date in the garden's configured timezone.
+Viewing older diary years or changing an observation date does not change the season.
+An open page with JavaScript recalculates the automatic season each minute and when
+the page regains focus.
+
+The choice is remembered in this browser for one year, including after signing out;
+each browser chooses independently. Changing it with JavaScript keeps the current
+page, filters, unfinished note and selected photos. Without JavaScript, select the
+season and use **Change** to reload the current page; save an unfinished form first.
+The login page also offers the selector. Colours apply throughout the application.
+The diary illustration changes with the season; **Growing areas**, **Crops and varieties**
+and **Plantings** each have a fixed illustration with translated headings.
+
+## Growing areas, crops and varieties
+
+Open **Growing areas** or **Crops and varieties** directly from the main menu.
+Existing `/garden/` links redirect to **Growing areas**. Creation and archive actions
+appear above the lists, with crop and variety search alongside them.
+With JavaScript, selecting an area, variety or planting shows one record in a shared
+details panel beside the list on wide screens and below it on narrow screens. Selecting
+another record replaces those details; selecting the same name again closes them.
+If the details would open outside the viewport, selection scrolls to them and moves
+keyboard focus there. **Back to list** returns to the selected name, opening any closed
+ancestor groups needed to show it. Browser Back from editing keeps its saved scroll position.
 Crops and varieties share one register. Crop names are grouping headings: activate a
 heading with the mouse, Enter or Space to reveal its varieties.
 Groups start collapsed, several can remain open, and crops without varieties remain visible.
@@ -43,11 +69,11 @@ and retain their search and archive choices.
 
 Growing areas appear beneath their actual parents, with names as the list labels. Use a
 parent's arrow, Enter or Space to reveal its children; select its name to open information
-independently. Branches start collapsed, several can remain open, and closing a parent
-preserves its children's disclosure and information states until it is reopened. Leaf areas
-have no expansion arrow. Inline area information shows its own fields, photos and
+independently. Branches start collapsed and several can remain open. Closing a parent
+preserves its children's disclosure states and keeps the selected record's details visible.
+Leaf areas have no expansion arrow. Area information shows its own fields, photos and
 expandable observations, without repeating its parent area's name. The full record keeps
-a parent link. Browser Back from editing restores open branches and information panels,
+a parent link. Browser Back from editing restores open branches and the selected details,
 filter choices and scroll position. With JavaScript, **Cancel** also returns to that list
 when editing started there in the same tab; otherwise it opens the record.
 **Plantings YEAR (count)** opens Plantings with the current year and that area selected;
@@ -56,8 +82,8 @@ its count includes descendant areas. **Planting history** remains available for 
 Archived ancestors of active areas remain as context, without increasing active counts;
 unrelated archived branches stay hidden until **Include archived** is selected.
 The hierarchy works without JavaScript. Area and variety names open full records in that
-case. With JavaScript, several information panels can remain open; **Open record** inside
-a panel, or opening its name in a new tab, opens the full record.
+case. **Open record** inside the details panel, or opening a name in a new tab, opens
+the full record.
 
 - Crop names are unique globally; variety names within a crop. Area names are unique
   among top-level areas or among siblings with the same parent. Comparison uses Unicode
@@ -118,7 +144,9 @@ full forms keep their save actions visible at the bottom while scrolling.
 ## Plantings and histories
 
 Open **Plantings** for growing-year results grouped by area. **Planting filters** starts
-collapsed above the results at every screen width. Expand it to change filters;
+collapsed above the results at every screen width, alongside **New planting** when
+space allows. Counts and growing-year links share a row, with active filter chips below.
+Expand the filters to change choices;
 changes apply automatically and Enter submits a typed year. Active choices remain
 visible as chips when collapsed. Remove an adjustable choice with its chip; scoped
 crop, variety and area choices stay fixed. Use **All years** to leave the year overview.
@@ -126,8 +154,9 @@ Failed requests keep existing results and show **Retry**; invalid choices open t
 Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
 **Next year**; **All years** shows each planting once across its full history. Crop,
 variety and area histories default to all years. Lists show only area and batch names;
-select a batch name to open its crop, variety, years, quantity, events, notes, evaluation,
-photos and diary observations. Several batches can stay open independently. History links
+select a batch name to show its crop, variety, years, quantity, events, notes, evaluation,
+photos and diary observations in the shared details panel. Area branches stay independent
+of the selected batch. History links
 inside batch information keep an explicitly selected year. Register details also link to
 their **Planting history**.
 
@@ -228,7 +257,7 @@ and paging preserves active filters.
 Open a photo and use **Photo options → Download original**. Originals stay out of the
 ordinary diary view and are included in operational backups.
 
-The account menu contains Language, Log out and, for staff, Operator. Language changes
+The account menu contains Language, Season, Log out and, for staff, Operator. Language changes
 apply immediately with JavaScript and retain the page and filters; a submit button
 remains without JavaScript. The login page has its own selector.
 

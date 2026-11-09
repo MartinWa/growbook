@@ -3,32 +3,37 @@
 {% block title %}{{ heading }} · GrowBook{% endblock %}
 {% block page_class %}page register-page{% endblock %}
 {% block content %}
-{% include 'garden/nav.html' %}
-<div class="page-heading">
-  <h1>{{ heading }}</h1>
-  <div class="heading-actions">
-    {% include 'garden/archive_toggle.html' %}
-    {% if kind == 'variety' %}<a class="btn btn-outline" href="{% url 'garden:crop-create' %}">{% translate 'New crop' %}</a>{% endif %}
-    <a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>
-  </div>
-</div>
+{% if kind == 'area' %}
+  {% include 'components/register_heading.html' with illustration='images/registers/growing-areas.webp' %}
+{% else %}
+  {% include 'components/register_heading.html' with illustration='images/registers/crops-and-varieties.webp' %}
+{% endif %}
 {% if kind == 'variety' %}
 <div class="compact-filters" data-filter-page data-results-id="register-results"
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
   data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
   data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
+{% else %}<div>{% endif %}
+  <div class="register-toolbar">
+  {% if kind == 'variety' %}
   <form id="variety-filter" method="get" action="{{ request.path }}" class="variety-filter" data-filter-form>
-    <div class="field">{{ form.q.label_tag }}{{ form.q }}<p id="id_q_help" class="field-help">{% translate 'Search variety and crop names.' %}</p><div id="id_q_errors" class="field-errors" data-filter-field-errors="q">{{ form.q.errors }}</div></div>
+    <div class="field"><span class="visually-hidden">{{ form.q.label_tag }}</span>{{ form.q }}<p id="id_q_help" class="visually-hidden">{% translate 'Search variety and crop names.' %}</p><div id="id_q_errors" class="field-errors" data-filter-field-errors="q">{{ form.q.errors }}</div></div>
     <input type="hidden" name="archived" value="{% if show_archived %}1{% endif %}">
     <div class="related-actions">
       <button type="submit" class="btn btn-outline" data-filter-submit>{% translate 'Apply' %}</button>
       <button type="submit" class="btn btn-outline" data-filter-retry hidden>{% translate 'Retry' %}</button>
     </div>
   </form>
+  {% endif %}
+  <div class="heading-actions">
+    {% include 'garden/archive_toggle.html' %}
+    {% if kind == 'variety' %}<a class="btn btn-outline" href="{% url 'garden:crop-create' %}">{% translate 'New crop' %}</a>{% endif %}
+    <a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>
+  </div>
+  </div>
+  {% if kind == 'variety' %}
   <p id="filter-status" class="field-errors" role="alert"></p>
+  {% endif %}
   {% include 'garden/register_results.html' %}
 </div>
-{% else %}
-{% include 'garden/register_results.html' %}
-{% endif %}
 {% endblock %}

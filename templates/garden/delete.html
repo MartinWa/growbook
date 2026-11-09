@@ -2,7 +2,6 @@
 {% load i18n %}
 {% block title %}{% translate 'Delete record' %} · GrowBook{% endblock %}
 {% block content %}
-{% include 'garden/nav.html' %}
 <section class="panel register-form-panel">
   <h1>{% translate 'Delete record' %}: {{ record.name }}</h1>
   <p>{% translate 'Deletion is permanent and removes this record’s photos. Records with children or other protected references cannot be deleted; archive them instead.' %}</p>

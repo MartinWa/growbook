@@ -1,15 +1,24 @@
 from pathlib import Path
 
 from django.contrib.auth.decorators import login_not_required
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpResponseBadRequest,
+    HttpResponseRedirect,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_safe
+from django.views.decorators.http import require_GET, require_POST, require_safe
 from django.views.decorators.vary import vary_on_headers
 
 from diary.permissions import can_edit_entry
 
+from .appearance import SEASON_COOKIE, SEASON_COOKIE_AGE, SEASON_MODES
 from .images import FORMATS
 from .media import private_path
 from .models import Photo
@@ -20,6 +29,30 @@ from .releases import update_available
 @require_safe
 def favicon(request):
     return redirect(static("icons/favicon.svg"), permanent=True)
+
+
+@login_not_required
+@require_POST
+def set_season(request):
+    requested_mode = request.POST.get("season")
+    mode = next((allowed for allowed in SEASON_MODES if allowed == requested_mode), None)
+    if mode is None:
+        return HttpResponseBadRequest(_("Choose a valid season."))
+    destination = request.POST.get("next", "/")
+    if destination.startswith("/") and url_has_allowed_host_and_scheme(
+        destination, allowed_hosts=None
+    ):
+        response = HttpResponseRedirect(destination)
+    else:
+        response = HttpResponseRedirect("/")
+    response.set_cookie(
+        SEASON_COOKIE,
+        mode,
+        max_age=SEASON_COOKIE_AGE,
+        secure=request.is_secure(),
+        samesite="Lax",
+    )
+    return response
 
 
 @require_GET

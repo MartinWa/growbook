@@ -25,6 +25,7 @@ text is included in that installed license file.
 | Tailwind CSS, 4.3.4 | MIT, original copyright and permission notice in [`tailwindcss/LICENSE`](tailwindcss/LICENSE). |
 | daisyUI, 5.7.50 | MIT, original copyright and permission notice in [`daisyui/LICENSE`](daisyui/LICENSE). |
 | Lucide icon subset, 0.468.0 | Free ISC-licensed icons; original SVGs and attribution in [`lucide/README.md`](lucide/README.md) and [`lucide/LICENSE`](lucide/LICENSE). |
+| Barlow Condensed, regular heading font | SIL Open Font License 1.1; pinned source and checksum in [`barlow-condensed/README.md`](barlow-condensed/README.md), original license in [`barlow-condensed/LICENSE`](barlow-condensed/LICENSE). |
 | SQLite | Public domain; source/runtime inputs are checksum-pinned. |
 | PowerShell Core | MIT with bundled .NET/dependency notices under `/opt/powershell`; included only in the development/test image for launcher checks. |
 

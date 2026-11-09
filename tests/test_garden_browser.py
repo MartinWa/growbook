@@ -248,9 +248,11 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
     context.close()
 
 
-def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
-    page, live_server, user, registers
+@pytest.mark.parametrize("width", [390, 1280])
+def test_register_rows_select_shared_details_with_keyboard_focus_and_csp(
+    page, live_server, user, registers, width
 ):
+    page.set_viewport_size({"width": width, "height": 844})
     first, second = registers["first_variety"], registers["second_variety"]
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
@@ -262,30 +264,51 @@ def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
     });""")
     login(page, live_server, user)
     page.get_by_role("navigation", name="Huvudmeny").get_by_role(
-        "link", name="Trädgård", exact=True
+        "link", name="Grödor och sorter", exact=True
     ).click()
-    expect(page.locator("h1")).to_have_text("Trädgård")
-    page.locator(".garden-cards").get_by_role("link", name="Grödor och sorter", exact=True).click()
+    expect(page.locator("h1")).to_have_text("Grödor och sorter")
     page.locator(f'[data-crop-id="{first.crop_id}"] > summary').press("Enter")
     page.locator(f'[data-crop-id="{second.crop_id}"] > summary').press("Space")
     first_toggle = page.get_by_role("button", name=first.name, exact=True)
     second_toggle = page.get_by_role("button", name=second.name, exact=True)
     first_details = page.locator(f"#details-variety-{first.pk}")
     second_details = page.locator(f"#details-variety-{second.pk}")
+    pane = page.locator("[data-record-detail-pane]")
+    placeholder = pane.locator("[data-record-placeholder]")
+    return_button = page.get_by_role("button", name="Tillbaka till listan", exact=True)
+    expect(placeholder).to_be_visible()
     expect(first_toggle).to_have_attribute("aria-expanded", "false")
     first_toggle.focus()
     first_toggle.press("Enter")
     expect(first_toggle).to_have_attribute("aria-expanded", "true")
     expect(first_details).to_contain_text("Full first variety note")
+    expect(placeholder).to_be_hidden()
+    expect(first_details.locator("h2").first).to_be_in_viewport()
+    return_button.focus()
+    return_button.press("Enter")
     expect(first_toggle).to_be_focused()
     second_toggle.focus()
     second_toggle.press("Space")
     expect(second_details).to_contain_text("Full second variety note")
-    expect(first_details).to_be_visible()
+    expect(first_details).to_be_hidden()
+    expect(first_toggle).to_have_attribute("aria-expanded", "false")
+    expect(second_details.locator("h2").first).to_be_in_viewport()
+    return_button.focus()
+    return_button.press("Enter")
     expect(second_toggle).to_be_focused()
+    expect(pane.locator(".register-expanded:visible")).to_have_count(1)
+    browser = page.locator("[data-record-browser]").bounding_box()
+    information = pane.bounding_box()
+    if width >= 900:
+        assert browser["x"] + browser["width"] <= information["x"]
+    else:
+        assert browser["y"] + browser["height"] <= information["y"]
+    first_toggle.click()
+    expect(first_details).to_be_visible()
+    expect(second_details).to_be_hidden()
     first_toggle.click()
     expect(first_details).to_be_hidden()
-    expect(second_details).to_be_visible()
+    expect(placeholder).to_be_visible()
     first_toggle.click()
     expect(first_details).to_contain_text("Full first variety note")
     first_details.get_by_role("link", name="Redigera", exact=True).click()

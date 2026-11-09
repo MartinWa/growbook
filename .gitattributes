@@ -23,3 +23,6 @@
 *.webp  binary
 *.heic  binary
 *.ico   binary
+
+# Preserve the upstream font license verbatim.
+third_party/barlow-condensed/LICENSE whitespace=-blank-at-eol

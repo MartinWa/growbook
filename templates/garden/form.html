@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{{ title }} · GrowBook{% endblock %}
 {% block content %}
-{% if kind == 'planting' %}<nav class="register-nav" aria-label="{% translate 'Planting navigation' %}"><a href="{% url 'garden:planting-list' %}">{% translate 'Year overview' %}</a><a href="{% url 'garden:planting-history' %}">{% translate 'All years' %}</a></nav>{% elif kind != 'event' %}{% include 'garden/nav.html' %}{% endif %}
+{% if kind == 'planting' %}<nav class="year-navigation" aria-label="{% translate 'Planting navigation' %}"><a href="{% url 'garden:planting-list' %}">{% translate 'Year overview' %}</a><a href="{% url 'garden:planting-history' %}">{% translate 'All years' %}</a></nav>{% endif %}
 <section class="panel register-form-panel">
 <h1>{{ title }}</h1>
 <form id="register-form" method="post" action="{{ action }}" enctype="multipart/form-data"

@@ -1,6 +1,0 @@
-{% load i18n %}
-<nav class="register-nav" aria-label="{% translate 'Garden navigation' %}">
-  <a href="{% url 'garden:home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>{% translate 'Garden' %}</a>
-  <a href="{% url 'garden:area-list' %}" {% if kind == 'area' %}aria-current="page"{% endif %}>{% translate 'Growing areas' %}</a>
-  <a href="{% url 'garden:variety-list' %}" {% if kind == 'crop' or kind == 'variety' %}aria-current="page"{% endif %}>{% translate 'Crops and varieties' %}</a>
-</nav>

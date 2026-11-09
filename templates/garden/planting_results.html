@@ -1,18 +1,25 @@
 {% load i18n %}
 <div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-has-records="{{ records|yesno:'true,false' }}">
   <div role="alert">{% include 'garden/form_errors.html' %}</div>
-  <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=records|length %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</p>
+  <div class="result-toolbar">
+    <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=records|length %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</p>
+    <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
+      <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
+      <a href="{{ all_years_url }}">{% translate 'All years' %}</a>
+      {% if previous_url %}<a aria-label="{% translate 'Previous year' %}" href="{{ previous_url }}" data-filter-link>← {% translate 'Previous year' %}</a>{% endif %}
+      {% if next_url %}<a aria-label="{% translate 'Next year' %}" href="{{ next_url }}" data-filter-link>{% translate 'Next year' %} →</a>{% endif %}
+    </nav>
+  </div>
   {% include 'components/filter_chips.html' with clear_filters_url=request.path %}
-<nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
-  <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
-  <a href="{{ all_years_url }}">{% translate 'All years' %}</a>
-  {% if previous_url %}<a aria-label="{% translate 'Previous year' %}" href="{{ previous_url }}" data-filter-link>← {% translate 'Previous year' %}</a>{% endif %}
-  {% if next_url %}<a aria-label="{% translate 'Next year' %}" href="{{ next_url }}" data-filter-link>{% translate 'Next year' %} →</a>{% endif %}
-</nav>
 {% if scope %}<p class="related-actions"><a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a></p>{% endif %}
 {% if records %}
+<div class="record-workspace" data-record-workspace>
+<div class="record-browser" data-record-browser>
 {% include 'garden/area_tree.html' with planting_tree=True %}
 {% if unassigned_records %}<section class="unassigned-group"><h2>{% translate 'Unassigned area' %}</h2>{% include 'garden/planting_table.html' with records=unassigned_records table_label=heading %}</section>{% endif %}
+</div>
+{% include 'components/record_detail_pane.html' %}
+</div>
 {% else %}
 {% include 'components/empty_state.html' %}
 {% endif %}
