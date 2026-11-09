@@ -74,6 +74,7 @@
   }
   let controller;
   let debounce;
+  let retryURL;
   function setFields(url) {
     for (const field of form.querySelectorAll("input[name], select[name]")) {
       if (field.type === "checkbox") field.checked = url.searchParams.has(field.name);
@@ -134,6 +135,7 @@
     form.setAttribute("aria-busy", "true");
     status.textContent = "";
     drawerStatus.textContent = "";
+    retryURL = null;
     if (retry) retry.hidden = true;
     try {
       const response = await fetch(url, {
@@ -172,7 +174,9 @@
         create.href = results.dataset.createUrl;
         create.hidden = results.dataset.hasRecords === "false";
       }
-      document.dispatchEvent(new CustomEvent("growbook:results", { detail: { root: results } }));
+      document.dispatchEvent(new CustomEvent("growbook:results", {
+        detail: { root: results, url: url.pathname + url.search }
+      }));
       // No private HTML is cached in history or browser storage.
       if (url.href !== location.href) {
         if (replace) history.replaceState(null, "", url);
@@ -191,6 +195,8 @@
         status.textContent = error.message === page.dataset.sessionError
           ? page.dataset.sessionError : page.dataset.filterError;
         drawerStatus.textContent = status.textContent;
+        // Action buttons can change the attempted URL without changing the fields.
+        retryURL = url;
         if (retry) retry.hidden = false;
       }
     } finally {
@@ -199,7 +205,16 @@
   }
   form.addEventListener("submit", event => {
     event.preventDefault();
-    load(formURL());
+    if (retry && event.submitter === retry && retryURL) {
+      load(retryURL);
+      return;
+    }
+    const url = formURL();
+    if (event.submitter?.hasAttribute("data-archive-toggle")) {
+      if (event.submitter.value === "1") url.searchParams.set("archived", "1");
+      else url.searchParams.delete("archived");
+    }
+    load(url);
   });
   form.addEventListener("change", event => {
     // Search is handled by its debounced input listener and the submit path.
@@ -207,6 +222,8 @@
   });
   form.elements.namedItem("q")?.addEventListener("input", event => {
     clearTimeout(debounce);
+    retryURL = null;
+    if (retry) retry.hidden = true;
     // A changed draft invalidates the previous request during the debounce too.
     controller?.abort();
     if (!event.isComposing) debounce = setTimeout(() => load(formURL()), 300);

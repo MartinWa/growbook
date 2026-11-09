@@ -17,7 +17,7 @@ interface defaults to Swedish, with English available.
 - Administrator-managed accounts and a shared garden; no public signup.
 - Discreet footer links to GitHub and releases, the deployed release version, and an
   orange indicator when a newer stable release is available.
-- Crop registers with linked varieties, searchable varieties grouped by crop, and
+- A combined crop and variety register with searchable crop groups, and
   nested growing-area disclosures, with editing and non-cascading archive.
 - Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed
   deletion of records without protected references.
@@ -109,9 +109,9 @@ Docker volumes. Do not expose the development server or point it at production d
 
 ## Using growbook
 
-- **Garden** holds crop, variety and growing-area cards. Browse a crop's varieties,
-  search varieties by variety or crop name, expand nested areas and record notes, edit
-  records, manage photos and archive records without deleting them.
+- **Garden** holds growing areas and the combined **Crops and varieties** register,
+  plus a link to this year's plantings. Expand crop groups or nested areas, select names
+  for information and photos, search crop and variety names, and maintain records.
 - **Plantings** shows growing-year results grouped by area, with filters and expandable
   batches. Create annual or persistent plantings, record events, and open crop, variety and area
   histories.

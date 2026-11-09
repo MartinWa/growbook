@@ -339,10 +339,14 @@ class PlantingFilterForm(forms.Form):
 
 class VarietyFilterForm(forms.Form):
     q = forms.CharField(
-        label=_("Search varieties"),
+        label=_("Search crops and varieties"),
         required=False,
         widget=forms.TextInput(
-            attrs={"type": "search", "aria-describedby": "id_q_help id_q_errors"}
+            attrs={
+                "type": "search",
+                "placeholder": _("Search crop or variety"),
+                "aria-describedby": "id_q_help id_q_errors",
+            }
         ),
     )
     archived = forms.BooleanField(

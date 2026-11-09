@@ -1,30 +1,12 @@
 {% load i18n %}
-<div class="table-scroll">
-<table class="register-table responsive-table table table-sm">
-  <caption class="visually-hidden">{{ heading }}</caption>
-  <thead><tr>
-    <th scope="col">{% translate 'Name' %}</th>
-    {% if kind == 'crop' %}<th scope="col">{% translate 'Varieties' %}</th>
-    {% else %}<th scope="col">{% translate 'Category' %}</th>{% endif %}
-    <th scope="col" class="secondary-column">{% translate 'Status' %}</th>
-  </tr></thead>
+<ul class="record-list variety-list">
   {% for record in records %}
-  <tbody class="register-row-group">
-    <tr>
-      <th scope="row"><a href="{{ record.get_absolute_url }}">{{ record.name }}</a>{% if record.is_archived %}<span class="archive-label phone-archive">{% translate 'Archived' %}</span>{% endif %}<br><a class="row-toggle" href="{{ record.get_absolute_url }}" aria-controls="details-{{ kind }}-{{ record.pk }}" aria-expanded="false"
-             aria-label="{{ expand_label }}: {{ record.name }}" data-register-toggle data-details-url="{{ record.get_absolute_url }}"
-             data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Collapse and expand to retry, or follow the record link.' %}">{{ expand_label }}</a></th>
-      {% if kind == 'crop' %}<td>{{ record.variety_count }}</td>
-      {% else %}<td>{{ record.category|default:'—' }}</td>{% endif %}
-      <td class="secondary-column">{% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% else %}{% translate 'Active' %}{% endif %}</td>
-
-    </tr>
-    <tr id="details-{{ kind }}-{{ record.pk }}" class="register-expanded" hidden>
-      <td colspan="3">
-        <div class="register-details" role="region" aria-label="{{ expand_label }}: {{ record.name }}" aria-live="polite"></div>
-      </td>
-    </tr>
-  </tbody>
+  <li class="register-row-group">
+    {% include 'garden/row_toggle.html' with thumbnail=record.photos.all.0 %}
+    {% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}
+    <div id="details-{{ kind }}-{{ record.pk }}" class="register-expanded record-info" hidden>
+      <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.name }}" aria-live="polite"></div>
+    </div>
+  </li>
   {% endfor %}
-</table>
-</div>
+</ul>

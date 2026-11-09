@@ -336,6 +336,9 @@ msgstr "Redigera odlingsyta"
 msgid "Include archived records"
 msgstr "Visa även arkiverade poster"
 
+msgid "Include archived"
+msgstr "Visa arkiverade"
+
 msgid "Apply"
 msgstr "Visa"
 
@@ -1114,7 +1117,7 @@ msgid "No varieties yet"
 msgstr "Inga sorter ännu"
 
 msgid "No growing areas yet"
-msgstr "Inga odlingsplatser ännu"
+msgstr "Inga odlingsytor ännu"
 
 msgid "Add a crop to organize varieties and start planning plantings."
 msgstr "Lägg till en gröda för att samla sorter och börja planera odlingar."
@@ -1123,7 +1126,7 @@ msgid "Add a variety to a crop when you want to record more detail."
 msgstr "Lägg till en sort till en gröda när du vill spara mer information."
 
 msgid "Add a growing area to record where you grow and link observations."
-msgstr "Lägg till en odlingsplats för att ange var du odlar och koppla observationer."
+msgstr "Lägg till en odlingsyta för att ange var du odlar och koppla observationer."
 
 msgid "No active records"
 msgstr "Inga aktiva poster"
@@ -1154,3 +1157,21 @@ msgstr "Visa alla år för att hitta tidigare planer och pågående odlingar."
 
 msgid "Add a crop first, then plan where and when to grow it."
 msgstr "Lägg först till en gröda och planera sedan var och när du ska odla den."
+
+msgid "Search crops and varieties"
+msgstr "Sök grödor och sorter"
+
+msgid "Search crop or variety"
+msgstr "Sök gröda eller sort"
+
+msgid "Manage crops"
+msgstr "Hantera grödor"
+
+msgid "No crops or varieties yet"
+msgstr "Inga grödor eller sorter ännu"
+
+msgid "No crops or varieties match this search"
+msgstr "Inga grödor eller sorter matchar sökningen"
+
+msgid "Details could not be loaded. Close and reopen to retry, or open the record in a new tab."
+msgstr "Detaljerna kunde inte laddas. Stäng och öppna igen för att försöka på nytt, eller öppna posten i en ny flik."

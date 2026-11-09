@@ -1,5 +1,3 @@
 {% load i18n %}
-<span class="area-name">{{ record.name }}</span>
+{% if planting_tree %}<span class="area-name">{{ record.name }}</span>{% else %}{% include 'garden/row_toggle.html' %}{% endif %}
 {% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}
-{% if node.structural and not planting_tree %}<span class="structural-label">{% translate 'Ancestor area' %}</span>{% endif %}
-{% if planting_tree %}<span class="area-count">{% blocktranslate count count=node.count %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</span>{% endif %}

@@ -371,7 +371,7 @@
   }
 
   .record-fields {
-    @apply my-3 grid grid-cols-[minmax(7rem,1fr)_3fr] gap-x-4 gap-y-1;
+    @apply my-3 grid grid-cols-[minmax(7rem,1fr)_minmax(0,3fr)] gap-x-4 gap-y-1;
   }
 
   .record-fields dt {
@@ -400,10 +400,6 @@
 
   .register-table thead {
     @apply bg-base-200;
-  }
-
-  .register-expanded > td {
-    @apply bg-base-200/50 px-4 py-4;
   }
 
   .register-details {
@@ -633,7 +629,6 @@
     @apply mt-auto;
   }
 
-  .garden-planting-link a,
   .related-actions a,
   .register-nav a,
   .year-navigation a {
@@ -674,22 +669,6 @@
     @apply inline-flex min-h-11 items-center;
   }
 
-  .phone-archive {
-    @apply hidden;
-  }
-
-  .row-toggle {
-    @apply inline-block min-h-11 px-1 whitespace-nowrap;
-  }
-
-  .row-toggle::before {
-    content: "+ ";
-  }
-
-  .row-toggle[aria-expanded="true"]::before {
-    content: "− ";
-  }
-
   .register-filter {
     @apply my-4 flex flex-wrap items-center gap-4;
   }
@@ -699,32 +678,53 @@
   }
 
   .variety-filter { @apply max-w-2xl; }
-  .variety-filter .archive-options label { @apply inline-flex min-h-11 items-center gap-2; }
-  .variety-group { @apply my-6; }
-  .variety-group h2 { @apply mb-3; }
+  .archive-toggle[data-pressed="true"] { @apply border-primary bg-primary text-primary-content; }
+  .variety-group { @apply my-2 rounded-lg border border-base-300 bg-base-100 px-3 py-2; }
+  .variety-group > .record-list { @apply ml-5 border-l border-secondary/50 pl-2; }
+  .crop-maintenance { @apply mt-6; }
+  .crop-maintenance > summary { @apply min-h-11 cursor-pointer py-2 font-semibold text-primary; }
+  .record-list { @apply m-0 list-none p-0; }
+  .record-list > li { @apply my-1 min-w-0; }
+  .record-name {
+    @apply inline-flex min-h-11 min-w-0 max-w-full items-center gap-3 rounded-lg px-3 py-2 text-primary underline decoration-primary/60 underline-offset-4;
+    overflow-wrap: anywhere;
+  }
+  .record-name > span { @apply min-w-0; }
+  .record-name:hover, .record-name[aria-expanded="true"] { @apply bg-base-300/70 decoration-primary; }
+  .record-name[aria-expanded="true"] { @apply font-semibold; }
+  .variety-thumbnail { @apply size-16 shrink-0 rounded-lg object-cover; }
+  .record-info { @apply my-3 rounded-lg border border-base-300 bg-base-100 p-3 sm:p-4; }
   .crop-varieties { @apply m-0 list-none p-0; }
   .crop-varieties a { @apply inline-flex min-h-11 items-center; }
   .area-tree { @apply m-0 list-none p-0; }
-  .area-node { @apply my-3 min-w-0 rounded-lg border border-base-300 bg-base-100 p-3; display: flow-root; }
-  .area-actions { @apply float-right ml-3 flex flex-wrap items-center gap-x-3 text-sm; max-width: 60%; }
-  .area-actions a { @apply inline-flex min-h-11 items-center; overflow-wrap: anywhere; }
-  .area-branch > summary {
-    @apply min-h-11 min-w-11 cursor-pointer py-2 font-semibold text-primary;
-    width: fit-content;
-    max-width: calc(40% - 0.75rem);
-    overflow-wrap: anywhere;
+  .area-tree:not(.area-children) { @apply my-4 rounded-lg border border-base-300 bg-base-100 p-3; }
+  .area-node { @apply my-1 min-w-0; }
+  .area-branch > summary, .variety-group > summary {
+    @apply flex min-h-11 cursor-pointer items-center gap-2 font-semibold text-primary;
+    list-style: none;
   }
-  .area-leaf { @apply min-h-11 py-2; }
-  .area-content, .area-notes { clear: both; }
-  .area-children { @apply border-l border-base-300 pl-3; }
-  .area-notes { @apply rounded-lg bg-base-200 p-3; }
-  .area-count, .structural-label { @apply ml-2 text-sm font-normal text-base-content; }
+  .area-branch > summary::-webkit-details-marker, .variety-group > summary::-webkit-details-marker { display: none; }
+  .area-branch > summary::before, .variety-group > summary::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-inline: 0.75rem;
+    flex-shrink: 0;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+  .area-branch[open] > summary::before, .variety-group[open] > summary::before { transform: rotate(45deg); }
+  .area-name, .crop-name { @apply min-w-0; overflow-wrap: anywhere; }
+  .area-leaf, .area-content { @apply pl-8; }
+  .area-children { @apply border-l border-secondary/50 pl-2; }
+  .planting-list { @apply border-l border-secondary/50 pl-2; }
   .unassigned-group { @apply my-6; }
   .unassigned-group h2 { @apply mb-3; }
   @media (max-width: 650px) {
-    .area-node { @apply px-2; }
-    .area-children { @apply pl-1; }
-    .area-actions { @apply gap-x-2; }
+    .area-tree:not(.area-children) { @apply px-2; }
+    .area-content { @apply pl-4; }
+    .area-children, .planting-list { @apply pl-1; }
   }
 
   .planting-required-help {
@@ -734,6 +734,9 @@
   .diary-observations h2 {
     @apply mt-6 mb-2;
   }
+
+  .observation-disclosure { @apply mt-6; }
+  .observation-disclosure > summary { @apply min-h-11 cursor-pointer py-2 font-semibold text-primary; }
 
   .observation-list {
     @apply grid list-none gap-2 p-0;
@@ -828,32 +831,6 @@
   @media (max-width: 650px) {
     .page {
       @apply mt-4;
-    }
-
-    .responsive-table {
-      table-layout: fixed;
-    }
-
-    .responsive-table .secondary-column {
-      @apply hidden;
-    }
-
-    .responsive-table th[scope="row"] {
-      @apply min-w-0;
-    }
-
-    .responsive-table > thead > tr > th,
-    .responsive-table > tbody > tr > th,
-    .responsive-table > tbody > tr > td {
-      @apply px-2 py-1;
-    }
-
-    .phone-archive {
-      @apply mt-1 inline-block text-xs;
-    }
-
-    .responsive-table .row-toggle {
-      @apply whitespace-normal px-0;
     }
 
     .record-fields {

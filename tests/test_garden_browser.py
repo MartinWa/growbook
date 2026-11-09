@@ -16,6 +16,12 @@ def registers(user, image_upload):
     # Seed before Playwright starts its sync-API event loop; keep Django's async guard.
     first = create_crop(actor=user, name="Ärtor", notes="Full first crop note").record
     second = create_crop(actor=user, name="Bean", notes="Full second crop note").record
+    first_variety = create_variety(
+        actor=user, crop=first, name="Green trial", description="Full first variety note"
+    ).record
+    second_variety = create_variety(
+        actor=user, crop=second, name="Blue trial", description="Full second variety note"
+    ).record
     parent = create_area(actor=user, name="Parent").record
     child = create_area(
         actor=user,
@@ -28,6 +34,8 @@ def registers(user, image_upload):
     return {
         "first": first,
         "second": second,
+        "first_variety": first_variety,
+        "second_variety": second_variety,
         "parent": parent,
         "child": child,
         "grandchild": grandchild,
@@ -178,20 +186,22 @@ def test_photo_picker_fallback_replaces_choices_and_can_clear_them(
     expect(page.locator("[data-photo-chooser]")).to_be_focused()
 
 
-def test_register_wraps_long_crop_and_category_values_in_each_cell(
-    long_variety, page, live_server, user
-):
+def test_register_wraps_long_names_and_opened_information(long_variety, page, live_server, user):
     login(page, live_server, user)
     for width in (320, 390, 1280):
         page.set_viewport_size({"width": width, "height": 844})
         page.goto(live_server.url + "/garden/varieties/")
-        expect(page.locator(".register-table")).to_contain_text(long_variety.category)
-        assert page.locator(".register-table").evaluate(
-            """table => [...table.querySelectorAll('th, td')]
-                .filter(cell => cell.offsetWidth)
-                .every(cell => cell.scrollWidth <= cell.clientWidth + 1)"""
+        group = page.locator(f'[data-crop-id="{long_variety.crop_id}"]')
+        group.locator(":scope > summary").press("Enter")
+        expect(group).not_to_contain_text(long_variety.category)
+        group.get_by_role("button", name=long_variety.name, exact=True).click()
+        fields = page.locator(f"#details-variety-{long_variety.pk} .record-fields")
+        expect(fields).to_contain_text(long_variety.category)
+        assert fields.evaluate(
+            """fields => [...fields.querySelectorAll('dt, dd')]
+                .every(field => field.scrollWidth <= field.clientWidth + 1)"""
         )
-        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
 
 
 def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
@@ -200,25 +210,25 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
     page.set_viewport_size({"width": 390, "height": 844})
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/crops/")
+    expect(page).to_have_url(live_server.url + "/garden/varieties/")
     # Exercise wrapping independently of database name limits.
-    page.locator(".responsive-table th[scope=row] > a").first.evaluate(
-        "link => link.textContent = 'Synthetic'.repeat(20)"
+    page.locator(".variety-group .crop-name").first.evaluate(
+        "name => name.textContent = 'Synthetic'.repeat(20)"
     )
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-    page.get_by_role("button", name=f"Sorter: {registers['first'].name}", exact=True).click()
-    expect(page.locator(f"#details-crop-{registers['first'].pk}")).to_contain_text(
-        "Full first crop note"
-    )
+    page.locator(".crop-maintenance > summary").click()
+    page.locator(".crop-maintenance").get_by_role(
+        "link", name=registers["first"].name, exact=True
+    ).click()
+    expect(page.locator(".record-fields")).to_contain_text("Full first crop note")
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     context = page.context.browser.new_context(
         java_script_enabled=False, storage_state=page.context.storage_state()
     )
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/crops/")
-    plain.locator(".archive-options > summary").click()
-    plain.get_by_role("checkbox", name="Visa även arkiverade poster").check()
-    plain.locator(".register-filter").get_by_role("button", name="Visa", exact=True).click()
-    expect(plain).to_have_url(live_server.url + "/garden/crops/?archived=1")
+    plain.get_by_role("button", name="Visa arkiverade", exact=True).click()
+    expect(plain).to_have_url(live_server.url + "/garden/varieties/?q=&archived=1")
     assert plain.locator(".archive-state").evaluate(
         """notice => {
             const luminance = color => color.match(/\\d+/g).slice(0, 3)
@@ -234,14 +244,14 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
         }"""
     )
     plain.get_by_role("link", name="Dölj arkiverade poster", exact=True).click()
-    expect(plain).to_have_url(live_server.url + "/garden/crops/")
+    expect(plain).to_have_url(live_server.url + "/garden/varieties/")
     context.close()
 
 
 def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
     page, live_server, user, registers
 ):
-    first, second = registers["first"], registers["second"]
+    first, second = registers["first_variety"], registers["second_variety"]
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     page.on(
@@ -255,33 +265,35 @@ def test_register_rows_expand_independently_with_keyboard_focus_and_csp(
         "link", name="Trädgård", exact=True
     ).click()
     expect(page.locator("h1")).to_have_text("Trädgård")
-    page.locator(".garden-cards").get_by_role("link", name="Grödor", exact=True).click()
-    first_toggle = page.get_by_role("button", name=f"Sorter: {first.name}", exact=True)
-    second_toggle = page.get_by_role("button", name=f"Sorter: {second.name}", exact=True)
-    first_details = page.locator(f"#details-crop-{first.pk}")
-    second_details = page.locator(f"#details-crop-{second.pk}")
+    page.locator(".garden-cards").get_by_role("link", name="Grödor och sorter", exact=True).click()
+    page.locator(f'[data-crop-id="{first.crop_id}"] > summary').press("Enter")
+    page.locator(f'[data-crop-id="{second.crop_id}"] > summary').press("Space")
+    first_toggle = page.get_by_role("button", name=first.name, exact=True)
+    second_toggle = page.get_by_role("button", name=second.name, exact=True)
+    first_details = page.locator(f"#details-variety-{first.pk}")
+    second_details = page.locator(f"#details-variety-{second.pk}")
     expect(first_toggle).to_have_attribute("aria-expanded", "false")
     first_toggle.focus()
     first_toggle.press("Enter")
     expect(first_toggle).to_have_attribute("aria-expanded", "true")
-    expect(first_details).to_contain_text("Full first crop note")
+    expect(first_details).to_contain_text("Full first variety note")
     expect(first_toggle).to_be_focused()
     second_toggle.focus()
     second_toggle.press("Space")
-    expect(second_details).to_contain_text("Full second crop note")
+    expect(second_details).to_contain_text("Full second variety note")
     expect(first_details).to_be_visible()
     expect(second_toggle).to_be_focused()
     first_toggle.click()
     expect(first_details).to_be_hidden()
     expect(second_details).to_be_visible()
     first_toggle.click()
-    expect(first_details).to_contain_text("Full first crop note")
+    expect(first_details).to_contain_text("Full first variety note")
     first_details.get_by_role("link", name="Redigera", exact=True).click()
-    expect(page).to_have_url(live_server.url + f"/garden/crops/{first.pk}/edit/")
-    expect(page.locator("#id_notes")).to_have_value("Full first crop note")
+    expect(page).to_have_url(live_server.url + f"/garden/varieties/{first.pk}/edit/")
+    expect(page.locator("#id_description")).to_have_value("Full first variety note")
     assert errors == []
     assert page.evaluate("Object.keys(localStorage).length") == 0
-    expect(page.get_by_role("heading", name="Redigera gröda", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Redigera sort", exact=True)).to_be_visible()
 
 
 def test_inline_details_retry_after_failed_request_and_links_navigate_normally(
@@ -290,9 +302,9 @@ def test_inline_details_retry_after_failed_request_and_links_navigate_normally(
     area = registers["child"]
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/areas/")
-    page.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').click()
+    page.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').press("Enter")
     details = page.locator(f"#details-area-{area.pk}")
-    toggle = page.get_by_role("button", name=f"Anteckningar: {area.name}", exact=True)
+    toggle = page.get_by_role("button", name=area.name, exact=True)
     page.route(
         f"**{area.get_absolute_url()}",
         lambda route: route.fulfill(status=503, body="Synthetic failure"),
@@ -400,13 +412,16 @@ def test_register_unicode_duplicate_feedback_then_edit_archive_and_restore(
     page.get_by_role("button", name="Arkivera", exact=True).click()
     expect(page.get_by_role("button", name="Gör valbar igen", exact=True)).to_be_visible()
     page.goto(live_server.url + "/garden/crops/")
+    group = page.locator(f'[data-crop-id="{crop.pk}"]')
+    expect(group.locator(".archive-label")).to_be_visible()
+    group.locator(":scope > summary").press("Enter")
     expect(
-        page.locator(".register-table").get_by_role("link", name="Ärtor", exact=True)
-    ).to_have_count(0)
-    page.locator(".archive-options > summary").click()
-    page.get_by_role("checkbox", name="Visa även arkiverade poster").check()
-    expect(page).to_have_url(live_server.url + "/garden/crops/?archived=1")
-    page.locator(".register-table").get_by_role("link", name="Ärtor", exact=True).click()
+        group.get_by_role("button", name=registers["first_variety"].name, exact=True)
+    ).to_be_visible()
+    page.get_by_role("button", name="Visa arkiverade", exact=True).click()
+    expect(page).to_have_url(live_server.url + "/garden/varieties/?archived=1")
+    page.locator(".crop-maintenance > summary").click()
+    page.locator(".crop-maintenance").get_by_role("link", name="Ärtor", exact=True).click()
     page.get_by_role("button", name="Gör valbar igen", exact=True).click()
     expect(page.get_by_role("button", name="Arkivera", exact=True)).to_be_visible()
 
@@ -448,8 +463,8 @@ def test_register_detail_without_javascript_keeps_links_forms_and_drafts(
     )
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/areas/")
-    plain.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').click()
-    plain.get_by_role("link", name=f"Anteckningar: {area.name}", exact=True).click()
+    plain.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').press("Enter")
+    plain.get_by_role("link", name=area.name, exact=True).click()
     expect(plain).to_have_url(live_server.url + area.get_absolute_url())
     expect(plain.locator(".record-fields")).to_contain_text("Full notes")
     plain.get_by_role("link", name="Redigera", exact=True).click()

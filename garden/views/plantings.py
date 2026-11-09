@@ -177,12 +177,17 @@ def _planting_context(pk):
 
 @require_GET
 def planting_detail(request, pk):
+    context = _planting_context(pk)
+    context["inline"] = request.headers.get("HX-Request") == "true"
+    try:
+        year = int(request.GET.get("year", ""))
+    except ValueError:
+        year = None
+    context["year"] = year if year is not None and 1 <= year <= 9999 else None
     template = (
-        "garden/planting_details.html"
-        if request.headers.get("HX-Request") == "true"
-        else "garden/planting_detail.html"
+        "garden/planting_details.html" if context["inline"] else "garden/planting_detail.html"
     )
-    return render(request, template, _planting_context(pk))
+    return render(request, template, context)
 
 
 @require_http_methods(["GET", "POST"])

@@ -35,7 +35,7 @@
   {% if record and record.is_archived %}<p class="muted">{% translate 'This record is archived. Editing it does not restore it to active selections.' %}</p>{% endif %}
   <p data-register-status role="status" aria-live="polite"></p>
   <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
-  <div class="form-actions"><button type="submit" class="btn btn-primary">{% translate 'Save' %}</button><a href="{% if kind == 'event' %}{{ planting.get_absolute_url }}{% elif record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
+  <div class="form-actions"><button type="submit" class="btn btn-primary">{% translate 'Save' %}</button><a{% if record and kind != 'planting' and kind != 'event' %} data-register-cancel{% endif %} href="{% if kind == 'event' %}{{ planting.get_absolute_url }}{% elif record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
 </form>
 </section>
 {% endblock %}
