@@ -48,10 +48,13 @@ medium and large radii. The base font is 106.25% of the browser default, with a
   viewer's Photo options open as bordered overlays; photo limits open inline
   below their summary. All are nonmodal. Escape returns focus to their summary;
   clicking outside closes them without taking focus from the clicked control.
-- `.filter-drawer` uses a modal `dialog`, with first/last Tab handling, Escape,
-  a labelled close action and focus returned to its trigger. The same filter
-  form moves between the drawer and sidebar at 900 px. Without JavaScript,
-  the filter disclosure remains available.
+- `.filter-disclosure` uses native `details`/`summary` above Diary and Plantings
+  content at every width. It starts collapsed unless filters have errors; active
+  choices stay visible in the results. Expanded fields use an adaptive grid.
+  The Clear filters action is a button, with How filters work aligned to the right
+  in the same action row.
+  With JavaScript, Escape closes it and returns focus to the summary without
+  clearing the search. Without JavaScript, the same disclosure and form remain usable.
 
 ## Capture layout and interaction
 
@@ -93,7 +96,7 @@ partial. The shared `filters.js` module replaces list results and updates filter
 it does not cache private HTML in history or browser storage. Filtering leaves
 the capture form and FileLists in place. Invalid filter responses still replace the
 results summary, copy field errors back beside the fields and mark the controls
-invalid; on phones the open drawer announces the check-filters message too. A
+invalid and open the disclosure so errors remain visible. A
 successful quick save returns a receipt and a fresh submission key; focus moves to
 the saved entry when it matches the current results, or stays on the receipt link
 otherwise.
@@ -152,7 +155,7 @@ details and notes/photos; populated or invalid groups open automatically. A type
 end year stays visible when switching to Annual so it can be corrected. Dependent
 variety failures open their group and expose a retry action.
 
-Planting filters share the diary sidebar/drawer and URL history behavior. Returned
+Planting filters share the diary disclosure and URL history behavior. Returned
 lists initialize independent information controls after each filter update. Planting
 lists show area and batch names at every width; all other fields and history links are
 in opened information. Nested event tables retain their own horizontal scrolling.

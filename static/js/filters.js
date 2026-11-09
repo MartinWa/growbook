@@ -4,74 +4,18 @@
   const page = document.querySelector("[data-filter-page]");
   if (!page) return;
   const resultsId = page.dataset.resultsId;
-  const compact = page.hasAttribute("data-filter-compact");
   const disclosure = page.querySelector("[data-filter-disclosure]");
-  const panel = document.getElementById("filter-panel");
   const form = page.querySelector("[data-filter-form]");
-  const open = document.getElementById("open-filters");
-  const close = panel?.querySelector("[data-dialog-close]");
   const status = document.getElementById("filter-status");
-  const drawerStatus = document.getElementById("filter-drawer-status") || status;
   const retry = form.querySelector("[data-filter-retry]");
   const capture = document.getElementById("capture-form");
-  const wide = matchMedia("(min-width: 900px)");
-  const dialog = compact ? null : document.createElement("dialog");
-  if (!compact) {
-    dialog.id = "filter-dialog";
-    dialog.className = "filter-drawer";
-    dialog.setAttribute("aria-labelledby", "filter-title");
-    document.body.append(dialog);
-    function layout() {
-      if (dialog.open) dialog.close();
-      if (wide.matches) {
-        disclosure.append(panel);
-        disclosure.open = true;
-      } else {
-        dialog.append(panel);
-        disclosure.open = false;
-      }
-      open.hidden = wide.matches;
-      close.hidden = wide.matches;
-    }
-    page.classList.add("filters-enhanced");
-    wide.addEventListener("change", layout);
-    layout();
-    open.addEventListener("click", () => {
-      dialog.showModal();
-      form.querySelector("input:not([type=hidden]), select").focus();
-    });
-    close.addEventListener("click", () => dialog.close());
-    dialog.addEventListener("keydown", event => {
-      if (event.key === "Escape") {
-        // Close the drawer before a search input's native Escape action clears it.
-        event.preventDefault();
-        dialog.close();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const controls = [...dialog.querySelectorAll(
-        "button, input, select, textarea, a[href], summary, [tabindex]"
-      )].filter(control => !control.disabled && control.tabIndex >= 0 && control.getClientRects().length);
-      const first = controls[0];
-      const last = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    });
-    dialog.addEventListener("close", () => {
-      if (!wide.matches) open.focus();
-    });
-    dialog.addEventListener("click", event => {
-      if (event.target !== dialog) return;
-      const rect = dialog.getBoundingClientRect();
-      if (event.clientX < rect.left || event.clientX > rect.right ||
-          event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
-    });
-  }
+  disclosure?.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !disclosure.open) return;
+    // Preserve a search input's value when closing the filters.
+    event.preventDefault();
+    disclosure.open = false;
+    disclosure.querySelector(":scope > summary").focus();
+  });
   let controller;
   let debounce;
   let retryURL;
@@ -130,11 +74,12 @@
     controller?.abort();
     const request = new AbortController();
     controller = request;
-    if (retry && document.activeElement === retry) form.elements.namedItem("q")?.focus();
+    if (retry && document.activeElement === retry) {
+      form.querySelector("input:not([type=hidden]), select")?.focus();
+    }
     const focusOrigin = document.activeElement;
     form.setAttribute("aria-busy", "true");
     status.textContent = "";
-    drawerStatus.textContent = "";
     retryURL = null;
     if (retry) retry.hidden = true;
     try {
@@ -162,10 +107,8 @@
       document.getElementById(resultsId).replaceWith(results);
       syncFieldFeedback(results, invalid);
       if (invalid) {
-        // The results summary sits behind the modal drawer; repeat it where the fields are.
-        const message = page.dataset.invalidFilters;
-        if (dialog?.open) drawerStatus.textContent = message;
-        else status.textContent = message;
+        if (disclosure) disclosure.open = true;
+        status.textContent = page.dataset.invalidFilters;
       }
       if (results.dataset.heading) {
         document.querySelector(".page-heading h1").textContent = results.dataset.heading;
@@ -194,10 +137,10 @@
       if (!request.signal.aborted && error.name !== "AbortError") {
         status.textContent = error.message === page.dataset.sessionError
           ? page.dataset.sessionError : page.dataset.filterError;
-        drawerStatus.textContent = status.textContent;
         // Action buttons can change the attempted URL without changing the fields.
         retryURL = url;
         if (retry) retry.hidden = false;
+        if (disclosure) disclosure.open = true;
       }
     } finally {
       if (controller === request) form.removeAttribute("aria-busy");
@@ -236,7 +179,7 @@
       const field = form.querySelector(errorLink.getAttribute("href"));
       if (field) {
         event.preventDefault();
-        if (!compact && !wide.matches && !dialog.open) dialog.showModal();
+        if (disclosure) disclosure.open = true;
         field.focus();
       }
       return;

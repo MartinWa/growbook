@@ -2,6 +2,7 @@
 <div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-has-records="{{ records|yesno:'true,false' }}">
   <div role="alert">{% include 'garden/form_errors.html' %}</div>
   <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=records|length %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</p>
+  {% include 'components/filter_chips.html' with clear_filters_url=request.path %}
 <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
   <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
   <a href="{{ all_years_url }}">{% translate 'All years' %}</a>

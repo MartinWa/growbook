@@ -85,6 +85,14 @@ def page(live_server, settings, user, catalog):
         browser.close()
 
 
+def open_filters(page):
+    disclosure = page.locator("[data-filter-disclosure]")
+    summary = disclosure.locator(":scope > summary")
+    if disclosure.get_attribute("open") is None:
+        summary.click()
+    summary.press("Tab")
+
+
 def login(page, live_server, user):
     page.goto(live_server.url + "/accounts/login/")
     page.locator("#id_username").fill(user.username)
@@ -144,32 +152,34 @@ def test_phone_filters_retry_back_and_reinitialize_rows(page, live_server, user,
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/?year=2026")
     expect(page.locator("#id_year")).to_be_hidden()
+    expect(page.locator(".filter-chip")).to_have_text("Odlingsår: 2026")
     expect(page.locator("#planting-results .record-details")).to_have_count(0)
-    page.locator("#open-filters").click()
+    open_filters(page)
     expect(page.locator("#id_year")).to_be_focused()
     page.route("**/garden/plantings/?*", lambda route: route.abort())
     page.locator("#id_year").fill("2027")
     page.locator("#id_year").press("Enter")
-    expect(page.locator("#filter-drawer-status")).to_contain_text("Filtren kunde inte uppdateras")
+    expect(page.locator("#filter-status")).to_contain_text("Filtren kunde inte uppdateras")
     expect(page.locator("#planting-results")).to_contain_text("First batch")
     page.unroute("**/garden/plantings/?*")
-    page.locator("#id_year").press("Enter")
+    page.locator("[data-filter-retry]").click()
     expect(page).to_have_url(live_server.url + "/garden/plantings/?year=2027")
+    expect(page.locator(".filter-chip")).to_have_text("Odlingsår: 2027")
     expect(page.locator("#planting-results")).to_contain_text("Inga odlingar detta odlingsår")
     page.keyboard.press("Escape")
-    expect(page.locator("#open-filters")).to_be_focused()
+    expect(page.locator("[data-filter-disclosure] > summary")).to_be_focused()
     page.go_back()
     expect(page.locator("h1")).to_contain_text("2026")
-    page.locator("#open-filters").click()
+    open_filters(page)
     page.locator("#id_year").fill("10000")
     page.locator("#id_year").press("Tab")
     expect(page.locator('#planting-results [data-field-errors="year"]')).to_be_attached()
-    expect(page.locator("#filter-drawer-status")).to_contain_text("Välj ett giltigt värde")
+    expect(page.locator("#filter-status")).to_contain_text("Välj ett giltigt värde")
     expect(page.locator("#id_year")).to_have_attribute("aria-invalid", "true")
     expect(page.locator("#id_year")).to_have_value("10000")
     page.keyboard.press("Escape")
     page.locator("#planting-results .error-summary a").click()
-    expect(page.locator("#filter-dialog")).to_be_visible()
+    expect(page.locator("#filter-panel")).to_be_visible()
     expect(page.locator("#id_year")).to_be_focused()
     page.locator("#id_year").fill("2026")
     page.locator("#id_year").press("Enter")
@@ -362,6 +372,7 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
     expect(results).to_contain_text("First batch")
     expect(results).not_to_contain_text("Persistent batch")
     page.get_by_role("link", name="Årsöversikt", exact=True).click()
+    open_filters(page)
     page.locator("#id_year").fill("2027")
     page.locator("#id_year").press("Enter")
     expect(results.locator(".empty-state")).to_contain_text("Inga odlingar matchar filtren.")
@@ -374,6 +385,50 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
     ).click()
     expect(page.locator("#id_year")).to_have_value("")
     expect(results).to_contain_text("First batch")
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+def test_scoped_planting_chips_remove_year_and_boolean_choices_without_losing_scope(
+    page, live_server, user, catalog, javascript
+):
+    login(page, live_server, user)
+    context = page.context.browser.new_context(
+        java_script_enabled=javascript,
+        storage_state=page.context.storage_state(),
+        viewport={"width": 390, "height": 844},
+    )
+    try:
+        view = context.new_page()
+        path = f"/garden/crops/{catalog['crop'].pk}/history/"
+        view.goto(live_server.url + path + "?year=2026&unknown_variety=on")
+        expect(view.locator("#id_year")).to_be_hidden()
+        expect(view.locator(".filter-chip")).to_have_count(3)
+        expect(view.locator(".filter-chips span.filter-chip")).to_contain_text("Tomato")
+        results = view.locator("#planting-results")
+        expect(results).not_to_contain_text("First batch")
+        expect(results).to_contain_text("Persistent batch")
+        view.locator("a.filter-chip").filter(has_text="2026").click()
+        expect(view.locator("#id_year")).to_have_value("")
+        expect(view.locator(".filter-chip")).to_have_count(2)
+        expect(view.locator("#id_year")).to_be_hidden()
+        view.locator("a.filter-chip").click()
+        expect(view.locator(".filter-chip")).to_have_count(1)
+        expect(results).to_contain_text("First batch")
+        expect(results).to_contain_text("Persistent batch")
+        assert view.url.startswith(live_server.url + path)
+        expect(view.locator("#id_crop")).to_have_value(str(catalog["crop"].pk))
+        if javascript:
+            expect(view.locator("[data-result-focus]")).to_be_focused()
+        view.go_back()
+        expect(view.locator(".filter-chip")).to_have_count(2)
+        expect(results).not_to_contain_text("First batch")
+        # Initial invalid URLs reveal the form even without JavaScript.
+        view.goto(live_server.url + path + "?year=10000")
+        expect(view.locator("#id_year")).to_be_visible()
+        expect(view.locator("#id_year")).to_have_attribute("aria-invalid", "true")
+        expect(view.locator("#id_year_errors")).not_to_be_empty()
+    finally:
+        context.close()
 
 
 def test_empty_scoped_history_action_restores_rows_and_preserves_scope(

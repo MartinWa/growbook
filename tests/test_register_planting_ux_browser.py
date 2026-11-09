@@ -398,8 +398,7 @@ def test_area_branches_notes_and_grouped_batches_with_keyboard(
     expect(page.locator(f"#details-planting-{ux['batches'][1].pk} .record-fields")).to_contain_text(
         "0"
     )
-    if width < 900:
-        page.locator("#open-filters").click()
+    page.locator("[data-filter-disclosure] > summary").click()
     page.locator("#id_variety").select_option(str(ux["green"].pk))
     expect(page).to_have_url(
         live_server.url + f"/garden/plantings/?year=2026&variety={ux['green'].pk}"

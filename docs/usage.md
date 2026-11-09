@@ -117,8 +117,12 @@ full forms keep their save actions visible at the bottom while scrolling.
 
 ## Plantings and histories
 
-Open **Plantings** for growing-year results grouped by area. Filters use a sidebar at
-900 px and a drawer below that width; changes apply automatically and Enter submits a typed year.
+Open **Plantings** for growing-year results grouped by area. **Planting filters** starts
+collapsed above the results at every screen width. Expand it to change filters;
+changes apply automatically and Enter submits a typed year. Active choices remain
+visible as chips when collapsed. Remove an adjustable choice with its chip; scoped
+crop, variety and area choices stay fixed. Use **All years** to leave the year overview.
+Failed requests keep existing results and show **Retry**; invalid choices open the filters.
 Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
 **Next year**; **All years** shows each planting once across its full history. Crop,
 variety and area histories default to all years. Lists show only area and batch names;
@@ -209,8 +213,11 @@ changed or removed after unlinking. Choosing the same tags in a different order 
 identical retry. A confirmed quick save clears tags and starts a fresh save key.
 Diary filters do not preselect tags for a new observation.
 
-Search and filters use a sidebar on wide screens and a drawer on phones. With JavaScript,
-search applies after a short pause or Enter, other filters apply on change, and chips
+**Search and filters** starts collapsed above the diary content at every screen width;
+entries use the full content width. Active choices stay visible when collapsed.
+With JavaScript, Escape closes the filters and returns focus to their heading;
+invalid choices open the filters, and failed requests keep results and show **Retry**.
+Search applies after a short pause or Enter, other filters apply on change, and chips
 remove individual filters. Paging and Back preserve filter URLs; updating results keeps
 an unfinished quick-add and its selected files. Without JavaScript, open the filter
 disclosure and submit the form. Search matches note text only; the year, area, crop,

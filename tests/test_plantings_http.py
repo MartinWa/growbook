@@ -1,4 +1,5 @@
 from datetime import date
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 import pytest
@@ -146,6 +147,52 @@ def test_planting_partial_preserves_scope_and_returns_filter_errors(client, user
     assert invalid.status_code == 422
     assert invalid.context["form"].errors["year"]
     assert b'data-field-errors="year"' in invalid.content
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_planting_chips_keep_scope_and_remove_only_the_selected_filter(
+    client, user, catalog, partial
+):
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
+    path = reverse("garden:variety-history", args=[catalog["variety"].pk])
+    response = client.get(path, {"year": 2026, "area": catalog["child"].pk}, **headers)
+    chips = {str(chip["label"]): chip for chip in response.context["active_filters"]}
+    assert chips["Crop"]["value"] == "Tomato"
+    assert chips["Variety"]["value"] == "Golden (Tomato)"
+    assert chips["Crop"]["url"] == chips["Variety"]["url"] == ""
+    assert chips["Growing area"]["value"] == "Greenhouse / Bed"
+    for label, remaining in (
+        ("Growing year", {"area": [str(catalog["child"].pk)]}),
+        ("Growing area", {"year": ["2026"]}),
+    ):
+        url = chips[label]["url"]
+        assert urlsplit(url).path == path
+        # Locked fields stay in the URL and cannot be removed through a chip.
+        query = parse_qs(urlsplit(url).query)
+        assert query.pop("crop") == [str(catalog["crop"].pk)]
+        assert query.pop("variety") == [str(catalog["variety"].pk)]
+        assert query == remaining
+        restored = client.get(url, **headers)
+        assert [row.pk for row in restored.context["records"]] == [catalog["planting"].pk]
+
+
+def test_planting_chips_show_boolean_filters_and_escaped_invalid_values(client, user):
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    path = reverse("garden:planting-list")
+    response = client.get(path, {"year": 2026, "unassigned": "on", "unknown_variety": "on"})
+    chips = {str(chip["label"]): chip for chip in response.context["active_filters"]}
+    assert chips["Growing year"]["url"] == ""
+    assert chips["Unassigned area only"]["value"] == "Yes"
+    assert chips["Unknown variety only"]["value"] == "Yes"
+    url = chips["Unassigned area only"]["url"]
+    assert parse_qs(urlsplit(url).query) == {"year": ["2026"], "unknown_variety": ["on"]}
+    invalid = client.get(path, {"year": "<script>"})
+    assert invalid.status_code == 422
+    assert invalid.context["active_filters"][0]["value"] == "<script>"
+    assert "&lt;script&gt;" in invalid.text
 
 
 def test_invalid_planting_filter_renders_inline_field_feedback(client, user):

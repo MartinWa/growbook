@@ -460,13 +460,34 @@
     @apply max-w-full;
   }
 
-  .filter-heading {
-    @apply mb-4 flex items-center justify-between gap-2;
+  .filter-fields {
+    @apply grid gap-x-4;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .filter-actions {
+    @apply mt-3 grid grid-cols-2 items-start gap-3;
+  }
+
+  .filter-actions .form-actions {
+    @apply mt-0;
+  }
+
+  .filter-actions .filter-help {
+    @apply min-w-0 text-right;
+  }
+
+  .filter-actions .filter-help > summary {
+    @apply text-sm;
+  }
+
+  .filter-actions .field-help {
+    @apply text-left;
   }
 
   .diary-layout,
   .filter-layout {
-    @apply grid gap-6;
+    @apply mt-4 grid gap-4;
   }
 
   .diary-stream,
@@ -474,25 +495,21 @@
     @apply min-w-0;
   }
 
-  .diary-filters > summary {
+  .filter-disclosure > summary {
+    @apply cursor-pointer;
+  }
+
+  .filter-disclosure[open] > summary {
     @apply mb-3;
   }
 
-  .filter-close-label {
-    @apply hidden;
+  .filter-arrow {
+    @apply size-2 shrink-0 border-r-2 border-b-2;
+    transform: translateY(-2px) rotate(45deg);
   }
 
-  .filter-drawer {
-    @apply fixed inset-y-0 right-0 m-0 h-full max-h-full w-[min(24rem,100%)] max-w-full border-0 bg-base-100 p-4 text-base-content;
-    box-shadow: -6px 0 24px #202d2426;
-  }
-
-  .filter-drawer::backdrop {
-    background: #202d2466;
-  }
-
-  .filter-drawer .filter-panel {
-    @apply border-0 p-0;
+  .filter-disclosure[open] > summary .filter-arrow {
+    transform: translateY(2px) rotate(225deg);
   }
 
   .quick-add .field {
@@ -791,40 +808,6 @@
   @media (min-width: 600px) {
     .photo-inputs {
       @apply grid-cols-2;
-    }
-  }
-
-  @media (min-width: 900px) {
-    .diary-layout,
-    .filter-layout {
-      @apply grid-cols-[16rem_minmax(0,1fr)] items-start;
-    }
-
-    .filters-enhanced [data-filter-disclosure] > summary {
-      @apply hidden;
-    }
-  }
-
-  @media (max-width: 899px) {
-    .filters-enhanced [data-filter-disclosure] {
-      @apply hidden;
-    }
-
-    .diary-filters[open] > summary {
-      @apply fixed top-4 right-4 z-40;
-    }
-
-    .diary-filters[open] .filter-open-label {
-      @apply hidden;
-    }
-
-    .diary-filters[open] .filter-close-label {
-      @apply inline;
-    }
-
-    .diary-filters[open] .filter-panel {
-      @apply fixed inset-y-0 right-0 z-30 w-[min(24rem,100%)] overflow-y-auto pt-20;
-      box-shadow: -6px 0 24px #202d2426;
     }
   }
 

@@ -1016,6 +1016,9 @@ msgstr "Kontomeny"
 msgid "Active filters"
 msgstr "Aktiva filter"
 
+msgid "Yes"
+msgstr "Ja"
+
 msgid "Choose from library"
 msgstr "Välj från bildbiblioteket"
 
