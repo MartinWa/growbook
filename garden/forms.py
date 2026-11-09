@@ -337,6 +337,25 @@ class PlantingFilterForm(forms.Form):
         describe_fields(self)
 
 
+class VarietyFilterForm(forms.Form):
+    q = forms.CharField(
+        label=_("Search crops and varieties"),
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "type": "search",
+                "placeholder": _("Search crop or variety"),
+                "aria-describedby": "id_q_help id_q_errors",
+            }
+        ),
+    )
+    archived = forms.BooleanField(
+        label=_("Include archived records"),
+        required=False,
+        widget=forms.CheckboxInput(attrs={"value": "1"}),
+    )
+
+
 class ArchiveForm(forms.Form):
     archived = forms.TypedChoiceField(
         label=_("Archived"),

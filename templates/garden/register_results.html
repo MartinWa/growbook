@@ -1,0 +1,33 @@
+{% load i18n %}
+<div id="register-results" data-archived="{{ show_archived|yesno:'true,false' }}">
+  {% if form.errors %}<div role="alert">{% include 'garden/form_errors.html' %}</div>{% endif %}
+  {% if show_archived %}<p class="archive-state">{% translate 'Showing archived records' %} · <a href="{{ hide_archived_url }}" data-filter-link>{% translate 'Hide archived records' %}</a></p>{% endif %}
+  {% if kind == 'variety' %}
+  <p class="result-count" data-result-focus tabindex="-1">{% blocktranslate count count=records|length %}{{ count }} variety{% plural %}{{ count }} varieties{% endblocktranslate %}</p>
+  {% if form.q.value and has_records %}<p><a href="{{ clear_search_url }}" data-filter-link>{% translate 'Clear search' %}</a></p>{% endif %}
+  {% endif %}
+  {% if has_records %}
+    {% if kind == 'area' %}
+      {% include 'garden/area_tree.html' %}
+    {% elif kind == 'variety' %}
+      {% for group in variety_groups %}
+      <details class="variety-group" id="crop-group-{{ group.crop.pk }}" data-crop-id="{{ group.crop.pk }}"{% if search %} open{% endif %}>
+        <summary><span class="crop-name">{{ group.crop.name }}</span> {% if group.crop.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</summary>
+        {% if group.records %}
+        {% include 'garden/register_table.html' with records=group.records %}
+        {% else %}<p class="field-help">{% translate 'No varieties for this crop yet.' %}</p>{% endif %}
+      </details>
+      {% endfor %}
+      <details class="crop-maintenance" id="crop-maintenance">
+        <summary>{% translate 'Manage crops' %}</summary>
+        <ul class="record-list">
+          {% for group in variety_groups %}<li><a class="record-name" href="{{ group.crop.get_absolute_url }}">{{ group.crop.name }}</a>{% if group.crop.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</li>{% endfor %}
+        </ul>
+      </details>
+    {% else %}
+      {% include 'garden/register_table.html' %}
+    {% endif %}
+  {% else %}
+    {% include 'components/empty_state.html' %}
+  {% endif %}
+</div>

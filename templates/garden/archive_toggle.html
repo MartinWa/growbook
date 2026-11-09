@@ -1,0 +1,12 @@
+{% load i18n %}
+{% if kind == 'variety' %}
+{# The first associated submit button applies search when Enter is pressed. #}
+<button type="submit" form="variety-filter" hidden>{% translate 'Apply' %}</button>
+{% else %}<form id="archive-filter" method="get" action="{{ list_url }}">{% endif %}
+<button type="submit" form="{% if kind == 'variety' %}variety-filter{% else %}archive-filter{% endif %}"
+        name="archive_toggle" value="{% if show_archived %}0{% else %}1{% endif %}"
+        class="btn btn-outline archive-toggle" data-archive-toggle
+        data-pressed="{{ show_archived|yesno:'true,false' }}" aria-pressed="{{ show_archived|yesno:'true,false' }}">
+  {% translate 'Include archived' %}
+</button>
+{% if kind != 'variety' %}</form>{% endif %}

@@ -4,66 +4,77 @@
   const page = document.querySelector("[data-filter-page]");
   if (!page) return;
   const resultsId = page.dataset.resultsId;
+  const compact = page.hasAttribute("data-filter-compact");
   const disclosure = page.querySelector("[data-filter-disclosure]");
   const panel = document.getElementById("filter-panel");
   const form = page.querySelector("[data-filter-form]");
   const open = document.getElementById("open-filters");
-  const close = panel.querySelector("[data-dialog-close]");
+  const close = panel?.querySelector("[data-dialog-close]");
   const status = document.getElementById("filter-status");
-  const drawerStatus = document.getElementById("filter-drawer-status");
+  const drawerStatus = document.getElementById("filter-drawer-status") || status;
+  const retry = form.querySelector("[data-filter-retry]");
   const capture = document.getElementById("capture-form");
   const wide = matchMedia("(min-width: 900px)");
-  const dialog = document.createElement("dialog");
-  dialog.id = "filter-dialog";
-  dialog.className = "filter-drawer";
-  dialog.setAttribute("aria-labelledby", "filter-title");
-  document.body.append(dialog);
-  function layout() {
-    if (dialog.open) dialog.close();
-    if (wide.matches) {
-      disclosure.append(panel);
-      disclosure.open = true;
-    } else {
-      dialog.append(panel);
-      disclosure.open = false;
+  const dialog = compact ? null : document.createElement("dialog");
+  if (!compact) {
+    dialog.id = "filter-dialog";
+    dialog.className = "filter-drawer";
+    dialog.setAttribute("aria-labelledby", "filter-title");
+    document.body.append(dialog);
+    function layout() {
+      if (dialog.open) dialog.close();
+      if (wide.matches) {
+        disclosure.append(panel);
+        disclosure.open = true;
+      } else {
+        dialog.append(panel);
+        disclosure.open = false;
+      }
+      open.hidden = wide.matches;
+      close.hidden = wide.matches;
     }
-    open.hidden = wide.matches;
-    close.hidden = wide.matches;
+    page.classList.add("filters-enhanced");
+    wide.addEventListener("change", layout);
+    layout();
+    open.addEventListener("click", () => {
+      dialog.showModal();
+      form.querySelector("input:not([type=hidden]), select").focus();
+    });
+    close.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        // Close the drawer before a search input's native Escape action clears it.
+        event.preventDefault();
+        dialog.close();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = [...dialog.querySelectorAll(
+        "button, input, select, textarea, a[href], summary, [tabindex]"
+      )].filter(control => !control.disabled && control.tabIndex >= 0 && control.getClientRects().length);
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+    dialog.addEventListener("close", () => {
+      if (!wide.matches) open.focus();
+    });
+    dialog.addEventListener("click", event => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right ||
+          event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    });
   }
-  page.classList.add("filters-enhanced");
-  wide.addEventListener("change", layout);
-  layout();
-  open.addEventListener("click", () => {
-    dialog.showModal();
-    form.querySelector("input:not([type=hidden]), select").focus();
-  });
-  close.addEventListener("click", () => dialog.close());
-  dialog.addEventListener("keydown", event => {
-    if (event.key !== "Tab") return;
-    const controls = [...dialog.querySelectorAll(
-      "button, input, select, textarea, a[href], summary, [tabindex]"
-    )].filter(control => !control.disabled && control.tabIndex >= 0 && control.getClientRects().length);
-    const first = controls[0];
-    const last = controls[controls.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  });
-  dialog.addEventListener("close", () => {
-    if (!wide.matches) open.focus();
-  });
-  dialog.addEventListener("click", event => {
-    if (event.target !== dialog) return;
-    const rect = dialog.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right ||
-        event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
-  });
   let controller;
   let debounce;
+  let retryURL;
   function setFields(url) {
     for (const field of form.querySelectorAll("input[name], select[name]")) {
       if (field.type === "checkbox") field.checked = url.searchParams.has(field.name);
@@ -119,10 +130,13 @@
     controller?.abort();
     const request = new AbortController();
     controller = request;
+    if (retry && document.activeElement === retry) form.elements.namedItem("q")?.focus();
     const focusOrigin = document.activeElement;
     form.setAttribute("aria-busy", "true");
     status.textContent = "";
     drawerStatus.textContent = "";
+    retryURL = null;
+    if (retry) retry.hidden = true;
     try {
       const response = await fetch(url, {
         headers: { "HX-Request": "true", "HX-Target": resultsId },
@@ -150,7 +164,7 @@
       if (invalid) {
         // The results summary sits behind the modal drawer; repeat it where the fields are.
         const message = page.dataset.invalidFilters;
-        if (dialog.open) drawerStatus.textContent = message;
+        if (dialog?.open) drawerStatus.textContent = message;
         else status.textContent = message;
       }
       if (results.dataset.heading) {
@@ -160,7 +174,9 @@
         create.href = results.dataset.createUrl;
         create.hidden = results.dataset.hasRecords === "false";
       }
-      document.dispatchEvent(new CustomEvent("growbook:results", { detail: { root: results } }));
+      document.dispatchEvent(new CustomEvent("growbook:results", {
+        detail: { root: results, url: url.pathname + url.search }
+      }));
       // No private HTML is cached in history or browser storage.
       if (url.href !== location.href) {
         if (replace) history.replaceState(null, "", url);
@@ -179,6 +195,9 @@
         status.textContent = error.message === page.dataset.sessionError
           ? page.dataset.sessionError : page.dataset.filterError;
         drawerStatus.textContent = status.textContent;
+        // Action buttons can change the attempted URL without changing the fields.
+        retryURL = url;
+        if (retry) retry.hidden = false;
       }
     } finally {
       if (controller === request) form.removeAttribute("aria-busy");
@@ -186,7 +205,16 @@
   }
   form.addEventListener("submit", event => {
     event.preventDefault();
-    load(formURL());
+    if (retry && event.submitter === retry && retryURL) {
+      load(retryURL);
+      return;
+    }
+    const url = formURL();
+    if (event.submitter?.hasAttribute("data-archive-toggle")) {
+      if (event.submitter.value === "1") url.searchParams.set("archived", "1");
+      else url.searchParams.delete("archived");
+    }
+    load(url);
   });
   form.addEventListener("change", event => {
     // Search is handled by its debounced input listener and the submit path.
@@ -194,6 +222,10 @@
   });
   form.elements.namedItem("q")?.addEventListener("input", event => {
     clearTimeout(debounce);
+    retryURL = null;
+    if (retry) retry.hidden = true;
+    // A changed draft invalidates the previous request during the debounce too.
+    controller?.abort();
     if (!event.isComposing) debounce = setTimeout(() => load(formURL()), 300);
   });
   form.querySelector("[data-filter-submit]").hidden = true;
@@ -204,7 +236,7 @@
       const field = form.querySelector(errorLink.getAttribute("href"));
       if (field) {
         event.preventDefault();
-        if (!wide.matches && !dialog.open) dialog.showModal();
+        if (!compact && !wide.matches && !dialog.open) dialog.showModal();
         field.focus();
       }
       return;

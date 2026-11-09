@@ -255,7 +255,7 @@ def test_default_year_and_all_years_do_not_infer_years_from_event_dates(client, 
     assert response.context["records"] == [catalog["planting"]]
     assert client.get(reverse("garden:planting-list"), {"year": 2025}).context["records"] == []
     response = client.get(reverse("garden:planting-list"), {"year": 2026})
-    assert '<table class="register-table planting-table' in response.text
+    assert '<ul class="record-list planting-list"' in response.text
     assert f'aria-controls="details-planting-{catalog["planting"].pk}"' in response.text
     assert "Synthetic event note" not in response.text
     assert "Unknown variety" not in response.text  # Swedish is the default locale.
@@ -305,8 +305,10 @@ def test_area_history_keeps_all_years_or_the_explicit_year(
     client.force_login(user)
     data = {} if year is None else {"year": year}
     history = client.get(reverse("garden:planting-history"), data)
+    assert set(history.context["records"]) == ({older} if year else {older, catalog["planting"]})
+    details = client.get(older.get_absolute_url(), data, HTTP_HX_REQUEST="true")
     area_url = reverse("garden:area-history", args=[catalog["child"].pk])
-    assert f'href="{area_url}{"?year=2025" if year else ""}"' in history.text
+    assert f'href="{area_url}{"?year=2025" if year else ""}"' in details.text
     for area in (catalog["root"], catalog["child"]):
         response = client.get(reverse("garden:area-history", args=[area.pk]), data)
         assert response.status_code == 200
@@ -343,7 +345,7 @@ def test_area_rollups_persistent_years_unknown_and_unassigned_filters(client, us
     client.force_login(user)
     response = client.get(reverse("garden:area-history", args=[catalog["root"].pk]), {"year": 2026})
     assert set(response.context["records"]) == {current, persistent}
-    assert "Greenhouse / Bed" in response.text
+    assert "Greenhouse / Bed" in client.get(current.get_absolute_url(), HTTP_HX_REQUEST="true").text
     assert (
         client.get(
             reverse("garden:area-history", args=[catalog["root"].pk]), {"year": 2027}

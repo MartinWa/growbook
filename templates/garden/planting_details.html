@@ -2,9 +2,9 @@
 <section class="record-details" aria-labelledby="record-planting-{{ record.pk }}">
   <h2 id="record-planting-{{ record.pk }}">{{ record.display_label }}</h2>
   <dl class="record-fields">
-    <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
-    <dt>{% translate 'Variety' %}</dt><dd>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</dd>
-    <dt>{% translate 'Growing area' %}</dt><dd>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}">{{ record.area_path }}</a>{% if record.area.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</dd>
+    <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
+    <dt>{% translate 'Variety' %}</dt><dd>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</dd>
+    <dt>{% translate 'Growing area' %}</dt><dd>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.area_path }}</a>{% if record.area.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</dd>
     <dt>{% translate 'Start year' %}</dt><dd>{{ record.start_year }}</dd>
     <dt>{% translate 'Lifespan' %}</dt><dd>{{ record.get_lifespan_display }}</dd>
     {% if record.lifespan == 'persistent' %}<dt>{% translate 'End year' %}</dt><dd>{% if record.end_year %}{{ record.end_year }} ({% translate 'Inclusive' %}){% else %}{% translate 'Ongoing' %}{% endif %}</dd>{% endif %}
@@ -39,6 +39,7 @@
     <a class="btn btn-primary" href="{% url 'garden:planting-edit' record.pk %}">{% translate 'Edit planting' %}</a>
     <a href="{% url 'garden:event-create' record.pk %}">{% translate 'New planting event' %}</a>
     <a href="{% url 'garden:planting-delete' record.pk %}">{% translate 'Delete planting' %}</a>
+    {% if inline %}<a href="{{ record.get_absolute_url }}{% if year %}?year={{ year }}{% endif %}" aria-label="{% translate 'Open record' %}: {{ record.display_label }}">{% translate 'Open record' %}</a>{% endif %}
   </div>
   <section class="diary-observations" aria-labelledby="diary-observations-planting-{{ record.pk }}">
     <h2 id="diary-observations-planting-{{ record.pk }}">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>

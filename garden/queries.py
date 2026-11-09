@@ -1,9 +1,92 @@
 """Small current-area tree reads and explicit planting/year history queries."""
 
+from dataclasses import dataclass, field
+
+from django.db import transaction
 from django.db.models import Q
 from django.utils.translation import gettext as _
 
 from .models import GrowingArea, Planting
+
+
+@dataclass
+class AreaNode:
+    area: GrowingArea
+    children: list = field(default_factory=list)
+    records: list = field(default_factory=list)
+    count: int = 0
+    pairs: set = field(default_factory=set)
+    open: bool = False
+    branch: bool = False
+    structural: bool = False
+
+
+def area_tree(*, areas=None, visible_ids=None, plantings=None):
+    """Read a forest once, retain ancestors and attach batches to their exact area.
+
+    Iterative traversal also renders deep trees without recursive template includes.
+    Invalid legacy cycles are cut deterministically; every included area appears once.
+    """
+    if areas is None:
+        areas = list(GrowingArea.objects.all())
+    areas = sorted(areas, key=lambda area: (area.name_key, area.pk))
+    by_id = {area.pk: area for area in areas}
+    if plantings is not None:
+        plantings = list(plantings)
+        visible_ids = {record.area_id for record in plantings if record.area_id is not None}
+    visible = set(by_id) if visible_ids is None else set(visible_ids)
+    included = set()
+    for pk in visible:
+        while pk in by_id and pk not in included:
+            included.add(pk)
+            pk = by_id[pk].parent_id
+    nodes = {
+        area.pk: AreaNode(area=area, structural=area.pk not in visible)
+        for area in areas
+        if area.pk in included
+    }
+    children = {}
+    for node in nodes.values():
+        children.setdefault(node.area.parent_id, []).append(node)
+    roots, ordered, seen = [], [], set()
+    candidates = [node for node in nodes.values() if node.area.parent_id not in nodes]
+    # Remaining candidates recover cyclic components, in normalized name order.
+    for candidate in [*candidates, *nodes.values()]:
+        if candidate.area.pk in seen:
+            continue
+        roots.append(candidate)
+        pending = [(candidate, None)]
+        while pending:
+            node, parent = pending.pop()
+            if node.area.pk in seen:
+                continue
+            seen.add(node.area.pk)
+            ordered.append(node)
+            if parent is not None:
+                parent.children.append(node)
+            pending.extend((child, node) for child in reversed(children.get(node.area.pk, [])))
+    unassigned = []
+    for record in plantings or []:
+        if record.area_id is None:
+            unassigned.append(record)
+        else:
+            nodes[record.area_id].records.append(record)
+    for node in reversed(ordered):
+        node.count = len(node.records) + sum(child.count for child in node.children)
+        node.pairs = {(record.crop_id, record.variety_id) for record in node.records}
+        for child in node.children:
+            node.pairs.update(child.pairs)
+        node.branch = bool(node.children) or plantings is not None
+        node.open = plantings is not None and len(node.pairs) == 1
+    events = []
+    pending = [(node, False) for node in reversed(roots)]
+    while pending:
+        node, closing = pending.pop()
+        events.append({"node": node, "closing": closing})
+        if not closing:
+            pending.append((node, True))
+            pending.extend((child, False) for child in reversed(node.children))
+    return {"roots": roots, "events": events, "unassigned": unassigned}
 
 
 def area_paths(areas):
@@ -68,10 +151,27 @@ def planting_history(
     return records
 
 
-def planting_rows(queryset):
-    paths = area_paths(list(GrowingArea.objects.all()))
+def planting_rows(queryset, *, areas=None):
+    if areas is None:
+        areas = list(GrowingArea.objects.all())
+    paths = area_paths(areas)
     records = list(queryset)
     for record in records:
         record.area_path = paths.get(record.area_id, "")
         record.display_label = record.label or _("Batch %(number)s") % {"number": record.pk}
     return records
+
+
+def planting_tree(**filters):
+    """Keep batches and their tree together when an area disappears between reads."""
+    records = list(planting_history(**filters))
+    areas = list(GrowingArea.objects.all())
+    area_ids = {area.pk for area in areas}
+    if any(record.area_id is not None and record.area_id not in area_ids for record in records):
+        # A planting can move away and its former area can be deleted between reads.
+        # The fallback transaction keeps the refreshed records and areas consistent.
+        with transaction.atomic():
+            records = list(planting_history(**filters))
+            areas = list(GrowingArea.objects.all())
+    records = planting_rows(records, areas=areas)
+    return {"records": records, **area_tree(areas=areas, plantings=records)}

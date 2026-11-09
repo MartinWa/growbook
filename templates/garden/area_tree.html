@@ -1,0 +1,25 @@
+{% load i18n %}
+<ul class="area-tree">
+{% for event in area_events %}
+{% with node=event.node record=event.node.area %}
+{% if not event.closing %}
+  <li class="area-node" data-area-id="{{ record.pk }}"{% if node.structural %} data-structural{% endif %}>
+    {% if node.branch %}<details class="area-branch" id="area-branch-{{ record.pk }}"{% if node.open %} open{% endif %}>
+      <summary{% if not planting_tree %} aria-label="{% translate 'Child areas' %}: {{ record.name }}"{% endif %}>{% include 'garden/area_name.html' %}</summary>
+      <div class="area-content">
+    {% else %}<div class="area-leaf">{% include 'garden/area_name.html' %}</div>{% endif %}
+    {% if node.records %}{% include 'garden/planting_table.html' with records=node.records table_label=record.name %}{% endif %}
+    {% if node.children %}<ul class="area-tree area-children">{% endif %}
+{% else %}
+    {% if node.children %}</ul>{% endif %}
+    {% if node.branch %}</div></details>{% endif %}
+    {% if not planting_tree %}
+    <div id="details-area-{{ record.pk }}" class="register-expanded record-info" hidden>
+      <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.name }}" aria-live="polite"></div>
+    </div>
+    {% endif %}
+  </li>
+{% endif %}
+{% endwith %}
+{% endfor %}
+</ul>

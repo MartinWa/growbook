@@ -12,4 +12,4 @@
 {% else %}
 <p>{% translate 'No linked observations yet.' %}</p>
 {% endif %}
-<a href="{{ observations_url }}">{% translate 'View all observations' %}</a>
+{% if not limited_link or observation_count > observations|length %}<a href="{{ observations_url }}">{% translate 'View all observations' %}</a>{% endif %}

@@ -6,10 +6,10 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import OperationalError
-from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
@@ -17,9 +17,10 @@ from core.forms import DeleteForm, form_error, valid_post
 from core.media import MediaBusy
 from diary.queries import observation_count, observations_for
 
-from ..forms import ArchiveForm
+from ..forms import ArchiveForm, VarietyFilterForm
 from ..models import Crop, GrowingArea, Variety
-from ..queries import area_paths
+from ..names import normalize_name
+from ..queries import area_tree, planting_history, plantings_in_year
 from ..services import RegisterConflict
 from ..services import registers as services
 from ._shared import REGISTERS
@@ -30,15 +31,16 @@ logger = logging.getLogger(__name__)
 def _context(kind):
     return {
         "kind": kind,
-        "heading": REGISTERS[kind][2],
+        "heading": _("Crops and varieties") if kind in ("crop", "variety") else REGISTERS[kind][2],
         "create_label": REGISTERS[kind][3],
-        "list_url": reverse(f"garden:{kind}-list"),
+        "list_url": reverse("garden:variety-list" if kind == "crop" else f"garden:{kind}-list"),
         "create_url": reverse(f"garden:{kind}-create"),
     }
 
 
 @require_GET
 def garden_home(request):
+    year = timezone.localdate().year
     return render(
         request,
         "garden/home.html",
@@ -46,45 +48,119 @@ def garden_home(request):
             "crop_count": Crop.objects.filter(is_archived=False).count(),
             "variety_count": Variety.objects.filter(is_archived=False).count(),
             "area_count": GrowingArea.objects.filter(is_archived=False).count(),
+            "planting_year": year,
+            "planting_count": plantings_in_year(year).count(),
         },
     )
 
 
 @require_GET
 def register_list(request, kind):
+    if kind == "crop":
+        query = request.GET.urlencode()
+        return redirect(reverse("garden:variety-list") + ("?" + query if query else ""))
+    if "archive_toggle" in request.GET:
+        # The external submit button preserves even an unapplied search without JavaScript.
+        filters = request.GET.copy()
+        if filters.pop("archive_toggle")[-1] == "1":
+            filters.setlist("archived", ["1"])
+        else:
+            filters.pop("archived", None)
+        query = filters.urlencode()
+        return redirect(reverse(f"garden:{kind}-list") + ("?" + query if query else ""))
     model = REGISTERS[kind][0]
     context = _context(kind)
+    show_archived = request.GET.get("archived") == "1"
     records = model.objects.all()
-    if request.GET.get("archived") != "1":
+    areas = list(records) if kind == "area" else None
+    if not show_archived:
         records = records.filter(is_archived=False)
-    if kind == "crop":
-        records = records.annotate(variety_count=Count("varieties"))
-    elif kind == "variety":
-        records = records.select_related("crop")
-    else:
-        records = records.select_related("parent")
-    records = list(records)
-    if kind == "area":
-        paths = area_paths(list(GrowingArea.objects.all()))
+    if kind == "variety":
+        records = (
+            records.select_related("crop")
+            .prefetch_related("photos")
+            .order_by("crop__name_key", "crop_id", "name_key", "id")
+        )
+    records = (
+        [area for area in areas if show_archived or not area.is_archived]
+        if kind == "area"
+        else list(records)
+    )
+    search = ""
+    valid = True
+    if kind == "variety":
+        form = VarietyFilterForm(request.GET)
+        valid = form.is_valid()
+        search = form.cleaned_data.get("q", "")
+        if not valid:
+            records = []
+        if search:
+            key = normalize_name(search)[1]
+            records = [
+                record
+                for record in records
+                if key in record.name_key or key in record.crop.name_key
+            ]
+        by_crop = {}
         for record in records:
-            record.parent_path = paths.get(record.parent_id, "")
-    context.update(records=records, show_archived=request.GET.get("archived") == "1")
-    if not records:
+            by_crop.setdefault(record.crop_id, []).append(record)
+        groups = []
+        if valid:
+            for crop in Crop.objects.order_by("name_key", "id"):
+                varieties = by_crop.get(crop.pk, [])
+                if not show_archived and crop.is_archived and not varieties:
+                    continue
+                if search and key not in crop.name_key and not varieties:
+                    continue
+                groups.append({"crop": crop, "records": varieties})
+        context.update(form=form, variety_groups=groups, search=search)
+    if kind == "area":
+        context["area_events"] = area_tree(
+            areas=areas, visible_ids={record.pk for record in records}
+        )["events"]
+    filters = {"q": search} if search else {}
+    context.update(
+        records=records,
+        show_archived=show_archived,
+        hide_archived_url=context["list_url"] + ("?" + urlencode(filters) if filters else ""),
+        clear_search_url=context["list_url"] + ("?archived=1" if show_archived else ""),
+        has_records=bool(groups) if kind == "variety" else bool(records),
+    )
+    if not context["has_records"]:
         context.update(
             empty_heading={
                 "crop": _("No crops yet"),
-                "variety": _("No varieties yet"),
+                "variety": _("No crops or varieties yet"),
                 "area": _("No growing areas yet"),
             }[kind],
             empty_description={
                 "crop": _("Add a crop to organize varieties and start planning plantings."),
-                "variety": _("Add a variety to a crop when you want to record more detail."),
+                "variety": _("Add a crop first, then record its varieties."),
                 "area": _("Add a growing area to record where you grow and link observations."),
             }[kind],
             empty_action_url=context["create_url"],
             empty_action_label=context["create_label"],
         )
-        if not context["show_archived"] and model.objects.filter(is_archived=True).exists():
+        if not valid:
+            context.update(
+                empty_heading=_("Check the filters"),
+                empty_description=_("Choose a valid value, or clear the filters and try again."),
+                empty_action_url=context["clear_search_url"],
+                empty_action_label=_("Clear search"),
+                empty_filter_link=True,
+            )
+        elif search:
+            context.update(
+                empty_heading=_("No crops or varieties match this search"),
+                empty_description=_("Search variety or crop names, or clear the search to browse."),
+                empty_action_url=context["clear_search_url"],
+                empty_action_label=_("Clear search"),
+                empty_filter_link=True,
+            )
+        elif not show_archived and (
+            model.objects.filter(is_archived=True).exists()
+            or (kind == "variety" and Crop.objects.filter(is_archived=True).exists())
+        ):
             context.update(
                 empty_heading=_("No active records"),
                 empty_description=_("Your archived records are available in the archive view."),
@@ -97,7 +173,17 @@ def register_list(request, kind):
                 empty_action_url=reverse("garden:crop-create"),
                 empty_action_label=_("New crop"),
             )
-    return render(request, "garden/list.html", context)
+    partial = (
+        kind == "variety"
+        and request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-Target") == "register-results"
+    )
+    return render(
+        request,
+        "garden/register_results.html" if partial else "garden/list.html",
+        context,
+        status=200 if valid else 422,
+    )
 
 
 def _detail_context(kind, pk):
@@ -121,17 +207,23 @@ def _detail_context(kind, pk):
         observation_count=observation_count(kind, record),
         observations_url=reverse("diary:list") + "?" + urlencode({kind: record.pk}),
     )
+    if kind == "area":
+        year = timezone.localdate().year
+        context.update(
+            planting_year=year,
+            planting_count=planting_history(year=year, area=record).count(),
+            planting_url=reverse("garden:planting-list")
+            + "?"
+            + urlencode({"year": year, "area": record.pk}),
+        )
     return context
 
 
 @require_GET
 def register_detail(request, kind, pk):
     context = _detail_context(kind, pk)
-    template = (
-        "garden/details.html"
-        if request.headers.get("HX-Request") == "true"
-        else "garden/detail.html"
-    )
+    context["inline"] = request.headers.get("HX-Request") == "true"
+    template = "garden/details.html" if context["inline"] else "garden/detail.html"
     return render(request, template, context)
 
 

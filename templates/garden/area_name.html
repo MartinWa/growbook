@@ -1,0 +1,3 @@
+{% load i18n %}
+{% if planting_tree %}<span class="area-name">{{ record.name }}</span>{% else %}{% include 'garden/row_toggle.html' %}{% endif %}
+{% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}

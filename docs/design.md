@@ -118,9 +118,34 @@ verify device-native camera/library pickers; those require the intended phone.
 
 ## Garden layout and interaction
 
-Garden cards link to each register and its creation form, with active record counts.
-Archive controls use a native disclosure, apply on checkbox change and retain an
-Apply fallback without JavaScript. An active archive state includes a clear link.
+Garden cards link to growing areas, the combined crop/variety register and the current
+planting year. Crop headings use native disclosures; variety and area names open
+information independently. Name lists use `.record-list`, `.record-name` and `.record-info`,
+with underlined names, the selected name highlighted and archived records labelled.
+Varieties show one thumbnail when available. Record observations use a native disclosure
+with their total count; the link to all observations appears inside when the five-item
+preview omits older entries. Crop maintenance links sit in their own disclosure.
+The combined register uses a compact search/archive form with the shared filter module,
+debounced search, request cancellation, URL history, visible errors and a Retry action.
+The compact form stays above results at every width. A single archive-visibility action
+beside creation links preserves search, shows its selected state and uses ordinary GET
+navigation without JavaScript.
+
+Registers and planting results share a server-rendered area hierarchy built from bounded
+area reads and parent IDs. Its iterative presentation supports deep nesting and cuts
+legacy cycles defensively. Native details/summary controls keep area expansion usable
+with keyboard and without JavaScript. Area names are links inside the summary, with a
+separate arrow for expansion and a descriptive accessible name on the summary. Leaf
+areas have no arrow. Register branches start collapsed; archived ancestors of active
+children remain labelled context. Planting branches retain ancestors, omit empty subtrees and open
+when their matching subtree has one crop/variety pair. Batches attach only to their own
+area, with their names opening information through the shared register module. An unassigned
+group follows the hierarchy. Indentation is reduced on narrow screens, names wrap and controls retain
+their touch targets and focus outlines. Browser history restores register disclosure
+states, information panels and scroll after returning from editing. Stored state contains
+the list URL, record IDs, disclosure flags and scroll position. Information reloads from
+authenticated endpoints; no record content is cached in history.
+Other result replacements use the default disclosure states.
 
 Planting forms show crop and start year first. Native disclosures group additional
 details and notes/photos; populated or invalid groups open automatically. A typed
@@ -128,8 +153,6 @@ end year stays visible when switching to Annual so it can be corrected. Dependen
 variety failures open their group and expose a retry action.
 
 Planting filters share the diary sidebar/drawer and URL history behavior. Returned
-rows initialize independent expansion controls after each filter update. Tables
-keep one Details control in the identifying cell. Below 650 px, planting rows show
-batch, crop and area; other values remain in expanded details. Register rows hide
-the status column but keep archived badges alongside names. Nested event tables
-retain their own horizontal scrolling.
+lists initialize independent information controls after each filter update. Planting
+lists show area and batch names at every width; all other fields and history links are
+in opened information. Nested event tables retain their own horizontal scrolling.

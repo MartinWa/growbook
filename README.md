@@ -17,15 +17,15 @@ interface defaults to Swedish, with English available.
 - Administrator-managed accounts and a shared garden; no public signup.
 - Discreet footer links to GitHub and releases, the deployed release version, and an
   orange indicator when a newer stable release is available.
-- Crop, variety and optionally nested growing-area registers with compact, expandable
-  tables, editing and non-cascading archive.
+- A combined crop and variety register with searchable crop groups, and
+  nested growing-area disclosures, with editing and non-cascading archive.
 - Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed
   deletion of records without protected references.
 - Multiple private photos on varieties, areas and plantings, with editable captions and
   order, confirmed deletion, protected viewing and private original downloads.
 - Early planting plans with crop and start year, optional variety or area, independent
   batches, and quantity that distinguishes unknown from zero.
-- Annual and persistent plantings, inclusive end years, year overviews, and
+- Annual and persistent plantings grouped by area, inclusive end years, year overviews, and
   crop/variety/descendant-area histories that include archived associations.
 - Repeated planting events with independent planned and actual dates, plus cumulative
   evaluation text and private photos.
@@ -109,11 +109,11 @@ Docker volumes. Do not expose the development server or point it at production d
 
 ## Using growbook
 
-- **Garden** holds crop, variety and growing-area cards. Expand rows for details and
-  secondary columns, edit records, manage photos and archive records without deleting
-  them.
-- **Plantings** shows a growing-year table with filters and expandable rows. Create
-  annual or persistent plantings, record events, and open crop, variety and area
+- **Garden** holds growing areas and the combined **Crops and varieties** register,
+  plus a link to this year's plantings. Expand crop groups or nested areas, select names
+  for information and photos, search crop and variety names, and maintain records.
+- **Plantings** shows growing-year results grouped by area, with filters and expandable
+  batches. Create annual or persistent plantings, record events, and open crop, variety and area
   histories.
 - **Diary** holds observations. Quick-add a note, photos or both; search and filter by
   year, area, crop, variety or planting; open linked records from an entry.

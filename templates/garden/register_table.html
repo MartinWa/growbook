@@ -1,0 +1,12 @@
+{% load i18n %}
+<ul class="record-list variety-list">
+  {% for record in records %}
+  <li class="register-row-group">
+    {% include 'garden/row_toggle.html' with thumbnail=record.photos.all.0 %}
+    {% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}
+    <div id="details-{{ kind }}-{{ record.pk }}" class="register-expanded record-info" hidden>
+      <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.name }}" aria-live="polite"></div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>

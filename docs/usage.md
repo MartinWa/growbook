@@ -20,10 +20,44 @@ local changes or commits after a release. Builds without version metadata show
 
 ## Garden
 
-Open **Garden** for crop, variety and growing-area cards with active record counts and
-creation links. Each register table has a labelled **Details** control; several rows can
-stay expanded, ordinary record links work without JavaScript, and phones show secondary
-columns inside expanded details.
+Open **Garden** for growing areas, **Crops and varieties**, and this year's plantings, with
+record counts and creation links. Garden navigation stays visible on register pages.
+Crops and varieties share one register. Crop names are grouping headings: activate a
+heading with the mouse, Enter or Space to reveal its varieties.
+Groups start collapsed, several can remain open, and crops without varieties remain visible.
+Each variety shows its first photo as a thumbnail when available. Select its underlined
+name to open information and photos. **Diary observations (count)** expands its latest
+five observations; **View all observations** appears inside when older observations exist.
+**Manage crops** opens maintenance links for crop notes, editing and archiving.
+
+Varieties use normalized name ordering within each crop. **Search crops and varieties**
+matches literal substrings of variety or crop names after Unicode NFC,
+whitespace normalization and casefolding. Diacritics remain significant; notes and other
+fields are not searched. Search and the archive choice combine in the filter URL.
+Clearing search keeps the archive choice; hiding archived varieties keeps the search. With JavaScript,
+search applies after a short pause or Enter, and Back restores the filter URL and results.
+Failed requests keep the current results and show **Retry**. Without JavaScript, use **Apply**.
+Search opens matching groups. Active varieties remain visible under archived crops,
+marked by the crop's archive badge. Existing crop-list URLs open the combined register
+and retain their search and archive choices.
+
+Growing areas appear beneath their actual parents, with names as the list labels. Use a
+parent's arrow, Enter or Space to reveal its children; select its name to open information
+independently. Branches start collapsed, several can remain open, and closing a parent
+preserves its children's disclosure and information states until it is reopened. Leaf areas
+have no expansion arrow. Inline area information shows its own fields, photos and
+expandable observations, without repeating its parent area's name. The full record keeps
+a parent link. Browser Back from editing restores open branches and information panels,
+filter choices and scroll position. With JavaScript, **Cancel** also returns to that list
+when editing started there in the same tab; otherwise it opens the record.
+**Plantings YEAR (count)** opens Plantings with the current year and that area selected;
+its count includes descendant areas. **Planting history** remains available for all years.
+
+Archived ancestors of active areas remain as context, without increasing active counts;
+unrelated archived branches stay hidden until **Include archived** is selected.
+The hierarchy works without JavaScript. Area and variety names open full records in that
+case. With JavaScript, several information panels can remain open; **Open record** inside
+a panel, or opening its name in a new tab, opens the full record.
 
 - Crop names are unique globally; variety names within a crop. Area names are unique
   among top-level areas or among siblings with the same parent. Comparison uses Unicode
@@ -33,9 +67,9 @@ columns inside expanded details.
   centimetres. A parent cannot be itself or a descendant; dimensions do not enforce a
   layout or capacity.
 - Archive hides a record from default lists and new associations, not from direct links
-  or existing associations. It does not archive child areas or varieties. Open
-  **Archive options** and use **Include archived records** to show archived records;
-  with JavaScript the checkbox applies on change, with **Apply** as fallback.
+  or existing associations. It does not archive child areas or varieties. Toggle
+  **Include archived** beside the creation actions to show or hide archived records
+  with one click, including without JavaScript. The selected state stays visible.
   **Hide archived records** restores the default list.
 - Edit an area or variety to add photos; edit photo details to change captions or order.
   Deletion requires confirmation. A crop with varieties or an area with children cannot
@@ -83,13 +117,27 @@ full forms keep their save actions visible at the bottom while scrolling.
 
 ## Plantings and histories
 
-Open **Plantings** for a growing-year table. Filters use a sidebar at 900 px and a
-drawer below that width; changes apply automatically and Enter submits a typed year.
+Open **Plantings** for growing-year results grouped by area. Filters use a sidebar at
+900 px and a drawer below that width; changes apply automatically and Enter submits a typed year.
 Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
-**Next year**; **All years** shows one row per planting across its full history. Crop,
-variety and area histories default to all years, and table links keep an explicitly
-selected year. **Details** expands multiple rows independently to show events, notes,
-evaluation and photos. Register details link to their **Planting history**.
+**Next year**; **All years** shows each planting once across its full history. Crop,
+variety and area histories default to all years. Lists show only area and batch names;
+select a batch name to open its crop, variety, years, quantity, events, notes, evaluation,
+photos and diary observations. Several batches can stay open independently. History links
+inside batch information keep an explicitly selected year. Register details also link to
+their **Planting history**.
+
+Matching plantings attach only to their exact assigned areas, with ancestors retained for
+context and empty branches omitted. Parent assignments and child assignments remain
+distinct. A subtree with one crop/variety
+combination opens automatically, showing every batch; mixed combinations start collapsed.
+Unknown variety counts as a distinct combination. Activate an area name to expand or collapse
+its batches and children. Unassigned plantings appear in a final **Unassigned area** group.
+Batch names wrap on narrow screens; variety and quantity are shown in opened information.
+Blank quantity is shown as a dash and zero as zero. Crop, variety and area history links
+are in the batch information. Filters and Back recalculate the default disclosure states;
+manual open states last only in the currently rendered results. These rules also apply to
+crop, variety and area histories and work without JavaScript.
 
 - **New planting** requires a crop and start year (1–9999). Variety and final growing
   area may be unknown; no placeholder records are created. **More details** groups

@@ -30,16 +30,17 @@ pytestmark = pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("kind", ["crop", "variety", "area"])
 def test_empty_register_offers_creation_with_crop_prerequisite(client, user, kind):
     client.force_login(user)
-    response = client.get(reverse(f"garden:{kind}-list"))
+    response = client.get(reverse(f"garden:{kind}-list"), follow=True)
     action = reverse(f"garden:{'crop' if kind == 'variety' else kind}-create")
     assert response.context["empty_action_url"] == action
     assert b'class="panel empty-state"' in response.content
     assert b'class="register-table' not in response.content
     if kind == "variety":
         create_crop(actor=user, name="First crop")
-        assert client.get(reverse("garden:variety-list")).context["empty_action_url"] == reverse(
-            "garden:variety-create"
-        )
+        response = client.get(reverse("garden:variety-list"))
+        assert response.context["has_records"]
+        assert response.context["variety_groups"][0]["records"] == []
+        assert response.context["create_url"] == reverse("garden:variety-create")
 
 
 def test_archived_only_register_offers_a_view_that_contains_records(client, user, register_record):
@@ -48,11 +49,16 @@ def test_archived_only_register_offers_a_view_that_contains_records(client, user
         actor=user, pk=record.pk
     )
     client.force_login(user)
-    response = client.get(reverse(f"garden:{kind}-list"))
+    response = client.get(reverse(f"garden:{kind}-list"), follow=True)
     assert not response.context["records"]
-    assert response.context["empty_action_url"] == reverse(f"garden:{kind}-list") + "?archived=1"
-    archived = client.get(response.context["empty_action_url"])
-    assert [item.pk for item in archived.context["records"]] == [record.pk]
+    archived_url = response.context["list_url"] + "?archived=1"
+    if kind == "variety":
+        assert response.context["has_records"]
+        assert not response.context["variety_groups"][0]["records"]
+    else:
+        assert response.context["empty_action_url"] == archived_url
+    archived = client.get(archived_url)
+    assert [item.pk for item in listed_records(archived, kind)] == [record.pk]
     assert b'class="panel empty-state"' not in archived.content
 
 
@@ -96,6 +102,12 @@ def register_record(request, user):
     return request.param, record
 
 
+def listed_records(response, kind):
+    if kind == "crop":
+        return [group["crop"] for group in response.context["variety_groups"]]
+    return response.context["records"]
+
+
 def payload(kind, record=None, **overrides):
     values = {"submission_key": str(uuid4()), "name": "Synthetic new record"}
     if record:
@@ -133,12 +145,12 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
 ):
     kind, record = register_record
     client.force_login(user)
-    response = client.get(reverse(f"garden:{kind}-list"))
+    response = client.get(reverse(f"garden:{kind}-list"), follow=True)
     assert response.status_code == 200
-    assert '<table class="register-table' in response.text
-    assert "table table-sm" in response.text
-    assert f'aria-controls="details-{kind}-{record.pk}"' in response.text
-    assert 'aria-expanded="false"' in response.text
+    assert ('class="variety-group"' if kind != "area" else 'class="area-tree"') in response.text
+    if kind != "crop":
+        assert f'aria-controls="details-{kind}-{record.pk}"' in response.text
+        assert 'aria-expanded="false"' in response.text
     assert f'href="{record.get_absolute_url()}"' in response.text
     assert "record-details" not in response.text
     fragment = client.get(record.get_absolute_url(), HTTP_HX_REQUEST="true")
@@ -149,9 +161,9 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
     full = client.get(record.get_absolute_url())
     assert "<!doctype" in full.text and "record-details" in full.text
     client.cookies["django_language"] = "en"
-    english = client.get(reverse(f"garden:{kind}-list"))
+    english = client.get(reverse(f"garden:{kind}-list"), follow=True)
     assert '<html lang="en">' in english.text
-    assert {"crop": "Crops", "variety": "Varieties", "area": "Growing areas"}[kind] in english.text
+    assert ("Growing areas" if kind == "area" else "Crops and varieties") in english.text
 
 
 def test_normal_create_edit_and_archive_controls(client, user, register_record):
@@ -173,8 +185,10 @@ def test_normal_create_edit_and_archive_controls(client, user, register_record):
     assert client.post(archive_path, {"archived": "true"}).status_code == 302
     new.refresh_from_db()
     assert new.is_archived
-    assert new not in client.get(reverse(f"garden:{kind}-list")).context["records"]
-    assert new in client.get(reverse(f"garden:{kind}-list"), {"archived": "1"}).context["records"]
+    assert new not in listed_records(client.get(reverse(f"garden:{kind}-list"), follow=True), kind)
+    assert new in listed_records(
+        client.get(reverse(f"garden:{kind}-list"), {"archived": "1"}, follow=True), kind
+    )
     assert client.get(new.get_absolute_url()).status_code == 200
     assert client.post(archive_path, {"archived": "false"}).status_code == 302
     assert client.post(archive_path, {"archived": "nonsense"}).status_code == 422

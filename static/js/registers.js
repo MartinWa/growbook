@@ -1,7 +1,8 @@
-/* Independent row expansion and bounded form feedback. No browser persistence or inline eval. */
+/* Independent information panels, transient navigation state and bounded form feedback. */
 (() => {
   "use strict";
   if (!window.htmx) return;
+  const expansions = new WeakMap();
 
   function initializeRows(root) {
     root.querySelectorAll("[data-register-toggle]").forEach(link => {
@@ -10,7 +11,8 @@
       const row = document.getElementById(link.getAttribute("aria-controls"));
       const details = row.querySelector(".register-details");
       let loaded = false;
-      let loading = false;
+      let loading;
+      let finishLoad;
       link.setAttribute("role", "button");
       link.addEventListener("keydown", event => {
         if (event.key === " ") {
@@ -18,15 +20,16 @@
           link.click();
         }
       });
-      link.addEventListener("click", event => {
-        // Preserve ordinary open-in-new-tab/window shortcuts and the no-JS link fallback.
-        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        const expanded = link.getAttribute("aria-expanded") !== "true";
+      function expand(expanded) {
         link.setAttribute("aria-expanded", String(expanded));
         row.hidden = !expanded;
-        if (!expanded || loaded || loading) return;
-        loading = true;
+        if (!expanded || loaded) return Promise.resolve();
+        if (loading) return loading;
+        loading = new Promise(resolve => { finishLoad = resolve; }).finally(() => {
+          loading = null;
+          finishLoad = null;
+          details.removeAttribute("aria-busy");
+        });
         details.setAttribute("aria-busy", "true");
         details.textContent = link.dataset.loading;
         window.htmx.ajax("GET", link.dataset.detailsUrl, {
@@ -34,22 +37,100 @@
           swap: "innerHTML",
         }).catch(() => {
           details.textContent = link.dataset.loadError;
-        }).finally(() => {
-          loading = false;
-          details.removeAttribute("aria-busy");
+          finishLoad?.();
         });
+        return loading;
+      }
+      expansions.set(link, expand);
+      link.addEventListener("click", event => {
+        // Preserve ordinary open-in-new-tab/window shortcuts and the no-JS link fallback.
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        expand(link.getAttribute("aria-expanded") !== "true");
       });
-      details.addEventListener("htmx:afterSwap", () => { loaded = true; });
+      details.addEventListener("htmx:afterSwap", () => {
+        loaded = true;
+        finishLoad?.();
+      });
       details.addEventListener("htmx:beforeSwap", event => {
         if (event.detail.xhr.status >= 400) {
           event.detail.shouldSwap = false;
           details.textContent = link.dataset.loadError;
+          finishLoad?.();
         }
       });
     });
   }
   initializeRows(document);
-  document.addEventListener("growbook:results", event => initializeRows(event.detail.root));
+
+  function archiveState(root) {
+    const toggle = document.querySelector("[data-archive-toggle]");
+    if (!toggle || root.id !== "register-results") return;
+    toggle.value = root.dataset.archived === "true" ? "0" : "1";
+    toggle.dataset.pressed = root.dataset.archived;
+    toggle.setAttribute("aria-pressed", root.dataset.archived);
+    const field = document.querySelector('.variety-filter input[name="archived"]');
+    if (field) field.value = root.dataset.archived === "true" ? "1" : "";
+  }
+  const registerResults = document.getElementById("register-results");
+  if (registerResults) archiveState(registerResults);
+
+  function rememberList() {
+    const results = document.getElementById("register-results");
+    if (!results) return;
+    // Keep list navigation metadata; private HTML, notes and photos are never cached.
+    const state = {
+      url: location.pathname + location.search,
+      disclosures: [...results.querySelectorAll("details[id]")].map(item => [item.id, item.open]),
+      expanded: [...results.querySelectorAll('[data-register-toggle][aria-expanded="true"]')]
+        .map(link => link.getAttribute("aria-controls")),
+      focus: document.activeElement.closest?.(".register-expanded")?.id,
+      scroll: [scrollX, scrollY]
+    };
+    history.replaceState({ ...history.state, garden: state }, "");
+  }
+
+  async function restoreList(root, url) {
+    const state = history.state?.garden;
+    if (root.id !== "register-results" || state?.url !== url) return;
+    function disclosures() {
+      for (const [id, open] of state.disclosures) {
+        const item = document.getElementById(id);
+        if (item && root.contains(item)) item.open = open;
+      }
+    }
+    disclosures();
+    await Promise.all(state.expanded.map(id => {
+      const link = root.querySelector(`[aria-controls="${id}"]`);
+      return link ? expansions.get(link)?.(true) : null;
+    }));
+    if (!root.isConnected || location.pathname + location.search !== url) return;
+    disclosures();
+    const selected = root.querySelector(`[aria-controls="${state.focus}"]`);
+    selected?.focus({ preventScroll: true });
+    requestAnimationFrame(() => scrollTo(...state.scroll));
+  }
+  window.addEventListener("pagehide", rememberList);
+  window.addEventListener("pageshow", () => {
+    const root = document.getElementById("register-results");
+    if (root) restoreList(root, location.pathname + location.search);
+  });
+  document.addEventListener("growbook:results", event => {
+    initializeRows(event.detail.root);
+    archiveState(event.detail.root);
+    restoreList(event.detail.root, event.detail.url);
+  });
+  document.querySelector("[data-register-cancel]")?.addEventListener("click", event => {
+    // A new edit tab can have a list referrer without an entry to return to.
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey ||
+        !document.referrer || history.length < 2) return;
+    const previous = new URL(document.referrer);
+    if (previous.origin === location.origin &&
+        ["/garden/areas/", "/garden/varieties/"].includes(previous.pathname)) {
+      event.preventDefault();
+      history.back();
+    }
+  });
 
   document.querySelectorAll("[data-register-form]").forEach(form => {
     const errors = form.querySelector('[role="alert"]');

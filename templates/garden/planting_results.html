@@ -10,34 +10,8 @@
 </nav>
 {% if scope %}<p class="related-actions"><a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a></p>{% endif %}
 {% if records %}
-<div class="table-scroll">
-<table class="register-table planting-table responsive-table table table-sm">
-  <caption class="visually-hidden">{{ heading }}{% if year %} · {{ year }}{% endif %}</caption>
-  <thead><tr>
-    <th scope="col">{% translate 'Batch' %}</th><th scope="col">{% translate 'Crop' %}</th>
-    <th scope="col" class="secondary-column">{% translate 'Variety' %}</th><th scope="col">{% translate 'Growing area' %}</th>
-    <th scope="col" class="secondary-column">{% translate 'Years' %}</th><th scope="col" class="secondary-column">{% translate 'Quantity' %}</th>
-  </tr></thead>
-  {% for record in records %}
-  <tbody class="register-row-group">
-    <tr>
-      <th scope="row"><a href="{{ record.get_absolute_url }}">{{ record.display_label }}</a><br><a class="row-toggle" href="{{ record.get_absolute_url }}" aria-controls="details-planting-{{ record.pk }}" aria-expanded="false"
-        aria-label="{% translate 'Details' %}: {{ record.display_label }}" data-register-toggle data-details-url="{{ record.get_absolute_url }}"
-        data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Collapse and expand to retry, or follow the record link.' %}">{% translate 'Details' %}</a></th>
-      <td><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</td>
-      <td class="secondary-column">{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</td>
-      <td>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.area_path }}</a>{% if record.area.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</td>
-      <td class="secondary-column">{{ record.start_year }}{% if record.lifespan == 'persistent' %}–{% if record.end_year %}{{ record.end_year }}{% else %}{% translate 'Ongoing' %}{% endif %}{% endif %}<br>{{ record.get_lifespan_display }}</td>
-      <td class="secondary-column">{{ record.quantity|default_if_none:'—' }}</td>
-
-    </tr>
-    <tr id="details-planting-{{ record.pk }}" class="register-expanded" hidden><td colspan="6">
-      <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.display_label }}" aria-live="polite"></div>
-    </td></tr>
-  </tbody>
-  {% endfor %}
-</table>
-</div>
+{% include 'garden/area_tree.html' with planting_tree=True %}
+{% if unassigned_records %}<section class="unassigned-group"><h2>{% translate 'Unassigned area' %}</h2>{% include 'garden/planting_table.html' with records=unassigned_records table_label=heading %}</section>{% endif %}
 {% else %}
 {% include 'components/empty_state.html' %}
 {% endif %}

@@ -2,22 +2,9 @@
 {% load i18n %}
 {% block title %}{% translate 'Garden' %} · GrowBook{% endblock %}
 {% block content %}
+{% include 'garden/nav.html' %}
 <div class="page-heading mb-5"><h1>{% translate 'Garden' %}</h1></div>
 <div class="garden-cards">
-  <section class="panel">
-    <h2><a class="no-underline" href="{% url 'garden:crop-list' %}">{% translate 'Crops' %}</a></h2>
-    <p class="field-help">{% translate 'Plants you grow.' %}</p>
-    <p class="mt-5 text-4xl font-bold tabular-nums text-primary">{{ crop_count }}</p>
-    <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Active records' %}</p>
-    <a class="btn btn-outline mt-5" href="{% url 'garden:crop-create' %}">{% translate 'New crop' %}</a>
-  </section>
-  <section class="panel">
-    <h2><a class="no-underline" href="{% url 'garden:variety-list' %}">{% translate 'Varieties' %}</a></h2>
-    <p class="field-help">{% translate 'Named varieties of a crop.' %}</p>
-    <p class="mt-5 text-4xl font-bold tabular-nums text-primary">{{ variety_count }}</p>
-    <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Active records' %}</p>
-    <a class="btn btn-outline mt-5" href="{% url 'garden:variety-create' %}">{% translate 'New variety' %}</a>
-  </section>
   <section class="panel">
     <h2><a class="no-underline" href="{% url 'garden:area-list' %}">{% translate 'Growing areas' %}</a></h2>
     <p class="field-help">{% translate 'Beds, pots and other places.' %}</p>
@@ -25,6 +12,21 @@
     <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Active records' %}</p>
     <a class="btn btn-outline mt-5" href="{% url 'garden:area-create' %}">{% translate 'New growing area' %}</a>
   </section>
+  <section class="panel">
+    <h2><a class="no-underline" href="{% url 'garden:variety-list' %}">{% translate 'Crops and varieties' %}</a></h2>
+    <p class="field-help">{% translate 'Named varieties of a crop.' %}</p>
+    <div class="my-5 flex flex-wrap gap-6">
+      <div><p class="text-4xl font-bold tabular-nums text-primary">{{ crop_count }}</p><p class="field-help">{% translate 'Crops' %}</p></div>
+      <div><p class="text-4xl font-bold tabular-nums text-primary">{{ variety_count }}</p><p class="field-help">{% translate 'Varieties' %}</p></div>
+    </div>
+    <a class="btn btn-outline" href="{% url 'garden:variety-create' %}">{% translate 'New variety' %}</a>
+  </section>
+  <section class="panel">
+    <h2><a class="no-underline" href="{% url 'garden:planting-list' %}?year={{ planting_year }}">{% translate 'Plantings' %} · {{ planting_year }}</a></h2>
+    <p class="field-help">{% translate 'Plan and follow your plantings' %}</p>
+    <p class="mt-5 text-4xl font-bold tabular-nums text-primary">{{ planting_count }}</p>
+    <p class="text-xs tracking-wider text-base-content/70 uppercase">{% translate 'Plantings' %}</p>
+    <a class="btn btn-outline mt-5" href="{% url 'garden:planting-create' %}?year={{ planting_year }}">{% translate 'New planting' %}</a>
+  </section>
 </div>
-<p class="garden-planting-link"><a href="{% url 'garden:planting-list' %}">{% translate 'Plan and follow your plantings' %}</a></p>
 {% endblock %}
