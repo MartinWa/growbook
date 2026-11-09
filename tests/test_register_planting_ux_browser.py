@@ -220,6 +220,7 @@ def test_cancel_from_new_edit_tab_opens_record(page, live_server, user, ux, kind
         record = ux["child"]
         page.goto(live_server.url + "/garden/areas/")
         branch(page, ux["root"]).locator(":scope > summary").click()
+        expect(branch(page, ux["root"])).to_have_attribute("open", "")
     else:
         record = ux["green"]
         page.goto(live_server.url + "/garden/varieties/")
@@ -309,7 +310,7 @@ def test_variety_search_clear_back_retry_and_direct_links(
     page.locator("[data-filter-retry]").click()
     expect(results.locator(".empty-state")).to_be_visible()
     expect(search).to_be_focused()
-    expect(page.locator('.page-heading a[href="/garden/varieties/new/"]')).to_be_visible()
+    expect(page.locator('.register-toolbar a[href="/garden/varieties/new/"]')).to_be_visible()
     search.fill("Åsa")
     search.press("Enter")
     expect(results.locator(".variety-list > li")).to_have_count(2)
@@ -321,6 +322,12 @@ def test_variety_search_clear_back_retry_and_direct_links(
         page.locator(f"#details-variety-{ux['green'].pk} .register-photos figure")
     ).to_have_count(1)
     observations = page.locator(f"#diary-observations-variety-{ux['green'].pk}")
+    expect(page.locator(f"#details-variety-{ux['green'].pk} h2").first).to_be_in_viewport()
+    return_button = page.get_by_role(
+        "button", name="Tillbaka till listan" if language == "sv" else "Back to list", exact=True
+    )
+    return_button.focus()
+    return_button.press("Enter")
     expect(toggle).to_be_focused()
     expect(observations).not_to_have_attribute("open", "")
     observations.locator(":scope > summary").press("Enter")
@@ -370,7 +377,7 @@ def test_area_branches_notes_and_grouped_batches_with_keyboard(
     expect(child).to_have_attribute("open", "")
     expect(toggle).to_be_focused()
     north.locator(":scope > summary").press("Enter")
-    expect(notes).to_be_hidden()
+    expect(notes).to_be_visible()
     expect(south).to_have_attribute("open", "")
     north.locator(":scope > summary").press("Enter")
     expect(child).to_have_attribute("open", "")
@@ -398,12 +405,21 @@ def test_area_branches_notes_and_grouped_batches_with_keyboard(
     expect(page.locator(f"#details-planting-{ux['batches'][1].pk} .record-fields")).to_contain_text(
         "0"
     )
+    second = page.get_by_role("button", name="Second batch", exact=True)
+    second.focus()
+    second.press("Space")
+    expect(page.locator(f"#details-planting-{ux['batches'][2].pk}")).to_contain_text(
+        "Synthetic batch note"
+    )
+    expect(page.locator(f"#details-planting-{ux['batches'][1].pk}")).to_be_hidden()
+    expect(second).to_be_focused()
     page.locator("[data-filter-disclosure] > summary").click()
     page.locator("#id_variety").select_option(str(ux["green"].pk))
     expect(page).to_have_url(
         live_server.url + f"/garden/plantings/?year=2026&variety={ux['green'].pk}"
     )
     expect(north).to_have_attribute("open", "")
+    expect(page.locator("[data-record-placeholder]")).to_be_visible()
     if width < 900:
         page.keyboard.press("Escape")
     expect(page.get_by_role("button", name="First batch", exact=True)).to_be_visible()
@@ -422,6 +438,7 @@ def test_no_javascript_search_and_native_hierarchies(page, live_server, user, ux
     )
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/varieties/")
+    expect(plain.locator("[data-record-detail-pane]")).to_be_hidden()
     plain.locator("#id_q").fill("ÄRTOR")
     plain.locator("[data-archive-toggle]").click()
     expect(plain.locator(".variety-group")).to_have_count(1)
@@ -458,6 +475,7 @@ def test_area_information_opens_plantings_with_year_and_area_selected(
     expect(child).not_to_have_attribute("open", "")
     details = page.locator(f"#details-area-{ux['child'].pk}")
     expect(details).to_contain_text("Child notes")
+    expect(page.locator(f"#details-area-{ux['root'].pk}")).to_be_hidden()
     expect(details.locator(".record-fields")).not_to_contain_text("North")
     year = ux["current_year"]
     target = f"/garden/plantings/?year={year}&area={ux['child'].pk}"
@@ -552,16 +570,27 @@ def test_edit_return_restores_selected_area_branches_and_scroll(
 
 
 @pytest.mark.parametrize("language", ["sv", "en"])
-def test_garden_navigation_and_archive_toggle_are_keyboard_accessible(
+def test_main_navigation_and_archive_toggle_are_keyboard_accessible(
     page, live_server, user, ux, language
 ):
     login(page, live_server, user, language)
     page.goto(live_server.url + "/garden/")
+    expect(page).to_have_url(live_server.url + "/garden/areas/")
     navigation = page.get_by_role(
-        "navigation", name="Trädgårdsmeny" if language == "sv" else "Garden navigation"
+        "navigation", name="Huvudmeny" if language == "sv" else "Main navigation"
     )
-    expect(navigation.locator("a")).to_have_count(3)
-    expect(navigation.locator('[aria-current="page"]')).to_have_attribute("href", "/garden/")
+    expect(navigation.locator("a")).to_have_count(4)
+    expect(navigation.locator('[aria-current="page"]')).to_have_attribute("href", "/garden/areas/")
+    for path, name in (
+        ("/garden/varieties/", "Grödor och sorter" if language == "sv" else "Crops and varieties"),
+        ("/garden/plantings/", "Odlingar" if language == "sv" else "Plantings"),
+        ("/", "Dagbok" if language == "sv" else "Diary"),
+    ):
+        link = navigation.get_by_role("link", name=name, exact=True)
+        link.focus()
+        link.press("Enter")
+        expect(page).to_have_url(live_server.url + path)
+        expect(navigation.locator('[aria-current="page"]')).to_have_attribute("href", path)
     page.goto(live_server.url + "/garden/areas/")
     toggle = page.get_by_role(
         "button", name="Visa arkiverade" if language == "sv" else "Include archived", exact=True

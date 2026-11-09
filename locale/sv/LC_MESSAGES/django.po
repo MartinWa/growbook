@@ -1178,3 +1178,30 @@ msgstr "Inga grödor eller sorter matchar sökningen"
 
 msgid "Details could not be loaded. Close and reopen to retry, or open the record in a new tab."
 msgstr "Detaljerna kunde inte laddas. Stäng och öppna igen för att försöka på nytt, eller öppna posten i en ny flik."
+
+msgid "Season"
+msgstr "Årstid"
+
+msgid "Automatic (follow date)"
+msgstr "Automatiskt (följ datum)"
+
+msgid "Spring"
+msgstr "Vår"
+
+msgid "Summer"
+msgstr "Sommar"
+
+msgid "Autumn"
+msgstr "Höst"
+
+msgid "Winter"
+msgstr "Vinter"
+
+msgid "Choose a valid season."
+msgstr "Välj en giltig årstid."
+
+msgid "Choose an item from the list to view its details."
+msgstr "Välj något i listan för att visa detaljer."
+
+msgid "Back to list"
+msgstr "Tillbaka till listan"

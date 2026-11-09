@@ -1,7 +1,7 @@
 {% load i18n static %}
 {% get_current_language as language %}
 <!doctype html>
-<html lang="{{ language }}">
+<html lang="{{ language }}" data-season="{{ season }}" data-season-mode="{{ season_mode }}" data-garden-timezone="{{ garden_timezone }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,6 +15,7 @@
   <script src="{% static 'js/tags.js' %}" defer></script>
   <script src="{% static 'js/capture.js' %}" defer></script>
   <script src="{% static 'js/site.js' %}" defer></script>
+  <script src="{% static 'js/season.js' %}" defer></script>
   <script src="{% static 'js/releases.js' %}" defer></script>
   <script src="{% static 'js/filters.js' %}" defer></script>
   <script src="{% static 'js/registers.js' %}" defer></script>
@@ -23,15 +24,25 @@
 <body hx-history="false" class="flex min-h-screen flex-col">
   {% include 'components/icons.html' %}
   <a class="skip-link" href="#main">{% translate 'Skip to content' %}</a>
-  <header id="site-header" class="z-40 border-b border-base-300 bg-base-100/90 backdrop-blur">
-    <div class="mx-auto flex w-full max-w-[1200px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1 sm:px-6">
+  <header id="site-header" class="z-40 border-b border-base-300 bg-base-200/95 backdrop-blur">
+    <div class="site-navigation">
       <a class="brand py-2 text-xl font-extrabold tracking-tight text-base-content no-underline" href="{% url 'diary:list' %}">GrowBook</a>
       {% if user.is_authenticated %}
-      <nav class="flex flex-wrap items-center gap-1" aria-label="{% translate 'Main navigation' %}">
-        <a class="btn btn-ghost{% if request.resolver_match.namespace == 'diary' %} btn-active{% endif %}" href="{% url 'diary:list' %}"{% if request.resolver_match.namespace == 'diary' %} aria-current="page"{% endif %}>{% translate 'Diary' %}</a>
-        <a class="btn btn-ghost{% if request.resolver_match.namespace == 'garden' and 'planting' not in request.resolver_match.url_name and 'event' not in request.resolver_match.url_name and 'history' not in request.resolver_match.url_name %} btn-active{% endif %}" href="{% url 'garden:home' %}"{% if request.resolver_match.namespace == 'garden' and 'planting' not in request.resolver_match.url_name and 'event' not in request.resolver_match.url_name and 'history' not in request.resolver_match.url_name %} aria-current="page"{% endif %}>{% translate 'Garden' %}</a>
-        <a class="btn btn-ghost{% if request.resolver_match.namespace == 'garden' %}{% if 'planting' in request.resolver_match.url_name or 'event' in request.resolver_match.url_name or 'history' in request.resolver_match.url_name %} btn-active{% endif %}{% endif %}" href="{% url 'garden:planting-list' %}"{% if request.resolver_match.namespace == 'garden' %}{% if 'planting' in request.resolver_match.url_name or 'event' in request.resolver_match.url_name or 'history' in request.resolver_match.url_name %} aria-current="page"{% endif %}{% endif %}>{% translate 'Plantings' %}</a>
-      </nav>
+      {% with route=request.resolver_match.url_name %}
+        {% if request.resolver_match.namespace == 'diary' %}
+          {% include 'components/main_navigation.html' with active='diary' %}
+        {% elif request.resolver_match.namespace == 'garden' %}
+          {% if 'planting' in route or 'event' in route or 'history' in route or photo.planting_id %}
+            {% include 'components/main_navigation.html' with active='plantings' %}
+          {% elif kind == 'area' or 'area' in route or photo.area_id %}
+            {% include 'components/main_navigation.html' with active='areas' %}
+          {% else %}
+            {% include 'components/main_navigation.html' with active='varieties' %}
+          {% endif %}
+        {% else %}
+          {% include 'components/main_navigation.html' %}
+        {% endif %}
+      {% endwith %}
       {% endif %}
       <div class="ml-auto flex flex-wrap items-center gap-2">
         {% if user.is_authenticated %}
@@ -40,6 +51,7 @@
           <div class="menu-panel dropdown-content">
             <p class="account-name">{{ user.get_username }}</p>
             {% include 'components/language_form.html' %}
+            {% include 'components/season_form.html' %}
             {% if user.is_staff %}<a class="menu-link" href="{% url 'admin:index' %}">{% translate 'Operator' %}</a>{% endif %}
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
@@ -49,6 +61,7 @@
         </details>
         {% else %}
         {% include 'components/language_form.html' %}
+        {% include 'components/season_form.html' %}
         {% endif %}
       </div>
     </div>

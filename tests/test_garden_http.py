@@ -2,6 +2,7 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
 from django.test import Client
@@ -62,28 +63,19 @@ def test_archived_only_register_offers_a_view_that_contains_records(client, user
     assert b'class="panel empty-state"' not in archived.content
 
 
-def test_garden_landing_requires_login_and_counts_only_active_records(client, user):
+def test_legacy_garden_url_requires_login_and_redirects_to_active_areas(client, user):
     path = reverse("garden:home")
     assert client.get(path).status_code == 302
     assert client.get(path, HTTP_HX_REQUEST="true").status_code == 401
-    crop = create_crop(actor=user, name="Active crop").record
-    archived_crop = create_crop(actor=user, name="Archived crop").record
-    variety = create_variety(actor=user, crop=crop, name="Archived variety").record
-    create_variety(actor=user, crop=crop, name="Active variety")
     area = create_area(actor=user, name="Archived area").record
-    create_area(actor=user, name="Active area")
-    archive_crop(actor=user, pk=archived_crop.pk)
-    archive_variety(actor=user, pk=variety.pk)
+    active = create_area(actor=user, name="Active area").record
     archive_area(actor=user, pk=area.pk)
     client.force_login(user)
     response = client.get(path)
-    assert response.status_code == 200
+    assert response.status_code == 302 and response.url == reverse("garden:area-list")
     assert "no-store" in response["Cache-Control"]
-    assert [response.context[key] for key in ("crop_count", "variety_count", "area_count")] == [
-        1,
-        1,
-        1,
-    ]
+    page = client.get(response.url)
+    assert [record.pk for record in page.context["records"]] == [active.pk]
 
 
 @pytest.fixture(params=["crop", "variety", "area"])
@@ -162,7 +154,7 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
     assert "<!doctype" in full.text and "record-details" in full.text
     client.cookies["django_language"] = "en"
     english = client.get(reverse(f"garden:{kind}-list"), follow=True)
-    assert '<html lang="en">' in english.text
+    assert '<html lang="en" ' in english.text
     assert ("Growing areas" if kind == "area" else "Crops and varieties") in english.text
 
 
@@ -192,6 +184,40 @@ def test_normal_create_edit_and_archive_controls(client, user, register_record):
     assert client.get(new.get_absolute_url()).status_code == 200
     assert client.post(archive_path, {"archived": "false"}).status_code == 302
     assert client.post(archive_path, {"archived": "nonsense"}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "failure,status", [("invalid", 422), ("conflict", 409), ("unavailable", 503)]
+)
+def test_archive_errors_offer_a_working_register_return(
+    client, user, register_record, monkeypatch, failure, status
+):
+    kind, record = register_record
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    archive_path = reverse(f"garden:{kind}-archive", args=[record.pk])
+    with monkeypatch.context() as patches:
+        if failure != "invalid":
+
+            def fail_archive(**kwargs):
+                if failure == "conflict":
+                    raise ValidationError("Synthetic archive conflict")
+                raise OperationalError("Synthetic unavailable database")
+
+            patches.setattr(f"garden.views.registers.services.archive_{kind}", fail_archive)
+        response = client.post(
+            archive_path, {"archived": "nonsense" if failure == "invalid" else "true"}
+        )
+    assert response.status_code == status
+    list_path = reverse("garden:area-list" if kind == "area" else "garden:variety-list")
+    heading = "Growing areas" if kind == "area" else "Crops and varieties"
+    assert f'<a href="{list_path}">{heading}</a>' in response.text
+    assert client.get(list_path).status_code == 200
+    record.refresh_from_db()
+    assert not record.is_archived
+    assert client.post(archive_path, {"archived": "true"}).status_code == 302
+    record.refresh_from_db()
+    assert record.is_archived
 
 
 def test_htmx_register_save_redirects_and_invalid_form_replaces_only_errors(

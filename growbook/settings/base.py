@@ -57,6 +57,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.photo_limits",
                 "core.context_processors.app_release",
+                "core.appearance.appearance_context",
             ],
         },
     },

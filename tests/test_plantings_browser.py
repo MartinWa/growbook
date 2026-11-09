@@ -307,9 +307,7 @@ def test_slow_variety_choices_are_superseded_and_save_cancellation_keeps_the_for
     expect(page.locator(".register-photos figure")).to_have_count(1)
 
 
-def test_year_area_history_rows_expand_independently_with_keyboard(
-    page, live_server, user, catalog
-):
+def test_year_area_history_selects_shared_details_with_keyboard(page, live_server, user, catalog):
     login(page, live_server, user)
     page.goto(live_server.url + f"/garden/areas/{catalog['parent'].pk}/history/?year=2026")
     page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
@@ -328,11 +326,13 @@ def test_year_area_history_rows_expand_independently_with_keyboard(
     second_toggle.focus()
     second_toggle.press("Space")
     expect(second_details).to_contain_text("Synthetic cumulative note")
-    expect(first_details).to_be_visible()
-    expect(second_toggle).to_be_focused()
-    first_toggle.click()
     expect(first_details).to_be_hidden()
-    expect(second_details).to_be_visible()
+    expect(first_toggle).to_have_attribute("aria-expanded", "false")
+    expect(second_toggle).to_be_focused()
+    expect(page.locator("[data-record-detail-pane] .register-expanded:visible")).to_have_count(1)
+    first_toggle.click()
+    expect(first_details).to_be_visible()
+    expect(second_details).to_be_hidden()
     page.get_by_role("link", name="Nästa år", exact=True).click()
     expect(page.locator("h1")).to_contain_text("2027")
     expect(page.locator("#planting-results .empty-state")).to_contain_text(

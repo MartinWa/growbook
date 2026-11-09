@@ -15,6 +15,8 @@ interface defaults to Swedish, with English available.
 ## Current features
 
 - Administrator-managed accounts and a shared garden; no public signup.
+- Four seasonal colour schemes with matching diary illustrations, selected per browser
+  or changed automatically with the garden's local date.
 - Discreet footer links to GitHub and releases, the deployed release version, and an
   orange indicator when a newer stable release is available.
 - A combined crop and variety register with searchable crop groups, and
@@ -100,8 +102,8 @@ startup, automatic reload, VS Code debugging and persistent development storage.
 
 Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts. There
 are no seeded credentials. Diary, photo, register and planting admin screens are
-read-only; use the diary pages for observations, **Garden** for records and
-**Plantings** for plans and milestones.
+read-only; use the diary pages for observations, **Growing areas** and
+**Crops and varieties** for records, and **Plantings** for plans and milestones.
 
 The separate development Compose configuration publishes HTTP only on host loopback.
 Its database, photos, generated secret, Linux virtualenv and test scratch files live in
@@ -109,9 +111,9 @@ Docker volumes. Do not expose the development server or point it at production d
 
 ## Using growbook
 
-- **Garden** holds growing areas and the combined **Crops and varieties** register,
-  plus a link to this year's plantings. Expand crop groups or nested areas, select names
-  for information and photos, search crop and variety names, and maintain records.
+- **Growing areas** and **Crops and varieties** open directly from the main menu.
+  Expand crop groups or nested areas, select names for information and photos,
+  search crop and variety names, and maintain records.
 - **Plantings** shows growing-year results grouped by area, with filters and expandable
   batches. Create annual or persistent plantings, record events, and open crop, variety and area
   histories.
@@ -150,7 +152,7 @@ operational recovery, not portable import/export.
 
 | Guide | Contents |
 |---|---|
-| [Using growbook](docs/usage.md) | Garden, plantings, diary, photos and retries |
+| [Using growbook](docs/usage.md) | Registers, plantings, diary, photos and retries |
 | [Development, CI and releases](docs/development.md) | Tests, browser suite, styles, translations, workflows, dependency updates and release images |
 | [Deployment](docs/deployment.md) | Docker, private configuration, upgrades and SQLite runtime |
 | [Backup and recovery](docs/backup-and-recovery.md) | Backup, verification, restore and orphan cleanup |

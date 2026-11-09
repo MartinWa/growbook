@@ -18,9 +18,9 @@ from core.media import MediaBusy
 from diary.queries import observation_count, observations_for
 
 from ..forms import ArchiveForm, VarietyFilterForm
-from ..models import Crop, GrowingArea, Variety
+from ..models import Crop
 from ..names import normalize_name
-from ..queries import area_tree, planting_history, plantings_in_year
+from ..queries import area_tree, planting_history
 from ..services import RegisterConflict
 from ..services import registers as services
 from ._shared import REGISTERS
@@ -40,18 +40,7 @@ def _context(kind):
 
 @require_GET
 def garden_home(request):
-    year = timezone.localdate().year
-    return render(
-        request,
-        "garden/home.html",
-        {
-            "crop_count": Crop.objects.filter(is_archived=False).count(),
-            "variety_count": Variety.objects.filter(is_archived=False).count(),
-            "area_count": GrowingArea.objects.filter(is_archived=False).count(),
-            "planting_year": year,
-            "planting_count": plantings_in_year(year).count(),
-        },
-    )
+    return redirect("garden:area-list")
 
 
 @require_GET
@@ -332,8 +321,9 @@ def register_form(request, kind, pk=None):
 def register_archive(request, kind, pk):
     get_object_or_404(REGISTERS[kind][0], pk=pk)
     form = ArchiveForm(request.POST)
+    context = {**_context(kind), "form": form}
     if not valid_post(request, form):
-        return render(request, "garden/action_error.html", {"form": form}, status=422)
+        return render(request, "garden/action_error.html", context, status=422)
     writer = {
         "crop": services.archive_crop,
         "variety": services.archive_variety,
@@ -343,12 +333,12 @@ def register_archive(request, kind, pk):
         record = writer(actor=request.user, pk=pk, archived=form.cleaned_data["archived"])
     except ValidationError as exc:
         form_error(form, exc)
-        return render(request, "garden/action_error.html", {"form": form}, status=409)
+        return render(request, "garden/action_error.html", context, status=409)
     except MediaBusy, OperationalError, OSError:
         form.add_error(
             None, _("The action could not be confirmed. Reload the register before retrying.")
         )
-        return render(request, "garden/action_error.html", {"form": form}, status=503)
+        return render(request, "garden/action_error.html", context, status=503)
     messages.success(
         request,
         _("Record archived.") if record.is_archived else _("Record restored to active selections."),

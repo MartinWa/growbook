@@ -8,26 +8,26 @@
   include: rootcolor, svg, rootscrollgutter, properties, scrollbar, rootscrolllock, button, badge, dropdown, table, radius;
 }
 
-/* Garden palette and targets. Colour roles keep the warm paper, green ink and ochre focus. */
+/* Shared controls and status colours; the seasonal palettes below supply the garden colours. */
 @plugin "daisyui/theme" {
   name: "growbook";
   default: true;
   prefersdark: false;
   color-scheme: light;
 
-  --color-base-100: #fffdf6;
-  --color-base-200: #f5f5ee;
-  --color-base-300: #d8dfd6;
-  --color-base-content: #202d24;
+  --color-base-100: #fffdf7;
+  --color-base-200: #edf5e4;
+  --color-base-300: #cfd7bc;
+  --color-base-content: #293524;
 
-  --color-primary: #2c593a;
+  --color-primary: #506835;
   --color-primary-content: #ffffff;
-  --color-secondary: #47694f;
+  --color-secondary: #59643d;
   --color-secondary-content: #ffffff;
-  --color-accent: #a8691a;
+  --color-accent: #826025;
   --color-accent-content: #ffffff;
-  --color-neutral: #202d24;
-  --color-neutral-content: #f5f5ee;
+  --color-neutral: #293524;
+  --color-neutral-content: #fffdf7;
 
   --color-info: #335e77;
   --color-info-content: #ffffff;
@@ -38,8 +38,8 @@
   --color-error: #8c2424;
   --color-error-content: #ffffff;
 
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
+  --radius-selector: 0.625rem;
+  --radius-field: 0.625rem;
   --radius-box: 0.75rem;
 
   /* 10 x 0.275rem = 2.75rem, the 44 px control target at the default font size. */
@@ -51,11 +51,76 @@
 }
 
 @theme {
-  --color-focus: #ba791d;
+  --color-focus: #936323;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/barlow-condensed-regular.ttf") format("truetype");
+}
+
 @layer base {
+  html[data-season="spring"] {
+    --color-base-100: #fffdf7;
+    --color-base-200: #edf5e4;
+    --color-base-300: #cfd7bc;
+    --color-base-content: #293524;
+    --color-primary: #506835;
+    --color-secondary: #59643d;
+    --color-accent: #826025;
+    --color-focus: #936323;
+    --color-muted: #5e6756;
+    --season-art: url("../images/seasons/spring.webp");
+  }
+
+  html[data-season="summer"] {
+    --color-base-100: #fffef7;
+    --color-base-200: #fcf0db;
+    --color-base-300: #ced6ae;
+    --color-base-content: #253b2a;
+    --color-primary: #356044;
+    --color-secondary: #52662d;
+    --color-accent: #856118;
+    --color-focus: #896016;
+    --color-muted: #59664b;
+    --season-art: url("../images/seasons/summer.webp");
+  }
+
+  html[data-season="autumn"] {
+    --color-base-100: #fffbf3;
+    --color-base-200: #fbf0df;
+    --color-base-300: #dccbb1;
+    --color-base-content: #3b3126;
+    --color-primary: #705039;
+    --color-secondary: #645d32;
+    --color-accent: #946029;
+    --color-focus: #946029;
+    --color-muted: #706152;
+    --season-art: url("../images/seasons/autumn.webp");
+  }
+
+  html[data-season="winter"] {
+    --color-base-100: #fbfcfa;
+    --color-base-200: #edf1ef;
+    --color-base-300: #c3d0ca;
+    --color-base-content: #293a3b;
+    --color-primary: #3d6267;
+    --color-secondary: #526558;
+    --color-accent: #725d45;
+    --color-focus: #566b80;
+    --color-muted: #576766;
+    --season-art: url("../images/seasons/winter.webp");
+  }
+
+  html[data-season] {
+    --color-neutral: var(--color-base-content);
+    --color-neutral-content: var(--color-base-100);
+  }
+
   html {
     font-size: 106.25%;
     line-height: 1.6;
@@ -68,7 +133,13 @@
   }
 
   h1 {
-    @apply text-3xl leading-tight font-bold tracking-tight;
+    font-family: "Barlow Condensed", var(--font-sans);
+    font-size: clamp(2.1rem, 5vw, 3.3rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    color: var(--color-base-content);
     overflow-wrap: anywhere;
   }
 
@@ -136,7 +207,7 @@
 @layer components {
   .app-footer {
     @apply mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-end gap-x-2 px-4 py-3 text-xs;
-    color: #626b64;
+    color: var(--color-muted);
   }
 
   .app-footer a {
@@ -157,6 +228,23 @@
     @apply sticky top-0;
   }
 
+  .site-navigation {
+    @apply mx-auto grid w-full max-w-[1200px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5 px-4 py-3 sm:px-6;
+  }
+
+  .main-navigation {
+    @apply flex flex-wrap items-center justify-center gap-2;
+  }
+
+  .main-navigation .btn {
+    @apply px-4 font-medium;
+  }
+
+  .main-navigation [aria-current="page"] {
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+  }
+
   /* daisyUI buttons do not shrink by default; large text must still fit the viewport. */
   .btn {
     max-width: 100% !important;
@@ -165,11 +253,127 @@
   }
 
   .page {
-    @apply mx-auto my-8 w-full max-w-[1050px] px-4;
+    @apply mx-auto my-6 w-full max-w-[1200px] px-4 sm:px-6;
   }
 
-  .register-page {
-    @apply max-w-[1200px];
+  .diary-heading,
+  .register-heading {
+    @apply relative;
+    min-height: 13rem;
+    padding-top: 1rem;
+  }
+
+  .page-heading.diary-heading,
+  .page-heading.register-heading {
+    @apply items-start;
+  }
+
+  .register-heading h1 {
+    @apply relative z-10;
+    max-width: 50%;
+  }
+
+  .register-illustration {
+    @apply pointer-events-none absolute top-0 right-0 h-full w-[48%] object-contain;
+  }
+
+  .register-toolbar {
+    @apply flex flex-wrap items-start justify-between gap-3;
+  }
+
+  .register-toolbar .variety-filter {
+    @apply flex min-w-0 flex-1 flex-wrap items-start gap-2;
+    flex-basis: 14rem;
+  }
+
+  .register-toolbar .variety-filter .field {
+    @apply mb-0 flex-1;
+    flex-basis: 12rem;
+  }
+
+  .register-toolbar .related-actions {
+    @apply mt-0;
+  }
+
+  .register-toolbar .related-actions:not(:has(button:not([hidden]))) {
+    @apply hidden;
+  }
+
+  .overview-toolbar {
+    @apply flow-root min-w-0;
+  }
+
+  .overview-toolbar > .heading-actions {
+    @apply float-right mb-2;
+    margin-inline-start: 0.75rem;
+  }
+
+  .overview-toolbar .filter-panel {
+    clear: both;
+  }
+
+  .result-toolbar {
+    @apply mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2;
+  }
+
+  .result-toolbar .result-count {
+    @apply m-0;
+  }
+
+  .result-toolbar .year-navigation {
+    @apply m-0 border-0 bg-transparent p-0;
+  }
+
+  #register-results .result-count {
+    @apply my-2;
+  }
+
+  .record-workspace {
+    @apply my-3 min-w-0;
+  }
+
+  .record-workspace-enhanced {
+    @apply grid gap-4;
+  }
+
+  .record-browser,
+  .record-detail-pane {
+    @apply min-w-0 rounded-lg border border-base-300 bg-base-100 p-3 sm:p-4;
+  }
+
+  .record-detail-placeholder {
+    @apply text-secondary;
+  }
+
+  .record-detail-placeholder h2 {
+    @apply mb-3 font-normal;
+  }
+
+  .record-detail-pane .record-info {
+    @apply m-0 border-0 p-0;
+  }
+
+  .record-browser > .area-tree:not(.area-children) {
+    @apply m-0 border-0 p-0;
+  }
+
+  .record-browser .variety-group {
+    @apply m-0 rounded-none border-0 border-b border-base-300 px-0 py-2;
+  }
+
+  .record-browser .record-list .record-name {
+    @apply w-full;
+  }
+
+  .record-browser .record-name[aria-expanded="true"] {
+    @apply bg-primary text-primary-content decoration-primary-content;
+  }
+
+  @media (min-width: 900px) {
+    .record-workspace-enhanced {
+      grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+      min-height: 18rem;
+    }
   }
 
   .photo-page {
@@ -224,8 +428,23 @@
     @apply flex flex-wrap items-center justify-between gap-4;
   }
 
+  .page-heading h1::after {
+    content: "";
+    display: block;
+    width: 3.25rem;
+    height: 3px;
+    margin-top: 0.9rem;
+    background: var(--color-accent);
+    border-radius: 2px;
+  }
+
   .entry-heading {
     @apply mb-4 flex flex-wrap items-center justify-between gap-2;
+  }
+
+  .entry-heading h2 {
+    @apply text-lg font-medium;
+    color: var(--color-secondary);
   }
 
   .entry-body {
@@ -236,8 +455,41 @@
     @apply my-5;
   }
 
+  .diary-card-content {
+    @apply grid min-w-0 gap-5;
+  }
+
+  .diary-card-note {
+    @apply min-w-0;
+  }
+
+  .diary-card .entry-actions {
+    @apply mt-3 mb-0;
+  }
+
+  .photo-grid.diary-photos {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    align-content: start;
+  }
+
+  .diary-photos a {
+    @apply block min-w-0 rounded-lg;
+  }
+
+  .photo-grid.diary-photos img {
+    @apply h-auto max-h-[24rem] w-full object-contain;
+  }
+
+  @media (min-width: 800px) {
+    .diary-card-content.has-note-and-photos {
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr);
+      align-items: start;
+    }
+  }
+
   .muted {
-    @apply text-sm text-base-content/70;
+    @apply text-sm;
+    color: var(--color-muted);
   }
 
   .field {
@@ -487,7 +739,15 @@
 
   .diary-layout,
   .filter-layout {
-    @apply mt-4 grid gap-4;
+    @apply grid gap-3;
+  }
+
+  .diary-layout {
+    @apply relative;
+  }
+
+  .diary-stream > .quick-add {
+    @apply mt-0;
   }
 
   .diary-stream,
@@ -516,6 +776,18 @@
     @apply mb-3;
   }
 
+  .quick-add > h2 {
+    @apply mb-4 text-2xl leading-tight font-normal;
+  }
+
+  .quick-add textarea {
+    min-height: 6rem;
+  }
+
+  .quick-add .field > label {
+    @apply font-medium;
+  }
+
   .quick-add .date-field {
     @apply flex flex-wrap items-center gap-2;
   }
@@ -540,6 +812,19 @@
   .result-count,
   #diary-result-count {
     @apply my-3;
+  }
+
+  #diary-result-count {
+    @apply flex items-center gap-4 text-base;
+    color: var(--color-secondary);
+  }
+
+  #diary-result-count::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-accent);
+    opacity: 0.45;
   }
 
   .filter-chips {
@@ -598,6 +883,26 @@
     @apply mb-3;
   }
 
+  .season-form {
+    @apply mb-3 min-w-0 text-sm;
+  }
+
+  .season-form label {
+    @apply mb-1 block font-medium;
+  }
+
+  .season-controls {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
+  }
+
+  .season-controls select {
+    @apply w-auto min-w-0 max-w-full;
+  }
+
+  .account-menu .season-controls select {
+    @apply w-full;
+  }
+
   .account-menu .menu-link {
     @apply block min-h-11 py-2;
   }
@@ -630,24 +935,27 @@
     @apply w-auto min-h-11 py-1;
   }
 
-  .diary-heading {
-    @apply mb-3;
+  .diary-heading h1 {
+    @apply relative z-10;
   }
 
-  .garden-cards {
-    @apply grid grid-cols-1 gap-4 md:grid-cols-3;
+  .diary-heading::before {
+    content: "";
+    position: absolute;
+    inset: -1rem -1rem 0 15%;
+    background: var(--season-art) right bottom / cover no-repeat;
+    mix-blend-mode: multiply;
+    mask-image: linear-gradient(to right, transparent, #000 20%, #000 95%, transparent);
+    pointer-events: none;
+    z-index: 0;
   }
 
-  .garden-cards .panel {
-    @apply flex flex-col items-start;
-  }
-
-  .garden-cards .btn {
-    @apply mt-auto;
+  html[data-season="summer"] .diary-heading::before,
+  html[data-season="autumn"] .diary-heading::before {
+    mix-blend-mode: normal;
   }
 
   .related-actions a,
-  .register-nav a,
   .year-navigation a {
     @apply inline-flex min-h-11 items-center;
   }
@@ -659,14 +967,6 @@
 
   .related-actions {
     @apply mt-3;
-  }
-
-  .register-nav {
-    @apply mb-5 flex flex-wrap gap-x-5 gap-y-1;
-  }
-
-  .register-nav [aria-current] {
-    @apply font-bold;
   }
 
   .year-navigation {
@@ -764,7 +1064,9 @@
   }
 
   .tag {
-    @apply badge badge-outline py-3 no-underline;
+    @apply badge h-auto min-h-11 max-w-full rounded-full border-0 bg-base-200 px-3 py-2 no-underline;
+    color: var(--color-secondary);
+    overflow-wrap: anywhere;
   }
 
   .capture-actions {
@@ -811,7 +1113,50 @@
     }
   }
 
+  @media (max-width: 900px) {
+    .site-navigation {
+      @apply flex flex-wrap gap-x-2 gap-y-1 py-2;
+    }
+
+    .site-navigation .brand {
+      order: 1;
+    }
+
+    .site-navigation > div:last-child {
+      order: 2;
+    }
+
+    .main-navigation {
+      @apply grid w-full grid-cols-4 gap-1;
+      order: 3;
+    }
+
+    .main-navigation .btn {
+      @apply h-auto min-h-11 w-full px-3;
+    }
+  }
+
   @media (max-width: 650px) {
+    .main-navigation {
+      @apply grid-cols-2;
+    }
+
+    .diary-heading,
+    .register-heading {
+      min-height: 10rem;
+      padding-top: 0.75rem;
+    }
+
+    .diary-heading::before {
+      inset: 0 -1rem 0 5%;
+      mask-image: linear-gradient(to right, transparent, #000 35%, #000 95%, transparent);
+    }
+
+    .quick-add .capture-actions > [type="submit"] {
+      @apply w-full;
+      flex-basis: 100%;
+    }
+
     .page {
       @apply mt-4;
     }
