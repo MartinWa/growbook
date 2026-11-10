@@ -1,12 +1,50 @@
 import io
+import os
+import select
+import subprocess
 from pathlib import Path
 
+import playwright
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from pillow_heif import register_heif_opener
 
 register_heif_opener(thumbnails=False)
+
+
+@pytest.fixture(scope="session")
+def browser_endpoint(tmp_path_factory):
+    """Reuse Chromium without keeping a Python asyncio loop active between tests."""
+    driver = Path(playwright.__file__).parent / "driver"
+    log_path = tmp_path_factory.mktemp("browser-server") / "stderr.log"
+    with log_path.open("w") as log:
+        server = subprocess.Popen(
+            [
+                str(driver / "node"),
+                str(Path(__file__).with_name("browser_server.cjs")),
+                str(driver / "package"),
+                os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium"),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=log,
+            text=True,
+        )
+        try:
+            if not select.select([server.stdout], [], [], 30)[0]:
+                raise RuntimeError(f"Browser server startup timed out: {log_path.read_text()}")
+            endpoint = server.stdout.readline().strip()
+            if not endpoint.startswith("ws://127.0.0.1:"):
+                raise RuntimeError(f"Browser server failed to start: {log_path.read_text()}")
+            yield endpoint
+        finally:
+            server.terminate()
+            try:
+                server.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                server.kill()
+                server.wait(timeout=10)
+            server.stdout.close()
 
 
 @pytest.fixture(autouse=True)

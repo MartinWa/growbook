@@ -1,7 +1,5 @@
 """Shared details remain reachable in long lists at phone and desktop widths."""
 
-import os
-
 import pytest
 from django.urls import reverse
 from playwright.sync_api import expect, sync_playwright
@@ -44,12 +42,12 @@ def long_list(request, user):
 
 
 @pytest.fixture
-def page(live_server, user, long_list):
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 1280, "height": 844})
+def page(live_server, user, long_list, browser_endpoint):
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 1280, "height": 844}) as context,
+    ):
         context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
         page = context.new_page()
         page.set_default_timeout(8000)
@@ -62,8 +60,6 @@ def page(live_server, user, long_list):
         expect(page).to_have_url(live_server.url + "/")
         yield page
         assert errors == []
-        context.close()
-        browser.close()
 
 
 @pytest.mark.parametrize("width", [390, 1280])

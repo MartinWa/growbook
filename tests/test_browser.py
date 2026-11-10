@@ -1,6 +1,5 @@
 """Real Chromium/form checks; not evidence of device-native photo pickers."""
 
-import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -21,18 +20,16 @@ pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
 
 @pytest.fixture
-def page(live_server, settings, user):
+def page(live_server, settings, user, browser_endpoint):
     settings.WHITENOISE_USE_FINDERS = True
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 390, "height": 844})
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 390, "height": 844}) as context,
+    ):
         page = context.new_page()
         page.set_default_timeout(8000)
         yield page
-        context.close()
-        browser.close()
 
 
 def open_filters(page):

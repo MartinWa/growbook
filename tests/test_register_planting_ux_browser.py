@@ -1,6 +1,5 @@
 """Real hierarchy/search interaction in Chromium, with ordinary HTML fallbacks."""
 
-import os
 from datetime import date
 from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
@@ -87,17 +86,15 @@ def ux(user, image_upload):
 
 
 @pytest.fixture
-def page(live_server, user, ux):
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 1280, "height": 900})
+def page(live_server, user, ux, browser_endpoint):
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 1280, "height": 900}) as context,
+    ):
         page = context.new_page()
         page.set_default_timeout(8000)
         yield page
-        context.close()
-        browser.close()
 
 
 def login(page, live_server, user, language):
