@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load i18n %}
-{% block title %}{{ entry.date }} · GrowBook{% endblock %}
+{% block title %}{% if entry.title %}{{ entry.title }}{% else %}{{ entry.date }}{% endif %} · GrowBook{% endblock %}
 {% block content %}
 <a href="{% url 'diary:list' %}">← {% translate 'Back to diary' %}</a>
 <article class="panel diary-card">
   <header class="entry-heading">
-    <h1><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time></h1>
+    <h1{% if entry.title %} class="entry-titled"{% endif %}><time{% if entry.title %} class="entry-date"{% endif %} datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time>{% if entry.title %}<span class="entry-title">{{ entry.title }}</span>{% endif %}</h1>
     <span class="muted">{{ entry.author.get_username }}</span>
   </header>
   {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}

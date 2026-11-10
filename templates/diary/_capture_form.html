@@ -12,12 +12,18 @@
   <input type="hidden" name="filter_query" value="{{ filter_query }}">
   {% endif %}
   <div id="capture-errors" role="alert" tabindex="-1">{% include 'diary/capture_errors.html' %}</div>
-  {% if failed %}<p role="alert">{% translate 'Your date, note and link selections were kept. Select any photos again before retrying.' %}</p>{% endif %}
+  {% if failed %}<p role="alert">{% translate 'Your date, title, note and link selections were kept. Select any photos again before retrying.' %}</p>{% endif %}
   <div class="field date-field">
     <label for="{{ form.date.id_for_label }}">{{ form.date.label }}{% if not quick %} <span class="field-requirement">{% translate '(required)' %}</span>{% endif %}</label>
     {{ form.date }}
     <p id="capture-date-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Use the date of the observation.' %}</p>
     <div id="capture-date-errors" class="field-errors">{{ form.date.errors }}</div>
+  </div>
+  <div class="field">
+    <label for="{{ form.title.id_for_label }}">{{ form.title.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
+    {{ form.title }}
+    <p id="capture-title-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{{ form.title.help_text }}</p>
+    <div id="capture-title-errors" class="field-errors">{{ form.title.errors }}</div>
   </div>
   <div class="field">
     <label for="{{ form.body.id_for_label }}">{{ form.body.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>

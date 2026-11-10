@@ -439,12 +439,50 @@
   }
 
   .entry-heading {
-    @apply mb-4 flex flex-wrap items-center justify-between gap-2;
+    @apply mb-4 flex flex-wrap items-start justify-between gap-2;
+  }
+
+  .entry-heading h1,
+  .entry-heading h2 {
+    @apply min-w-0 max-w-full;
   }
 
   .entry-heading h2 {
     @apply text-lg font-medium;
     color: var(--color-secondary);
+  }
+
+  .entry-heading h2 a {
+    text-decoration: none;
+  }
+
+  .entry-heading h2 a:hover {
+    text-decoration: underline;
+  }
+
+  .entry-heading .entry-titled {
+    @apply text-lg normal-case;
+    font-family: var(--font-sans);
+    letter-spacing: normal;
+  }
+
+  .entry-date {
+    @apply text-lg font-medium normal-case;
+    font-family: var(--font-sans);
+    letter-spacing: normal;
+    color: var(--color-secondary);
+  }
+
+  .entry-title {
+    @apply mt-1 block;
+    font-family: "Barlow Condensed", var(--font-sans);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+    color: var(--color-base-content);
+    overflow-wrap: anywhere;
   }
 
   .entry-body {
@@ -1057,6 +1095,7 @@
 
   .observation-list {
     @apply grid list-none gap-2 p-0;
+    overflow-wrap: anywhere;
   }
 
   .link-tags {

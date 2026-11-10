@@ -130,6 +130,15 @@ msgstr "Logga in på en ny flik"
 msgid "Date"
 msgstr "Datum"
 
+msgid "Title"
+msgstr "Rubrik"
+
+msgid "A short heading for the observation (up to 200 characters)."
+msgstr "En kort rubrik för observationen (högst 200 tecken)."
+
+msgid "Enter a title, or leave it blank."
+msgstr "Ange en rubrik, eller lämna fältet tomt."
+
 msgid "Note"
 msgstr "Anteckning"
 
@@ -989,8 +998,8 @@ msgstr "Skriv en anteckning eller behåll minst en bild."
 msgid "Year"
 msgstr "År"
 
-msgid "Your date, note and link selections were kept. Select any photos again before retrying."
-msgstr "Datum, anteckning och länkval behölls. Välj bilderna igen innan du försöker spara."
+msgid "Your date, title, note and link selections were kept. Select any photos again before retrying."
+msgstr "Datum, rubrik, anteckning och länkval behölls. Välj bilderna igen innan du försöker spara."
 
 msgid "Check the filters"
 msgstr "Kontrollera filtren"

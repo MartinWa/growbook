@@ -26,7 +26,7 @@ from garden.models import Crop, GrowingArea, Planting, Variety
 
 from .models import DiaryEditSubmission, DiaryEntry, DiaryLink, DiarySubmission
 from .permissions import can_edit_entry
-from .search import normalize_search
+from .search import entry_search_text
 
 
 class SubmissionConflict(ValidationError):
@@ -47,7 +47,7 @@ class CaptureResult:
     created: bool
 
 
-def payload_fingerprint(date, body, photos, links=()):
+def payload_fingerprint(date, body, photos, links=(), *, title=""):
     payload = {
         "version": 1,
         "date": date.isoformat(),
@@ -57,6 +57,9 @@ def payload_fingerprint(date, body, photos, links=()):
     # Keep existing unlinked receipts byte-for-byte compatible.
     if links:
         payload["links"] = sorted(links)
+    # Blank titles preserve receipts issued before titles were supported.
+    if title:
+        payload["title"] = title
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -78,7 +81,16 @@ def check_receipt(key, author_id, fingerprint):
     return CaptureResult(receipt.entry, created=False)
 
 
-def create_entry(*, author, date, body, uploads, submission_key, links=()):
+def _normalize_title(title):
+    if not isinstance(title, str):
+        raise ValidationError({"title": _("Enter a title, or leave it blank.")})
+    try:
+        return DiaryEntry._meta.get_field("title").clean(title.strip(), None)
+    except ValidationError as exc:
+        raise ValidationError({"title": exc}) from exc
+
+
+def create_entry(*, author, date, body, uploads, submission_key, links=(), title=""):
     """Process outside atomic; revalidate shared state inside the serialized write."""
     if connection.in_atomic_block:
         raise RuntimeError("Call create_entry outside any existing transaction.")
@@ -90,13 +102,14 @@ def create_entry(*, author, date, body, uploads, submission_key, links=()):
         key = UUID(str(submission_key))
     except (ValueError, TypeError, AttributeError) as exc:
         raise ValidationError(_("The save key is invalid. Reload the capture form.")) from exc
+    title = _normalize_title(title)
     body = body.strip()
     links = _normalize_links(links)
     uploads = list(uploads)
     if not body and not uploads:
         raise ValidationError(_("Write a note or add at least one photo."))
     with media_operation(), staged_uploads(uploads) as photos:
-        fingerprint = payload_fingerprint(date, body, photos, links)
+        fingerprint = payload_fingerprint(date, body, photos, links, title=title)
         # Match retries before decoding against the receipt, not mutable entry fields.
         with transaction.atomic():
             if not User.objects.filter(pk=author.pk, is_active=True).exists():
@@ -114,8 +127,9 @@ def create_entry(*, author, date, body, uploads, submission_key, links=()):
                 resolved_links = _resolve_links(links)
                 entry = DiaryEntry(
                     date=date,
+                    title=title,
                     body=body,
-                    search_text=normalize_search(body),
+                    search_text=entry_search_text(title, body),
                     author=author,
                     submission_key=key,
                 )
@@ -246,7 +260,9 @@ def _link_key(link):
     return None
 
 
-def _edit_fingerprint(pk, date, body, links, remove_photo_ids, expected_updated_at, photos):
+def _edit_fingerprint(
+    pk, date, body, links, remove_photo_ids, expected_updated_at, photos, *, title=""
+):
     payload = {
         "version": 1,
         "pk": pk,
@@ -257,6 +273,8 @@ def _edit_fingerprint(pk, date, body, links, remove_photo_ids, expected_updated_
         "expected_updated_at": expected_updated_at.isoformat(),
         "photos": [photo.sha256 for photo in photos],
     }
+    if title:
+        payload["title"] = title
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
@@ -283,6 +301,7 @@ def _write_entry_edit(
     actor,
     pk,
     date,
+    title,
     body,
     links,
     remove_photo_ids,
@@ -332,8 +351,9 @@ def _write_entry_edit(
             photo.delete()
 
         entry.date = date
+        entry.title = title
         entry.body = body
-        entry.search_text = normalize_search(body)
+        entry.search_text = entry_search_text(title, body)
         entry.full_clean()
         entry.save()
 
@@ -356,6 +376,7 @@ def update_entry(
     pk,
     date,
     body,
+    title="",
     links=(),
     uploads=(),
     remove_photo_ids=(),
@@ -369,6 +390,7 @@ def update_entry(
         raise ValidationError(_("Choose a valid entry date."))
     if not isinstance(body, str):
         raise ValidationError(_("Enter text, or leave the note blank."))
+    title = _normalize_title(title)
     body = body.strip()
     expected_updated_at = _version(expected_updated_at)
     try:
@@ -390,7 +412,14 @@ def update_entry(
             if uploads:
                 with staged_uploads(uploads) as staged:
                     fingerprint = _edit_fingerprint(
-                        pk, date, body, links, remove_photo_ids, expected_updated_at, staged
+                        pk,
+                        date,
+                        body,
+                        links,
+                        remove_photo_ids,
+                        expected_updated_at,
+                        staged,
+                        title=title,
                     )
                     with transaction.atomic():
                         entry = _entry_for_editor(actor, pk)
@@ -403,6 +432,7 @@ def update_entry(
                             actor=actor,
                             pk=pk,
                             date=date,
+                            title=title,
                             body=body,
                             links=links,
                             remove_photo_ids=remove_photo_ids,
@@ -414,12 +444,13 @@ def update_entry(
                         )
             else:
                 fingerprint = _edit_fingerprint(
-                    pk, date, body, links, remove_photo_ids, expected_updated_at, ()
+                    pk, date, body, links, remove_photo_ids, expected_updated_at, (), title=title
                 )
                 entry = _write_entry_edit(
                     actor=actor,
                     pk=pk,
                     date=date,
+                    title=title,
                     body=body,
                     links=links,
                     remove_photo_ids=remove_photo_ids,

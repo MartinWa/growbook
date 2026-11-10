@@ -88,7 +88,7 @@ instances against the same live directory.
 For each deployment, verify that:
 
 - Existing accounts can authenticate, and deactivated accounts stay inactive.
-- Dates, notes, authorship and save receipts are preserved.
+- Dates, titles, notes, authorship and save receipts are preserved.
 - Crop/variety relationships, area nesting, nullable measurements and archive flags
   are preserved, including active children of archived records.
 - Planting crop/variety/area references, annual/persistent lifespan, inclusive end

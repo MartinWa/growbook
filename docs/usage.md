@@ -211,11 +211,16 @@ presence, not exact movement dates, lineage or historical layouts.
 ## Diary
 
 Open **Diary** to add an observation or browse observations newest first. The inline
-composer accepts a note, photos or both, with optional tags. A confirmed save clears
-the composer, shows a receipt and refreshes the first results page with current
-filters. Failed saves keep the draft and selected files in the open form. Without
-JavaScript, reselect photos as instructed and
+composer accepts a note, photos or both, with an optional title and tags. A confirmed
+save clears the composer, shows a receipt and refreshes the first results page with
+current filters. Failed saves keep the draft and selected files in the open form.
+Without JavaScript, reselect photos as instructed and
 retry with the same save key.
+
+**Title** is optional and accepts up to 200 characters. It appears beneath the date
+on cards and observation pages, and in linked observation previews. Leave it blank
+to use the date as the heading. An observation needs a note or at least one photo,
+even when it has a title.
 
 The inline composer and observation editing place **Add tags** and **Add photos** on
 the left of the action row, with **Save observation** aligned right. The row wraps on
@@ -249,7 +254,7 @@ invalid choices open the filters, and failed requests keep results and show **Re
 Search applies after a short pause or Enter, other filters apply on change, and chips
 remove individual filters. Paging and Back preserve filter URLs; updating results keeps
 an unfinished quick-add and its selected files. Without JavaScript, open the filter
-disclosure and submit the form. Search matches note text only; the year, area, crop,
+disclosure and submit the form. Search matches titles and notes; the year, area, crop,
 variety and planting controls combine in one form. A planting filter also matches its
 crop, variety and area, and an area filter includes descendants. Results are deduplicated
 and paging preserves active filters.
@@ -264,13 +269,13 @@ remains without JavaScript. The login page has its own selector.
 - Search is a literal substring match after Unicode NFC normalization and casefolding:
   uppercase and lowercase match, diacritics do not (`Ångström` finds `ångström`, but
   `Angstrom` does not). Captions and linked record names are not searched.
-- Open an observation to read its note, links and photos. The author may edit or delete
-  it; an active staff administrator may edit or delete any entry; other active accounts
-  can read it. The list shows **Edit** only on entries the signed-in account may
+- Open an observation to read its title, note, links and photos. The author may edit or
+  delete it; an active staff administrator may edit or delete any entry; other active
+  accounts can read it. The list shows **Edit** only on entries the signed-in account may
   change. A deactivated author cannot write, even while signed in.
-- Edit changes the date, note, garden links and photos. A planting link also matches its
-  crop, variety and area. Each link points to exactly one area, crop, variety or planting,
-  and the same record can be linked once. New direct links to crops, varieties and areas
+- Edit changes the date, optional title, note, garden links and photos. A planting link
+  also matches its crop, variety and area. Each link points to exactly one area, crop,
+  variety or planting, and the same record can be linked once. New direct links to crops, varieties and areas
   must target active records; existing archived links remain visible and removable.
   Older or ended plantings, including those with archived associations, stay selectable.
   Ordinary **Edit** includes the same picker and preserves existing explicit links.
@@ -278,9 +283,9 @@ remains without JavaScript. The login page has its own selector.
   newer change. Identical retries use immutable edit receipts; follow
   [Saving changes and retries](#saving-changes-and-retries) after an uncertain save.
   Reload after a version conflict to see saved values. With JavaScript only errors are
-  replaced and the form stays open; without it, date, note and link selections are kept,
+  replaced and the form stays open; without it, date, title, note and link selections are kept,
   but photos must be reselected before retrying.
-- Delete requires confirmation and permanently removes the note, links and photos,
+- Delete requires confirmation and permanently removes the title, note, links and photos,
   including private originals. Linked registers, plantings and their photos remain. A
   stale deletion is rejected and asks you to reload.
 - On a photo page, the author or an administrator can change the caption and order, or

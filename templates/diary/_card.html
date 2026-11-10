@@ -1,7 +1,7 @@
 {% load i18n %}
 <article class="panel diary-card" id="entry-{{ entry.pk }}">
   <header class="entry-heading">
-    <h2 tabindex="-1"><a href="{{ entry.get_absolute_url }}"><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time></a></h2>
+    <h2 tabindex="-1"><a href="{{ entry.get_absolute_url }}"><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time>{% if entry.title %}<span class="entry-title">{{ entry.title }}</span>{% endif %}</a></h2>
     <span class="muted">{{ entry.author.get_username }}</span>
   </header>
   <div class="diary-card-content{% if entry.photos.all and entry.body %} has-note-and-photos{% endif %}">

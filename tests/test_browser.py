@@ -861,6 +861,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     entry_url = open_entry_edit(page, live_server, user)
     form = page.locator("#entry-form")
     save = form.locator("button[type=submit]")
+    page.locator("#id_title").fill("Retry the edited heading")
     page.locator("#id_body").fill("Retry the edited observation")
     page.locator("#id_photos").set_input_files(upload(image_upload()))
     version = page.locator("#id_expected_updated_at").input_value()
@@ -879,6 +880,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     expect(save).to_be_disabled()
     expect(page.locator("#id_photos")).to_be_disabled()
     expect(page.locator("[data-tag-trigger]")).to_be_disabled()
+    expect(page.locator("#id_title")).not_to_be_editable()
     expect(page.locator("#id_body")).not_to_be_editable()
     assert len(pending) == 1
     if failure == 503:
@@ -896,6 +898,8 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
         expect(page.locator("#entry-errors")).to_contain_text("Synthetic temporary save failure")
     expect(save).to_be_enabled()
     expect(page.locator("#id_photos")).to_be_enabled()
+    expect(page.locator("#id_title")).to_be_editable()
+    expect(page.locator("#id_title")).to_have_value("Retry the edited heading")
     expect(page.locator("#id_body")).to_be_editable()
     expect(page.locator("#id_body")).to_have_value("Retry the edited observation")
     expect(page.locator("#id_expected_updated_at")).to_have_value(version)
@@ -905,6 +909,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     page.unroute(entry_url + "edit/")
     save.click()
     expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-title")).to_have_text("Retry the edited heading")
     expect(page.locator(".entry-body")).to_have_text("Retry the edited observation")
     expect(page.locator(".large-photo")).to_have_count(1)
 
@@ -917,6 +922,7 @@ def test_edit_lost_response_retries_committed_save_without_reapplying_photos(
     edit_url = entry_url + "edit/"
     key = page.locator("#id_submission_key").input_value()
     version = page.locator("#id_expected_updated_at").input_value()
+    page.locator("#id_title").fill("Heading after a lost response")
     page.locator('input[name="remove_photos"]').check()
     page.locator("#id_body").fill("" if photo_count else "Retry after a lost response")
     if photo_count:
@@ -940,6 +946,7 @@ def test_edit_lost_response_retries_committed_save_without_reapplying_photos(
     assert saved_responses == [204]
     expect(page.locator("#id_submission_key")).to_have_value(key)
     expect(page.locator("#id_expected_updated_at")).to_have_value(version)
+    expect(page.locator("#id_title")).to_have_value("Heading after a lost response")
     expect(page.locator('input[name="remove_photos"]')).to_be_checked()
     assert page.locator("#id_photos").evaluate("input => input.files.length") == photo_count
 
@@ -950,6 +957,7 @@ def test_edit_lost_response_retries_committed_save_without_reapplying_photos(
         page.locator("#entry-form button[type=submit]").click()
     assert replayed.value.status == 204
     expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-title")).to_have_text("Heading after a lost response")
     expect(page.locator(".large-photo")).to_have_count(photo_count)
 
 
@@ -996,6 +1004,7 @@ def test_quick_capture_saves_without_navigation_and_resets_only_after_success(
     login(page, live_server, user)
     page.goto(live_server.url + "/")
     key = page.locator("#id_submission_key").input_value()
+    page.locator("#id_title").fill("Synthetic quick heading")
     if photo_count:
         with page.expect_file_chooser() as picker:
             page.locator("[data-photo-chooser]").click()
@@ -1012,6 +1021,8 @@ def test_quick_capture_saves_without_navigation_and_resets_only_after_success(
     expect(page.locator("#quick-receipt")).to_contain_text("har sparats")
     expect(page.locator("#diary-results .diary-card")).to_have_count(1)
     expect(page).to_have_url(live_server.url + "/")
+    expect(page.locator("#id_title")).to_have_value("")
+    expect(page.locator("#diary-results .entry-title")).to_have_text("Synthetic quick heading")
     expect(page.locator("#id_body")).to_have_value("")
     assert page.locator("#id_submission_key").input_value() != key
     assert page.locator("#id_library").evaluate("input => input.files.length") == 0
@@ -1029,6 +1040,7 @@ def test_quick_capture_lost_response_keeps_draft_and_retries_without_duplicates(
 ):
     login(page, live_server, user)
     page.goto(live_server.url + "/")
+    page.locator("#id_title").fill("Retry a committed heading")
     page.locator("#id_body").fill("Retry a committed quick capture")
     page.locator("#id_library").set_input_files(upload(image_upload()))
     key = page.locator("#id_submission_key").input_value()
@@ -1043,6 +1055,7 @@ def test_quick_capture_lost_response_keeps_draft_and_retries_without_duplicates(
     page.route("**/capture/", lose_response)
     page.locator("#save-entry").click()
     expect(page.locator("#capture-errors")).not_to_be_empty()
+    expect(page.locator("#id_title")).to_have_value("Retry a committed heading")
     expect(page.locator("#id_body")).to_have_value("Retry a committed quick capture")
     expect(page.locator("#id_submission_key")).to_have_value(key)
     assert page.locator("#id_library").evaluate("input => input.files.length") == 1
@@ -1050,6 +1063,7 @@ def test_quick_capture_lost_response_keeps_draft_and_retries_without_duplicates(
     page.locator("#save-entry").click()
     expect(page.locator("#quick-receipt")).to_contain_text("redan")
     expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    expect(page.locator("#diary-results .entry-title")).to_have_text("Retry a committed heading")
     expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
 
 
@@ -1535,11 +1549,13 @@ def test_quick_add_and_filters_work_without_javascript(page, live_server, user, 
         plain.locator("#id_password").fill("Synthetic-password-42")
         plain.locator('form:has(#id_username) button[type="submit"]').click()
         expect(plain.locator("#id_library")).to_be_visible()
+        plain.locator("#id_title").fill("Synthetic no-JavaScript heading")
         plain.locator("#id_body").fill("Synthetic no-JavaScript quick note")
         plain.locator("#id_library").set_input_files(upload(image_upload()))
         plain.locator("#save-entry").click()
         expect(plain).to_have_url(re.compile(r"/#entry-\d+$"))
         expect(plain.locator(".diary-card")).to_have_count(1)
+        expect(plain.locator(".entry-title")).to_have_text("Synthetic no-JavaScript heading")
         expect(plain.locator(".diary-card .photo-grid img")).to_have_count(1)
         plain.locator("#diary-filters > summary").click()
         plain.locator("#id_q").fill("does not match")
@@ -1551,3 +1567,112 @@ def test_quick_add_and_filters_work_without_javascript(page, live_server, user, 
         expect(plain.locator("#account-menu .language-form button")).to_be_visible()
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("width", [1280, 390])
+@pytest.mark.parametrize("language", ["sv", "en"])
+def test_optional_titles_are_editable_searchable_and_wrap(page, live_server, user, width, language):
+    login(page, live_server, user)
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.context.add_cookies(
+        [{"name": "django_language", "value": language, "url": live_server.url}]
+    )
+    page.reload()
+    label = "Title (optional)" if language == "en" else "Rubrik (valfritt)"
+    field = page.get_by_label(label, exact=True)
+    expect(field).to_be_visible()
+    expect(field).to_have_attribute("maxlength", "200")
+    assert field.get_attribute("required") is None
+    prefix = "Synthetic Ångström "
+    title = prefix + "x" * (200 - len(prefix))
+    field.fill(title)
+    page.locator("#id_body").fill("Synthetic body for the heading workflow")
+    page.locator("#save-entry").click()
+    heading = page.locator("#diary-results .entry-title")
+    expect(heading).to_have_text(title)
+    expect(field).to_have_value("")
+    title_box = heading.bounding_box()
+    date_box = page.locator("#diary-results .entry-heading time").bounding_box()
+    assert title_box["y"] >= date_box["y"] + date_box["height"]
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
+    field.fill("Unfinished synthetic heading")
+    open_filters(page)
+    page.locator("#id_q").fill("ångström")
+    expect(page).to_have_url(re.compile(r"q="))
+    expect(page.locator(".diary-card")).to_have_count(1)
+    expect(field).to_have_value("Unfinished synthetic heading")
+    page.locator(".entry-heading h2 a").click()
+    entry_url = page.url
+    expect(page.locator("h1 .entry-title")).to_have_text(title)
+    expect(page).to_have_title(title + " · GrowBook")
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    page.locator(".entry-actions .btn-primary").click()
+    expect(page.locator("#id_title")).to_have_value(title)
+    page.locator("#id_title").fill("Renamed synthetic heading")
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-title")).to_have_text("Renamed synthetic heading")
+
+    page.goto(live_server.url + "/?" + urlencode({"q": "ångström"}))
+    expect(page.locator(".diary-card")).to_have_count(0)
+    page.goto(live_server.url + "/?q=renamed")
+    expect(page.locator(".diary-card")).to_have_count(1)
+    page.locator(".entry-heading h2 a").click()
+    page.locator(".entry-actions .btn-primary").click()
+    page.locator("#id_title").fill("")
+    page.locator("#entry-form button[type=submit]").click()
+    expect(page).to_have_url(entry_url)
+    expect(page.locator(".entry-title")).to_have_count(0)
+    expect(page.locator(".entry-body")).to_have_text("Synthetic body for the heading workflow")
+    page.goto(live_server.url + "/?" + urlencode({"q": "Synthetic body"}))
+    expect(page.locator(".diary-card")).to_have_count(1)
+    expect(page.locator(".entry-title")).to_have_count(0)
+
+
+@pytest.mark.parametrize("operation", ["capture", "edit"])
+def test_title_errors_keep_photos_and_are_accessible_for_retry(
+    page, live_server, user, image_upload, operation
+):
+    if operation == "edit":
+        entry_url = open_entry_edit(page, live_server, user)
+        post_url = entry_url + "edit/"
+        errors = "#id_title_errors"
+        photos = "#id_photos"
+        save = page.locator("#entry-form button[type=submit]")
+    else:
+        login(page, live_server, user)
+        post_url = live_server.url + "/capture/"
+        errors = "#capture-title-errors"
+        photos = "#id_library"
+        save = page.locator("#save-entry")
+    title = page.locator("#id_title")
+    title.evaluate("input => input.removeAttribute('maxlength')")
+    title.fill("Å" * 201)
+    page.locator("#id_body").fill("Synthetic draft to retry")
+    page.locator(photos).set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    with page.expect_response(
+        lambda response: response.url == post_url and response.request.method == "POST"
+    ) as rejected:
+        save.click()
+    assert rejected.value.status == 422
+    expect(title).to_have_attribute("aria-invalid", "true")
+    assert errors[1:] in title.get_attribute("aria-describedby").split()
+    expect(page.locator(errors)).not_to_be_empty()
+    expect(title).to_have_value("Å" * 201)
+    expect(page.locator("#id_body")).to_have_value("Synthetic draft to retry")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator(photos).evaluate("input => input.files.length") == 1
+
+    title.fill("Corrected synthetic heading")
+    save.click()
+    if operation == "edit":
+        expect(page).to_have_url(entry_url)
+        expect(page.locator(".large-photo")).to_have_count(1)
+    else:
+        expect(page.locator("#quick-receipt")).to_contain_text("har sparats")
+        expect(title).to_have_value("")
+        expect(title).not_to_have_attribute("aria-invalid", "true")
+        expect(page.locator("#diary-results .photo-grid img")).to_have_count(1)
+    expect(page.locator(".entry-title")).to_have_text("Corrected synthetic heading")
