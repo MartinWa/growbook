@@ -55,7 +55,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build development and test image
-        uses: ./.github/actions/build-dev-image
+        uses: $/.github/actions/build-dev-image
       - name: Lint and check formatting
         run: |
           docker compose -f compose.development.yaml run --rm app ruff check .
@@ -71,7 +71,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build development and test image
-        uses: ./.github/actions/build-dev-image
+        uses: $/.github/actions/build-dev-image
       - name: Check translations, database configuration, and migrations
         run: |
           docker compose -f compose.development.yaml run --rm app python tools/compile_translations.py
@@ -88,7 +88,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build development and test image
-        uses: ./.github/actions/build-dev-image
+        uses: $/.github/actions/build-dev-image
       - name: Check the local development startup path
         run: |
           docker compose -f compose.development.yaml up -d --no-build app
@@ -107,7 +107,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build development and test image
-        uses: ./.github/actions/build-dev-image
+        uses: $/.github/actions/build-dev-image
       - name: Run application tests
         run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m "not browser" --durations=20
       - name: Stop development containers
@@ -149,7 +149,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build development and test image
-        uses: ./.github/actions/build-dev-image
+        uses: $/.github/actions/build-dev-image
       - name: Run browser tests
         run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser --durations=20
       - name: Stop development containers
