@@ -82,8 +82,8 @@ area; headings remain ordinary translated HTML. Growing areas, crops and varieti
 and plantings share a heading with a fixed decorative WebP illustration. Their
 text and controls use the selected seasonal palette.
 
-The diary uses one inline composer with a three-row note, a generous minimum writing
-area and compact date. Editing
+The diary uses one inline composer with a compact date, optional title, three-row note
+and generous minimum writing area. Editing
 an existing observation also includes its saved photos and a Cancel action. The
 note grows with its content where native `field-sizing` is supported, with
 a maximum height and ordinary textarea scrolling for longer text.
@@ -91,8 +91,10 @@ The inline composer and observation editing put **Add tags** and **Add photos** 
 left of one action row and **Save observation** on the right. The row wraps on narrow
 screens. Native grouped tag checkboxes are enhanced into a searchable popover with
 removable chips; see the [diary workflow](usage.md#diary). Existing observations align
-their edit actions to the right. Cards with notes and photos put photos beside the
-complete note on wide screens and above it on narrow ones. Photo-only cards use
+their edit actions to the right. Optional entry titles appear beneath the date in
+regular, uppercase Barlow Condensed and wrap at every width. Cards with notes and
+photos put photos beside the complete note on wide screens and above it on narrow
+ones. Photo-only cards use
 the available width. Images use the protected display derivative and preserve their
 aspect ratio; galleries show every photo. Notes remain fully visible at every width.
 

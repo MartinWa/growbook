@@ -163,6 +163,15 @@ class CaptureForm(TaggedForm):
             format="%Y-%m-%d",
         ),
     )
+    title = forms.CharField(
+        label=_("Title"),
+        max_length=200,
+        required=False,
+        help_text=_("A short heading for the observation (up to 200 characters)."),
+        widget=forms.TextInput(
+            attrs={"aria-describedby": "capture-title-help capture-title-errors"}
+        ),
+    )
     body = forms.CharField(
         label=_("Note"),
         required=False,
@@ -216,6 +225,12 @@ class EntryEditForm(TaggedForm):
         label=_("Date"),
         initial=timezone.localdate,
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    title = forms.CharField(
+        label=_("Title"),
+        max_length=200,
+        required=False,
+        help_text=_("A short heading for the observation (up to 200 characters)."),
     )
     body = forms.CharField(
         label=_("Note"), required=False, widget=forms.Textarea(attrs={"rows": 5})

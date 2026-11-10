@@ -35,6 +35,7 @@ def payload(record, user, **values):
         "actor": user,
         "pk": record.pk,
         "date": record.date,
+        "title": record.title,
         "body": "Edited synthetic note",
         "expected_updated_at": record.updated_at,
         "submission_key": uuid4(),
@@ -48,7 +49,9 @@ def test_identical_edit_retry_preserves_version_photos_and_creation_receipt(
 ):
     record = make_entry(user)
     creation = DiarySubmission.objects.get(entry=record)
-    values = payload(record, user, body="" if photo_count else "Edited note")
+    values = payload(
+        record, user, title="Synthetic edited title", body="" if photo_count else "Edited note"
+    )
     first = update_entry(**values, uploads=[image_upload() for _ in range(photo_count)])
     before = list(first.photos.values_list("pk", "original", "position"))
 
@@ -58,6 +61,7 @@ def test_identical_edit_retry_preserves_version_photos_and_creation_receipt(
     monkeypatch.setattr(photo_storage, "process_staged", must_not_decode)
     retry = update_entry(**values, uploads=[image_upload() for _ in range(photo_count)])
     assert retry.pk == first.pk and retry.updated_at == first.updated_at
+    assert retry.title == "Synthetic edited title"
     assert list(retry.photos.values_list("pk", "original", "position")) == before
     assert DiaryEditSubmission.objects.count() == 1
     creation.refresh_from_db()
@@ -91,13 +95,14 @@ def test_retry_precedes_removed_photos_upload_limit_and_current_links(user, imag
 
 
 @pytest.mark.parametrize(
-    "changed", ["body", "date", "version", "target", "links", "removals", "photos"]
+    "changed", ["title", "body", "date", "version", "target", "links", "removals", "photos"]
 )
 def test_key_reuse_with_changed_payload_conflicts(user, image_upload, changed):
     record = make_entry(user)
     values = payload(record, user)
     first = update_entry(**values)
     overrides = {
+        "title": {"title": "Changed retry title"},
         "body": {"body": "Changed retry"},
         "date": {"date": record.date + timedelta(days=1)},
         "version": {"expected_updated_at": first.updated_at},
@@ -109,6 +114,7 @@ def test_key_reuse_with_changed_payload_conflicts(user, image_upload, changed):
     with pytest.raises(EntryConflict):
         update_entry(**{**values, **overrides[changed]})
     first.refresh_from_db()
+    assert first.title == values["title"]
     assert first.body == values["body"] and not first.photos.exists()
     assert DiaryEditSubmission.objects.count() == 1
 

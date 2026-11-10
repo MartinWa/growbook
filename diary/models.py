@@ -10,6 +10,7 @@ from core.writes import ValidatedModel
 
 class DiaryEntry(ValidatedModel):
     date = models.DateField(_("Date"), default=timezone.localdate, db_index=True)
+    title = models.CharField(_("Title"), max_length=200, blank=True, default="")
     body = models.TextField(_("Note"), blank=True)
     search_text = models.TextField(editable=False, blank=True, default="")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)

@@ -136,6 +136,7 @@ def entry_edit(request, pk):
     initial = {
         "expected_updated_at": entry.updated_at,
         "date": entry.date,
+        "title": entry.title,
         "body": entry.body,
         "link_areas": [link.area_id for link in links if link.area_id],
         "link_crops": [link.crop_id for link in links if link.crop_id],
@@ -164,6 +165,7 @@ def entry_edit(request, pk):
                     actor=request.user,
                     pk=entry.pk,
                     date=values["date"],
+                    title=values["title"],
                     body=values["body"],
                     links=form.selected_links,
                     uploads=values["photos"],
@@ -334,6 +336,7 @@ def capture(request):
                 result = create_entry(
                     author=request.user,
                     date=form.cleaned_data["date"],
+                    title=form.cleaned_data["title"],
                     body=form.cleaned_data["body"],
                     uploads=form.cleaned_data["camera"] + form.cleaned_data["library"],
                     submission_key=form.cleaned_data["submission_key"],

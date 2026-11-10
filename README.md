@@ -31,8 +31,9 @@ interface defaults to Swedish, with English available.
   crop/variety/descendant-area histories that include archived associations.
 - Repeated planting events with independent planned and actual dates, plus cumulative
   evaluation text and private photos.
-- Dated text-only, photo-only and text-plus-photo entries with chronological paging,
-  note search and combined year, area, crop, variety and planting filters.
+- Dated text-only, photo-only and text-plus-photo entries with optional titles,
+  chronological paging, title and note search, and combined year, area, crop, variety
+  and planting filters.
 - Optional tags during capture and editing, with one searchable picker for plantings,
   growing areas, crops and varieties; linked records
   show their observations, and derived filters follow plantings and area descendants.
@@ -58,12 +59,12 @@ interface defaults to Swedish, with English available.
 - Diary tags are chosen explicitly; there is no automatic matching.
   Structured harvest accounting and portable data import/export are
   not provided.
-- Entry deletion permanently removes the note, links and photos, including private
-  originals; linked registers and plantings remain. Creation and edit receipts are kept
-  to reject retries against deleted entries.
-- Diary search is a literal, Unicode-casefolded substring of the note. Diacritics remain
-  significant (`Å` is not `A`, `å` is not `a`), and captions, author names and linked
-  record names are not searched.
+- Entry deletion permanently removes the title, note, links and photos, including
+  private originals; linked registers and plantings remain. Creation and edit receipts
+  are kept to reject retries against deleted entries.
+- Diary search is a literal, Unicode-casefolded substring of titles and notes.
+  Diacritics remain significant (`Å` is not `A`, `å` is not `a`), and captions,
+  author names and linked record names are not searched.
 - Filters combine with AND. A planting match also matches its crop, variety and area; an
   area filter includes descendant areas. Archived records stay visible through existing
   links and filters but cannot be chosen for a new link.
