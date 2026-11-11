@@ -25,10 +25,10 @@ env:
   DOCKER_BUILD_RECORD_UPLOAD: "false"
 
 jobs:
-  requirements:
-    name: Requirements (Linux)
+  checks:
+    name: Checks (Linux)
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,72 +44,36 @@ jobs:
           uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
           uv export --locked --only-group dev --no-emit-project --format requirements-txt --output-file requirements-dev.txt
           git diff --exit-code -- requirements.txt requirements-dev.txt
-
-  lint:
-    name: Lint (Linux)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build development and test image
-        uses: $/.github/actions/build-dev-image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: development
+          load: true
+          push: false
+          provenance: false
+          tags: growbook:development
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha,scope=ci-development
+          cache-to: type=gha,scope=ci-development,mode=max
+          github-token: ""
       - name: Lint and check formatting
         run: |
           docker compose -f compose.development.yaml run --rm app ruff check .
           docker compose -f compose.development.yaml run --rm app ruff format --check .
-
-  static-checks:
-    name: Static checks (Linux)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Build development and test image
-        uses: $/.github/actions/build-dev-image
       - name: Check translations, database configuration, and migrations
         run: |
           docker compose -f compose.development.yaml run --rm app python tools/compile_translations.py
           docker compose -f compose.development.yaml run --rm app python manage.py check --database default
           docker compose -f compose.development.yaml run --rm app python manage.py makemigrations --check --dry-run
-
-  startup:
-    name: Startup (Linux)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Build development and test image
-        uses: $/.github/actions/build-dev-image
       - name: Check the local development startup path
         run: |
           docker compose -f compose.development.yaml up -d --no-build app
           docker compose -f compose.development.yaml exec -T app python tools/check_development.py
-      - name: Stop development containers
-        if: always()
-        run: docker compose -f compose.development.yaml down
-
-  tests:
-    name: Tests (Linux)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Build development and test image
-        uses: $/.github/actions/build-dev-image
       - name: Run application tests
-        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m "not browser" --durations=20
+        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q --durations=20
       - name: Stop development containers
         if: always()
         run: docker compose -f compose.development.yaml down
@@ -148,8 +112,20 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build development and test image
-        uses: $/.github/actions/build-dev-image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: development
+          load: true
+          push: false
+          provenance: false
+          tags: growbook:development
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha,scope=ci-development
+          github-token: ""
       - name: Run browser tests
         run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser --durations=20
       - name: Stop development containers
