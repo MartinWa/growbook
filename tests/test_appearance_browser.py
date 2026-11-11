@@ -1,6 +1,5 @@
 """Season selection, real layout and colour contrast in Chromium."""
 
-import os
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
@@ -36,12 +35,12 @@ def sample_entries(user, image_upload):
 
 
 @pytest.fixture
-def page(live_server, sample_entries):
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 390, "height": 844})
+def page(live_server, sample_entries, browser_endpoint):
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 390, "height": 844}) as context,
+    ):
         page = context.new_page()
         page.set_default_timeout(8000)
         errors = []
@@ -53,8 +52,6 @@ def page(live_server, sample_entries):
         yield page
         assert errors == []
         assert page.evaluate("window.cspViolations") == []
-        context.close()
-        browser.close()
 
 
 def login(page, live_server, user, language="sv"):

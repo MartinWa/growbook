@@ -121,11 +121,18 @@ remain unchanged. Separate photo edits and deletions continue to use version che
 ## Browser tests
 
 The development image includes Playwright's pinned Chromium and Linux browser libraries.
+The suite reuses one Chromium process through a loopback-only Playwright browser server,
+using the driver bundled with the pinned Python package. Each test has a fresh browser
+context and Python connection; Django's async safety checks remain enabled. Contexts
+close on test failures, and the server stops when the suite finishes.
 Run the full browser suite separately:
 
 ```powershell
 docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser
 ```
+
+Add `--durations=20` to either suite to report its slowest setup, call and teardown
+steps. CI includes this report in both test jobs.
 
 The suite exercises Chromium and real form interaction. It does not verify a phone's
 native camera/library picker or a deployment's private-network routing; check those on
@@ -164,6 +171,8 @@ Weekly scheduled and manually dispatched CI runs build both images without the b
 cache, refreshing Debian package upgrades and installed system dependencies. Pull
 requests and pushes to `main` reuse the cache. A passing scheduled build refreshes CI
 caches; it does not publish an image or update a running installation.
+Translation compilation uses a separate production build stage, so catalog changes
+preserve cached application dependencies and Chromium installation layers.
 
 The stylesheet job verifies the generated CSS with the pinned frontend toolchain;
 see [Styles](#styles).

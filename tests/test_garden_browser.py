@@ -1,6 +1,5 @@
 """Chromium register interactions; not evidence of device-native pickers or routing."""
 
-import os
 import re
 
 import pytest
@@ -51,18 +50,16 @@ def long_variety(user, registers):
 
 
 @pytest.fixture
-def page(live_server, settings, user, registers):
+def page(live_server, settings, user, registers, browser_endpoint):
     settings.WHITENOISE_USE_FINDERS = True
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 1280, "height": 900})
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 1280, "height": 900}) as context,
+    ):
         page = context.new_page()
         page.set_default_timeout(8000)
         yield page
-        context.close()
-        browser.close()
 
 
 def login(page, live_server, user):

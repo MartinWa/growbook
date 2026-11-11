@@ -1,6 +1,5 @@
 """Chromium form/history interaction, not target-device or private-routing evidence."""
 
-import os
 import re
 
 import pytest
@@ -71,18 +70,16 @@ def catalog(user, image_upload):
 
 
 @pytest.fixture
-def page(live_server, settings, user, catalog):
+def page(live_server, settings, user, catalog, browser_endpoint):
     settings.WHITENOISE_USE_FINDERS = True
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 1280, "height": 1000})
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 1280, "height": 1000}) as context,
+    ):
         page = context.new_page()
         page.set_default_timeout(10000)
         yield page
-        context.close()
-        browser.close()
 
 
 def open_filters(page):

@@ -1,6 +1,5 @@
 """Real Chromium checks for the shared tagging flow; no physical-device claims."""
 
-import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
@@ -55,19 +54,17 @@ def browser_tags(user):
 
 
 @pytest.fixture
-def page(live_server, browser_tags):
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
-            channel=os.environ.get("GROWBOOK_BROWSER_CHANNEL", "chromium")
-        )
-        context = browser.new_context(viewport={"width": 390, "height": 844})
+def page(live_server, browser_tags, browser_endpoint):
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(viewport={"width": 390, "height": 844}) as context,
+    ):
         page = context.new_page()
         page.set_default_timeout(8000)
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         yield page
-        context.close()
-        browser.close()
         assert errors == []
 
 
