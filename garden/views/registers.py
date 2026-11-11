@@ -74,15 +74,14 @@ def _area_list(request):
     return render(request, "garden/areas.html", context)
 
 
-def _archive_redirect(request):
+def _archive_redirect(request, view_name, *, args=None):
     # The external submit button preserves even an unapplied search without JavaScript.
     filters = request.GET.copy()
     if filters.pop("archive_toggle")[-1] == "1":
         filters.setlist("archived", ["1"])
     else:
         filters.pop("archived", None)
-    query = filters.urlencode()
-    return redirect(request.path + ("?" + query if query else ""))
+    return redirect(reverse(view_name, args=args, query=filters))
 
 
 @require_GET
@@ -118,7 +117,15 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
             },
         )
     if "archive_toggle" in request.GET:
-        return _archive_redirect(request)
+        if category:
+            return _archive_redirect(request, "garden:category-detail", args=[category.pk])
+        if uncategorized:
+            return _archive_redirect(request, "garden:uncategorized")
+        if all_crops:
+            return _archive_redirect(request, "garden:all-crops")
+        return _archive_redirect(
+            request, "garden:area-list" if kind == "area" else "garden:variety-list"
+        )
     if kind == "area":
         return _area_list(request)
     model = REGISTERS[kind][0]
@@ -306,7 +313,7 @@ def _detail_context(kind, pk, *, show_archived=False):
 @require_GET
 def register_detail(request, kind, pk):
     if kind == "area" and "archive_toggle" in request.GET:
-        return _archive_redirect(request)
+        return _archive_redirect(request, "garden:area-detail", args=[pk])
     context = _detail_context(kind, pk, show_archived=request.GET.get("archived") == "1")
     context["inline"] = request.headers.get("HX-Request") == "true"
     if kind == "area":

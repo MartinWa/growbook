@@ -1,12 +1,13 @@
 from datetime import date
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
-from django.test import Client
-from django.urls import reverse
+from django.test import Client, RequestFactory
+from django.urls import resolve, reverse
 
 from core.media import private_path
 from core.models import Photo
@@ -17,6 +18,7 @@ from garden.services import (
     archive_crop,
     archive_variety,
     create_area,
+    create_category,
     create_crop,
     create_variety,
     delete_area,
@@ -26,6 +28,48 @@ from garden.services import (
 )
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.mark.parametrize(
+    "view_name",
+    [
+        "garden:area-list",
+        "garden:area-detail",
+        "garden:variety-list",
+        "garden:all-crops",
+        "garden:uncategorized",
+        "garden:category-detail",
+    ],
+)
+@pytest.mark.parametrize("toggle", ["0", "1"])
+def test_archive_redirect_uses_local_routes_and_preserves_encoded_filters(user, view_name, toggle):
+    args = None
+    if view_name == "garden:area-detail":
+        args = [create_area(actor=user, name="Synthetic area").record.pk]
+    elif view_name == "garden:category-detail":
+        args = [create_category(actor=user, name="Synthetic category").record.pk]
+    path = reverse(view_name, args=args)
+    search = "Ärtor & plants # /"
+    destinations = ["https://example.invalid/", "//example.invalid/"]
+    request = RequestFactory().get(
+        path,
+        {"archive_toggle": toggle, "archived": "1", "q": search, "next": destinations},
+        HTTP_HX_REQUEST="true",
+        HTTP_HX_TARGET="register-results",
+    )
+    request.user = user
+    # The redirect must remain local even if the request path is untrusted.
+    request.path = "//example.invalid" + path
+    match = resolve(path)
+    response = match.func(request, *match.args, **match.kwargs)
+    assert response.status_code == 302
+    location = urlsplit(response["Location"])
+    assert not location.scheme and not location.netloc and not location.fragment
+    assert location.path == path
+    expected = {"q": [search], "next": destinations}
+    if toggle == "1":
+        expected["archived"] = ["1"]
+    assert parse_qs(location.query) == expected
 
 
 @pytest.mark.parametrize("kind", ["crop", "variety", "area"])
