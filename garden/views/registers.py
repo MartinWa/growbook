@@ -52,7 +52,7 @@ def _area_list(request):
         areas=areas,
         visible_ids={area.pk for area in areas if show_archived or not area.is_archived},
     )
-    records = [node.area for node in tree["roots"] if node.area.parent_id is None]
+    records = [node.area for node in tree["roots"]]
     context = _context("area")
     context.update(
         records=records,

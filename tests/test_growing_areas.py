@@ -7,6 +7,7 @@ import pytest
 from django.urls import reverse
 
 from core.models import Photo
+from core.writes import validated_write
 from diary.models import DiaryEntry, DiaryLink
 from diary.services import create_entry
 from garden.models import GrowingArea, Planting
@@ -41,6 +42,27 @@ def test_overview_cards_show_only_top_level_areas_and_reuse_the_first_private_ph
     assert "no-store" in response["Cache-Control"]
     assert GrowingArea.objects.count() == 3
     assert Photo.objects.count() == 3
+
+
+@pytest.mark.parametrize("show_archived", [False, True])
+def test_overview_keeps_recovered_legacy_cycle_roots_visible(client, user, show_archived):
+    first = create_area(actor=user, name="Cycle A").record
+    second = create_area(actor=user, name="Cycle B", parent=first).record
+    leaf = create_area(actor=user, name="Cycle leaf", parent=second).record
+    with validated_write():
+        # Simulate legacy state that current validated operations reject.
+        GrowingArea.objects.filter(pk=first.pk).update(parent_id=second.pk)
+    client.force_login(user)
+    response = client.get(reverse("garden:area-list"), {"archived": "1"} if show_archived else {})
+    assert response.status_code == 200
+    assert [area.pk for area in response.context["records"]] == [first.pk]
+    assert response.text.count('class="category-card area-card"') == 1
+    expected_url = first.get_absolute_url() + ("?archived=1" if show_archived else "")
+    assert f'href="{expected_url}"' in response.text
+    first_page = client.get(expected_url)
+    assert [child.pk for child in first_page.context["children"]] == [second.pk]
+    second_page = client.get(second.get_absolute_url())
+    assert leaf in second_page.context["children"]
 
 
 @pytest.mark.parametrize("language", ["sv", "en"])

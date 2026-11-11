@@ -42,6 +42,8 @@ def planting_list(request, history=False, kind=None, pk=None):
         if kind == "variety":
             data["crop"] = str(scope.crop_id)
             locked.add("crop")
+    if not data.get("area"):
+        data.pop("area_only", None)
     form = PlantingFilterForm(data)
     records, year = [], None
     tree = {"events": [], "unassigned": []}
@@ -63,6 +65,8 @@ def planting_list(request, history=False, kind=None, pk=None):
             display = _("Yes")
         remaining = data.copy()
         remaining.pop(name, None)
+        if name == "area":
+            remaining.pop("area_only", None)
         # The overview defaults to the current year; its year stays visible while
         # All years provides the explicit route to an unbounded history.
         removable = name not in locked and (name != "year" or history)

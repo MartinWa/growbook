@@ -432,6 +432,40 @@ def test_area_information_links_to_current_year_and_direct_plantings(
     assert set(inclusive.context["records"]) == {current, persistent}
 
 
+@pytest.mark.parametrize("partial", [False, True])
+def test_removing_area_filter_restores_descendants_and_preserves_other_filters(
+    client, user, batches, partial
+):
+    crop, variety, root, child, grandchild, unused, records = batches
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
+    path = reverse("garden:planting-list")
+    response = client.get(
+        path, {"year": 2026, "crop": crop.pk, "area": child.pk, "area_only": "1"}, **headers
+    )
+    assert len(response.context["records"]) == 2
+    area_filter = next(
+        item for item in response.context["active_filters"] if item["value"] == "Root / Bed"
+    )
+    clear_query = parse_qs(urlsplit(area_filter["url"]).query)
+    assert clear_query == {"year": ["2026"], "crop": [str(crop.pk)]}
+    cleared = client.get(area_filter["url"], **headers)
+    assert set(cleared.context["records"]) == set(records)
+    assert not cleared.context["area_only"]
+    clear_query["area"] = [str(child.pk)]
+    selected = client.get(path, clear_query, **headers)
+    assert set(selected.context["records"]) == set(records[1:4])
+    assert not selected.context["area_only"]
+
+
+def test_direct_area_modifier_without_an_area_is_removed_from_navigation(client, user, batches):
+    client.force_login(user)
+    response = client.get(reverse("garden:planting-list"), {"year": 2026, "area_only": "1"})
+    assert not response.context["form"].cleaned_data["area_only"]
+    for name in ("previous_url", "next_url", "all_years_url", "overview_url"):
+        assert "area_only" not in parse_qs(urlsplit(response.context[name]).query)
+
+
 @pytest.mark.parametrize("kind", ["area", "variety"])
 @pytest.mark.parametrize("count", [0, 5, 6])
 def test_register_observations_keep_older_entries_reachable(client, user, kind, count):

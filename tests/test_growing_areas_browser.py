@@ -169,6 +169,45 @@ def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
         assert errors == []
 
 
+@pytest.mark.parametrize("javascript", [False, True])
+@pytest.mark.parametrize("removal", ["chip", "selector"])
+def test_clearing_area_filter_restores_descendants_for_another_area(
+    live_server, user, areas, browser_endpoint, javascript, removal
+):
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        page = context.new_page()
+        page.set_default_timeout(8000)
+        login(page, live_server, user)
+        page.goto(live_server.url + areas["child"].get_absolute_url())
+        page.locator('a[href^="/garden/plantings/?"]').click()
+        results = page.locator("#planting-results")
+        expect(results).to_contain_text("Synthetic batch")
+        expect(results).not_to_contain_text("Inner section batch")
+        disclosure = page.locator("[data-filter-disclosure]")
+        if removal == "chip":
+            page.locator(".filter-chip[href]").filter(has_text=areas["child"].name).click()
+        else:
+            disclosure.locator(":scope > summary").click()
+            page.locator("#id_area").select_option("")
+            if not javascript:
+                page.locator("[data-filter-submit]").click()
+        expect(page.locator("#id_area_only")).to_have_value("")
+        expect(results).to_contain_text("Inner section batch")
+        if removal == "chip" or not javascript:
+            disclosure.locator(":scope > summary").click()
+        page.locator("#id_area").select_option(str(areas["root"].pk))
+        if not javascript:
+            page.locator("[data-filter-submit]").click()
+        expect(page.locator("#id_area")).to_have_value(str(areas["root"].pk))
+        expect(page.locator("#id_area_only")).to_have_value("")
+        expect(results).to_contain_text("Synthetic batch")
+        expect(results).to_contain_text("Inner section batch")
+
+
 @pytest.mark.parametrize("language,raised_bed", [("sv", "Pallkrage"), ("en", "Raised bed")])
 @pytest.mark.parametrize("javascript", [False, True])
 def test_area_type_suggestions_and_custom_text_survive_editing(
