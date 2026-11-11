@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% load i18n static %}
+{% block title %}{{ heading }} · GrowBook{% endblock %}
+{% block page_class %}page register-page{% endblock %}
+{% block content %}
+<div class="page-heading register-heading category-overview-heading">
+  <h1>{{ heading }}</h1>
+  <div class="category-overview-actions">
+    {% include 'garden/archive_toggle.html' %}
+    <a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>
+  </div>
+  <img class="register-illustration" src="{% static 'images/registers/growing-areas.webp' %}" width="1000" height="500" alt="">
+</div>
+{% if show_archived %}<p class="archive-state">{% translate 'Showing archived records' %} · <a href="{{ hide_archived_url }}">{% translate 'Hide archived records' %}</a></p>{% endif %}
+{% if has_records %}
+  {% include 'garden/area_cards.html' with areas=records %}
+{% else %}
+  {% include 'components/empty_state.html' %}
+{% endif %}
+{% endblock %}

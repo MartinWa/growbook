@@ -4,29 +4,23 @@ import pytest
 from django.urls import reverse
 from playwright.sync_api import expect, sync_playwright
 
-from garden.services import create_area, create_crop, create_planting, create_variety
+from garden.services import create_crop, create_planting, create_variety
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
 
-@pytest.fixture(params=["area", "variety", "planting"])
+@pytest.fixture(params=["variety", "planting"])
 def long_list(request, user):
     kind = request.param
     disclosure = None
     records = []
-    if kind == "area":
-        parent = create_area(actor=user, name="Synthetic parent").record
-        disclosure = f"area-branch-{parent.pk}"
-    else:
-        crop = create_crop(actor=user, name="Synthetic crop").record
-        if kind == "variety":
-            disclosure = f"crop-group-{crop.pk}"
+    crop = create_crop(actor=user, name="Synthetic crop").record
+    if kind == "variety":
+        disclosure = f"crop-group-{crop.pk}"
     for index in range(30):
         name = f"Synthetic item {index:02}"
         note = f"Synthetic details for item {index:02}."
-        if kind == "area":
-            record = create_area(actor=user, name=name, parent=parent, notes=note).record
-        elif kind == "variety":
+        if kind == "variety":
             record = create_variety(actor=user, name=name, crop=crop, description=note).record
         else:
             record = create_planting(

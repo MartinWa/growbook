@@ -371,6 +371,7 @@ class PlantingFilterForm(forms.Form):
     area = AreaChoiceField(
         label=_("Growing area"), queryset=GrowingArea.objects.all(), required=False
     )
+    area_only = forms.BooleanField(required=False, widget=forms.HiddenInput)
     unassigned = forms.BooleanField(label=_("Unassigned area only"), required=False)
     unknown_variety = forms.BooleanField(label=_("Unknown variety only"), required=False)
 

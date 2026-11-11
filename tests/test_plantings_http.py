@@ -421,12 +421,17 @@ def test_area_rollups_persistent_years_unknown_and_unassigned_filters(client, us
     for kind, record in (
         ("crop", catalog["crop"]),
         ("variety", catalog["variety"]),
-        ("area", catalog["child"]),
     ):
         assert (
             reverse(f"garden:{kind}-history", args=[record.pk])
             in client.get(record.get_absolute_url()).text
         )
+    area_page = client.get(catalog["child"].get_absolute_url())
+    area_history = reverse("garden:area-history", args=[catalog["child"].pk])
+    assert area_history not in area_page.text
+    assert area_page.context["plantings"] == [current]
+    assert current.get_absolute_url() in area_page.text
+    assert area_history in client.get(current.get_absolute_url()).text
 
 
 @pytest.mark.parametrize("hx", [False, True])

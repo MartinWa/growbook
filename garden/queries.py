@@ -131,7 +131,14 @@ def plantings_in_year(year, queryset=None):
 
 
 def planting_history(
-    *, year=None, crop=None, variety=None, area=None, unassigned=False, unknown_variety=False
+    *,
+    year=None,
+    crop=None,
+    variety=None,
+    area=None,
+    area_only=False,
+    unassigned=False,
+    unknown_variety=False,
 ):
     records = Planting.objects.select_related("crop", "variety", "area")
     if year is not None:
@@ -141,8 +148,12 @@ def planting_history(
     if variety is not None:
         records = records.filter(variety_id=getattr(variety, "pk", variety))
     if area is not None:
-        areas = list(GrowingArea.objects.all())
-        records = records.filter(area_id__in=descendant_ids(areas, getattr(area, "pk", area)))
+        area_id = getattr(area, "pk", area)
+        if area_only:
+            records = records.filter(area_id=area_id)
+        else:
+            areas = list(GrowingArea.objects.all())
+            records = records.filter(area_id__in=descendant_ids(areas, area_id))
     if unassigned:
         records = records.filter(area__isnull=True)
     if unknown_variety:

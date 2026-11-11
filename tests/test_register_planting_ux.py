@@ -162,12 +162,15 @@ def test_area_register_keeps_only_needed_archived_ancestors_from_one_read(
     assert all(not event["node"].open for event in tree["events"])
     client.force_login(user)
     response = client.get(reverse("garden:area-list"))
-    assert [record.pk for record in response.context["records"]] == [leaf.pk]
-    assert response.text.count("data-structural") == 2
+    assert [record.pk for record in response.context["records"]] == [root.pk]
     assert unrelated.name not in response.text
-    assert response.text.count('class="area-branch"') == 2
-    assert response.text.count(f'data-area-id="{leaf.pk}"') == 1
-    assert f'aria-controls="details-area-{leaf.pk}"' in response.text
+    assert response.text.count('class="category-card area-card"') == 1
+    assert f'data-area-id="{leaf.pk}"' not in response.text
+    parent_page = client.get(root.get_absolute_url())
+    assert [child.pk for child in parent_page.context["children"]] == [middle.pk]
+    middle_page = client.get(middle.get_absolute_url())
+    assert [child.pk for child in middle_page.context["children"]] == [leaf.pk]
+    assert f'href="{leaf.get_absolute_url()}"' in middle_page.text
     assert unrelated.name in client.get(reverse("garden:area-list"), {"archived": "1"}).text
 
 
@@ -382,7 +385,7 @@ def test_invalid_variety_search_returns_retryable_field_feedback(client, user, p
 
 @pytest.mark.parametrize("partial", [False, True])
 @pytest.mark.parametrize("year", [2026, 2027])
-def test_area_information_links_to_current_year_and_descendant_plantings(
+def test_area_information_links_to_current_year_and_direct_plantings(
     client, user, monkeypatch, partial, year
 ):
     monkeypatch.setattr(timezone, "localdate", lambda: date(year, 11, 8))
@@ -402,17 +405,31 @@ def test_area_information_links_to_current_year_and_descendant_plantings(
     client.force_login(user)
     response = client.get(area.get_absolute_url(), HTTP_HX_REQUEST="true" if partial else "false")
     assert response.status_code == 200
-    assert (parent.name not in response.text) if partial else (parent.name in response.text)
+    assert parent.name in response.text
     assert "Raised bed" in response.text
     assert response.context["planting_year"] == year
-    assert response.context["planting_count"] == 2
+    assert response.context["planting_count"] == 1
+    assert len(response.context["plantings"]) == 3
+    assert persistent not in response.context["plantings"]
     target = response.context["planting_url"]
     assert urlsplit(target).path == reverse("garden:planting-list")
-    assert parse_qs(urlsplit(target).query) == {"year": [str(year)], "area": [str(area.pk)]}
+    assert parse_qs(urlsplit(target).query) == {
+        "year": [str(year)],
+        "area": [str(area.pk)],
+        "area_only": ["1"],
+    }
     plantings = client.get(target)
     assert plantings.context["year"] == year
     assert plantings.context["form"]["area"].value() == str(area.pk)
-    assert set(plantings.context["records"]) == {current, persistent}
+    assert plantings.context["records"] == [current]
+    all_years = client.get(plantings.context["all_years_url"])
+    assert len(all_years.context["records"]) == 3
+    assert persistent not in all_years.context["records"]
+    previous_year = client.get(plantings.context["previous_url"])
+    assert len(previous_year.context["records"]) == 1
+    assert persistent not in previous_year.context["records"]
+    inclusive = client.get(reverse("garden:planting-list"), {"year": year, "area": area.pk})
+    assert set(inclusive.context["records"]) == {current, persistent}
 
 
 @pytest.mark.parametrize("kind", ["area", "variety"])

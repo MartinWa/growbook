@@ -1,0 +1,12 @@
+{% load i18n %}
+<div class="category-grid area-grid">
+  {% for area in areas %}
+  <article class="category-card area-card" data-area-id="{{ area.pk }}">
+    <a class="category-card-link" href="{{ area.get_absolute_url }}{% if show_archived %}?archived=1{% endif %}">
+      {% with photo=area.photos.first %}{% if photo %}<img src="{{ photo.display_url }}" alt="" loading="lazy" width="{{ photo.width }}" height="{{ photo.height }}">{% endif %}{% endwith %}
+      {% if child_cards %}<h3>{{ area.name }}</h3>{% else %}<h2>{{ area.name }}</h2>{% endif %}
+    </a>
+    {% if area.is_archived %}<p class="area-card-status"><span class="archive-label">{% translate 'Archived' %}</span></p>{% endif %}
+  </article>
+  {% endfor %}
+</div>

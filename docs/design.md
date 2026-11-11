@@ -159,8 +159,12 @@ verify device-native camera/library pickers; those require the intended phone.
 ## Register layout and interaction
 
 Main navigation links directly to Diary, Growing areas, Crops and varieties, and
-Plantings; the former Garden landing URL redirects to Growing areas. Crop headings
-use native disclosures; variety and area names select their information independently
+Plantings; the former Garden landing URL redirects to Growing areas. Growing areas
+reuse the crop-category grid and card styles for top-level areas and child areas.
+Cards open dedicated pages with ancestor navigation, child cards before the parent's
+information, protected photos, linked plantings and diary observations. Their links and
+archive controls use ordinary HTML navigation at every screen width.
+Crop headings use native disclosures; variety names select their information independently
 of those disclosures. Name lists use `.record-list`, `.record-name` and `.record-info`,
 with underlined names, the selected name highlighted and archived records labelled.
 Varieties show one thumbnail when available. Record observations use a native disclosure
@@ -176,7 +180,7 @@ A single archive-visibility action
 beside creation links preserves search, shows its selected state and uses ordinary GET
 navigation without JavaScript.
 
-Register and planting results share `.record-workspace`: a list and one selected
+Crop/variety and planting results share `.record-workspace`: a list and one selected
 details panel. JavaScript moves the existing detail containers into that panel and
 closes the previous selection when another name is activated. At 900 px and wider
 the list and details sit side by side; below that width they stack. Details remain
@@ -187,17 +191,16 @@ Selections bring off-screen details into view and move focus to their labelled r
 This navigation happens during activation. Delayed responses do not repeat it,
 and browser history retains its saved scroll position.
 
-Registers and planting results share a server-rendered area hierarchy built from bounded
-area reads and parent IDs. Its iterative presentation supports deep nesting and cuts
-legacy cycles defensively. Native details/summary controls keep area expansion usable
-with keyboard and without JavaScript. Area names are links inside the summary, with a
-separate arrow for expansion and a descriptive accessible name on the summary. Leaf
-areas have no arrow. Register branches start collapsed; archived ancestors of active
-children remain labelled context. Planting branches retain ancestors, omit empty subtrees and open
+Growing-area cards and planting results use bounded area reads and parent IDs to
+retain ancestor context and cut legacy cycles defensively. Planting results render
+the hierarchy iteratively, supporting deep nesting without recursive template includes.
+Native details/summary controls keep planting-area expansion usable with keyboard and
+without JavaScript. Growing-area cards retain archived ancestors of active children.
+Planting branches retain ancestors, omit empty subtrees and open
 when their matching subtree has one crop/variety pair. Batches attach only to their own
 area, with their names selecting information through the shared register module. An unassigned
 group follows the hierarchy. Indentation is reduced on narrow screens, names wrap and controls retain
-their touch targets and focus outlines. Browser history restores register disclosure
+their touch targets and focus outlines. Browser history restores crop-register disclosure
 states, the selected details and scroll after returning from editing. Stored state contains
 the list URL, record IDs, disclosure flags and scroll position. Information reloads from
 authenticated endpoints; no record content is cached in history.

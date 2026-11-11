@@ -145,10 +145,15 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
         reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
     )
     assert response.status_code == 200
-    assert ('class="variety-group"' if kind != "area" else 'class="area-tree"') in response.text
-    if kind != "crop":
+    assert (
+        'class="variety-group"' if kind != "area" else 'class="category-card area-card"'
+    ) in response.text
+    if kind == "variety":
         assert f'aria-controls="details-{kind}-{record.pk}"' in response.text
         assert 'aria-expanded="false"' in response.text
+    elif kind == "area":
+        assert "data-register-toggle" not in response.text
+        assert "data-record-workspace" not in response.text
     assert f'href="{record.get_absolute_url()}"' in response.text
     assert "record-details" not in response.text
     fragment = client.get(record.get_absolute_url(), HTTP_HX_REQUEST="true")
