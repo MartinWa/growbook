@@ -2,11 +2,18 @@
 
 from django.utils.translation import gettext_lazy as _
 
-from ..forms import AreaForm, CropForm, VarietyForm
-from ..models import Crop, GrowingArea, Variety
+from ..forms import AreaForm, CropCategoryForm, CropForm, VarietyForm
+from ..models import Crop, CropCategory, GrowingArea, Variety
 
 # Routing metadata only. Models/forms/domain writers remain explicit rather than a register engine.
 REGISTERS = {
+    "category": (
+        CropCategory,
+        CropCategoryForm,
+        _("Categories"),
+        _("New category"),
+        _("Edit category"),
+    ),
     "crop": (Crop, CropForm, _("Crops"), _("New crop"), _("Edit crop")),
     "variety": (Variety, VarietyForm, _("Varieties"), _("New variety"), _("Edit variety")),
     "area": (

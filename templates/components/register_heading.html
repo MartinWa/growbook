@@ -1,5 +1,5 @@
 {% load static %}
 <div class="page-heading register-heading">
   <h1>{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}</h1>
-  <img class="register-illustration" src="{% static illustration %}" width="1000" height="500" alt="">
+  {% if illustration_photo %}<img class="register-illustration" src="{{ illustration_photo.display_url }}" width="{{ illustration_photo.width }}" height="{{ illustration_photo.height }}" alt="">{% else %}<img class="register-illustration" src="{% static illustration %}" width="1000" height="500" alt="">{% endif %}
 </div>

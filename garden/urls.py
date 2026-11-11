@@ -6,6 +6,37 @@ app_name = "garden"
 
 urlpatterns = [
     path("", registers.garden_home, name="home"),
+    path("categories/new/", registers.register_form, {"kind": "category"}, name="category-create"),
+    path(
+        "categories/uncategorized/",
+        registers.register_list,
+        {"kind": "variety", "uncategorized": True},
+        name="uncategorized",
+    ),
+    path(
+        "categories/all/",
+        registers.register_list,
+        {"kind": "variety", "all_crops": True},
+        name="all-crops",
+    ),
+    path(
+        "categories/<int:category_pk>/",
+        registers.register_list,
+        {"kind": "variety"},
+        name="category-detail",
+    ),
+    path(
+        "categories/<int:pk>/edit/",
+        registers.register_form,
+        {"kind": "category"},
+        name="category-edit",
+    ),
+    path(
+        "categories/<int:pk>/delete/",
+        registers.register_delete,
+        {"kind": "category"},
+        name="category-delete",
+    ),
     path("crops/", registers.register_list, {"kind": "crop"}, name="crop-list"),
     path("crops/new/", registers.register_form, {"kind": "crop"}, name="crop-create"),
     path("crops/<int:pk>/", registers.register_detail, {"kind": "crop"}, name="crop-detail"),

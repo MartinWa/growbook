@@ -1214,3 +1214,54 @@ msgstr "Välj något i listan för att visa detaljer."
 
 msgid "Back to list"
 msgstr "Tillbaka till listan"
+
+msgid "Categories"
+msgstr "Kategorier"
+
+msgid "New category"
+msgstr "Ny kategori"
+
+msgid "Edit category"
+msgstr "Redigera kategori"
+
+msgid "Delete category"
+msgstr "Ta bort kategori"
+
+msgid "Uncategorized"
+msgstr "Utan kategori"
+
+msgid "Category navigation"
+msgstr "Kategorinavigering"
+
+msgid "Show all crops and varieties"
+msgstr "Visa alla grödor och sorter"
+
+msgid "Remove current image"
+msgstr "Ta bort nuvarande bild"
+
+msgid "Category image"
+msgstr "Kategoribild"
+
+msgid "Current category image"
+msgstr "Nuvarande kategoribild"
+
+msgid "Choose one image. A new image replaces the current image."
+msgstr "Välj en bild. En ny bild ersätter den nuvarande bilden."
+
+msgid "Choose active crops for new category links."
+msgstr "Välj aktiva grödor för nya kategorikopplingar."
+
+msgid "A category can have only one image."
+msgstr "En kategori kan bara ha en bild."
+
+msgid "Choose a valid value."
+msgstr "Välj ett giltigt värde."
+
+msgid "No crops in this category"
+msgstr "Inga grödor i den här kategorin"
+
+msgid "Link existing crops or create a crop in this category."
+msgstr "Koppla befintliga grödor eller skapa en gröda i den här kategorin."
+
+msgid "Deletion removes this category, its image and its crop links. Crops, varieties, plantings and diary records are kept."
+msgstr "Borttagning tar bort kategorin, dess bild och kopplingar till grödor. Grödor, sorter, odlingar och dagboksanteckningar behålls."

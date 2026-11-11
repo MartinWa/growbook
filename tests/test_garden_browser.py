@@ -45,7 +45,7 @@ def registers(user, image_upload):
 def long_variety(user, registers):
     crop = create_crop(actor=user, name="W" * 100).record
     return create_variety(
-        actor=user, crop=crop, name="Synthetic long values", category="W" * 150
+        actor=user, crop=crop, name="Synthetic long values", description="W" * 150
     ).record
 
 
@@ -187,13 +187,13 @@ def test_register_wraps_long_names_and_opened_information(long_variety, page, li
     login(page, live_server, user)
     for width in (320, 390, 1280):
         page.set_viewport_size({"width": width, "height": 844})
-        page.goto(live_server.url + "/garden/varieties/")
+        page.goto(live_server.url + "/garden/categories/all/")
         group = page.locator(f'[data-crop-id="{long_variety.crop_id}"]')
         group.locator(":scope > summary").press("Enter")
-        expect(group).not_to_contain_text(long_variety.category)
+        expect(group).not_to_contain_text(long_variety.description)
         group.get_by_role("button", name=long_variety.name, exact=True).click()
         fields = page.locator(f"#details-variety-{long_variety.pk} .record-fields")
-        expect(fields).to_contain_text(long_variety.category)
+        expect(fields).to_contain_text(long_variety.description)
         assert fields.evaluate(
             """fields => [...fields.querySelectorAll('dt, dd')]
                 .every(field => field.scrollWidth <= field.clientWidth + 1)"""
@@ -207,7 +207,7 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
     page.set_viewport_size({"width": 390, "height": 844})
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/crops/")
-    expect(page).to_have_url(live_server.url + "/garden/varieties/")
+    expect(page).to_have_url(live_server.url + "/garden/categories/all/")
     # Exercise wrapping independently of database name limits.
     page.locator(".variety-group .crop-name").first.evaluate(
         "name => name.textContent = 'Synthetic'.repeat(20)"
@@ -225,7 +225,7 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/crops/")
     plain.get_by_role("button", name="Visa arkiverade", exact=True).click()
-    expect(plain).to_have_url(live_server.url + "/garden/varieties/?q=&archived=1")
+    expect(plain).to_have_url(live_server.url + "/garden/categories/all/?q=&archived=1")
     assert plain.locator(".archive-state").evaluate(
         """notice => {
             const luminance = color => color.match(/\\d+/g).slice(0, 3)
@@ -241,7 +241,7 @@ def test_phone_register_wraps_long_names_and_archive_has_no_js_fallback(
         }"""
     )
     plain.get_by_role("link", name="Dölj arkiverade poster", exact=True).click()
-    expect(plain).to_have_url(live_server.url + "/garden/varieties/")
+    expect(plain).to_have_url(live_server.url + "/garden/categories/all/")
     context.close()
 
 
@@ -264,6 +264,7 @@ def test_register_rows_select_shared_details_with_keyboard_focus_and_csp(
         "link", name="Grödor och sorter", exact=True
     ).click()
     expect(page.locator("h1")).to_have_text("Grödor och sorter")
+    page.get_by_role("link", name="Visa alla grödor och sorter", exact=True).click()
     page.locator(f'[data-crop-id="{first.crop_id}"] > summary').press("Enter")
     page.locator(f'[data-crop-id="{second.crop_id}"] > summary').press("Space")
     first_toggle = page.get_by_role("button", name=first.name, exact=True)
@@ -439,7 +440,7 @@ def test_register_unicode_duplicate_feedback_then_edit_archive_and_restore(
         group.get_by_role("button", name=registers["first_variety"].name, exact=True)
     ).to_be_visible()
     page.get_by_role("button", name="Visa arkiverade", exact=True).click()
-    expect(page).to_have_url(live_server.url + "/garden/varieties/?archived=1")
+    expect(page).to_have_url(live_server.url + "/garden/categories/all/?archived=1")
     page.locator(".crop-maintenance > summary").click()
     page.locator(".crop-maintenance").get_by_role("link", name="Ärtor", exact=True).click()
     page.get_by_role("button", name="Gör valbar igen", exact=True).click()

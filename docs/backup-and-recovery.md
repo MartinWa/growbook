@@ -91,10 +91,12 @@ For each deployment, verify that:
 - Dates, titles, notes, authorship and save receipts are preserved.
 - Crop/variety relationships, area nesting, nullable measurements and archive flags
   are preserved, including active children of archived records.
+- Crop category names, memberships (including crops in multiple categories) and
+  optional category images are preserved; Uncategorized still shows unlinked crops.
 - Planting crop/variety/area references, annual/persistent lifespan, inclusive end
   years, unknown/zero quantities, evaluation, dated events and save receipts are
   preserved; year/history views still include archived associations.
-- Referenced originals for diary entries, areas, varieties and plantings match
+- Referenced originals for diary entries, areas, varieties, plantings and categories match
   checksums; regenerated derivatives display and photo captions/order remain intact.
 - Anonymous clients cannot read entries, registers, planting/history pages, media
   or original downloads.

@@ -18,7 +18,7 @@ from core.media import MediaBusy
 from diary.queries import observation_count, observations_for
 
 from ..forms import ArchiveForm, VarietyFilterForm
-from ..models import Crop
+from ..models import Crop, CropCategory
 from ..names import normalize_name
 from ..queries import area_tree, planting_history
 from ..services import RegisterConflict
@@ -33,7 +33,9 @@ def _context(kind):
         "kind": kind,
         "heading": _("Crops and varieties") if kind in ("crop", "variety") else REGISTERS[kind][2],
         "create_label": REGISTERS[kind][3],
-        "list_url": reverse("garden:variety-list" if kind == "crop" else f"garden:{kind}-list"),
+        "list_url": reverse(
+            "garden:variety-list" if kind in ("crop", "category") else f"garden:{kind}-list"
+        ),
         "create_url": reverse(f"garden:{kind}-create"),
     }
 
@@ -44,10 +46,37 @@ def garden_home(request):
 
 
 @require_GET
-def register_list(request, kind):
+def register_list(request, kind, category_pk=None, uncategorized=False, all_crops=False):
     if kind == "crop":
         query = request.GET.urlencode()
-        return redirect(reverse("garden:variety-list") + ("?" + query if query else ""))
+        return redirect(reverse("garden:all-crops") + ("?" + query if query else ""))
+    partial = (
+        kind == "variety"
+        and request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-Target") == "register-results"
+    )
+    category = (
+        get_object_or_404(CropCategory.objects.prefetch_related("photos"), pk=category_pk)
+        if category_pk is not None
+        else None
+    )
+    if (
+        kind == "variety"
+        and category is None
+        and not uncategorized
+        and not all_crops
+        and not partial
+    ):
+        if any(key in request.GET for key in ("q", "archived", "archive_toggle")):
+            return redirect(reverse("garden:all-crops") + "?" + request.GET.urlencode())
+        return render(
+            request,
+            "garden/categories.html",
+            {
+                "heading": _("Crops and varieties"),
+                "categories": CropCategory.objects.prefetch_related("photos"),
+            },
+        )
     if "archive_toggle" in request.GET:
         # The external submit button preserves even an unapplied search without JavaScript.
         filters = request.GET.copy()
@@ -56,15 +85,29 @@ def register_list(request, kind):
         else:
             filters.pop("archived", None)
         query = filters.urlencode()
-        return redirect(reverse(f"garden:{kind}-list") + ("?" + query if query else ""))
+        return redirect(request.path + ("?" + query if query else ""))
     model = REGISTERS[kind][0]
     context = _context(kind)
+    context["list_url"] = request.path
+    context.update(
+        category=category,
+        uncategorized=uncategorized,
+        category_image=category.photos.first() if category else None,
+        crop_create_url=reverse("garden:crop-create")
+        + ("?category=" + str(category.pk) if category else ""),
+    )
+    if category or uncategorized:
+        context["heading"] = category.name if category else _("Uncategorized")
     show_archived = request.GET.get("archived") == "1"
     records = model.objects.all()
     areas = list(records) if kind == "area" else None
     if not show_archived:
         records = records.filter(is_archived=False)
     if kind == "variety":
+        crops = category.crops.all() if category else Crop.objects.all()
+        if uncategorized:
+            crops = crops.filter(categories__isnull=True)
+        records = records.filter(crop__in=crops)
         records = (
             records.select_related("crop")
             .prefetch_related("photos")
@@ -95,7 +138,7 @@ def register_list(request, kind):
             by_crop.setdefault(record.crop_id, []).append(record)
         groups = []
         if valid:
-            for crop in Crop.objects.order_by("name_key", "id"):
+            for crop in crops.order_by("name_key", "id"):
                 varieties = by_crop.get(crop.pk, [])
                 if not show_archived and crop.is_archived and not varieties:
                     continue
@@ -162,11 +205,13 @@ def register_list(request, kind):
                 empty_action_url=reverse("garden:crop-create"),
                 empty_action_label=_("New crop"),
             )
-    partial = (
-        kind == "variety"
-        and request.headers.get("HX-Request") == "true"
-        and request.headers.get("HX-Target") == "register-results"
-    )
+        if category and not category.crops.exists() and not search and valid:
+            context.update(
+                empty_heading=_("No crops in this category"),
+                empty_description=_("Link existing crops or create a crop in this category."),
+                empty_action_url=reverse("garden:category-edit", args=[category.pk]),
+                empty_action_label=_("Edit category"),
+            )
     return render(
         request,
         "garden/register_results.html" if partial else "garden/list.html",
@@ -177,6 +222,8 @@ def register_list(request, kind):
 
 def _detail_context(kind, pk):
     model = REGISTERS[kind][0]
+    if kind == "category":
+        return {**_context(kind), "record": get_object_or_404(model, pk=pk)}
     queryset = model.objects.all()
     if kind == "crop":
         queryset = queryset.prefetch_related("varieties")
@@ -222,13 +269,22 @@ def _save(request, kind, pk, data):
         common.update(pk=pk, expected_updated_at=data["expected_updated_at"])
     if kind == "crop":
         writer = services.edit_crop if pk is not None else services.create_crop
-        return writer(**common, notes=data["notes"])
+        return writer(
+            **common, notes=data["notes"], **({"category": data["category"]} if pk is None else {})
+        )
+    if kind == "category":
+        writer = services.edit_category if pk is not None else services.create_category
+        return writer(
+            **common,
+            crops=[int(value) for value in data["crop_ids"]],
+            uploads=data["photos"],
+            **({"remove_image": data["remove_image"]} if pk is not None else {}),
+        )
     if kind == "variety":
         writer = services.edit_variety if pk is not None else services.create_variety
         return writer(
             **common,
             crop=data["crop"],
-            category=data["category"],
             description=data["description"],
             source=data["source"],
             experiences=data["experiences"],
@@ -260,8 +316,12 @@ def register_form(request, kind, pk=None):
             if field in model_fields
         }
         initial["expected_updated_at"] = record.updated_at
+        if kind == "category":
+            initial["crop_ids"] = list(record.crops.values_list("pk", flat=True))
     if kind == "variety" and record is None:
         initial["crop"] = request.GET.get("crop")
+    if kind == "crop" and record is None:
+        initial["category"] = request.GET.get("category")
     kwargs = {"record": record} if kind != "crop" else {}
     form = form_class(
         request.POST if request.method == "POST" else None,
@@ -277,6 +337,8 @@ def register_form(request, kind, pk=None):
         has_photos=kind != "crop",
         action=request.path,
     )
+    if kind == "category":
+        context.update(photo_max_count=1, replace_image=True)
     if request.method == "POST":
         valid = valid_post(request, form, photo_fields={"photos"} if kind != "crop" else ())
         if record is not None and not form.cleaned_data.get("expected_updated_at"):
@@ -358,6 +420,7 @@ def register_delete(request, kind, pk):
     if request.method == "POST":
         if valid_post(request, form):
             writer = {
+                "category": services.delete_category,
                 "crop": services.delete_crop,
                 "variety": services.delete_variety,
                 "area": services.delete_area,

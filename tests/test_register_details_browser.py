@@ -34,7 +34,8 @@ def long_list(request, user):
             ).record
         records.append(record)
     return {
-        "path": reverse(f"garden:{kind}-list") + ("?year=2026" if kind == "planting" else ""),
+        "path": reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list")
+        + ("?year=2026" if kind == "planting" else ""),
         "kind": kind,
         "records": records,
         "disclosure": disclosure,

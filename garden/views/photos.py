@@ -17,7 +17,7 @@ from ..services import photos as services
 
 def _register_photo(pk):
     photo = get_object_or_404(
-        Photo.objects.select_related("area", "variety", "planting__crop"), pk=pk
+        Photo.objects.select_related("area", "variety", "planting__crop", "category"), pk=pk
     )
     if photo.entry_id is not None:
         raise PermissionDenied

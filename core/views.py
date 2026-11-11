@@ -65,7 +65,10 @@ def release_status(request):
 @never_cache
 def photo_detail(request, pk):
     photo = get_object_or_404(
-        Photo.objects.select_related("entry", "area", "variety__crop", "planting__crop"), pk=pk
+        Photo.objects.select_related(
+            "entry", "area", "variety__crop", "planting__crop", "category"
+        ),
+        pk=pk,
     )
     return render(
         request,

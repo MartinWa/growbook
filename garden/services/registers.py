@@ -18,7 +18,7 @@ from core.photo_storage import (
 )
 from core.writes import validated_write
 
-from ..models import Crop, GrowingArea, RegisterSubmission, Variety
+from ..models import Crop, CropCategory, CropCategoryLink, GrowingArea, RegisterSubmission, Variety
 from ..names import normalize_name
 from ._shared import (
     RegisterConflict,
@@ -34,7 +34,7 @@ from ._shared import (
 
 @dataclass(frozen=True)
 class RegisterResult:
-    record: Crop | Variety | GrowingArea
+    record: Crop | CropCategory | Variety | GrowingArea
     replayed: bool = False
 
 
@@ -110,7 +110,9 @@ def _validate(record, previous_parent_id=None):
     record.full_clean()
 
 
-def _write_record(actor, model, kind, pk, values, key, fingerprint, rows, expected_updated_at):
+def _write_record(
+    actor, model, kind, pk, values, key, fingerprint, rows, expected_updated_at, folders=None
+):
     with transaction.atomic(), validated_write():
         _active_actor(actor)
         retry = _receipt(key, actor, kind, fingerprint)
@@ -120,16 +122,41 @@ def _write_record(actor, model, kind, pk, values, key, fingerprint, rows, expect
         previous_parent_id = (
             record.crop_id if kind == "variety" else record.parent_id if kind == "area" else None
         )
+        values = dict(values)
+        category_id = values.pop("category_id", None)
+        crop_ids = values.pop("crop_ids", None)
+        remove_image = values.pop("remove_image", False)
+        category = _current(CropCategory, category_id) if category_id is not None else None
+        if kind == "category":
+            previous = set(record.crops.values_list("pk", flat=True)) if pk is not None else set()
+            crops = list(Crop.objects.filter(pk__in=crop_ids))
+            if len(crops) != len(crop_ids) or any(
+                crop.is_archived and crop.pk not in previous for crop in crops
+            ):
+                raise ValidationError(
+                    {"crop_ids": _("Choose active crops for new category links.")}
+                )
+            if len(rows) > 1:
+                raise ValidationError({"photos": _("A category can have only one image.")})
         for field, value in values.items():
             setattr(record, field, value)
         _validate(record, previous_parent_id)
         photos = list(record.photos.all()) if pk is not None and kind != "crop" else []
+        if kind == "category" and photos and (remove_image or rows):
+            folders.extend(photo_bundles(photos))
+            record.photos.all().delete()
+            photos = []
         if len(photos) + len(rows) > settings.PHOTO_MAX_COUNT:
             raise ValidationError(
                 _("A record can have no more than %(count)s photos."),
                 params={"count": settings.PHOTO_MAX_COUNT},
             )
         record.save()
+        if kind == "category":
+            record.crops.set(crop_ids)
+        if category is not None:
+            CropCategoryLink.objects.create(category=category, crop=record)
+            category.save(update_fields=["updated_at"])
         position = max((photo.position for photo in photos), default=-1) + 1
         for offset, values in enumerate(rows):
             photo = Photo(**{kind: record}, **values, position=position + offset)
@@ -150,9 +177,15 @@ def _save(actor, model, kind, pk, values, uploads, submission_key, expected_upda
     values = dict(values)
     values["name"] = normalize_name(values["name"])[0]
     for field, value in values.items():
-        if field not in {"parent_id", "crop_id", "length_cm", "width_cm"} and not isinstance(
-            value, str
-        ):
+        if field not in {
+            "parent_id",
+            "crop_id",
+            "category_id",
+            "crop_ids",
+            "remove_image",
+            "length_cm",
+            "width_cm",
+        } and not isinstance(value, str):
             raise ValidationError({field: _("Enter text, or leave this field blank.")})
     for field in ("length_cm", "width_cm"):
         value = values.get(field)
@@ -162,27 +195,90 @@ def _save(actor, model, kind, pk, values, uploads, submission_key, expected_upda
         pk = _identifier(pk, "id")
     key = _key(submission_key)
     uploads = list(uploads)
-    if not uploads:
+    if kind == "category" and len(uploads) > 1:
+        raise ValidationError({"photos": _("A category can have only one image.")})
+    if not uploads and not (kind == "category" and values["remove_image"]):
         fingerprint = _fingerprint(kind, pk, expected_updated_at, values, [])
         return _write_record(
             actor, model, kind, pk, values, key, fingerprint, [], expected_updated_at
         )
-    with media_operation(), staged_uploads(uploads) as photos:
-        fingerprint = _fingerprint(kind, pk, expected_updated_at, values, photos)
-        with transaction.atomic():
-            _active_actor(actor)
-            retry = _receipt(key, actor, kind, fingerprint)
-            if retry is not None:
-                return retry
-        with published_uploads(photos) as rows:
-            return _write_record(
-                actor, model, kind, pk, values, key, fingerprint, rows, expected_updated_at
-            )
+    with media_operation():
+        folders = []
+        try:
+            with staged_uploads(uploads) as photos:
+                fingerprint = _fingerprint(kind, pk, expected_updated_at, values, photos)
+                with transaction.atomic():
+                    _active_actor(actor)
+                    retry = _receipt(key, actor, kind, fingerprint)
+                    if retry is not None:
+                        return retry
+                with published_uploads(photos) as rows:
+                    return _write_record(
+                        actor,
+                        model,
+                        kind,
+                        pk,
+                        values,
+                        key,
+                        fingerprint,
+                        rows,
+                        expected_updated_at,
+                        folders,
+                    )
+        finally:
+            discard_unreferenced_bundles(folders)
 
 
-def create_crop(*, actor, name, notes="", submission_key=None):
+def create_crop(*, actor, name, notes="", category=None, submission_key=None):
+    values = {"name": name, "notes": notes}
+    if category is not None:
+        values["category_id"] = _identifier(category, "category", model=CropCategory)
+    return _save(actor, Crop, "crop", None, values, [], submission_key, None)
+
+
+def _category_values(name, crops, remove_image):
+    if type(remove_image) is not bool:
+        raise ValidationError({"remove_image": _("Choose a valid value.")})
+    return {
+        "name": name,
+        "crop_ids": sorted({_identifier(crop, "crop_ids", model=Crop) for crop in crops}),
+        "remove_image": remove_image,
+    }
+
+
+def create_category(*, actor, name, crops=(), uploads=(), submission_key=None):
     return _save(
-        actor, Crop, "crop", None, {"name": name, "notes": notes}, [], submission_key, None
+        actor,
+        CropCategory,
+        "category",
+        None,
+        _category_values(name, crops, False),
+        uploads,
+        submission_key,
+        None,
+    )
+
+
+def edit_category(
+    *,
+    actor,
+    pk,
+    name,
+    crops=(),
+    remove_image=False,
+    uploads=(),
+    submission_key=None,
+    expected_updated_at,
+):
+    return _save(
+        actor,
+        CropCategory,
+        "category",
+        pk,
+        _category_values(name, crops, remove_image),
+        uploads,
+        submission_key,
+        expected_updated_at,
     )
 
 
@@ -204,7 +300,6 @@ def create_variety(
     actor,
     crop,
     name,
-    category="",
     description="",
     source="",
     experiences="",
@@ -214,7 +309,6 @@ def create_variety(
     values = {
         "crop_id": _identifier(crop, "crop", model=Crop),
         "name": name,
-        "category": category,
         "description": description,
         "source": source,
         "experiences": experiences,
@@ -228,7 +322,6 @@ def edit_variety(
     pk,
     crop,
     name,
-    category="",
     description="",
     source="",
     experiences="",
@@ -239,7 +332,6 @@ def edit_variety(
     values = {
         "crop_id": _identifier(crop, "crop", model=Crop),
         "name": name,
-        "category": category,
         "description": description,
         "source": source,
         "experiences": experiences,
@@ -348,6 +440,9 @@ def _delete_rows(actor, model, pk, expected_updated_at, folders):
         record = _current(model, _identifier(pk, "id"), expected_updated_at)
         if isinstance(record, Crop) and record.varieties.exists():
             raise ValidationError(_("This crop has varieties. Archive it instead."))
+        if isinstance(record, Crop):
+            for category in record.categories.all():
+                category.save(update_fields=["updated_at"])
         if isinstance(record, GrowingArea) and record.children.exists():
             raise ValidationError(
                 _("This area has children. Reorganize them or archive it instead.")
@@ -385,3 +480,7 @@ def delete_variety(*, actor, pk, expected_updated_at):
 
 def delete_area(*, actor, pk, expected_updated_at):
     _delete(actor, GrowingArea, pk, expected_updated_at)
+
+
+def delete_category(*, actor, pk, expected_updated_at):
+    _delete(actor, CropCategory, pk, expected_updated_at)

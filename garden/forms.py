@@ -50,6 +50,9 @@ class RecordIDChoiceField(forms.ModelChoiceField):
 class CropForm(forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
+    category = forms.IntegerField(
+        min_value=1, max_value=2**63 - 1, required=False, widget=forms.HiddenInput
+    )
     name = forms.CharField(label=_("Name"), max_length=100)
     notes = forms.CharField(
         label=_("Notes"), required=False, widget=forms.Textarea(attrs={"rows": 3})
@@ -60,12 +63,56 @@ class CropForm(forms.Form):
         describe_fields(self)
 
 
+class CropCategoryForm(forms.Form):
+    submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
+    expected_updated_at = VersionField(required=False)
+    name = forms.CharField(label=_("Name"), max_length=150)
+    crop_ids = forms.MultipleChoiceField(
+        label=_("Crops"), required=False, widget=forms.CheckboxSelectMultiple
+    )
+    remove_image = forms.BooleanField(label=_("Remove current image"), required=False)
+    photos = MultipleFileField(
+        label=_("Category image"),
+        required=False,
+        help_text=_("Choose one image. A new image replaces the current image."),
+        widget=MultipleFileInput(attrs={"accept": "image/*"}),
+    )
+
+    def __init__(self, *args, record=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        current = set(record.crops.values_list("pk", flat=True)) if record else set()
+        if record is None or not record.photos.exists():
+            self.fields["remove_image"].widget = forms.HiddenInput()
+        crops = Crop.objects.filter(Q(is_archived=False) | Q(pk__in=current))
+        choices = [(str(crop.pk), str(crop)) for crop in crops]
+        # Domain writers resolve immutable retries before current link eligibility.
+        if self.is_bound:
+            selected = (
+                self.data.getlist("crop_ids")
+                if hasattr(self.data, "getlist")
+                else self.data.get("crop_ids", [])
+            )
+            for value in selected:
+                try:
+                    identifier = clean_record_id(value)
+                except forms.ValidationError:
+                    continue
+                if identifier and str(identifier) not in {key for key, _ in choices}:
+                    choices.append(
+                        (
+                            str(identifier),
+                            _("Unavailable selection (%(number)s)") % {"number": identifier},
+                        )
+                    )
+        self.fields["crop_ids"].choices = choices
+        describe_fields(self)
+
+
 class VarietyForm(forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
     crop = RecordIDChoiceField(label=_("Crop"), queryset=Crop.objects.none())
     name = forms.CharField(label=_("Name"), max_length=150)
-    category = forms.CharField(label=_("Category"), max_length=150, required=False)
     description = forms.CharField(
         label=_("Description"), required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
