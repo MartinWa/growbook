@@ -21,6 +21,9 @@ interface defaults to Swedish, with English available.
   orange indicator when a newer stable release is available.
 - A combined crop and variety register with searchable crop groups, and
   nested growing-area disclosures, with editing and non-cascading archive.
+- A permanent crop-category overview with an uncategorized view and shared,
+  user-defined categories; crops can belong to multiple categories. An optional
+  private category image, including transparency, is reused on its card and heading.
 - Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed
   deletion of records without protected references.
 - Multiple private photos on varieties, areas and plantings, with editable captions and
@@ -74,6 +77,7 @@ interface defaults to Swedish, with English available.
   photo, 80 MiB per upload and 50 million decoded pixels per photo. Apple HDR JPEGs with
   one auxiliary grayscale gain map use the primary photo; both images count toward the
   pixel limit. Other multi-image and animated files are rejected.
+  A crop category has at most one image, with the same file and decoded-pixel limits.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public Internet
   exposure. Verify backup and clean-instance recovery before recording real data.
 
@@ -113,8 +117,8 @@ Docker volumes. Do not expose the development server or point it at production d
 ## Using growbook
 
 - **Growing areas** and **Crops and varieties** open directly from the main menu.
-  Expand crop groups or nested areas, select names for information and photos,
-  search crop and variety names, and maintain records.
+  Choose a crop category, expand crop groups or nested areas, select names for
+  information and photos, search crop and variety names, and maintain records.
 - **Plantings** shows growing-year results grouped by area, with filters and expandable
   batches. Create annual or persistent plantings, record events, and open crop, variety and area
   histories.

@@ -50,6 +50,14 @@ class Photo(ValidatedModel):
         blank=True,
         verbose_name=_("Planting"),
     )
+    category = models.ForeignKey(
+        "garden.CropCategory",
+        on_delete=models.CASCADE,
+        related_name="photos",
+        null=True,
+        blank=True,
+        verbose_name=_("Category"),
+    )
 
     class Meta:
         ordering = ["position", "id"]
@@ -61,24 +69,35 @@ class Photo(ValidatedModel):
                         area__isnull=True,
                         variety__isnull=True,
                         planting__isnull=True,
+                        category__isnull=True,
                     )
                     | Q(
                         entry__isnull=True,
                         area__isnull=False,
                         variety__isnull=True,
                         planting__isnull=True,
+                        category__isnull=True,
                     )
                     | Q(
                         entry__isnull=True,
                         area__isnull=True,
                         variety__isnull=False,
                         planting__isnull=True,
+                        category__isnull=True,
                     )
                     | Q(
                         entry__isnull=True,
                         area__isnull=True,
                         variety__isnull=True,
                         planting__isnull=False,
+                        category__isnull=True,
+                    )
+                    | Q(
+                        entry__isnull=True,
+                        area__isnull=True,
+                        variety__isnull=True,
+                        planting__isnull=True,
+                        category__isnull=False,
                     )
                 ),
                 name="photo_exactly_one_owner",
@@ -87,6 +106,7 @@ class Photo(ValidatedModel):
                 condition=Q(width__gt=0, height__gt=0, original_bytes__gt=0),
                 name="photo_positive_dimensions_and_bytes",
             ),
+            models.UniqueConstraint(fields=["category"], name="category_single_photo"),
         ]
 
     @property
@@ -97,6 +117,8 @@ class Photo(ValidatedModel):
             return self.area
         if self.variety_id is not None:
             return self.variety
+        if self.category_id is not None:
+            return self.category
         return self.planting
 
     def get_absolute_url(self):

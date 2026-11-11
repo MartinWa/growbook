@@ -57,7 +57,7 @@ def test_variety_search_uses_literal_normalized_name_keys(
 ):
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"} if partial else {}
-    response = client.get(reverse("garden:variety-list"), {"q": search}, **headers)
+    response = client.get(reverse("garden:all-crops"), {"q": search}, **headers)
     assert response.status_code == 200
     assert [record.pk for record in response.context["records"]] == [
         varieties[i].pk for i in indices
@@ -74,7 +74,7 @@ def test_variety_search_uses_literal_normalized_name_keys(
 
 def test_variety_archive_clear_and_empty_results_keep_filter_choices(client, user, varieties):
     client.force_login(user)
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     response = client.get(path, {"q": "ÄRTOR", "archived": "1"})
     assert [record.pk for record in response.context["records"]] == [
         varieties[4].pk,
@@ -97,7 +97,7 @@ def test_archive_submit_preserves_unapplied_search_without_javascript(
     client, user, varieties, current, toggle, count
 ):
     client.force_login(user)
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     response = client.get(path, {"q": "ÄRTOR", "archived": current, "archive_toggle": toggle})
     assert response.status_code == 302
     query = parse_qs(urlsplit(response.url).query)
@@ -115,7 +115,7 @@ def test_combined_register_keeps_empty_crops_and_crop_maintenance(client, user):
     archive_variety(actor=user, pk=variety.pk)
     empty = create_crop(actor=user, name="Empty crop").record
     client.force_login(user)
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     response = client.get(reverse("garden:crop-list"), {"q": "Pea", "archived": "1"})
     assert response.status_code == 302
     assert parse_qs(urlsplit(response.url).query) == {"q": ["Pea"], "archived": ["1"]}
@@ -358,7 +358,7 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
 
 
 def test_register_search_fragments_require_an_active_session(client, user, varieties):
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"}
     assert client.get(path, {"q": "Åsa"}).status_code == 302
     response = client.get(path, {"q": "Åsa"}, **headers)
@@ -373,11 +373,11 @@ def test_register_search_fragments_require_an_active_session(client, user, varie
 def test_invalid_variety_search_returns_retryable_field_feedback(client, user, partial):
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"} if partial else {}
-    response = client.get(reverse("garden:variety-list"), {"q": "\x00", "archived": "1"}, **headers)
+    response = client.get(reverse("garden:all-crops"), {"q": "\x00", "archived": "1"}, **headers)
     assert response.status_code == 422
     assert response.context["form"].errors["q"]
     assert 'data-field-errors="q"' in response.text
-    assert response.context["empty_action_url"] == reverse("garden:variety-list") + "?archived=1"
+    assert response.context["empty_action_url"] == reverse("garden:all-crops") + "?archived=1"
 
 
 @pytest.mark.parametrize("partial", [False, True])
@@ -459,7 +459,7 @@ def test_variety_groups_show_one_private_thumbnail_per_record(
     create_variety(actor=user, crop=crop, name="No photo")
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"} if partial else {}
-    response = client.get(reverse("garden:variety-list"), **headers)
+    response = client.get(reverse("garden:all-crops"), **headers)
     assert response.text.count('class="variety-thumbnail"') == 2
     with django_assert_num_queries(0):
         for record in response.context["records"]:

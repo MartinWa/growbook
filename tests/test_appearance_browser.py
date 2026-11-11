@@ -220,7 +220,13 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
     page.set_viewport_size({"width": width, "height": 1000})
     login(page, live_server, user, language)
     edges = []
-    for path in ("/", "/garden/areas/", "/garden/varieties/", "/garden/plantings/?year=2026"):
+    for path in (
+        "/",
+        "/garden/areas/",
+        "/garden/varieties/",
+        "/garden/categories/all/",
+        "/garden/plantings/?year=2026",
+    ):
         page.goto(live_server.url + path)
         page.evaluate("document.fonts.ready")
         main = page.locator("#main").bounding_box()
@@ -228,6 +234,44 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
         edges.append((title["x"], title["y"] - main["y"], main["width"]))
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         if path == "/garden/varieties/":
+            card = page.locator(".category-card")
+            expect(card).to_have_count(1)
+            expect(card).to_be_in_viewport(ratio=1)
+            if width >= 768:
+                assert card.bounding_box()["width"] < main["width"] / 2
+            show_all = page.get_by_role(
+                "link",
+                name="Visa alla grödor och sorter"
+                if language == "sv"
+                else "Show all crops and varieties",
+                exact=True,
+            )
+            new_category = page.get_by_role(
+                "link", name="Ny kategori" if language == "sv" else "New category", exact=True
+            )
+            expect(show_all).to_be_visible()
+            expect(new_category).to_be_visible()
+            show_all.focus()
+            show_all.press("Tab")
+            expect(new_category).to_be_focused()
+            if width >= 1024:
+                show_box = show_all.bounding_box()
+                new_box = new_category.bounding_box()
+                art = page.locator(".register-illustration").bounding_box()
+                assert (
+                    abs(
+                        show_box["y"]
+                        + show_box["height"] / 2
+                        - new_box["y"]
+                        - new_box["height"] / 2
+                    )
+                    < 2
+                )
+                assert show_box["x"] + show_box["width"] <= new_box["x"]
+                assert new_box["x"] + new_box["width"] <= art["x"]
+                assert abs(new_box["y"] + new_box["height"] - art["y"] - art["height"]) < 2
+            expect(page.locator(".category-card img")).to_be_visible()
+        elif path == "/garden/categories/all/":
             search = page.get_by_role(
                 "searchbox",
                 name="Sök grödor och sorter" if language == "sv" else "Search crops and varieties",

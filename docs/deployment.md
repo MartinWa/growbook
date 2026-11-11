@@ -151,6 +151,11 @@ default for this single-container image, so an image update does not require a s
 `migrate` command. Create and verify a backup before changing the schema, and keep the
 application stopped while the backup runs.
 
+The crop-category migration removes the former free-text Category field on
+varieties and discards its values. It does not create crop categories or modify
+other variety fields and relationships. Retain the verified pre-upgrade backup if
+those old values might be needed later.
+
 ```sh
 docker compose build growbook
 docker compose stop growbook

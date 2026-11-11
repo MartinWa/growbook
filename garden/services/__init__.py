@@ -15,11 +15,14 @@ from .registers import archive_area as archive_area
 from .registers import archive_crop as archive_crop
 from .registers import archive_variety as archive_variety
 from .registers import create_area as create_area
+from .registers import create_category as create_category
 from .registers import create_crop as create_crop
 from .registers import create_variety as create_variety
 from .registers import delete_area as delete_area
+from .registers import delete_category as delete_category
 from .registers import delete_crop as delete_crop
 from .registers import delete_variety as delete_variety
 from .registers import edit_area as edit_area
+from .registers import edit_category as edit_category
 from .registers import edit_crop as edit_crop
 from .registers import edit_variety as edit_variety

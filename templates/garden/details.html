@@ -11,7 +11,6 @@
     {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
   {% elif kind == 'variety' %}
     <dt>{% translate 'Crop' %}</dt><dd><a href="{{ record.crop.get_absolute_url }}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
-    {% if record.category %}<dt>{% translate 'Category' %}</dt><dd>{{ record.category }}</dd>{% endif %}
     {% if record.description %}<dt>{% translate 'Description' %}</dt><dd>{{ record.description|linebreaksbr }}</dd>{% endif %}
     {% if record.source %}<dt>{% translate 'Source' %}</dt><dd>{{ record.source }}</dd>{% endif %}
     {% if record.experiences %}<dt>{% translate 'Experiences' %}</dt><dd>{{ record.experiences|linebreaksbr }}</dd>{% endif %}

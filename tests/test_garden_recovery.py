@@ -41,7 +41,6 @@ def test_clean_restore_preserves_all_photo_owners_registers_archives_and_new_val
         actor=user,
         crop=crop,
         name="Golden",
-        category="Trial",
         source="Synthetic seed source",
         description="Synthetic description",
         experiences="Synthetic experiences",

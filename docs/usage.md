@@ -35,7 +35,8 @@ page, filters, unfinished note and selected photos. Without JavaScript, select t
 season and use **Change** to reload the current page; save an unfinished form first.
 The login page also offers the selector. Colours apply throughout the application.
 The diary illustration changes with the season; **Growing areas**, **Crops and varieties**
-and **Plantings** each have a fixed illustration with translated headings.
+and **Plantings** have default illustrations with translated headings. A crop
+category uses its uploaded image in the heading when available.
 
 ## Growing areas, crops and varieties
 
@@ -55,6 +56,38 @@ Each variety shows its first photo as a thumbnail when available. Select its und
 name to open information and photos. **Diary observations (count)** expands its latest
 five observations; **View all observations** appears inside when older observations exist.
 **Manage crops** opens maintenance links for crop notes, editing and archiving.
+
+**New category** creates a shared crop category with a name, optional private image
+and selected crops. Categories have one level above crops; a crop can belong to
+several categories. Varieties remain attached to their existing crop. Category
+names use the same Unicode-aware uniqueness rules as the other registers and are
+not translated.
+
+**Crops and varieties** always opens the category overview, including when there
+are no user-created categories. **New category** is available only on this overview.
+Category cards have **Edit** and **Delete** actions. Open a category to browse and
+search only its crops and varieties. **Uncategorized** opens crops without category
+links; **Show all crops and varieties** opens the full register. Search and archive
+controls retain their scope.
+Empty categories remain available. **New crop** from a category page links the
+new crop to that category; from Uncategorized it leaves the crop unlinked.
+The same category image appears on its card and in the register heading. Transparent
+PNG and WebP images retain their transparency. Uncategorized uses the default crop
+illustration on its card and in its heading; categories without an image also use
+that heading illustration. Older filtered register links open the full register.
+
+Edit a category to change its name or crop links, remove its image, or upload one
+replacement image. Selecting another image replaces the saved image on a successful
+save. Open the current image from the edit form for viewing and private original
+download. Category forms use the same save-key retries and stale-edit protection
+as the registers. A category has at most one image, with the existing file and
+decoded-pixel limits. The overview, forms and category navigation work without
+JavaScript.
+
+Category deletion requires confirmation and removes its image and crop links.
+Crops, varieties, plantings and diary records remain. A crop with no remaining
+category links appears in Uncategorized; deleting the final category returns to
+the overview, where Uncategorized remains available.
 
 Varieties use normalized name ordering within each crop. **Search crops and varieties**
 matches literal substrings of variety or crop names after Unicode NFC,

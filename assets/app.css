@@ -274,12 +274,65 @@
   }
 
   .register-illustration {
-    @apply pointer-events-none absolute top-0 right-0 h-full w-[48%] object-contain;
+    @apply pointer-events-none absolute top-0 right-0 h-52 w-[48%] object-contain;
   }
 
   .register-toolbar {
     @apply flex flex-wrap items-start justify-between gap-3;
   }
+
+  .page-heading.category-overview-heading {
+    @apply grid min-h-0 items-end gap-4;
+    grid-template-columns: minmax(0, 1fr) 48%;
+  }
+
+  .category-overview-heading h1 {
+    @apply m-0 max-w-full;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .category-overview-actions {
+    @apply flex min-w-0 flex-wrap items-center gap-3;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .category-overview-heading .register-illustration {
+    @apply static w-full;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .category-grid {
+    @apply mt-5 grid gap-4;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .category-card {
+    @apply min-w-0 overflow-hidden rounded-box border border-base-300 bg-base-100;
+  }
+
+  .category-card-link {
+    @apply block text-base-content;
+  }
+
+  .category-card-link h2 {
+    @apply m-0 p-4;
+    overflow-wrap: anywhere;
+  }
+
+  .category-card-link img {
+    @apply w-full object-cover;
+    aspect-ratio: 4 / 3;
+    height: auto;
+  }
+
+  .category-card > .related-actions { @apply m-0 px-4 pb-4; }
+  .category-current-image { @apply max-h-40 max-w-full rounded-box; }
+
+  .category-crops label { @apply flex min-h-11 items-center gap-2; }
 
   .register-toolbar .variety-filter {
     @apply flex min-w-0 flex-1 flex-wrap items-start gap-2;
@@ -1184,6 +1237,10 @@
     .register-heading {
       min-height: 10rem;
       padding-top: 0.75rem;
+    }
+
+    .register-illustration {
+      height: 10rem;
     }
 
     .diary-heading::before {
