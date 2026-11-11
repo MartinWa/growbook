@@ -101,8 +101,6 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
     show_archived = request.GET.get("archived") == "1"
     records = model.objects.all()
     areas = list(records) if kind == "area" else None
-    if not show_archived:
-        records = records.filter(is_archived=False)
     if kind == "variety":
         crops = category.crops.all() if category else Crop.objects.all()
         if uncategorized:
@@ -113,6 +111,9 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
             .prefetch_related("photos")
             .order_by("crop__name_key", "crop_id", "name_key", "id")
         )
+    scoped_records = records
+    if not show_archived:
+        records = records.filter(is_archived=False)
     records = (
         [area for area in areas if show_archived or not area.is_archived]
         if kind == "area"
@@ -190,8 +191,8 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
                 empty_filter_link=True,
             )
         elif not show_archived and (
-            model.objects.filter(is_archived=True).exists()
-            or (kind == "variety" and Crop.objects.filter(is_archived=True).exists())
+            scoped_records.filter(is_archived=True).exists()
+            or (kind == "variety" and crops.filter(is_archived=True).exists())
         ):
             context.update(
                 empty_heading=_("No active records"),
@@ -199,10 +200,10 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
                 empty_action_url=context["list_url"] + "?archived=1",
                 empty_action_label=_("Show archived records"),
             )
-        elif kind == "variety" and not Crop.objects.filter(is_archived=False).exists():
+        elif kind == "variety" and not crops.filter(is_archived=False).exists():
             context.update(
                 empty_description=_("Add a crop first, then record its varieties."),
-                empty_action_url=reverse("garden:crop-create"),
+                empty_action_url=context["crop_create_url"],
                 empty_action_label=_("New crop"),
             )
         if category and not category.crops.exists() and not search and valid:

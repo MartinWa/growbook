@@ -20,6 +20,7 @@ from django.db import (
 )
 from django.db.migrations.executor import MigrationExecutor
 from django.urls import reverse
+from django.utils.translation import gettext
 from PIL import Image
 
 from core.backups import create_backup, open_snapshot, restore_backup, verify_backup
@@ -30,6 +31,7 @@ from garden.models import Crop, CropCategory, CropCategoryLink, RegisterSubmissi
 from garden.services import (
     RegisterConflict,
     archive_crop,
+    archive_variety,
     create_category,
     create_crop,
     create_variety,
@@ -88,6 +90,40 @@ def test_archive_empty_state_and_legacy_filter_clear(client, user):
     )
     assert response.status_code == 200 and 'id="register-results"' in response.text
     assert "category-grid" not in response.text
+
+
+@pytest.mark.parametrize("archived", [False, True])
+@pytest.mark.parametrize("partial", [False, True])
+def test_empty_uncategorized_offers_new_crop_when_all_crops_are_linked(
+    client, user, archived, partial
+):
+    client.force_login(user)
+    crop = create_crop(actor=user, name="Tomato").record
+    variety = create_variety(actor=user, crop=crop, name="Golden").record
+    create_category(actor=user, name="Vegetables", crops=[crop])
+    if archived:
+        archive_variety(actor=user, pk=variety.pk)
+        archive_crop(actor=user, pk=crop.pk)
+    headers = {"HX-Request": "true", "HX-Target": "register-results"} if partial else {}
+    for filters in ({}, {"archived": "1"}):
+        response = client.get(reverse("garden:uncategorized"), filters, headers=headers)
+        assert response.status_code == 200
+        assert not response.context["has_records"]
+        assert response.context["empty_action_url"] == reverse("garden:crop-create")
+        assert response.context["empty_action_label"] == gettext("New crop")
+
+
+def test_uncategorized_archive_action_opens_unlinked_records(client, user):
+    client.force_login(user)
+    linked = create_crop(actor=user, name="Tomato").record
+    create_category(actor=user, name="Vegetables", crops=[linked])
+    unlinked = create_crop(actor=user, name="Bean").record
+    archive_crop(actor=user, pk=unlinked.pk)
+    response = client.get(reverse("garden:uncategorized"))
+    assert not response.context["has_records"]
+    assert response.context["empty_action_url"] == reverse("garden:uncategorized") + "?archived=1"
+    archived = client.get(response.context["empty_action_url"])
+    assert [group["crop"] for group in archived.context["variety_groups"]] == [unlinked]
 
 
 @pytest.mark.parametrize("encoding", ["PNG", "WEBP"])

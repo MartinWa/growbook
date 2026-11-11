@@ -1,16 +1,62 @@
 import io
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import close_old_connections, connection
 from PIL import Image
 from playwright.sync_api import expect, sync_playwright
 
 from garden.models import Crop, CropCategory, Variety
-from garden.services import create_category, create_crop, create_variety
+from garden.services import archive_crop, create_category, create_crop, create_variety
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+@pytest.mark.parametrize("editing", [False, True])
+def test_archived_crop_error_link_focuses_category_crops(
+    live_server, user, browser_endpoint, javascript, editing
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    category = create_category(actor=user, name="Vegetables").record if editing else None
+
+    def archive():
+        close_old_connections()
+        try:
+            archive_crop(actor=type(user).objects.get(pk=user.pk), pk=crop.pk)
+        finally:
+            connection.close()
+
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
+        page = context.new_page()
+        page.set_default_timeout(8000)
+        page.goto(live_server.url + "/accounts/login/")
+        page.locator("#id_username").fill(user.username)
+        page.locator("#id_password").fill("Synthetic-password-42")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        path = f"/garden/categories/{category.pk}/edit/" if editing else "/garden/categories/new/"
+        page.goto(live_server.url + path)
+        page.locator("#id_name").fill("Vegetables")
+        page.get_by_role("checkbox", name="Tomato", exact=True).check()
+        key = page.locator("#id_submission_key").input_value()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(archive).result(timeout=10)
+        page.get_by_role("button", name="Save", exact=True).click()
+        expect(page.locator('.error-summary [data-field-errors="crop_ids"]')).not_to_be_empty()
+        assert page.locator("#id_submission_key").input_value() == key
+        expect(page.locator('input[name="crop_ids"]:checked')).to_have_count(1)
+        page.locator(".error-summary").get_by_role("link", name="Crops", exact=True).click()
+        expect(page.get_by_role("group", name="Crops (optional)", exact=True)).to_be_focused()
+        assert page.locator('input[name="crop_ids"]').first.get_attribute("tabindex") is None
+    assert not CropCategory.objects.filter(crops=crop).exists()
 
 
 @pytest.mark.parametrize("width", [320, 768, 1280])
