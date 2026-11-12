@@ -6,17 +6,20 @@
   if (!form || !status || !window.htmx) return;
   const crop = form.querySelector("#id_crop");
   const label = form.querySelector("#id_label");
-  let generatedLabel = "";
-  let customLabel = !!label.value;
+  const generated = form.querySelector("#id_generated_label");
+  let generatedLabel = generated.value;
+  let customLabel = label.value !== generatedLabel;
   function updateLabel() {
     if (!form.hasAttribute("data-new-planting") || customLabel) return;
-    const cropName = crop.value ? crop.selectedOptions[0].textContent.trim() : "";
+    const cropName = crop.selectedOptions[0]?.dataset.recordName || "";
+    // Keep the draft when an archived or deleted crop is offered as unavailable.
+    if (crop.value && !cropName) return;
     const variety = form.querySelector("#id_variety");
-    let varietyName = variety.value ? variety.selectedOptions[0].textContent.trim() : "";
-    const suffix = ` (${cropName})`;
-    if (varietyName.endsWith(suffix)) varietyName = varietyName.slice(0, -suffix.length);
+    const varietyName = variety.selectedOptions[0]?.dataset.recordName || "";
+    if (variety.value && !varietyName) return;
     generatedLabel = cropName + (varietyName ? `-${varietyName}` : "");
     label.value = generatedLabel;
+    generated.value = generatedLabel;
   }
   label.addEventListener("input", () => {
     customLabel = label.value !== generatedLabel;

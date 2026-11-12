@@ -193,6 +193,16 @@ def planting_variety_choices(crop_id, record=None):
     )
 
 
+class RecordNameSelect(forms.Select):
+    """Keep label generation independent of a record's display text."""
+
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if instance := getattr(value, "instance", None):
+            option["attrs"]["data-record-name"] = instance.name
+        return option
+
+
 class PlantingForm(forms.Form):
     detail_names = ("variety", "area", "lifespan", "end_year", "quantity")
     note_names = ("notes", "evaluation", "photos")
@@ -201,7 +211,11 @@ class PlantingForm(forms.Form):
     batch_planting = forms.IntegerField(
         min_value=1, max_value=2**63 - 1, required=False, widget=forms.HiddenInput
     )
-    crop = RecordIDChoiceField(label=_("Crop"), queryset=Crop.objects.none())
+    # The last automatic value distinguishes a generated label from a custom draft on reload.
+    generated_label = forms.CharField(required=False, max_length=251, widget=forms.HiddenInput)
+    crop = RecordIDChoiceField(
+        label=_("Crop"), queryset=Crop.objects.none(), widget=RecordNameSelect
+    )
     start_year = forms.IntegerField(
         label=_("Start year"),
         min_value=1,
@@ -213,6 +227,7 @@ class PlantingForm(forms.Form):
         queryset=Variety.objects.none(),
         required=False,
         empty_label=_("Unknown variety"),
+        widget=RecordNameSelect,
     )
     area = RecordIDChoiceField(
         label=_("Growing area"),
@@ -236,8 +251,8 @@ class PlantingForm(forms.Form):
         help_text=_("Persistent plantings only. Leave blank for ongoing presence."),
     )
     label = forms.CharField(
-        label=_("Batch label"),
-        max_length=301,
+        label=_("Planting label"),
+        max_length=251,
         required=False,
         help_text=_("Defaults to crop-variety. You can change it."),
     )
@@ -285,6 +300,13 @@ class PlantingForm(forms.Form):
             batch_member is not None
             or self.initial.get("batch_planting")
             or self.data.get("batch_planting")
+            or (
+                record is not None
+                and record.variety_id is not None
+                and Planting.objects.filter(batch_key=record.batch_key)
+                .exclude(pk=record.pk)
+                .exists()
+            )
         ):
             self.fields["variety"].required = True
             self.fields["variety"].empty_label = _("Choose a variety")

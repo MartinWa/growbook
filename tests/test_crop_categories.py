@@ -546,3 +546,27 @@ assert category.crops.filter(pk=crop.pk).exists()
         timeout=30,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_category_variety_creation_retains_scope_and_filters(client, user, planting_catalog):
+    crop, _, _, _ = planting_catalog
+    category = create_category(actor=user, name="Vegetables", crops=[crop]).record
+    unrelated = create_crop(actor=user, name="Rose").record
+    destination = category.get_absolute_url() + "?q=tom&archived=1"
+    client.force_login(user)
+    page = client.get(destination)
+    target = page.context["create_url"]
+    form = client.get(target)
+    assert form.context["cancel_url"] == destination
+    assert not form.context["form"].fields["crop"].queryset.filter(pk=unrelated.pk).exists()
+    response = client.post(
+        reverse("garden:variety-create"),
+        {
+            "crop": crop.pk,
+            "name": "New variety",
+            "submission_key": uuid4(),
+            "next": destination,
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert response["HX-Redirect"] == destination

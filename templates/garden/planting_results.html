@@ -17,7 +17,7 @@
 <div class="record-workspace" data-record-workspace>
 <div class="record-browser" data-record-browser>
 {% include 'garden/area_tree.html' with planting_tree=True %}
-{% if unassigned_records %}<section class="unassigned-group"><h2>{% translate 'Unassigned area' %}</h2>{% include 'garden/planting_table.html' with records=unassigned_records groups=unassigned_groups table_label=heading %}</section>{% endif %}
+{% if unassigned_records %}<section class="unassigned-group"><h2>{% translate 'Unassigned area' %}</h2>{% include 'garden/planting_table.html' with groups=unassigned_groups %}</section>{% endif %}
 </div>
 {% include 'components/record_detail_pane.html' %}
 </div>

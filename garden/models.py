@@ -214,7 +214,7 @@ class Planting(ValidatedModel):
         blank=True,
         verbose_name=_("Growing area"),
     )
-    label = models.CharField(_("Batch label"), max_length=301, blank=True)
+    label = models.CharField(_("Planting label"), max_length=251, blank=True)
     quantity = models.PositiveIntegerField(_("Quantity"), null=True, blank=True)
     notes = models.TextField(_("Notes"), blank=True)
     evaluation = models.TextField(_("Evaluation"), blank=True)

@@ -1,4 +1,5 @@
 import uuid
+from itertools import islice
 
 from django.db import migrations, models
 
@@ -6,8 +7,11 @@ from django.db import migrations, models
 def separate_existing_batches(apps, schema_editor):
     planting = apps.get_model("garden", "Planting")
     records = planting.objects.using(schema_editor.connection.alias)
-    for pk in records.values_list("pk", flat=True).iterator():
-        records.filter(pk=pk).update(batch_key=uuid.uuid4())
+    iterator = records.only("pk").iterator(chunk_size=500)
+    while batch := list(islice(iterator, 500)):
+        for record in batch:
+            record.batch_key = uuid.uuid4()
+        records.bulk_update(batch, ["batch_key"], batch_size=500)
 
 
 class Migration(migrations.Migration):
@@ -17,7 +21,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="planting",
             name="label",
-            field=models.CharField(blank=True, max_length=301, verbose_name="Batch label"),
+            field=models.CharField(blank=True, max_length=251, verbose_name="Planting label"),
         ),
         migrations.AddField(
             model_name="planting",

@@ -2,7 +2,7 @@
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.utils.translation import gettext as _
 
@@ -98,53 +98,66 @@ def _validate_planting(record, previous):
     peers = Planting.objects.filter(batch_key=record.batch_key).exclude(pk=record.pk)
     if peers.exclude(crop_id=record.crop_id).exists():
         raise ValidationError({"crop": _("All varieties in a batch must belong to the same crop.")})
+    if previous.get("variety_id") is not None and record.variety_id is None and peers.exists():
+        raise ValidationError({"variety": _("Keep a variety for a planting in a shared batch.")})
     if peers.filter(variety_id=record.variety_id).exists():
         raise ValidationError({"variety": _("This variety is already in the batch.")})
     record.full_clean()
 
 
 def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_at):
-    with transaction.atomic(), validated_write():
-        _active_actor(actor)
-        retry = _planting_receipt(key, actor, "planting", fingerprint)
-        if retry is not None:
-            return retry
-        record = _current(Planting, pk, expected_updated_at) if pk is not None else Planting()
-        previous = {field: getattr(record, field) for field in ("crop_id", "variety_id", "area_id")}
-        batch_planting = values.get("batch_planting")
-        if batch_planting is not None:
-            member = _current(Planting, batch_planting)
-            record.batch_key = member.batch_key
-        for field, value in values.items():
-            if field == "batch_planting":
-                continue
-            setattr(record, field, value)
-        _validate_planting(record, previous)
-        if batch_planting is not None and record.variety_id is None:
-            raise ValidationError({"variety": _("Choose a variety to add to this batch.")})
-        if pk is None and not record.label:
-            record.label = record.crop.name
-            if record.variety_id is not None:
-                record.label += "-" + record.variety.name
-            record.full_clean()
-        photos = list(record.photos.all()) if pk is not None else []
-        if len(photos) + len(rows) > settings.PHOTO_MAX_COUNT:
-            raise ValidationError(
-                _("A record can have no more than %(count)s photos."),
-                params={"count": settings.PHOTO_MAX_COUNT},
+    try:
+        with transaction.atomic(), validated_write():
+            _active_actor(actor)
+            retry = _planting_receipt(key, actor, "planting", fingerprint)
+            if retry is not None:
+                return retry
+            record = _current(Planting, pk, expected_updated_at) if pk is not None else Planting()
+            previous = {
+                field: getattr(record, field) for field in ("crop_id", "variety_id", "area_id")
+            }
+            batch_planting = values.get("batch_planting")
+            if batch_planting is not None:
+                member = _current(Planting, batch_planting)
+                record.batch_key = member.batch_key
+            for field, value in values.items():
+                if field == "batch_planting":
+                    continue
+                setattr(record, field, value)
+            _validate_planting(record, previous)
+            if batch_planting is not None and record.variety_id is None:
+                raise ValidationError({"variety": _("Choose a variety to add to this batch.")})
+            if pk is None and not record.label:
+                record.label = record.crop.name
+                if record.variety_id is not None:
+                    record.label += "-" + record.variety.name
+                record.full_clean()
+            photos = list(record.photos.all()) if pk is not None else []
+            if len(photos) + len(rows) > settings.PHOTO_MAX_COUNT:
+                raise ValidationError(
+                    _("A record can have no more than %(count)s photos."),
+                    params={"count": settings.PHOTO_MAX_COUNT},
+                )
+            record.save()
+            position = max((photo.position for photo in photos), default=-1) + 1
+            for offset, photo_values in enumerate(rows):
+                photo = Photo(planting=record, **photo_values, position=position + offset)
+                photo.full_clean()
+                photo.save()
+            receipt = PlantingSubmission(
+                key=key, author=actor, kind="planting", payload_sha256=fingerprint, planting=record
             )
-        record.save()
-        position = max((photo.position for photo in photos), default=-1) + 1
-        for offset, photo_values in enumerate(rows):
-            photo = Photo(planting=record, **photo_values, position=position + offset)
-            photo.full_clean()
-            photo.save()
-        receipt = PlantingSubmission(
-            key=key, author=actor, kind="planting", payload_sha256=fingerprint, planting=record
-        )
-        receipt.full_clean()
-        receipt.save()
-        return PlantingResult(record)
+            receipt.full_clean()
+            receipt.save()
+            return PlantingResult(record)
+    except IntegrityError as exc:
+        # SQLite reports these partial unique constraints by their columns, not their names.
+        if str(exc) in (
+            "UNIQUE constraint failed: garden_planting.batch_key, garden_planting.variety_id",
+            "UNIQUE constraint failed: garden_planting.batch_key",
+        ):
+            raise ValidationError({"variety": _("This variety is already in the batch.")}) from exc
+        raise
 
 
 def _save_planting(actor, pk, values, uploads, submission_key, expected_updated_at):

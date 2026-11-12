@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, prefetch_related_objects
 from django.utils.translation import gettext as _
 
 from .models import GrowingArea, Planting
@@ -169,7 +169,7 @@ def planting_rows(queryset, *, areas=None):
     records = list(queryset)
     for record in records:
         record.area_path = paths.get(record.area_id, "")
-        record.display_label = record.label or _("Batch %(number)s") % {"number": record.pk}
+        record.display_label = record.label or _("Planting %(number)s") % {"number": record.pk}
     return records
 
 
@@ -182,12 +182,17 @@ def planting_groups(records):
             {"key": record.batch_key, "crop": record.crop, "records": []},
         )
         group["records"].append(record)
+    for group in groups.values():
+        group["thumbnail"] = next(
+            (photo for member in group["records"] for photo in member.photos.all()), None
+        )
     return list(groups.values())
 
 
 def planting_tree(**filters):
     """Keep batches and their tree together when an area disappears between reads."""
     records = list(planting_history(**filters))
+    prefetch_related_objects(records, "photos")
     areas = list(GrowingArea.objects.all())
     area_ids = {area.pk for area in areas}
     if any(record.area_id is not None and record.area_id not in area_ids for record in records):
@@ -195,6 +200,7 @@ def planting_tree(**filters):
         # The fallback transaction keeps the refreshed records and areas consistent.
         with transaction.atomic():
             records = list(planting_history(**filters))
+            prefetch_related_objects(records, "photos")
             areas = list(GrowingArea.objects.all())
     records = planting_rows(records, areas=areas)
     tree = area_tree(areas=areas, plantings=records)

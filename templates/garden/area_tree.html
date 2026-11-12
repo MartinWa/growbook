@@ -8,7 +8,7 @@
       <summary{% if not planting_tree %} aria-label="{% translate 'Child areas' %}: {{ record.name }}"{% endif %}>{% include 'garden/area_name.html' %}</summary>
       <div class="area-content">
     {% else %}<div class="area-leaf">{% include 'garden/area_name.html' %}</div>{% endif %}
-    {% if node.records %}{% include 'garden/planting_table.html' with records=node.records groups=node.groups table_label=record.name %}{% endif %}
+    {% if node.records %}{% include 'garden/planting_table.html' with groups=node.groups %}{% endif %}
     {% if node.children %}<ul class="area-tree area-children">{% endif %}
 {% else %}
     {% if node.children %}</ul>{% endif %}

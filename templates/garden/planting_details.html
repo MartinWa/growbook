@@ -4,9 +4,9 @@
   <section class="batch-varieties" aria-labelledby="batch-varieties-{{ record.pk }}">
     <h3 id="batch-varieties-{{ record.pk }}">{% translate 'Varieties in this batch' %}</h3>
     <ul class="record-list">
-      {% for member in batch_members %}<li>{% if member.pk == record.pk %}<span aria-current="true">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</span>{% else %}<a href="{{ member.get_absolute_url }}">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a>{% endif %} <span class="field-help">{{ member.display_label }} · {{ member.quantity|default_if_none:'—' }}</span></li>{% endfor %}
+      {% for member in batch_members %}<li>{% if member.pk == record.pk %}<span aria-current="true">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</span>{% else %}<a href="{{ member.get_absolute_url }}">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a>{% endif %} <span class="field-help">{{ member.quantity|default_if_none:'—' }}</span></li>{% endfor %}
     </ul>
-    <a class="btn btn-outline" href="{{ add_variety_url }}">{% translate 'Add variety to batch' %}</a>
+    {% if can_add_variety %}<a class="btn btn-outline" href="{{ add_variety_url }}">{% translate 'Add variety to batch' %}</a>{% endif %}
   </section>
   <dl class="record-fields">
     <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>

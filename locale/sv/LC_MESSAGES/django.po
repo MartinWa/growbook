@@ -617,11 +617,11 @@ msgstr ""
 "Ytfilter omfattar även underytor och visar den tilldelade platsen. "
 "Arkiverade poster finns kvar i historiken."
 
-msgid "Batch %(number)s"
-msgstr "Odlingsomgång %(number)s"
+msgid "Planting %(number)s"
+msgstr "Odling %(number)s"
 
-msgid "Batch label"
-msgstr "Omgångsnamn"
+msgid "Planting label"
+msgstr "Odlingsnamn"
 
 msgid "Choose a crop first. Variety may be left unknown."
 msgstr "Välj en gröda först. Sorten kan lämnas okänd."
@@ -1287,6 +1287,9 @@ msgstr "Borttagning tar bort kategorin, dess bild och kopplingar till grödor. G
 msgid "Planting batch"
 msgstr "Odlingsomgång"
 
+msgid "Planting batches"
+msgstr "Odlingsomgångar"
+
 msgid "Varieties in this batch"
 msgstr "Sorter i den här odlingsomgången"
 
@@ -1307,6 +1310,9 @@ msgstr "Välj en odlingsyta utan underordnade ytor för en ny koppling."
 
 msgid "Choose a variety to add to this batch."
 msgstr "Välj en sort att lägga till i den här odlingsomgången."
+
+msgid "Keep a variety for a planting in a shared batch."
+msgstr "Behåll en sort för en odling i en gemensam odlingsomgång."
 
 msgid "Choose a variety"
 msgstr "Välj en sort"

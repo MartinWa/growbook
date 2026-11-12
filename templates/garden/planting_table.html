@@ -2,9 +2,9 @@
 <ul class="record-list planting-list">
   {% for group in groups %}
     {% if group.records|length > 1 %}
-    <li><details class="planting-batch" id="batch-{{ group.records.0.pk }}"><summary>{% translate 'Planting batch' %} · {{ group.records.0.display_label }}</summary>
+    <li><details class="planting-batch" id="batch-{{ group.records.0.pk }}"><summary>{% include 'garden/planting_batch_summary.html' %}</summary>
       <ul class="record-list">{% for record in group.records %}{% include 'garden/planting_row.html' %}{% endfor %}</ul>
     </details></li>
     {% else %}{% for record in group.records %}{% include 'garden/planting_row.html' %}{% endfor %}{% endif %}
-  {% empty %}{% for record in records %}{% include 'garden/planting_row.html' %}{% endfor %}{% endfor %}
+  {% endfor %}
 </ul>

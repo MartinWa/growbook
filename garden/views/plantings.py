@@ -94,7 +94,10 @@ def planting_list(request, history=False, kind=None, pk=None):
         create["year"] = year
     for field in ("crop", "variety", "area"):
         if valid and form.cleaned_data[field] is not None:
-            create[field] = form.cleaned_data[field].pk
+            selected = form.cleaned_data[field]
+            if field == "area" and (selected.is_archived or selected.children.exists()):
+                continue
+            create[field] = selected.pk
     create_url = reverse("garden:planting-create") + ("?" + urlencode(create) if create else "")
     empty = {}
     if not records:
@@ -194,7 +197,7 @@ def _planting_context(pk):
     )
     paths = area_paths(list(GrowingArea.objects.all()))
     record.area_path = paths.get(record.area_id, "")
-    record.display_label = record.label or _("Batch %(number)s") % {"number": record.pk}
+    record.display_label = record.label or _("Planting %(number)s") % {"number": record.pk}
     events = record.events.annotate(event_date=Coalesce("actual_date", "planned_date")).order_by(
         "event_date", "id"
     )
@@ -210,6 +213,7 @@ def _planting_context(pk):
                 "crop", "variety", "area"
             ),
         ),
+        "can_add_variety": not record.crop.is_archived,
         "add_variety_url": reverse("garden:planting-create")
         + "?"
         + urlencode({"batch_planting": record.pk, "next": record.get_absolute_url()}),
@@ -316,8 +320,11 @@ def planting_form(request, pk=None):
         if valid:
             values = {**form.cleaned_data, "actor": request.user}
             values["uploads"] = values.pop("photos")
+            generated_label = values.pop("generated_label")
             if pk is None:
                 values.pop("expected_updated_at")
+                if values["label"] == generated_label:
+                    values["label"] = ""
             else:
                 values["pk"] = pk
                 values.pop("batch_planting")

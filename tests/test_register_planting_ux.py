@@ -338,12 +338,13 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
             delete_area(actor=user, pk=old_area.pk, expected_updated_at=old_area.updated_at)
         return records
 
-    monkeypatch.setattr(queries, "planting_history", remove_area_between_reads)
     client.force_login(user)
     scope = {"crop-history": crop.pk, "variety-history": variety.pk, "area-history": root.pk}.get(
         route
     )
     path = reverse(f"garden:{route}", args=[scope] if scope else [])
+    # Import the routes before patching so other views retain their real query helper.
+    monkeypatch.setattr(queries, "planting_history", remove_area_between_reads)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
     response = client.get(path, {"year": 2026}, **headers)
 

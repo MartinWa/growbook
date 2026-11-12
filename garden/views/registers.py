@@ -317,10 +317,6 @@ def _detail_context(kind, pk, *, show_archived=False):
             + urlencode({"year": year, "area": record.pk, "area_only": "1"}),
         )
         context["planting_groups"] = planting_groups(context["plantings"])
-        for group in context["planting_groups"]:
-            group["thumbnail"] = next(
-                (photo for member in group["records"] for photo in member.photos.all()), None
-            )
         context["planting_create_url"] = (
             reverse("garden:planting-create")
             + "?"
@@ -331,7 +327,7 @@ def _detail_context(kind, pk, *, show_archived=False):
                 }
             )
         )
-        context["can_create_planting"] = not record.is_archived and not record.children.all()
+        context["can_create_planting"] = not record.is_archived and not record.children.exists()
         history_query = {"area": record.pk, "area_only": "1"}
         context["planting_all_years_url"] = (
             reverse("garden:planting-history") + "?" + urlencode(history_query)

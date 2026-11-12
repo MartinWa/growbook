@@ -38,7 +38,7 @@
   </section>
   <section class="area-section" aria-labelledby="area-plantings-{{ record.pk }}">
     <div class="page-heading">
-      <h2 id="area-plantings-{{ record.pk }}">{% translate 'Plantings' %} ({{ plantings|length }})</h2>
+      <h2 id="area-plantings-{{ record.pk }}">{% translate 'Planting batches' %} ({{ planting_groups|length }})</h2>
       {% if can_create_planting %}<a class="btn btn-primary" href="{{ planting_create_url }}">{% translate 'New planting' %}</a>{% endif %}
     </div>
     <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
@@ -49,7 +49,7 @@
     </nav>
     <ul class="record-list area-plantings">
       {% for group in planting_groups %}
-        {% if group.records|length > 1 %}<li><details class="planting-batch" id="area-batch-{{ group.key }}"><summary>{% if group.thumbnail %}<img class="variety-thumbnail" src="{{ group.thumbnail.thumbnail_url }}" width="64" height="64" loading="lazy" alt="">{% endif %}{% translate 'Planting batch' %} · {{ group.records.0.display_label }}</summary><ul class="record-list">{% for planting in group.records %}{% include 'garden/area_planting_row.html' %}{% endfor %}</ul></details></li>
+        {% if group.records|length > 1 %}<li><details class="planting-batch" id="area-batch-{{ group.key }}"><summary>{% include 'garden/planting_batch_summary.html' %}</summary><ul class="record-list">{% for planting in group.records %}{% include 'garden/area_planting_row.html' %}{% endfor %}</ul></details></li>
         {% else %}{% for planting in group.records %}{% include 'garden/area_planting_row.html' %}{% endfor %}{% endif %}
       {% empty %}<li>{% translate 'No plantings for this growing area yet.' %}</li>{% endfor %}
     </ul>

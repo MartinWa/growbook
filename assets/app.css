@@ -686,6 +686,11 @@
 
   .planting-batch > summary {
     @apply cursor-pointer rounded-lg px-2 py-2 font-semibold;
+    overflow-wrap: anywhere;
+  }
+
+  .planting-batch > summary .variety-thumbnail {
+    @apply mr-2 inline-block align-middle;
   }
 
   .planting-batch > .record-list {
@@ -710,18 +715,6 @@
 
   .photo-grid .btn {
     @apply mt-1 min-h-11 px-2 text-xs;
-  }
-
-  .large-photo {
-    @apply my-5;
-  }
-
-  .large-photo img {
-    @apply h-auto max-w-full rounded-lg;
-  }
-
-  .large-photo figcaption {
-    @apply text-sm;
   }
 
   .photo-viewer {

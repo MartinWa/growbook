@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import Photo
-from garden.models import Planting, PlantingEvent, PlantingSubmission
+from core.writes import validated_write
+from garden.models import Crop, GrowingArea, Planting, PlantingEvent, PlantingSubmission
 from garden.services import (
     archive_area,
     archive_crop,
@@ -917,3 +918,353 @@ def test_user_content_is_escaped_in_lists_details_events_and_fragments(client, u
         assert hostile not in response.text and "&lt;script&gt;" in response.text
         assert "unsafe-eval" not in response["Content-Security-Policy"]
         assert "no-store" in response["Cache-Control"]
+
+
+@pytest.mark.django_db
+def test_batch_variety_choices_stay_required_after_reloading(client, user, planting_catalog):
+    from core.writes import validated_write
+
+    crop, first, second, _ = planting_catalog
+    with validated_write():
+        original = Planting.objects.create(crop=crop, variety=first, start_year=2027)
+    client.force_login(user)
+    response = client.get(
+        reverse("garden:planting-varieties"),
+        {"crop": crop.pk, "batch_planting": original.pk},
+    )
+    assert response.status_code == 200
+    assert response.context["field"].field.required
+    assert f'value="{first.pk}"' not in response.text
+    assert f'value="{second.pk}"' in response.text
+
+
+@pytest.mark.parametrize("hx", [False, True])
+def test_contextual_creation_returns_after_save_cancel_and_failed_submission(
+    client, user, planting_catalog, hx
+):
+    crop, _, _, area = planting_catalog
+    client.force_login(user)
+    destination = area.get_absolute_url() + "?archived=1"
+    path = reverse("garden:planting-create")
+    form = client.get(path, {"area": area.pk, "next": destination})
+    assert form.context["form"]["area"].value() == str(area.pk)
+    assert form.context["cancel_url"] == destination
+    data = {
+        "crop": crop.pk,
+        "area": area.pk,
+        "start_year": 2027,
+        "lifespan": "annual",
+        "submission_key": uuid4(),
+        "next": destination,
+    }
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    invalid = client.post(path, {**data, "start_year": "bad"}, **headers)
+    assert invalid.status_code == 422
+    if not hx:
+        assert invalid.context["cancel_url"] == destination
+        assert 'name="next"' in invalid.text
+    saved = client.post(path, data, **headers)
+    assert saved["HX-Redirect" if hx else "Location"] == destination
+    assert Planting.objects.get().label == "Tomato"
+    retry = client.post(path, data, **headers)
+    assert retry["HX-Redirect" if hx else "Location"] == destination
+    assert Planting.objects.count() == 1
+
+
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "https://example.invalid/",
+        "//example.invalid/",
+        "/\\example.invalid/",
+        "/accounts/logout/",
+        "/garden/plantings/new/",
+    ],
+)
+def test_return_destination_rejects_external_or_unrelated_pages(
+    client, user, planting_catalog, destination
+):
+    crop, _, _, _ = planting_catalog
+    client.force_login(user)
+    response = client.post(
+        reverse("garden:planting-create"),
+        {
+            "crop": crop.pk,
+            "start_year": 2027,
+            "lifespan": "annual",
+            "submission_key": uuid4(),
+            "next": destination,
+        },
+    )
+    assert response["Location"] == Planting.objects.get().get_absolute_url()
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("unavailable", ["parent", "archived_child", "archived"])
+@pytest.mark.parametrize("replacement", ["leaf", "unassigned"])
+def test_batch_form_keeps_unavailable_inherited_area_until_explicitly_changed(
+    client, user, planting_catalog, hx, unavailable, replacement
+):
+    crop, first, second, area = planting_catalog
+    original = create_planting(
+        actor=user, crop=crop, variety=first, area=area, start_year=2027
+    ).record
+    leaf = create_area(actor=user, name="Alternative bed").record
+    if unavailable == "archived":
+        archive_area(actor=user, pk=area.pk)
+    else:
+        child = create_area(actor=user, name="Child", parent=area).record
+        if unavailable == "archived_child":
+            archive_area(actor=user, pk=child.pk)
+    client.force_login(user)
+    path = reverse("garden:planting-create")
+    destination = original.get_absolute_url()
+    page = client.get(path, {"batch_planting": original.pk, "next": destination})
+    form = page.context["form"]
+    assert not form.fields["area"].queryset.filter(pk=area.pk).exists()
+    assert f'<option value="{area.pk}" selected>' in str(form["area"])
+    data = {
+        "crop": crop.pk,
+        "variety": second.pk,
+        "area": area.pk,
+        "start_year": 2027,
+        "lifespan": "annual",
+        "batch_planting": original.pk,
+        "submission_key": uuid4(),
+        "next": destination,
+    }
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    rejected = client.post(path, data, **headers)
+    assert rejected.status_code == 422
+    assert 'data-field-errors="area"' in rejected.text
+    assert Planting.objects.count() == 1
+    if not hx:
+        assert f'<option value="{area.pk}" selected>' in str(rejected.context["form"]["area"])
+        assert rejected.context["form"]["submission_key"].value() == str(data["submission_key"])
+    data["area"] = leaf.pk if replacement == "leaf" else ""
+    saved = client.post(path, data, **headers)
+    assert saved["HX-Redirect" if hx else "Location"] == destination
+    added = Planting.objects.exclude(pk=original.pk).get()
+    assert added.batch_key == original.batch_key
+    assert added.area_id == (leaf.pk if replacement == "leaf" else None)
+
+
+@pytest.mark.parametrize("hx", [False, True])
+def test_area_gaining_children_during_photo_processing_rejects_new_assignment(
+    client, user, planting_catalog, image_upload, monkeypatch, hx
+):
+    from core.models import Photo
+    from garden.services import plantings as services
+
+    crop, _, _, area = planting_catalog
+    client.force_login(user)
+    path = reverse("garden:planting-create")
+    draft = client.get(path, {"area": area.pk})
+    assert draft.context["form"]["area"].value() == str(area.pk)
+    write_planting = services._write_planting
+
+    def add_child_before_write(*args, **kwargs):
+        create_area(actor=user, name="New child", parent=area)
+        return write_planting(*args, **kwargs)
+
+    monkeypatch.setattr(services, "_write_planting", add_child_before_write)
+    key = uuid4()
+    response = client.post(
+        path,
+        {
+            "crop": crop.pk,
+            "area": area.pk,
+            "start_year": 2027,
+            "lifespan": "annual",
+            "submission_key": key,
+            "photos": image_upload(),
+        },
+        HTTP_HX_REQUEST="true" if hx else "false",
+    )
+    assert response.status_code == 422
+    assert 'data-field-errors="area"' in response.text
+    assert not Planting.objects.exists() and not Photo.objects.exists()
+    if not hx:
+        assert response.context["form"]["area"].value() == str(area.pk)
+        assert response.context["form"]["submission_key"].value() == str(key)
+
+
+@pytest.mark.parametrize(
+    "overview,assigned", [("area", True), ("list", True), ("list", False), ("history", True)]
+)
+def test_batch_overviews_show_crop_count_and_first_available_member_photo(
+    client, user, planting_catalog, image_upload, django_assert_num_queries, overview, assigned
+):
+    crop, first, second, area = planting_catalog
+    original = create_planting(
+        actor=user,
+        crop=crop,
+        variety=first,
+        area=area if assigned else None,
+        start_year=2027,
+        label="Custom planting",
+    ).record
+    added = create_planting(
+        actor=user,
+        crop=crop,
+        variety=second,
+        area=area if assigned else None,
+        start_year=2027,
+        batch_planting=original,
+        uploads=[image_upload()],
+    ).record
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    path = (
+        area.get_absolute_url()
+        if overview == "area"
+        else reverse("garden:planting-list" if overview == "list" else "garden:planting-history")
+    )
+    response = client.get(path, {"year": 2027})
+    if overview == "area":
+        groups = response.context["planting_groups"]
+        assert "Planting batches (1)" in response.text
+    elif assigned:
+        groups = response.context["area_events"][0]["node"].groups
+    else:
+        groups = response.context["unassigned_groups"]
+    group = groups[0]
+    assert group["records"][0] == original
+    assert group["thumbnail"] == added.photos.get()
+    summary = response.text.split('<details class="planting-batch"')[1].split("</summary>")[0]
+    assert group["thumbnail"].thumbnail_url in summary and "Planting batch · Tomato (2)" in summary
+    assert "Golden" not in summary and "Custom planting" not in summary
+    with django_assert_num_queries(0):
+        assert not list(group["records"][0].photos.all())
+        assert list(group["records"][1].photos.all()) == [group["thumbnail"]]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("archived", [False, True])
+def test_batch_add_action_follows_crop_archive_state(client, user, planting_catalog, hx, archived):
+    crop, first, _, _ = planting_catalog
+    with validated_write():
+        original = Planting.objects.create(crop=crop, variety=first, start_year=2027)
+        Crop.objects.filter(pk=crop.pk).update(is_archived=archived)
+    client.force_login(user)
+    response = client.get(original.get_absolute_url(), HTTP_HX_REQUEST="true" if hx else "false")
+    assert response.status_code == 200
+    assert response.context["can_add_variety"] is not archived
+    assert (
+        response.context["add_variety_url"] in response.text.replace("&amp;", "&")
+    ) is not archived
+    assert reverse("garden:planting-edit", args=[original.pk]) in response.text
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("area_state", ["leaf", "parent", "archived_child", "archived"])
+def test_filtered_list_only_preselects_an_eligible_area_for_creation(
+    client, user, planting_catalog, area_state
+):
+    _, _, _, area = planting_catalog
+    with validated_write():
+        if area_state in ("parent", "archived_child"):
+            GrowingArea.objects.create(
+                name="Child",
+                name_key="child",
+                parent=area,
+                is_archived=area_state == "archived_child",
+            )
+        elif area_state == "archived":
+            GrowingArea.objects.filter(pk=area.pk).update(is_archived=True)
+    client.force_login(user)
+    response = client.get(reverse("garden:planting-list"), {"year": 2027, "area": area.pk})
+    create_url = response.context["create_url"]
+    query = parse_qs(urlsplit(create_url).query)
+    assert query.get("area") == ([str(area.pk)] if area_state == "leaf" else None)
+    form = client.get(create_url).context["form"]
+    assert form["area"].value() == (str(area.pk) if area_state == "leaf" else None)
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("custom", [False, True])
+def test_failed_creation_regenerates_automatic_labels_and_keeps_custom_labels(
+    client, user, planting_catalog, hx, custom
+):
+    crop, first, _, _ = planting_catalog
+    bean = create_crop(actor=user, name="Bean").record
+    blue = create_variety(actor=user, crop=bean, name="Blue (Bean)").record
+    client.force_login(user)
+    path = reverse("garden:planting-create")
+    data = {
+        "crop": crop.pk,
+        "variety": first.pk,
+        "start_year": 2027,
+        "lifespan": "annual",
+        "label": "Custom trial" if custom else "Tomato-Golden",
+        "generated_label": "Tomato-Golden",
+        "quantity": -1,
+        "submission_key": uuid4(),
+    }
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    failed = client.post(path, data, **headers)
+    assert failed.status_code == 422
+    assert not Planting.objects.exists()
+    if not hx:
+        assert failed.context["form"]["generated_label"].value() == "Tomato-Golden"
+        assert failed.context["form"]["label"].value() == data["label"]
+    data.update(crop=bean.pk, variety=blue.pk, quantity=0)
+    saved = client.post(path, data, **headers)
+    assert saved.status_code == (204 if hx else 302)
+    assert Planting.objects.get().label == ("Custom trial" if custom else "Bean-Blue (Bean)")
+    assert client.post(path, data, **headers).status_code == saved.status_code
+    assert Planting.objects.count() == 1
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("with_photos", [False, True])
+def test_sqlite_batch_duplicate_is_visible_and_can_be_corrected_and_retried(
+    client, user, planting_catalog, image_upload, monkeypatch, hx, with_photos
+):
+    from garden.services import plantings as services
+
+    crop, first, second, _ = planting_catalog
+    original = create_planting(actor=user, crop=crop, variety=first, start_year=2027).record
+    added = create_planting(
+        actor=user, crop=crop, variety=second, start_year=2027, batch_planting=original
+    ).record
+    monkeypatch.setattr(
+        services,
+        "_validate_planting",
+        lambda record, previous: record.full_clean(validate_constraints=False),
+    )
+    client.force_login(user)
+    path = reverse("garden:planting-edit", args=[added.pk])
+    data = {
+        "crop": crop.pk,
+        "variety": first.pk,
+        "start_year": 2027,
+        "lifespan": "annual",
+        "label": "Synthetic draft",
+        "submission_key": uuid4(),
+        "expected_updated_at": added.updated_at.isoformat(),
+    }
+    if with_photos:
+        data["photos"] = image_upload()
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    failed = client.post(path, data, **headers)
+    assert failed.status_code == 422
+    assert 'data-field-errors="variety"' in failed.text
+    added.refresh_from_db()
+    assert added.variety_id == second.pk
+    assert not Photo.objects.exists()
+    assert not PlantingSubmission.objects.filter(key=data["submission_key"]).exists()
+    if not hx:
+        assert failed.context["form"]["submission_key"].value() == str(data["submission_key"])
+        assert failed.context["form"]["label"].value() == "Synthetic draft"
+    third = create_variety(actor=user, crop=crop, name="Green").record
+    data["variety"] = third.pk
+    for _ in range(2):
+        if with_photos:
+            data["photos"] = image_upload()
+        saved = client.post(path, data, **headers)
+        assert saved.status_code == (204 if hx else 302)
+    added.refresh_from_db()
+    assert added.variety_id == third.pk and added.label == "Synthetic draft"
+    assert Photo.objects.count() == int(with_photos)
