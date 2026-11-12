@@ -231,7 +231,9 @@ is the release version used for the image tag, OCI version label and application
 the workflow passes it as the Docker build argument `GROWBOOK_VERSION`. No version bump in
 `pyproject.toml` or `uv.lock` is needed. The static project version is local tooling
 metadata, not the container release version. Tags have no `v` prefix or prerelease suffix
-and must point to a commit from `main` whose push CI run has passed. Merge the changes,
+and must point to a commit from `main` whose push or manually dispatched CI run has
+passed. The latest push run or the latest manually dispatched run must have succeeded
+for that exact commit; pull-request and scheduled runs do not qualify. Merge the changes,
 wait for that commit's CI, then tag it:
 
 ```sh
@@ -241,6 +243,12 @@ git fetch origin --tags
 git tag -a X.Y.Z -m "Release X.Y.Z"
 git push origin X.Y.Z
 ```
+
+Dependabot auto-merges use `GITHUB_TOKEN`, so GitHub does not trigger push CI for the
+merge commit. After such a merge, open **Actions → CI → Run workflow**, select `main`,
+and wait for all checks to pass before tagging. The CLI equivalent is
+`gh workflow run ci.yml --ref main`. Confirm the successful run tested the commit you
+will tag; if `main` advances, run CI again for the new commit before tagging it.
 
 From PowerShell, after the same checkout update, tag fetch and successful CI, use
 [`tools/tag_release.ps1`](../tools/tag_release.ps1):

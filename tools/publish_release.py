@@ -31,28 +31,33 @@ def validate_source(tag, *, event_name, tag_created):
     if commit != tag_commit:
         raise ValueError("The release tag no longer points at the triggering commit.")
     read_command("git", "merge-base", "--is-ancestor", "HEAD", "origin/main")
-    conclusion = read_command(
-        "gh",
-        "run",
-        "list",
-        "--workflow",
-        "ci.yml",
-        "--commit",
-        commit,
-        "--branch",
-        "main",
-        "--event",
-        "push",
-        "--limit",
-        "1",
-        "--json",
-        "conclusion",
-        "--jq",
-        ".[0].conclusion",
+    # Bot merges can suppress push workflows; manual CI must test the same main commit.
+    for event in ("push", "workflow_dispatch"):
+        conclusion = read_command(
+            "gh",
+            "run",
+            "list",
+            "--workflow",
+            "ci.yml",
+            "--commit",
+            commit,
+            "--branch",
+            "main",
+            "--event",
+            event,
+            "--limit",
+            "1",
+            "--json",
+            "conclusion",
+            "--jq",
+            ".[0].conclusion",
+        )
+        if conclusion == "success":
+            return commit
+    raise ValueError(
+        "The release commit must have a successful push or manually dispatched CI run on main. "
+        "Run CI on main for this exact commit and wait for it to pass before retrying."
     )
-    if conclusion != "success":
-        raise ValueError("The release commit must have a successful CI push run on main.")
-    return commit
 
 
 def release_plan(tag, releases):

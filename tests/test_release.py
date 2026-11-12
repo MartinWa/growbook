@@ -49,7 +49,6 @@ def release_repository(tmp_path):
         GITHUB_REPOSITORY="Example/Growbook",
         GITHUB_OUTPUT=(tmp_path / "output").as_posix(),
         GH_CALLS=(tmp_path / "gh-calls").as_posix(),
-        CI_CONCLUSION="success",
     )
     git(repository, environment, "init", "--initial-branch=main")
     (repository / "pyproject.toml").write_text('[project]\nversion = "0.0.0"\n', encoding="utf-8")
@@ -60,6 +59,16 @@ def release_repository(tmp_path):
     git(repository, environment, "commit", "-m", "Synthetic release commit")
     git(repository, environment, "update-ref", "refs/remotes/origin/main", "HEAD")
     git(repository, environment, "tag", "0.1.3")
+    environment["CI_RUNS"] = json.dumps(
+        [
+            {
+                "event": "push",
+                "head_branch": "main",
+                "head_sha": git(repository, environment, "rev-parse", "HEAD").stdout.strip(),
+                "conclusion": "success",
+            }
+        ]
+    )
     return repository, environment
 
 
@@ -67,6 +76,7 @@ def run_release_guard(repository, environment):
     # Load the workflow helper in a fresh process; real Git, mocked GitHub, no publication.
     script = """
 import importlib.util
+import json
 import os
 import sys
 from pathlib import Path
@@ -79,7 +89,16 @@ def run(arguments, **options):
         with Path(os.environ["GH_CALLS"]).open("a", encoding="utf-8") as output:
             output.write(" ".join(arguments) + "\\n")
         if arguments[1:3] == ("run", "list"):
-            return helper.subprocess.CompletedProcess(arguments, 0, os.environ["CI_CONCLUSION"])
+            if os.environ.get("CI_API_ERROR"):
+                raise helper.subprocess.CalledProcessError(1, arguments)
+            runs = json.loads(os.environ["CI_RUNS"])
+            filters = {"--commit": "head_sha", "--branch": "head_branch", "--event": "event"}
+            for option, field in filters.items():
+                if option in arguments:
+                    value = arguments[arguments.index(option) + 1]
+                    runs = [run for run in runs if run[field] == value]
+            conclusion = runs[0]["conclusion"] if runs else ""
+            return helper.subprocess.CompletedProcess(arguments, 0, conclusion)
         if arguments[1] == "api":
             return helper.subprocess.CompletedProcess(arguments, 0, "[[]]")
         raise AssertionError("GitHub publication must never run in this test")
@@ -234,11 +253,15 @@ def test_tag_script_reports_failed_push_and_preserves_local_tag(tag_repository):
     assert git(repository, environment, "tag", "--list").stdout.splitlines() == ["0.1.3", "0.1.4"]
 
 
+@pytest.mark.parametrize("ci_event", ["push", "workflow_dispatch"])
 @pytest.mark.parametrize("annotated", [False, True])
 def test_tag_guard_accepts_tested_main_with_lightweight_or_annotated_tags(
-    release_repository, annotated
+    release_repository, annotated, ci_event
 ):
     repository, environment = release_repository
+    runs = json.loads(environment["CI_RUNS"])
+    runs[0]["event"] = ci_event
+    environment["CI_RUNS"] = json.dumps(runs)
     if annotated:
         git(repository, environment, "tag", "-d", "0.1.3")
         git(repository, environment, "tag", "-a", "0.1.3", "-m", "Synthetic annotated release")
@@ -247,7 +270,9 @@ def test_tag_guard_accepts_tested_main_with_lightweight_or_annotated_tags(
     assert Path(environment["GITHUB_OUTPUT"]).read_text(encoding="utf-8") == (
         "image=ghcr.io/example/growbook\nversion=0.1.3\n"
     )
-    assert "--branch main --event push" in Path(environment["GH_CALLS"]).read_text(encoding="utf-8")
+    assert f"--branch main --event {ci_event}" in Path(environment["GH_CALLS"]).read_text(
+        encoding="utf-8"
+    )
 
 
 def test_manual_stable_release_still_passes_the_guard(release_repository):
@@ -257,13 +282,76 @@ def test_manual_stable_release_still_passes_the_guard(release_repository):
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.parametrize("conclusion", ["", "failure", "cancelled"])
-def test_tag_guard_requires_successful_main_push_ci(release_repository, conclusion):
+@pytest.mark.parametrize("ci_event", ["push", "workflow_dispatch"])
+@pytest.mark.parametrize("conclusion", ["", "failure", "cancelled", "skipped"])
+def test_tag_guard_requires_successful_main_ci(release_repository, conclusion, ci_event):
     repository, environment = release_repository
-    environment["CI_CONCLUSION"] = conclusion
+    runs = json.loads(environment["CI_RUNS"])
+    runs[0].update(event=ci_event, conclusion=conclusion)
+    environment["CI_RUNS"] = json.dumps(runs)
     result = run_release_guard(repository, environment)
     assert result.returncode != 0
-    assert "successful CI push run on main" in result.stderr
+    assert "successful push or manually dispatched CI run on main" in result.stderr
+    assert not Path(environment["GITHUB_OUTPUT"]).exists()
+
+
+def test_tag_guard_rejects_missing_ci(release_repository):
+    repository, environment = release_repository
+    environment["CI_RUNS"] = "[]"
+    result = run_release_guard(repository, environment)
+    assert result.returncode != 0
+    assert "Run CI on main for this exact commit" in result.stderr
+    assert not Path(environment["GITHUB_OUTPUT"]).exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("head_branch", "synthetic-feature"),
+        ("head_sha", "0" * 40),
+        ("event", "pull_request"),
+        ("event", "schedule"),
+    ],
+)
+def test_tag_guard_rejects_ci_for_another_source_or_event(release_repository, field, value):
+    repository, environment = release_repository
+    runs = json.loads(environment["CI_RUNS"])
+    runs[0]["event"] = "workflow_dispatch"
+    runs[0][field] = value
+    environment["CI_RUNS"] = json.dumps(runs)
+    result = run_release_guard(repository, environment)
+    assert result.returncode != 0
+    assert "successful push or manually dispatched CI run on main" in result.stderr
+    assert not Path(environment["GITHUB_OUTPUT"]).exists()
+
+
+def test_manual_ci_can_qualify_after_failed_push_ci(release_repository):
+    repository, environment = release_repository
+    runs = json.loads(environment["CI_RUNS"])
+    manual_run = {**runs[0], "event": "workflow_dispatch"}
+    runs[0]["conclusion"] = "failure"
+    environment["CI_RUNS"] = json.dumps([manual_run, *runs])
+    result = run_release_guard(repository, environment)
+    assert result.returncode == 0, result.stderr
+
+
+def test_tag_guard_does_not_fall_back_to_an_older_successful_manual_run(release_repository):
+    repository, environment = release_repository
+    runs = json.loads(environment["CI_RUNS"])
+    runs[0]["event"] = "workflow_dispatch"
+    failed_run = {**runs[0], "conclusion": "failure"}
+    environment["CI_RUNS"] = json.dumps([failed_run, *runs])
+    result = run_release_guard(repository, environment)
+    assert result.returncode != 0
+    assert not Path(environment["GITHUB_OUTPUT"]).exists()
+
+
+def test_tag_guard_fails_closed_when_ci_lookup_fails(release_repository):
+    repository, environment = release_repository
+    environment["CI_API_ERROR"] = "true"
+    result = run_release_guard(repository, environment)
+    assert result.returncode != 0
+    assert "CalledProcessError" in result.stderr
     assert not Path(environment["GITHUB_OUTPUT"]).exists()
 
 
