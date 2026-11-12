@@ -1,11 +1,11 @@
 {% load i18n %}
 <div class="field" data-field-name="{{ field.name }}">
-  <label for="{{ field.id_for_label }}">{{ field.label }} <span class="field-requirement">{% if field.name == 'crop' or field.name == 'start_year' %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></label>
+  <label for="{{ field.id_for_label }}">{{ field.label }} <span class="field-requirement">{% if field.name == 'crop' or field.name == 'start_year' or field.name == 'variety' and field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></label>
   {{ field }}<div class="field-errors" id="{{ field.auto_id }}_errors" data-register-field-errors="{{ field.name }}">{{ field.errors }}</div>
   {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="field-help">{{ field.help_text }}</p>{% endif %}
   {% if field.name == 'crop' %}<noscript><button type="submit" class="btn btn-outline" name="choose_crop" value="1" formnovalidate>{% translate 'Update variety choices' %}</button></noscript>{% endif %}
   {% if field.name == 'variety' %}
-  <p id="variety-status" class="field-help" role="status" aria-live="polite" data-choices-ready="{% translate 'Variety choices updated.' %}" data-choices-error="{% translate 'Variety choices could not be loaded. Retry or select another crop.' %}">{% translate 'Choose a crop first. Variety may be left unknown.' %}</p>
+  <p id="variety-status" class="field-help" role="status" aria-live="polite" data-choices-ready="{% translate 'Variety choices updated.' %}" data-choices-error="{% translate 'Variety choices could not be loaded. Retry or select another crop.' %}">{% if field.field.required %}{% translate 'Choose a variety to add to this batch.' %}{% else %}{% translate 'Choose a crop first. Variety may be left unknown.' %}{% endif %}</p>
   <button type="button" class="btn btn-outline" data-variety-retry hidden>{% translate 'Retry variety choices' %}</button>
   {% endif %}
   {% if field.name == 'end_year' %}<p class="field-errors" data-annual-end-help hidden>{% translate 'Clear the end year for an annual planting, or choose Persistent.' %}</p>{% endif %}

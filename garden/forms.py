@@ -32,7 +32,7 @@ class RecordIDChoiceField(forms.ModelChoiceField):
         return clean_record_id(value, required=self.required)
 
     def preserve_selection(self, value):
-        """Keep an unavailable ID in a failed draft without granting it eligibility."""
+        """Keep an unavailable ID in a draft without granting it eligibility."""
         try:
             selected = clean_record_id(value)
         except forms.ValidationError:
@@ -293,6 +293,9 @@ class PlantingForm(forms.Form):
         self.fields["area"].queryset = GrowingArea.objects.filter(
             Q(is_archived=False, children__isnull=True) | Q(pk=record.area_id if record else None)
         ).distinct()
+        if not self.is_bound:
+            # An unavailable inherited area must not silently become an unassigned choice.
+            self.fields["area"].preserve_selection(self.initial.get("area"))
         if self.is_bound:
             # Keep submitted selections in a failed ordinary-page draft, even when
             # choices are archived/deleted during a save. These IDs gain no eligibility:

@@ -309,6 +309,56 @@ def test_leaf_area_choices_preserve_existing_parent_assignments(user, feedback_c
     assert PlantingForm(record=existing).fields["area"].queryset.filter(pk=area.pk).exists()
 
 
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize("unavailable", ["parent", "archived_child", "archived"])
+@pytest.mark.parametrize("replacement", ["leaf", "unassigned"])
+def test_batch_form_keeps_unavailable_inherited_area_until_explicitly_changed(
+    client, user, feedback_catalog, hx, unavailable, replacement
+):
+    crop, first, second, area = feedback_catalog
+    original = create_planting(
+        actor=user, crop=crop, variety=first, area=area, start_year=2027
+    ).record
+    leaf = create_area(actor=user, name="Alternative bed").record
+    if unavailable == "archived":
+        archive_area(actor=user, pk=area.pk)
+    else:
+        child = create_area(actor=user, name="Child", parent=area).record
+        if unavailable == "archived_child":
+            archive_area(actor=user, pk=child.pk)
+    client.force_login(user)
+    path = reverse("garden:planting-create")
+    destination = original.get_absolute_url()
+    page = client.get(path, {"batch_planting": original.pk, "next": destination})
+    form = page.context["form"]
+    assert not form.fields["area"].queryset.filter(pk=area.pk).exists()
+    assert f'<option value="{area.pk}" selected>' in str(form["area"])
+    data = {
+        "crop": crop.pk,
+        "variety": second.pk,
+        "area": area.pk,
+        "start_year": 2027,
+        "lifespan": "annual",
+        "batch_planting": original.pk,
+        "submission_key": uuid4(),
+        "next": destination,
+    }
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    rejected = client.post(path, data, **headers)
+    assert rejected.status_code == 422
+    assert 'data-field-errors="area"' in rejected.text
+    assert Planting.objects.count() == 1
+    if not hx:
+        assert f'<option value="{area.pk}" selected>' in str(rejected.context["form"]["area"])
+        assert rejected.context["form"]["submission_key"].value() == str(data["submission_key"])
+    data["area"] = leaf.pk if replacement == "leaf" else ""
+    saved = client.post(path, data, **headers)
+    assert saved["HX-Redirect" if hx else "Location"] == destination
+    added = Planting.objects.exclude(pk=original.pk).get()
+    assert added.batch_key == original.batch_key
+    assert added.area_id == (leaf.pk if replacement == "leaf" else None)
+
+
 @pytest.mark.parametrize("archived_child", [False, True])
 def test_parent_area_writes_preserve_existing_assignments_and_receipts(
     user, feedback_catalog, archived_child

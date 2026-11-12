@@ -1311,5 +1311,8 @@ msgstr "Välj en sort att lägga till i den här odlingsomgången."
 msgid "Choose a variety"
 msgstr "Välj en sort"
 
+msgid "Crop, start year and variety are required."
+msgstr "Gröda, startår och sort är obligatoriska."
+
 msgid "Defaults to crop-variety. You can change it."
 msgstr "Fylls automatiskt med gröda-sort. Du kan ändra namnet."

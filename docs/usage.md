@@ -229,7 +229,9 @@ crop, variety and area histories and work without JavaScript.
   zero is a known zero.
 - **Add variety to batch** on a planting's details starts another member of that batch,
   preselecting its crop, year, area and lifespan. Choose an unused variety of the same
-  crop. Each member keeps its own label, quantity, events, evaluation, photos and diary
+  crop. If the inherited area is no longer eligible, it stays selected as unavailable;
+  choose an eligible area or explicitly leave it unassigned before saving.
+  Each member keeps its own label, quantity, events, evaluation, photos and diary
   links; shared batches expand to show their matching members in overviews. Filters
   show only matching members. Editing or deleting one member affects that member.
 - New area selections offer active areas without children. Parents with archived

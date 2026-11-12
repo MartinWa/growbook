@@ -8,6 +8,7 @@ from playwright.sync_api import expect, sync_playwright
 
 from garden.models import Planting, Variety
 from garden.services import (
+    archive_area,
     create_area,
     create_category,
     create_crop,
@@ -25,6 +26,13 @@ COPY = {
         "cancel": "Cancel",
         "choices": "Update variety choices",
         "variety": "New variety",
+        "optional_variety": "Variety (optional)",
+        "required_variety": "Variety (required)",
+        "new_required": "Only crop and start year are required.",
+        "variety_hint": "Choose a crop first. Variety may be left unknown.",
+        "add_variety": "Add variety to batch",
+        "batch_required": "Crop, start year and variety are required.",
+        "batch_hint": "Choose a variety to add to this batch.",
     },
     "sv": {
         "login": "Logga in",
@@ -33,6 +41,13 @@ COPY = {
         "cancel": "Avbryt",
         "choices": "Uppdatera sortval",
         "variety": "Ny sort",
+        "optional_variety": "Sort (valfritt)",
+        "required_variety": "Sort (obligatoriskt)",
+        "new_required": "Bara gröda och startår behöver anges.",
+        "variety_hint": "Välj en gröda först. Sorten kan lämnas okänd.",
+        "add_variety": "Lägg till sort i odlingsomgången",
+        "batch_required": "Gröda, startår och sort är obligatoriska.",
+        "batch_hint": "Välj en sort att lägga till i den här odlingsomgången.",
     },
 }
 
@@ -98,6 +113,10 @@ def test_area_creation_cancel_validation_labels_and_year_navigation(
         page.get_by_role("link", name=COPY[language]["new"], exact=True).click()
         expect(page.locator("#id_area")).to_have_value(str(area.pk))
         expect(page.locator(f'#id_area option[value="{parent.pk}"]')).to_have_count(0)
+        variety_field = page.get_by_label(COPY[language]["optional_variety"], exact=True)
+        expect(variety_field).to_have_js_property("required", False)
+        expect(page.locator(".planting-required-help")).to_have_text(COPY[language]["new_required"])
+        expect(page.locator("#variety-status")).to_have_text(COPY[language]["variety_hint"])
         page.get_by_role("link", name=COPY[language]["cancel"], exact=True).click()
         expect(page).to_have_url(live_server.url + destination)
         page.get_by_role("link", name=COPY[language]["new"], exact=True).click()
@@ -133,6 +152,58 @@ def test_area_creation_cancel_validation_labels_and_year_navigation(
     saved = Planting.objects.exclude(pk__in=[past.pk, future.pk]).get()
     assert saved.area_id == area.pk and saved.quantity == 0
     assert saved.label == ("Custom trial" if javascript else "Tomato-Golden")
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+@pytest.mark.parametrize("language", ["en", "sv"])
+@pytest.mark.parametrize("unavailable", ["parent", "archived"])
+def test_batch_addition_requires_explicit_area_correction_and_explains_required_variety(
+    live_server, user, browser_endpoint, javascript, language, unavailable
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    first = create_variety(actor=user, crop=crop, name="Golden").record
+    second = create_variety(actor=user, crop=crop, name="Red").record
+    area = create_area(actor=user, name="Original bed").record
+    original = create_planting(
+        actor=user, crop=crop, variety=first, area=area, start_year=2027
+    ).record
+    if unavailable == "parent":
+        replacement = create_area(actor=user, name="Child bed", parent=area).record
+    else:
+        archive_area(actor=user, pk=area.pk)
+        replacement = create_area(actor=user, name="Alternative bed").record
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        page = context.new_page()
+        page.set_default_timeout(10000)
+        login(page, live_server, user, language)
+        page.goto(live_server.url + original.get_absolute_url())
+        page.get_by_role("link", name=COPY[language]["add_variety"], exact=True).click()
+        expect(page.locator("#id_area")).to_have_value(str(area.pk))
+        variety_field = page.get_by_label(COPY[language]["required_variety"], exact=True)
+        expect(variety_field).to_have_js_property("required", True)
+        expect(page.locator(".planting-required-help")).to_have_text(
+            COPY[language]["batch_required"]
+        )
+        expect(page.locator("#variety-status")).to_have_text(COPY[language]["batch_hint"])
+        if not javascript:
+            page.get_by_role("button", name=COPY[language]["choices"], exact=True).click()
+            expect(page.locator("#id_area")).to_have_value(str(area.pk))
+            expect(variety_field).to_be_visible()
+        page.locator("#id_variety").select_option(str(second.pk))
+        key = page.locator("#id_submission_key").input_value()
+        page.get_by_role("button", name=COPY[language]["save"], exact=True).click()
+        expect(page.locator('#register-errors [data-field-errors="area"]')).not_to_be_empty()
+        expect(page.locator("#id_area")).to_have_value(str(area.pk))
+        expect(page.locator("#id_submission_key")).to_have_value(key)
+        page.locator("#id_area").select_option(str(replacement.pk))
+        page.get_by_role("button", name=COPY[language]["save"], exact=True).click()
+        expect(page).to_have_url(live_server.url + original.get_absolute_url())
+    added = Planting.objects.exclude(pk=original.pk).get()
+    assert added.area_id == replacement.pk and added.batch_key == original.batch_key
 
 
 @pytest.mark.parametrize("javascript", [False, True])
