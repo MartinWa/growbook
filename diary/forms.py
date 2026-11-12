@@ -93,8 +93,10 @@ class TaggedForm(forms.Form):
                     if record.lifespan == Planting.Lifespan.PERSISTENT:
                         span += f"–{record.end_year or _('Ongoing')}"
                     place = paths.get(record.area_id, str(_("Unassigned area")))
-                    batch = record.label or _("Batch %(number)s") % {"number": record.pk}
-                    context = " · ".join([place, span, batch])
+                    planting_label = record.label or _("Planting %(number)s") % {
+                        "number": record.pk
+                    }
+                    context = " · ".join([place, span, planting_label])
                     in_year = record.start_year == year or (
                         record.lifespan == Planting.Lifespan.PERSISTENT
                         and record.start_year <= year
@@ -298,7 +300,7 @@ class PlantingFilterField(forms.ModelChoiceField):
         if obj.area_id:
             parts.append(self.paths.get(obj.area_id, obj.area.name))
         parts.append(str(obj.start_year))
-        parts.append(obj.label or _("Batch %(number)s") % {"number": obj.pk})
+        parts.append(obj.label or _("Planting %(number)s") % {"number": obj.pk})
         return " · ".join(parts)
 
 

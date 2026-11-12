@@ -617,11 +617,11 @@ msgstr ""
 "Ytfilter omfattar även underytor och visar den tilldelade platsen. "
 "Arkiverade poster finns kvar i historiken."
 
-msgid "Batch %(number)s"
-msgstr "Odlingsomgång %(number)s"
+msgid "Planting %(number)s"
+msgstr "Odling %(number)s"
 
-msgid "Batch label"
-msgstr "Omgångsnamn"
+msgid "Planting label"
+msgstr "Odlingsnamn"
 
 msgid "Choose a crop first. Variety may be left unknown."
 msgstr "Välj en gröda först. Sorten kan lämnas okänd."
@@ -1283,3 +1283,42 @@ msgstr "Koppla befintliga grödor eller skapa en gröda i den här kategorin."
 
 msgid "Deletion removes this category, its image and its crop links. Crops, varieties, plantings and diary records are kept."
 msgstr "Borttagning tar bort kategorin, dess bild och kopplingar till grödor. Grödor, sorter, odlingar och dagboksanteckningar behålls."
+
+msgid "Planting batch"
+msgstr "Odlingsomgång"
+
+msgid "Planting batches"
+msgstr "Odlingsomgångar"
+
+msgid "Varieties in this batch"
+msgstr "Sorter i den här odlingsomgången"
+
+msgid "Add variety to batch"
+msgstr "Lägg till sort i odlingsomgången"
+
+msgid "Add a variety to this %(crop)s batch. Quantity, events, evaluation and photos are tracked separately."
+msgstr "Lägg till en sort i den här odlingsomgången med %(crop)s. Antal, händelser, utvärdering och bilder följs upp separat."
+
+msgid "All varieties in a batch must belong to the same crop."
+msgstr "Alla sorter i en odlingsomgång måste tillhöra samma gröda."
+
+msgid "This variety is already in the batch."
+msgstr "Den här sorten finns redan i odlingsomgången."
+
+msgid "Choose an area without child areas for a new association."
+msgstr "Välj en odlingsyta utan underordnade ytor för en ny koppling."
+
+msgid "Choose a variety to add to this batch."
+msgstr "Välj en sort att lägga till i den här odlingsomgången."
+
+msgid "Keep a variety for a planting in a shared batch."
+msgstr "Behåll en sort för en odling i en gemensam odlingsomgång."
+
+msgid "Choose a variety"
+msgstr "Välj en sort"
+
+msgid "Crop, start year and variety are required."
+msgstr "Gröda, startår och sort är obligatoriska."
+
+msgid "Defaults to crop-variety. You can change it."
+msgstr "Fylls automatiskt med gröda-sort. Du kan ändra namnet."

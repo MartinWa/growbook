@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -180,6 +182,7 @@ class Planting(ValidatedModel):
         ANNUAL = "annual", _("Annual")
         PERSISTENT = "persistent", _("Persistent")
 
+    batch_key = models.UUIDField(default=uuid4, db_index=True, editable=False)
     start_year = models.PositiveIntegerField(
         _("Start year"), db_index=True, validators=[MinValueValidator(1), MaxValueValidator(9999)]
     )
@@ -211,7 +214,7 @@ class Planting(ValidatedModel):
         blank=True,
         verbose_name=_("Growing area"),
     )
-    label = models.CharField(_("Batch label"), max_length=150, blank=True)
+    label = models.CharField(_("Planting label"), max_length=251, blank=True)
     quantity = models.PositiveIntegerField(_("Quantity"), null=True, blank=True)
     notes = models.TextField(_("Notes"), blank=True)
     evaluation = models.TextField(_("Evaluation"), blank=True)
@@ -223,6 +226,16 @@ class Planting(ValidatedModel):
         verbose_name = _("Planting")
         verbose_name_plural = _("Plantings")
         constraints = [
+            models.UniqueConstraint(
+                fields=["batch_key", "variety"],
+                condition=Q(variety__isnull=False),
+                name="planting_batch_variety_unique",
+            ),
+            models.UniqueConstraint(
+                fields=["batch_key"],
+                condition=Q(variety__isnull=True),
+                name="planting_batch_unknown_unique",
+            ),
             models.CheckConstraint(
                 condition=Q(start_year__gte=1, start_year__lte=9999),
                 name="planting_start_year_range",

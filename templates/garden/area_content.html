@@ -38,15 +38,19 @@
   </section>
   <section class="area-section" aria-labelledby="area-plantings-{{ record.pk }}">
     <div class="page-heading">
-      <h2 id="area-plantings-{{ record.pk }}">{% translate 'Plantings' %} ({{ plantings|length }})</h2>
-      <a class="btn btn-outline" href="{{ planting_url }}">{% translate 'Plantings' %} {{ planting_year }} ({{ planting_count }}) <span aria-hidden="true">→</span></a>
+      <h2 id="area-plantings-{{ record.pk }}">{% translate 'Planting batches' %} ({{ planting_groups|length }})</h2>
+      {% if can_create_planting %}<a class="btn btn-primary" href="{{ planting_create_url }}">{% translate 'New planting' %}</a>{% endif %}
     </div>
+    <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
+      <a class="btn btn-outline" href="{{ planting_all_years_url }}">{% translate 'All years' %}</a>
+      <a class="btn btn-outline" href="{{ planting_url }}">{% translate 'Plantings' %} {{ planting_year }} ({{ planting_count }}) <span aria-hidden="true">→</span></a>
+      {% if planting_previous_url %}<a href="{{ planting_previous_url }}">← {% translate 'Previous year' %}</a>{% endif %}
+      {% if planting_next_url %}<a href="{{ planting_next_url }}">{% translate 'Next year' %} →</a>{% endif %}
+    </nav>
     <ul class="record-list area-plantings">
-      {% for planting in plantings %}
-      <li>
-        <a class="record-name" href="{{ planting.get_absolute_url }}">{{ planting.display_label }}</a>
-        <span class="field-help">{{ planting.crop.name }}{% if planting.variety %} · {{ planting.variety.name }}{% endif %} · {{ planting.start_year }}{% if planting.end_year %}–{{ planting.end_year }}{% elif planting.lifespan == 'persistent' %}–{% endif %} · {{ planting.area_path }}</span>
-      </li>
+      {% for group in planting_groups %}
+        {% if group.records|length > 1 %}<li><details class="planting-batch" id="area-batch-{{ group.key }}"><summary>{% include 'garden/planting_batch_summary.html' %}</summary><ul class="record-list">{% for planting in group.records %}{% include 'garden/area_planting_row.html' %}{% endfor %}</ul></details></li>
+        {% else %}{% for planting in group.records %}{% include 'garden/area_planting_row.html' %}{% endfor %}{% endif %}
       {% empty %}<li>{% translate 'No plantings for this growing area yet.' %}</li>{% endfor %}
     </ul>
   </section>

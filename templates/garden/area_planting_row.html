@@ -1,0 +1,5 @@
+{% load i18n %}
+<li>
+  <a class="record-name" href="{{ planting.get_absolute_url }}">{% with photo=planting.photos.all.0 %}{% if photo %}<img class="variety-thumbnail" src="{{ photo.thumbnail_url }}" width="64" height="64" loading="lazy" alt="">{% endif %}{% endwith %}<span>{{ planting.display_label }}</span></a>
+  <span class="field-help">{{ planting.crop.name }}{% if planting.variety %} · {{ planting.variety.name }}{% endif %} · {{ planting.start_year }}{% if planting.end_year %}–{{ planting.end_year }}{% elif planting.lifespan == 'persistent' %}–{% endif %} · {{ planting.area_path }}</span>
+</li>

@@ -1,11 +1,10 @@
 {% load i18n %}
 <ul class="record-list planting-list">
-  {% for record in records %}
-  <li class="register-row-group">
-    {% include 'garden/row_toggle.html' with kind='planting' %}
-    <div id="details-planting-{{ record.pk }}" class="register-expanded record-info" hidden>
-      <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.display_label }}" aria-live="polite"></div>
-    </div>
-  </li>
+  {% for group in groups %}
+    {% if group.records|length > 1 %}
+    <li><details class="planting-batch" id="batch-{{ group.records.0.pk }}"><summary>{% include 'garden/planting_batch_summary.html' %}</summary>
+      <ul class="record-list">{% for record in group.records %}{% include 'garden/planting_row.html' %}{% endfor %}</ul>
+    </details></li>
+    {% else %}{% for record in group.records %}{% include 'garden/planting_row.html' %}{% endfor %}{% endif %}
   {% endfor %}
 </ul>

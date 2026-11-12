@@ -87,7 +87,9 @@ def test_variety_archive_clear_and_empty_results_keep_filter_choices(client, use
     clear = response.context["empty_action_url"]
     assert clear == path + "?archived=1"
     assert len(client.get(clear).context["records"]) == 3
-    assert f'href="{reverse("garden:variety-create")}"' in response.text
+    create_link = urlsplit(response.context["create_url"])
+    assert create_link.path == reverse("garden:variety-create")
+    assert parse_qs(create_link.query) == {"next": [path + "?q=Missing&archived=1"]}
     client.cookies["django_language"] = "en"
     assert "No crops or varieties match this search" in client.get(path, {"q": "Missing"}).text
 
@@ -197,23 +199,26 @@ def batches(user):
     crop = create_crop(actor=user, name="Pea").record
     variety = create_variety(actor=user, crop=crop, name="Green").record
     root = create_area(actor=user, name="Root").record
-    child = create_area(actor=user, name="Bed", parent=root).record
-    grandchild = create_area(actor=user, name="Bed", parent=child).record
     unused = create_area(actor=user, name="Unused").record
+    areas = {"root": root}
     records = []
     for label, area, selected, quantity in (
-        ("Parent batch", root, variety, None),
-        ("Child zero", child, variety, 0),
-        ("Child batch", child, variety, 7),
-        ("Unknown batch", grandchild, None, None),
+        ("Parent batch", "root", variety, None),
+        ("Child zero", "child", variety, 0),
+        ("Child batch", "child", variety, 7),
+        ("Unknown batch", "grandchild", None, None),
         ("Unassigned", None, None, None),
     ):
+        if area == "child" and area not in areas:
+            areas[area] = create_area(actor=user, name="Bed", parent=root).record
+        elif area == "grandchild":
+            areas[area] = create_area(actor=user, name="Bed", parent=areas["child"]).record
         records.append(
             create_planting(
                 actor=user,
                 crop=crop,
                 variety=selected,
-                area=area,
+                area=areas.get(area),
                 start_year=2024,
                 end_year=2026,
                 lifespan="persistent",
@@ -223,7 +228,7 @@ def batches(user):
         )
     archive_area(actor=user, pk=root.pk)
     archive_variety(actor=user, pk=variety.pk)
-    return crop, variety, root, child, grandchild, unused, records
+    return crop, variety, root, areas["child"], areas["grandchild"], unused, records
 
 
 @pytest.mark.parametrize("scope", ["planting", "crop", "variety", "area"])
@@ -333,12 +338,13 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
             delete_area(actor=user, pk=old_area.pk, expected_updated_at=old_area.updated_at)
         return records
 
-    monkeypatch.setattr(queries, "planting_history", remove_area_between_reads)
     client.force_login(user)
     scope = {"crop-history": crop.pk, "variety-history": variety.pk, "area-history": root.pk}.get(
         route
     )
     path = reverse(f"garden:{route}", args=[scope] if scope else [])
+    # Import the routes before patching so other views retain their real query helper.
+    monkeypatch.setattr(queries, "planting_history", remove_area_between_reads)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
     response = client.get(path, {"year": 2026}, **headers)
 
@@ -394,14 +400,14 @@ def test_area_information_links_to_current_year_and_direct_plantings(
     area = create_area(
         actor=user, name="Selected bed", parent=parent, area_type="Raised bed"
     ).record
-    child = create_area(actor=user, name="Child section", parent=area).record
     other = create_area(actor=user, name="Other bed").record
     current = create_planting(actor=user, crop=crop, area=area, start_year=year, quantity=0).record
+    for place, start in ((area, year - 1), (area, year + 1), (other, year)):
+        create_planting(actor=user, crop=crop, area=place, start_year=start)
+    child = create_area(actor=user, name="Child section", parent=area).record
     persistent = create_planting(
         actor=user, crop=crop, area=child, start_year=year - 1, lifespan="persistent", end_year=year
     ).record
-    for place, start in ((area, year - 1), (area, year + 1), (other, year)):
-        create_planting(actor=user, crop=crop, area=place, start_year=start)
     client.force_login(user)
     response = client.get(area.get_absolute_url(), HTTP_HX_REQUEST="true" if partial else "false")
     assert response.status_code == 200

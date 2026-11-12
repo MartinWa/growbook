@@ -156,6 +156,11 @@ varieties and discards its values. It does not create crop categories or modify
 other variety fields and relationships. Retain the verified pre-upgrade backup if
 those old values might be needed later.
 
+The planting-batch migration preserves existing planting IDs, associations and labels.
+Each existing planting starts as its own batch, even when names match. Add further
+varieties through the planting's details after upgrading; records are not merged
+automatically.
+
 ```sh
 docker compose build growbook
 docker compose stop growbook

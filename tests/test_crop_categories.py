@@ -5,6 +5,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
+from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 import pytest
@@ -60,7 +61,10 @@ def test_overview_uncategorized_and_scoped_search_preserve_registers(client, use
     assert [group["crop"] for group in scoped.context["variety_groups"]] == [crop]
     assert scoped.context["records"] == [variety]
     assert "crop-maintenance" in scoped.text
-    assert "?category=" + str(first.pk) in scoped.text
+    assert parse_qs(urlsplit(scoped.context["crop_create_url"]).query) == {
+        "category": [str(first.pk)],
+        "next": [first.get_absolute_url()],
+    }
     assert not client.get(first.get_absolute_url(), {"q": "Bean"}).context["has_records"]
     assert client.get(first.get_absolute_url(), {"q": "gold"}).context["records"] == [variety]
     unlinked = client.get(reverse("garden:uncategorized"))
@@ -109,7 +113,12 @@ def test_empty_uncategorized_offers_new_crop_when_all_crops_are_linked(
         response = client.get(reverse("garden:uncategorized"), filters, headers=headers)
         assert response.status_code == 200
         assert not response.context["has_records"]
-        assert response.context["empty_action_url"] == reverse("garden:crop-create")
+        destination = reverse("garden:uncategorized") + (
+            "?" + urlencode(filters) if filters else ""
+        )
+        action = urlsplit(response.context["empty_action_url"])
+        assert action.path == reverse("garden:crop-create")
+        assert parse_qs(action.query) == {"next": [destination]}
         assert response.context["empty_action_label"] == gettext("New crop")
 
 
@@ -537,3 +546,27 @@ assert category.crops.filter(pk=crop.pk).exists()
         timeout=30,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_category_variety_creation_retains_scope_and_filters(client, user, planting_catalog):
+    crop, _, _, _ = planting_catalog
+    category = create_category(actor=user, name="Vegetables", crops=[crop]).record
+    unrelated = create_crop(actor=user, name="Rose").record
+    destination = category.get_absolute_url() + "?q=tom&archived=1"
+    client.force_login(user)
+    page = client.get(destination)
+    target = page.context["create_url"]
+    form = client.get(target)
+    assert form.context["cancel_url"] == destination
+    assert not form.context["form"].fields["crop"].queryset.filter(pk=unrelated.pk).exists()
+    response = client.post(
+        reverse("garden:variety-create"),
+        {
+            "crop": crop.pk,
+            "name": "New variety",
+            "submission_key": uuid4(),
+            "next": destination,
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert response["HX-Redirect"] == destination

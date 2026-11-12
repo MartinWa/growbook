@@ -1,8 +1,9 @@
 {% load i18n %}
-<p class="field-help planting-required-help">{% translate 'Only crop and start year are required.' %}</p>
+<p class="field-help planting-required-help">{% if form.variety.field.required %}{% translate 'Crop, start year and variety are required.' %}{% else %}{% translate 'Only crop and start year are required.' %}{% endif %}</p>
 {% for field in form.hidden_fields %}{{ field }}{% endfor %}
 {% include 'garden/field.html' with field=form.crop %}
 {% include 'garden/field.html' with field=form.start_year %}
+{% include 'garden/field.html' with field=form.label %}
 <details class="form-disclosure" id="planting-more-details"{% if form.details_open %} open{% endif %}>
   <summary>{% translate 'More details' %}</summary>
   <div class="disclosure-fields">{% for field in form.detail_fields %}{% include 'garden/field.html' %}{% endfor %}</div>

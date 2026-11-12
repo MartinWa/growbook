@@ -77,6 +77,10 @@ def test_detail_pages_keep_children_photos_and_deduplicated_planting_diary_assoc
         notes="Synthetic parent notes",
         uploads=[image_upload()],
     ).record
+    crop = create_crop(actor=user, name="Synthetic crop").record
+    direct = create_planting(
+        actor=user, crop=crop, area=root, start_year=2026, label="Parent batch"
+    ).record
     child = create_area(
         actor=user,
         name="Child bed",
@@ -86,16 +90,12 @@ def test_detail_pages_keep_children_photos_and_deduplicated_planting_diary_assoc
         notes="Synthetic bed notes",
         uploads=[image_upload(), image_upload()],
     ).record
-    grandchild = create_area(actor=user, name="Inner section", parent=child).record
-    retired = create_area(actor=user, name="Retired bed", parent=root).record
-    unrelated = create_area(actor=user, name="Other garden").record
-    crop = create_crop(actor=user, name="Synthetic crop").record
-    direct = create_planting(
-        actor=user, crop=crop, area=root, start_year=2026, label="Parent batch"
-    ).record
     linked = create_planting(
         actor=user, crop=crop, area=child, start_year=2026, label="Child batch", quantity=0
     ).record
+    grandchild = create_area(actor=user, name="Inner section", parent=child).record
+    retired = create_area(actor=user, name="Retired bed", parent=root).record
+    unrelated = create_area(actor=user, name="Other garden").record
     deep = create_planting(
         actor=user,
         crop=crop,
@@ -235,3 +235,18 @@ def test_raised_bed_suggestion_and_custom_types_use_existing_retry_safe_forms(
     assert area.notes == payload["notes"]
     assert area.photos.get().pk == photo_id
     assert GrowingArea.objects.count() == 2
+
+
+def test_area_plantings_use_private_thumbnails_and_explicit_year_links(
+    client, user, planting_catalog, image_upload
+):
+    crop, first, _, area = planting_catalog
+    batch = create_planting(
+        actor=user, crop=crop, variety=first, area=area, start_year=2027, uploads=[image_upload()]
+    ).record
+    client.force_login(user)
+    page = client.get(area.get_absolute_url())
+    assert batch.photos.get().thumbnail_url in page.text
+    assert "year=2027" in page.text or "2027" in page.text
+    assert page.context["planting_all_years_url"] in page.text.replace("&amp;", "&")
+    assert page.context["can_create_planting"]

@@ -121,6 +121,14 @@
   const registerResults = document.getElementById("register-results");
   if (registerResults) archiveState(registerResults);
 
+  function updateCreateLinks(url) {
+    for (const link of document.querySelectorAll("[data-register-create-context]")) {
+      const target = new URL(link.href);
+      target.searchParams.set("next", url);
+      link.href = target.pathname + target.search;
+    }
+  }
+
   function rememberList() {
     const results = document.getElementById("register-results");
     if (!results) return;
@@ -159,11 +167,16 @@
   window.addEventListener("pagehide", rememberList);
   window.addEventListener("pageshow", () => {
     const root = document.getElementById("register-results");
-    if (root) restoreList(root, location.pathname + location.search);
+    if (root) {
+      const url = location.pathname + location.search;
+      updateCreateLinks(url);
+      restoreList(root, url);
+    }
   });
   document.addEventListener("growbook:results", event => {
     initializeRows(event.detail.root);
     archiveState(event.detail.root);
+    updateCreateLinks(event.detail.url);
     restoreList(event.detail.root, event.detail.url);
   });
   document.querySelector("[data-register-cancel]")?.addEventListener("click", event => {

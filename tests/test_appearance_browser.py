@@ -279,7 +279,9 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
             expect(search).to_be_visible()
             expect(page.locator(".variety-filter .related-actions")).to_be_hidden()
             if width >= 768:
-                action = page.locator('.register-toolbar a[href="/garden/varieties/new/"]')
+                action = page.locator(".register-toolbar").get_by_role(
+                    "link", name="Ny sort" if language == "sv" else "New variety", exact=True
+                )
                 assert abs(search.bounding_box()["y"] - action.bounding_box()["y"]) < 2
         elif path.startswith("/garden/plantings/"):
             action = page.locator("[data-filter-create]")

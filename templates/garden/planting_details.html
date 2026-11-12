@@ -1,6 +1,13 @@
 {% load i18n %}
 <section class="record-details" aria-labelledby="record-planting-{{ record.pk }}">
   <h2 id="record-planting-{{ record.pk }}">{{ record.display_label }}</h2>
+  <section class="batch-varieties" aria-labelledby="batch-varieties-{{ record.pk }}">
+    <h3 id="batch-varieties-{{ record.pk }}">{% translate 'Varieties in this batch' %}</h3>
+    <ul class="record-list">
+      {% for member in batch_members %}<li>{% if member.pk == record.pk %}<span aria-current="true">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</span>{% else %}<a href="{{ member.get_absolute_url }}">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a>{% endif %} <span class="field-help">{{ member.quantity|default_if_none:'—' }}</span></li>{% endfor %}
+    </ul>
+    {% if can_add_variety %}<a class="btn btn-outline" href="{{ add_variety_url }}">{% translate 'Add variety to batch' %}</a>{% endif %}
+  </section>
   <dl class="record-fields">
     <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
     <dt>{% translate 'Variety' %}</dt><dd>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</dd>

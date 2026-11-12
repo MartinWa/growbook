@@ -24,8 +24,8 @@
   {% endif %}
   <div class="heading-actions">
     {% include 'garden/archive_toggle.html' %}
-    {% if kind == 'variety' %}<a class="btn btn-outline" href="{{ crop_create_url }}">{% translate 'New crop' %}</a>{% endif %}
-    <a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>
+    {% if kind == 'variety' %}<a class="btn btn-outline" data-register-create-context href="{{ crop_create_url }}">{% translate 'New crop' %}</a>{% endif %}
+    <a class="btn btn-primary"{% if kind == 'variety' %} data-register-create-context{% endif %} href="{{ create_url }}">{{ create_label }}</a>
   </div>
   </div>
   {% if kind == 'variety' %}

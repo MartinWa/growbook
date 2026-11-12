@@ -1,11 +1,15 @@
 """Chromium form/history interaction, not target-device or private-routing evidence."""
 
 import re
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from django.utils import timezone
 from playwright.sync_api import expect, sync_playwright
 
+from garden.models import Planting
 from garden.services import (
+    archive_area,
     archive_variety,
     create_area,
     create_crop,
@@ -28,6 +32,16 @@ def catalog(user, image_upload):
     archived = create_variety(actor=user, crop=crop, name="Archived trial").record
     archive_variety(actor=user, pk=archived.pk)
     parent = create_area(actor=user, name="Greenhouse").record
+    second = create_planting(
+        actor=user,
+        crop=crop,
+        area=parent,
+        start_year=2024,
+        lifespan="persistent",
+        label="Persistent batch",
+        notes="Synthetic cumulative note",
+        end_year=2026,
+    ).record
     child = create_area(actor=user, name="Bed", parent=parent).record
     first = create_planting(
         actor=user,
@@ -38,16 +52,6 @@ def catalog(user, image_upload):
         label="First batch",
         notes="Synthetic first note",
         uploads=[image_upload()],
-    ).record
-    second = create_planting(
-        actor=user,
-        crop=crop,
-        area=parent,
-        start_year=2024,
-        lifespan="persistent",
-        label="Persistent batch",
-        notes="Synthetic cumulative note",
-        end_year=2026,
     ).record
     create_planting_event(
         actor=user,
@@ -116,11 +120,11 @@ def save(page):
 def test_minimal_planting_and_optional_error_reveal(page, live_server, user, catalog):
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/new/")
-    expect(page.locator("#id_label")).to_be_hidden()
+    expect(page.locator("#id_label")).to_be_visible()
     expect(page.locator("#id_notes")).to_be_hidden()
     page.locator("#id_crop").select_option(str(catalog["crop"].pk))
     expect(page.locator("#id_variety option")).to_have_count(2)
-    expect(page.locator("#id_label")).to_be_hidden()
+    expect(page.locator("#id_label")).to_have_value("Tomato")
     page.locator("#id_start_year").fill("2027")
     save(page)
     expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
@@ -594,3 +598,377 @@ def test_repeated_event_form_dates_edit_and_confirmed_delete(page, live_server, 
     page.locator("main").get_by_role("button", name="Radera odlingshändelse", exact=True).click()
     expect(page).to_have_url(live_server.url + record.get_absolute_url())
     expect(page.locator(".event-table tbody tr")).to_have_count(1)
+
+
+PLANTING_COPY = {
+    "en": {
+        "login": "Log in",
+        "new": "New planting",
+        "save": "Save",
+        "cancel": "Cancel",
+        "choices": "Update variety choices",
+        "variety": "New variety",
+        "optional_variety": "Variety (optional)",
+        "required_variety": "Variety (required)",
+        "new_required": "Only crop and start year are required.",
+        "variety_hint": "Choose a crop first. Variety may be left unknown.",
+        "add_variety": "Add variety to batch",
+        "batch_required": "Crop, start year and variety are required.",
+        "batch_hint": "Choose a variety to add to this batch.",
+    },
+    "sv": {
+        "login": "Logga in",
+        "new": "Ny odling",
+        "save": "Spara",
+        "cancel": "Avbryt",
+        "choices": "Uppdatera sortval",
+        "variety": "Ny sort",
+        "optional_variety": "Sort (valfritt)",
+        "required_variety": "Sort (obligatoriskt)",
+        "new_required": "Bara gröda och startår behöver anges.",
+        "variety_hint": "Välj en gröda först. Sorten kan lämnas okänd.",
+        "add_variety": "Lägg till sort i odlingsomgången",
+        "batch_required": "Gröda, startår och sort är obligatoriska.",
+        "batch_hint": "Välj en sort att lägga till i den här odlingsomgången.",
+    },
+}
+
+
+def login_in_language(page, live_server, user, language):
+    page.context.add_cookies(
+        [{"name": "django_language", "value": language, "url": live_server.url}]
+    )
+    page.goto(live_server.url + "/accounts/login/")
+    page.locator("#id_username").fill(user.username)
+    page.locator("#id_password").fill("Synthetic-password-42")
+    page.get_by_role("button", name=PLANTING_COPY[language]["login"], exact=True).click()
+    expect(page).to_have_url(live_server.url + "/")
+
+
+def open_planting_details(page, selector="#planting-more-details"):
+    group = page.locator(selector)
+    if group.get_attribute("open") is None:
+        group.locator(":scope > summary").click()
+
+
+@pytest.mark.parametrize(
+    "javascript,language,width",
+    [(True, "en", 1280), (True, "sv", 320), (False, "en", 1280), (False, "sv", 320)],
+)
+def test_area_creation_cancel_validation_labels_and_year_navigation(
+    live_server, user, browser_endpoint, image_upload, javascript, language, width
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    variety = create_variety(actor=user, crop=crop, name="Golden").record
+    parent = create_area(actor=user, name="Garden").record
+    area = create_area(actor=user, name="Bed", parent=parent).record
+    year = timezone.localdate().year
+    past = create_planting(
+        actor=user, crop=crop, area=area, start_year=year - 1, uploads=[image_upload()]
+    ).record
+    future = create_planting(actor=user, crop=crop, area=area, start_year=year + 1).record
+    destination = area.get_absolute_url() + "?archived=1"
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(
+            java_script_enabled=javascript, viewport={"width": width, "height": 1000}
+        ) as context,
+    ):
+        page = context.new_page()
+        page.set_default_timeout(10000)
+        login_in_language(page, live_server, user, language)
+        page.goto(live_server.url + destination)
+        expect(
+            page.locator(f'.area-plantings a[href="{past.get_absolute_url()}"] img')
+        ).to_be_visible()
+        expect(
+            page.locator(f'.area-plantings a[href="{future.get_absolute_url()}"]')
+        ).to_be_visible()
+        years = page.get_by_role(
+            "navigation", name="Growing years" if language == "en" else "Odlingsår"
+        )
+        links = years.locator("a").evaluate_all("links => links.map(link => link.href)")
+        assert {str(year - 1), str(year), str(year + 1)} <= {
+            value for link in links for value in parse_qs(urlsplit(link).query).get("year", [])
+        }
+        page.get_by_role("link", name=PLANTING_COPY[language]["new"], exact=True).click()
+        expect(page.locator("#id_area")).to_have_value(str(area.pk))
+        expect(page.locator(f'#id_area option[value="{parent.pk}"]')).to_have_count(0)
+        variety_field = page.get_by_label(PLANTING_COPY[language]["optional_variety"], exact=True)
+        expect(variety_field).to_have_js_property("required", False)
+        expect(page.locator(".planting-required-help")).to_have_text(
+            PLANTING_COPY[language]["new_required"]
+        )
+        expect(page.locator("#variety-status")).to_have_text(
+            PLANTING_COPY[language]["variety_hint"]
+        )
+        page.get_by_role("link", name=PLANTING_COPY[language]["cancel"], exact=True).click()
+        expect(page).to_have_url(live_server.url + destination)
+        page.get_by_role("link", name=PLANTING_COPY[language]["new"], exact=True).click()
+        page.locator("#id_crop").select_option(str(crop.pk))
+        open_planting_details(page)
+        if javascript:
+            expect(page.locator("#id_label")).to_have_value("Tomato")
+            expect(page.locator("#id_variety option")).to_have_count(2)
+        else:
+            page.get_by_role("button", name=PLANTING_COPY[language]["choices"], exact=True).click()
+        page.locator("#id_variety").select_option(str(variety.pk))
+        if javascript:
+            expect(page.locator("#id_label")).to_have_value("Tomato-Golden")
+            page.locator("#id_label").fill("Custom trial")
+            page.locator("#id_variety").select_option("")
+            page.locator("#id_variety").select_option(str(variety.pk))
+            expect(page.locator("#id_label")).to_have_value("Custom trial")
+        page.locator("#id_start_year").fill(str(year + 1))
+        page.locator("#id_quantity").fill("-1")
+        key = page.locator("#id_submission_key").input_value()
+        page.locator("#register-form").evaluate("form => form.noValidate = true")
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        expect(page.locator('#register-errors [data-field-errors="quantity"]')).not_to_be_empty()
+        expect(page.locator("#id_submission_key")).to_have_value(key)
+        expect(page.locator('#register-form input[name="next"]')).to_have_value(destination)
+        expect(
+            page.get_by_role("link", name=PLANTING_COPY[language]["cancel"], exact=True)
+        ).to_have_attribute("href", destination)
+        page.locator("#id_quantity").fill("0")
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        expect(page).to_have_url(live_server.url + destination)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    saved = Planting.objects.exclude(pk__in=[past.pk, future.pk]).get()
+    assert saved.area_id == area.pk and saved.quantity == 0
+    assert saved.label == ("Custom trial" if javascript else "Tomato-Golden")
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+@pytest.mark.parametrize("language", ["en", "sv"])
+@pytest.mark.parametrize("unavailable", ["parent", "archived"])
+def test_batch_addition_requires_explicit_area_correction_and_explains_required_variety(
+    live_server, user, browser_endpoint, javascript, language, unavailable
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    first = create_variety(actor=user, crop=crop, name="Golden").record
+    second = create_variety(actor=user, crop=crop, name="Red").record
+    area = create_area(actor=user, name="Original bed").record
+    original = create_planting(
+        actor=user, crop=crop, variety=first, area=area, start_year=2027
+    ).record
+    if unavailable == "parent":
+        replacement = create_area(actor=user, name="Child bed", parent=area).record
+    else:
+        archive_area(actor=user, pk=area.pk)
+        replacement = create_area(actor=user, name="Alternative bed").record
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        page = context.new_page()
+        page.set_default_timeout(10000)
+        login_in_language(page, live_server, user, language)
+        page.goto(live_server.url + original.get_absolute_url())
+        page.get_by_role("link", name=PLANTING_COPY[language]["add_variety"], exact=True).click()
+        expect(page.locator("#id_area")).to_have_value(str(area.pk))
+        variety_field = page.get_by_label(PLANTING_COPY[language]["required_variety"], exact=True)
+        expect(variety_field).to_have_js_property("required", True)
+        expect(page.locator(".planting-required-help")).to_have_text(
+            PLANTING_COPY[language]["batch_required"]
+        )
+        expect(page.locator("#variety-status")).to_have_text(PLANTING_COPY[language]["batch_hint"])
+        if not javascript:
+            page.get_by_role("button", name=PLANTING_COPY[language]["choices"], exact=True).click()
+            expect(page.locator("#id_area")).to_have_value(str(area.pk))
+            expect(variety_field).to_be_visible()
+        page.locator("#id_variety").select_option(str(second.pk))
+        key = page.locator("#id_submission_key").input_value()
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        expect(page.locator('#register-errors [data-field-errors="area"]')).not_to_be_empty()
+        expect(page.locator("#id_area")).to_have_value(str(area.pk))
+        expect(page.locator("#id_submission_key")).to_have_value(key)
+        page.locator("#id_area").select_option(str(replacement.pk))
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        expect(page).to_have_url(live_server.url + original.get_absolute_url())
+    added = Planting.objects.exclude(pk=original.pk).get()
+    assert added.area_id == replacement.pk and added.batch_key == original.batch_key
+
+
+@pytest.mark.parametrize("width", [320, 1280])
+@pytest.mark.parametrize("javascript", [False, True])
+def test_add_variety_to_batch_preserves_independent_photos_and_retries(
+    live_server, user, browser_endpoint, image_upload, javascript, width
+):
+    crop = create_crop(actor=user, name="T" * 100 if width == 320 else "Tomato").record
+    first = create_variety(actor=user, crop=crop, name="Golden").record
+    second = create_variety(actor=user, crop=crop, name="Red").record
+    original = create_planting(
+        actor=user,
+        crop=crop,
+        variety=first,
+        start_year=2027,
+        quantity=0,
+        evaluation="First evaluation",
+        uploads=[image_upload()],
+    ).record
+    thumbnail_url = original.photos.get().thumbnail_url
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(
+            java_script_enabled=javascript, viewport={"width": width, "height": 1000}
+        ) as context,
+    ):
+        page = context.new_page()
+        login_in_language(page, live_server, user, "en")
+        page.goto(live_server.url + original.get_absolute_url())
+        page.get_by_role("link", name="Add variety to batch", exact=True).click()
+        page.wait_for_load_state("load")
+        expect(page.locator("#id_variety")).to_be_visible()
+        expect(page.locator("#id_crop")).to_have_value(str(crop.pk))
+        expect(page.locator("#id_start_year")).to_have_value("2027")
+        if javascript:
+            expect(page.locator("#id_label")).to_have_value(crop.name)
+            page.locator("#id_crop").select_option(str(crop.pk))
+            status = page.locator("#variety-status")
+            expect(status).to_have_text(status.get_attribute("data-choices-ready"))
+            expect(page.locator("#id_variety option")).to_have_count(2)
+        else:
+            page.get_by_role("button", name="Update variety choices", exact=True).click()
+        expect(page.locator("#id_variety")).to_have_js_property("required", True)
+        expect(page.locator(f'#id_variety option[value="{first.pk}"]')).to_have_count(0)
+        page.locator("#id_variety").select_option(str(second.pk))
+        page.locator("#id_quantity").fill("12")
+        open_planting_details(page, "#planting-notes-photos")
+        page.locator("#id_evaluation").fill("Second evaluation")
+        page.locator("#id_photos").set_input_files(
+            {"name": "synthetic.jpg", "mimeType": "image/jpeg", "buffer": image_upload().read()}
+        )
+        if javascript:
+
+            def lose_saved_response(route):
+                route.fetch()
+                route.abort()
+
+            page.route("**/garden/plantings/new/", lose_saved_response, times=1)
+            page.get_by_role("button", name="Save", exact=True).click()
+            expect(page.locator("#register-errors")).to_contain_text("The connection failed")
+            assert page.locator("#id_photos").evaluate("input => input.files.length") == 1
+        page.get_by_role("button", name="Save", exact=True).click()
+        expect(page).to_have_url(live_server.url + original.get_absolute_url())
+        expect(page.locator(".batch-varieties")).to_contain_text("Red")
+        expect(page.locator(".record-fields")).to_contain_text("First evaluation")
+        expect(page.locator(".register-photos figure")).to_have_count(1)
+        page.goto(live_server.url + "/garden/plantings/?year=2027")
+        summary = page.locator(".planting-batch > summary")
+        expect(summary).to_have_text(f"Planting batch · {crop.name} (2)")
+        expect(summary.locator("img")).to_have_attribute("src", thumbnail_url)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        summary.focus()
+        summary.press("Enter")
+        row = page.locator(".planting-batch [data-register-toggle]").filter(
+            has_text=f"{crop.name}-Red"
+        )
+        expect(row).to_be_visible()
+        row.click()
+        expect(page.locator(".record-fields")).to_contain_text("Second evaluation")
+        if javascript:
+            page.locator("[data-record-return]").click()
+            expect(row).to_be_focused()
+        else:
+            expect(page.locator(".register-photos figure")).to_have_count(1)
+    added = Planting.objects.exclude(pk=original.pk).get()
+    assert added.batch_key == original.batch_key and added.quantity == 12
+    assert added.photos.count() == original.photos.count() == 1
+    assert added.label == f"{crop.name}-Red"
+
+
+@pytest.mark.parametrize("language", ["en", "sv"])
+@pytest.mark.parametrize("custom", [False, True])
+def test_label_names_and_automatic_state_survive_a_full_failed_form_reload(
+    live_server, user, browser_endpoint, monkeypatch, language, custom
+):
+    from garden.models import Crop, Variety
+
+    crop = create_crop(actor=user, name="Tomato").record
+    golden = create_variety(actor=user, crop=crop, name="Golden (Tomato)").record
+    bean = create_crop(actor=user, name="Bean").record
+    blue = create_variety(actor=user, crop=bean, name="Blue (Bean)").record
+    # Visible option labels may change without changing the stored names used for generation.
+    monkeypatch.setattr(Crop, "__str__", lambda record: "Crop: " + record.name)
+    monkeypatch.setattr(Variety, "__str__", lambda record: "Variety: " + record.name)
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context() as context,
+    ):
+        page = context.new_page()
+        page.set_default_timeout(10000)
+        login_in_language(page, live_server, user, language)
+        page.goto(live_server.url + "/garden/plantings/new/")
+        page.locator("#id_crop").select_option(str(crop.pk))
+        open_planting_details(page)
+        expect(page.locator("#id_variety option")).to_have_count(2)
+        page.locator("#id_variety").select_option(str(golden.pk))
+        expect(page.locator("#id_label")).to_have_value("Tomato-Golden (Tomato)")
+        if custom:
+            page.locator("#id_label").fill("Custom trial")
+        page.locator("#id_quantity").fill("-1")
+        key = page.locator("#id_submission_key").input_value()
+        # Native submission exercises an ordinary 422 page while JavaScript runs on reload.
+        with page.expect_response(lambda response: response.request.method == "POST") as failed:
+            page.locator("#register-form").evaluate("form => form.submit()")
+        assert failed.value.status == 422
+        expect(page.locator('#register-errors [data-field-errors="quantity"]')).not_to_be_empty()
+        page.wait_for_load_state("load")
+        expect(page.locator("#id_generated_label")).to_have_value("Tomato-Golden (Tomato)")
+        expect(page.locator("#id_submission_key")).to_have_value(key)
+        page.locator("#id_crop").select_option(str(bean.pk))
+        expect(page.locator("#id_variety option")).to_have_count(2)
+        page.locator("#id_variety").select_option(str(blue.pk))
+        expect(page.locator("#id_label")).to_have_value(
+            "Custom trial" if custom else "Bean-Blue (Bean)"
+        )
+        page.locator("#id_quantity").fill("0")
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        page.wait_for_url(lambda url: "/plantings/new/" not in url)
+    assert Planting.objects.get().label == ("Custom trial" if custom else "Bean-Blue (Bean)")
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+@pytest.mark.parametrize("language", ["en", "sv"])
+def test_archived_batch_has_no_add_action_and_known_members_keep_required_varieties(
+    live_server, user, browser_endpoint, javascript, language
+):
+    from garden.services import archive_crop
+
+    crop = create_crop(actor=user, name="Tomato").record
+    first = create_variety(actor=user, crop=crop, name="Golden").record
+    second = create_variety(actor=user, crop=crop, name="Red").record
+    original = create_planting(actor=user, crop=crop, variety=first, start_year=2027).record
+    create_planting(actor=user, crop=crop, variety=second, start_year=2027, batch_planting=original)
+    archive_crop(actor=user, pk=crop.pk)
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        page = context.new_page()
+        page.set_default_timeout(10000)
+        login_in_language(page, live_server, user, language)
+        page.goto(live_server.url + original.get_absolute_url())
+        expect(page.get_by_role("link", name=PLANTING_COPY[language]["add_variety"])).to_have_count(
+            0
+        )
+        page.get_by_role(
+            "link", name="Edit planting" if language == "en" else "Redigera odling", exact=True
+        ).click()
+        variety = page.get_by_label(PLANTING_COPY[language]["required_variety"], exact=True)
+        expect(variety).to_have_js_property("required", True)
+        variety.select_option("")
+        page.locator("#register-form").evaluate("form => form.noValidate = true")
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        expect(page.locator('#register-errors [data-field-errors="variety"]')).not_to_be_empty()
+        variety.select_option(str(first.pk))
+        page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
+        expect(page).to_have_url(live_server.url + original.get_absolute_url())
+    original.refresh_from_db()
+    assert original.variety_id == first.pk

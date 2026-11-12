@@ -27,13 +27,13 @@ def areas(user, image_upload):
         notes="Synthetic bed notes",
         uploads=[image_upload(), image_upload()],
     ).record
-    grandchild = create_area(actor=user, name="Inner section", parent=child).record
     retired = create_area(actor=user, name="Retired bed", parent=root).record
     crop = create_crop(actor=user, name="Synthetic crop").record
     year = timezone.localdate().year
     planting = create_planting(
         actor=user, crop=crop, area=child, start_year=year, label="Synthetic batch"
     ).record
+    grandchild = create_area(actor=user, name="Inner section", parent=child).record
     create_planting(
         actor=user, crop=crop, area=grandchild, start_year=year, label="Inner section batch"
     )
@@ -130,7 +130,11 @@ def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
         expect(page.locator(".area-plantings")).not_to_contain_text("Synthetic batch")
         page.go_back()
         expect(page).to_have_url(child_url)
-        page.locator('a[href^="/garden/plantings/?"]').press("Enter")
+        page.get_by_role(
+            "link",
+            name=f"{'Odlingar' if language == 'sv' else 'Plantings'} {areas['year']} (1)",
+            exact=True,
+        ).press("Enter")
         expect(page.locator("#id_area_only")).to_have_value("1")
         expect(page.locator("#planting-results")).to_contain_text("Synthetic batch")
         expect(page.locator("#planting-results")).not_to_contain_text("Inner section batch")
@@ -183,7 +187,7 @@ def test_clearing_area_filter_restores_descendants_for_another_area(
         page.set_default_timeout(8000)
         login(page, live_server, user)
         page.goto(live_server.url + areas["child"].get_absolute_url())
-        page.locator('a[href^="/garden/plantings/?"]').click()
+        page.get_by_role("link", name=f"Odlingar {areas['year']} (1)", exact=True).click()
         results = page.locator("#planting-results")
         expect(results).to_contain_text("Synthetic batch")
         expect(results).not_to_contain_text("Inner section batch")

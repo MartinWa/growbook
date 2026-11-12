@@ -321,3 +321,73 @@ print('clean instance preserved new owners, archives, authorization and validate
     )
     assert completed.returncode == 0, completed.stderr
     assert "clean instance preserved new owners" in completed.stdout
+
+
+def test_clean_restore_preserves_batch_members_and_independent_tracking(
+    user, planting_catalog, image_upload, tmp_path
+):
+    crop, first, second, area = planting_catalog
+    original = create_planting(
+        actor=user,
+        crop=crop,
+        variety=first,
+        area=area,
+        start_year=2027,
+        quantity=0,
+        evaluation="First",
+        uploads=[image_upload()],
+    ).record
+    added = create_planting(
+        actor=user,
+        crop=crop,
+        variety=second,
+        area=area,
+        start_year=2027,
+        quantity=7,
+        evaluation="Second",
+        batch_planting=original,
+    ).record
+    create_planting_event(actor=user, planting=added, kind="sowing", planned_date=date(2027, 3, 1))
+    configuration = tmp_path / "operator.env"
+    configuration.write_text(
+        "GROWBOOK_SECRET_KEY=synthetic-recovery-configuration\n", encoding="utf-8"
+    )
+    create_backup(tmp_path / "backup", [configuration])
+    restored = tmp_path / "restored"
+    restore_backup(tmp_path / "backup", restored)
+    snapshot = open_snapshot(restored / "db.sqlite3")
+    try:
+        rows = snapshot.execute(
+            "SELECT batch_key, quantity, evaluation FROM garden_planting ORDER BY id"
+        ).fetchall()
+        assert rows == [(original.batch_key.hex, 0, "First"), (original.batch_key.hex, 7, "Second")]
+    finally:
+        snapshot.close()
+    script = """
+import os
+os.environ['DJANGO_SETTINGS_MODULE'] = 'growbook.settings.development'
+import django
+django.setup()
+from core.models import User, Photo
+from garden.models import Planting, PlantingEvent
+from garden.services import create_variety, create_planting
+from django.test import Client
+user = User.objects.get(username='gardener')
+records = list(Planting.objects.order_by('id'))
+assert records[0].batch_key == records[1].batch_key
+assert records[0].photos.count() == 1 and not records[1].photos.exists()
+assert not records[0].events.exists() and records[1].events.count() == 1
+client = Client(HTTP_HOST='localhost')
+assert client.get(records[0].get_absolute_url()).status_code == 302
+client.force_login(user)
+assert client.get(records[1].get_absolute_url()).status_code == 200
+variety = create_variety(actor=user, crop=records[0].crop, name='Restored variety').record
+added = create_planting(actor=user, crop=records[0].crop, variety=variety, start_year=2027,
+                        batch_planting=records[1]).record
+assert added.batch_key == records[0].batch_key
+"""
+    environment = {**os.environ, "GROWBOOK_DATA_DIR": str(restored)}
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=environment, capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

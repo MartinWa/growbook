@@ -5,6 +5,29 @@
   const status = form?.querySelector("#variety-status");
   if (!form || !status || !window.htmx) return;
   const crop = form.querySelector("#id_crop");
+  const label = form.querySelector("#id_label");
+  const generated = form.querySelector("#id_generated_label");
+  let generatedLabel = generated.value;
+  let customLabel = label.value !== generatedLabel;
+  function updateLabel() {
+    if (!form.hasAttribute("data-new-planting") || customLabel) return;
+    const cropName = crop.selectedOptions[0]?.dataset.recordName || "";
+    // Keep the draft when an archived or deleted crop is offered as unavailable.
+    if (crop.value && !cropName) return;
+    const variety = form.querySelector("#id_variety");
+    const varietyName = variety.selectedOptions[0]?.dataset.recordName || "";
+    if (variety.value && !varietyName) return;
+    generatedLabel = cropName + (varietyName ? `-${varietyName}` : "");
+    label.value = generatedLabel;
+    generated.value = generatedLabel;
+  }
+  label.addEventListener("input", () => {
+    customLabel = label.value !== generatedLabel;
+  });
+  form.addEventListener("change", event => {
+    if (event.target.id === "id_variety") updateLabel();
+  });
+  updateLabel();
   const lifespan = form.querySelector("#id_lifespan");
   const endYear = form.querySelector("#id_end_year");
   const endField = endYear.closest("[data-field-name]");
@@ -37,6 +60,7 @@
     variety.querySelectorAll("option[value]:not([value=''])").forEach(option => {
       if (option.dataset.crop !== crop.value) option.remove();
     });
+    updateLabel();
   });
   form.addEventListener("htmx:configRequest", event => {
     if (event.detail.elt !== form) return;
@@ -65,6 +89,7 @@
   form.addEventListener("htmx:afterSwap", event => {
     if (event.detail.target?.id !== "id_variety") return;
     markChoices();
+    updateLabel();
     status.textContent = status.dataset.choicesReady;
   });
   form.addEventListener("htmx:afterRequest", event => {

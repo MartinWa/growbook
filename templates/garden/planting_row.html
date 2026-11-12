@@ -1,0 +1,7 @@
+{% load i18n %}
+<li class="register-row-group">
+  {% include 'garden/row_toggle.html' with kind='planting' thumbnail=record.photos.all.0 %}
+  <div id="details-planting-{{ record.pk }}" class="register-expanded record-info" hidden>
+    <div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ record.display_label }}" aria-live="polite"></div>
+  </div>
+</li>

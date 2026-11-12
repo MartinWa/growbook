@@ -1,6 +1,7 @@
 import io
 import re
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from django.conf import settings
@@ -203,7 +204,8 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         page.get_by_role("link", name=labels["newcrop"], exact=True).click()
         page.locator("#id_name").fill("Pepper")
         page.get_by_role("button", name=labels["save"], exact=True).click()
-        expect(page).to_have_url(re.compile(r"/garden/crops/\d+/$"))
+        expect(page).to_have_url(re.compile(r"/garden/categories/\d+/$"))
+        expect(page.locator("[data-crop-id]")).to_have_count(2)
         page.goto(live_server.url + "/garden/varieties/")
         expect(
             page.locator(".category-card").filter(has_text="Vegetables").locator("img")
@@ -254,3 +256,41 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
     assert not CropCategory.objects.exists()
     assert Variety.objects.get(pk=variety.pk).crop_id == crop.pk
     assert Crop.objects.count() == 3
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+def test_category_variety_save_and_cancel_return_to_filtered_category(
+    live_server, user, browser_endpoint, javascript
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    category = create_category(actor=user, name="Vegetables", crops=[crop]).record
+    destination = category.get_absolute_url() + "?q=tom&archived=1"
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        page = context.new_page()
+        context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
+        page.goto(live_server.url + "/accounts/login/")
+        page.locator("#id_username").fill(user.username)
+        page.locator("#id_password").fill("Synthetic-password-42")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        expect(page).to_have_url(live_server.url + "/")
+        page.goto(live_server.url + category.get_absolute_url())
+        page.locator("#id_q").fill("tom")
+        if not javascript:
+            page.get_by_role("button", name="Apply", exact=True).click()
+        page.wait_for_url(lambda url: parse_qs(urlsplit(url).query).get("q") == ["tom"])
+        page.locator("[data-archive-toggle]").click()
+        expect(page).to_have_url(live_server.url + destination)
+        page.get_by_role("link", name="New variety", exact=True).click()
+        page.get_by_role("link", name="Cancel", exact=True).click()
+        expect(page).to_have_url(live_server.url + destination)
+        page.get_by_role("link", name="New variety", exact=True).click()
+        page.locator("#id_crop").select_option(str(crop.pk))
+        page.locator("#id_name").fill("Golden")
+        page.get_by_role("button", name="Save", exact=True).click()
+        expect(page).to_have_url(live_server.url + destination)
+        expect(page.locator("#id_q")).to_have_value("tom")
+    assert Variety.objects.get().crop_id == crop.pk

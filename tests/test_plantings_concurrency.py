@@ -301,3 +301,32 @@ def test_backup_and_cleanup_wait_for_inflight_planting_photos(
         backup.result(timeout=15)
         assert cleanup.result(timeout=15) == []
     assert record.photos.count() == 1 and verify_backup(tmp_path / "backup")
+
+
+def test_overlapping_additions_cannot_duplicate_a_variety(user, planting_catalog):
+    crop, first, second, _ = planting_catalog
+    original = create_planting(actor=user, crop=crop, variety=first, start_year=2027).record
+    barrier = threading.Barrier(2)
+
+    def add():
+        close_old_connections()
+        try:
+            barrier.wait(timeout=10)
+            try:
+                return create_planting(
+                    actor=User.objects.get(pk=user.pk),
+                    crop=crop.pk,
+                    variety=second.pk,
+                    start_year=2027,
+                    batch_planting=original.pk,
+                )
+            except ValidationError:
+                return None
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(add) for _ in range(2)]
+        results = [future.result(timeout=15) for future in futures]
+    assert sum(result is not None for result in results) == 1
+    assert Planting.objects.filter(batch_key=original.batch_key).count() == 2

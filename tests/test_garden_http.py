@@ -79,7 +79,10 @@ def test_empty_register_offers_creation_with_crop_prerequisite(client, user, kin
         reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
     )
     action = reverse(f"garden:{'crop' if kind == 'variety' else kind}-create")
-    assert response.context["empty_action_url"] == action
+    create_link = urlsplit(response.context["empty_action_url"])
+    assert create_link.path == action
+    if kind != "area":
+        assert parse_qs(create_link.query) == {"next": [reverse("garden:all-crops")]}
     assert b'class="panel empty-state"' in response.content
     assert b'class="register-table' not in response.content
     if kind == "variety":
@@ -87,7 +90,9 @@ def test_empty_register_offers_creation_with_crop_prerequisite(client, user, kin
         response = client.get(reverse("garden:all-crops"))
         assert response.context["has_records"]
         assert response.context["variety_groups"][0]["records"] == []
-        assert response.context["create_url"] == reverse("garden:variety-create")
+        create_link = urlsplit(response.context["create_url"])
+        assert create_link.path == reverse("garden:variety-create")
+        assert parse_qs(create_link.query) == {"next": [reverse("garden:all-crops")]}
 
 
 def test_archived_only_register_offers_a_view_that_contains_records(client, user, register_record):

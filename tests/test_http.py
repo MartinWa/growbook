@@ -22,6 +22,19 @@ def entry(user, uploads=(), body="Synthetic note"):
     ).entry
 
 
+def test_diary_detail_uses_compact_private_previews_linked_to_photo_viewer(
+    client, user, image_upload
+):
+    observation = entry(user, uploads=[image_upload()], body="")
+    client.force_login(user)
+    response = client.get(observation.get_absolute_url())
+    photo = observation.photos.get()
+    assert 'class="photo-grid entry-photos"' in response.text
+    assert photo.thumbnail_url in response.text
+    assert photo.display_url not in response.text
+    assert photo.get_absolute_url() in response.text
+
+
 def post_data(**overrides):
     return {
         "date": "2026-05-09",

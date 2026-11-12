@@ -1,0 +1,2 @@
+{% load i18n %}
+{% if group.thumbnail %}<img class="variety-thumbnail" src="{{ group.thumbnail.thumbnail_url }}" width="64" height="64" loading="lazy" alt="">{% endif %}<span>{% translate 'Planting batch' %} · {{ group.crop.name }} ({{ group.records|length }})</span>

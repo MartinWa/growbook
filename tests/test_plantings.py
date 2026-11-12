@@ -7,11 +7,14 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.test import RequestFactory
+from django.utils.translation import override
 
 from core.writes import validated_write
+from diary.queries import observations_for
+from diary.services import create_entry
 from garden.admin import PlantingAdmin, PlantingEventAdmin
 from garden.models import Crop, GrowingArea, Planting, PlantingEvent, PlantingSubmission, Variety
-from garden.queries import planting_history, plantings_in_year
+from garden.queries import planting_history, planting_tree, plantings_in_year
 from garden.services import (
     RegisterConflict,
     archive_area,
@@ -44,7 +47,6 @@ def catalog(user):
     other_variety = create_variety(actor=user, crop=other_crop, name="Golden").record
     root = create_area(actor=user, name="Greenhouse").record
     child = create_area(actor=user, name="Bed", parent=root).record
-    grandchild = create_area(actor=user, name="Pot", parent=child).record
     other_area = create_area(actor=user, name="Border").record
     return {
         "crop": crop,
@@ -53,7 +55,6 @@ def catalog(user):
         "other_variety": other_variety,
         "root": root,
         "child": child,
-        "grandchild": grandchild,
         "other_area": other_area,
     }
 
@@ -123,7 +124,7 @@ def test_year_is_required_bounded_and_integer_on_non_ui_writer(user, catalog, ye
         {"quantity": "1"},
         {"notes": None},
         {"evaluation": 123},
-        {"label": "x" * 151},
+        {"label": "x" * 302},
     ],
 )
 def test_local_planting_rules_reject_invalid_complete_save(user, catalog, overrides):
@@ -278,6 +279,14 @@ def test_ending_persistent_planting_keeps_cumulative_evaluation_and_events(user,
 
 
 def test_descendants_archives_unknown_varieties_and_current_area_corrections(user, catalog):
+    # Create legacy parent assignments before each area gains children.
+    child = edit_area(
+        actor=user,
+        pk=catalog["child"].pk,
+        name="Bed",
+        parent=None,
+        expected_updated_at=catalog["child"].updated_at,
+    ).record
     rows = {}
     for name, area in (
         ("own", "root"),
@@ -285,6 +294,18 @@ def test_descendants_archives_unknown_varieties_and_current_area_corrections(use
         ("grandchild", "grandchild"),
         ("other", "other_area"),
     ):
+        if name == "child":
+            catalog["child"] = edit_area(
+                actor=user,
+                pk=child.pk,
+                name="Bed",
+                parent=catalog["root"],
+                expected_updated_at=child.updated_at,
+            ).record
+        elif name == "grandchild":
+            catalog["grandchild"] = create_area(
+                actor=user, name="Pot", parent=catalog["child"]
+            ).record
         rows[name] = create_planting(
             actor=user,
             crop=catalog["crop"],
@@ -701,3 +722,264 @@ def test_planting_operations_require_active_actor_outside_atomic_wrappers(user, 
         with pytest.raises(PermissionDenied):
             operation(user)
     assert Planting.objects.count() == 1 and PlantingEvent.objects.count() == 1
+
+
+def test_generated_label_handles_maximum_names_and_preserves_custom_edits(user):
+    crop = create_crop(actor=user, name="C" * 100).record
+    variety = create_variety(actor=user, crop=crop, name="V" * 150).record
+    generated = create_planting(actor=user, crop=crop, variety=variety, start_year=2027).record
+    assert generated.label == crop.name + "-" + variety.name
+    assert len(generated.label) == 251
+    create_planting(actor=user, crop=crop, start_year=2027, label="L" * 251)
+    with pytest.raises(ValidationError) as rejected:
+        create_planting(actor=user, crop=crop, start_year=2027, label="L" * 252)
+    assert "label" in rejected.value.message_dict
+    custom = create_planting(
+        actor=user, crop=crop, variety=variety, start_year=2027, label="Custom trial"
+    ).record
+    edited = edit_planting(
+        actor=user,
+        pk=custom.pk,
+        crop=crop,
+        start_year=2027,
+        label=custom.label,
+        expected_updated_at=custom.updated_at,
+    ).record
+    assert edited.label == "Custom trial"
+
+
+def test_batch_members_keep_independent_tracking_and_derived_diary_filters(
+    user, planting_catalog, image_upload
+):
+    crop, first, second, area = planting_catalog
+    original = create_planting(
+        actor=user,
+        crop=crop,
+        variety=first,
+        area=area,
+        start_year=2027,
+        quantity=0,
+        evaluation="First evaluation",
+        uploads=[image_upload()],
+    ).record
+    added = create_planting(
+        actor=user,
+        crop=crop,
+        variety=second,
+        area=area,
+        start_year=2027,
+        batch_planting=original,
+        quantity=12,
+        evaluation="Second evaluation",
+    ).record
+    event = create_planting_event(
+        actor=user,
+        planting=added,
+        kind="sowing",
+        planned_date=date(2027, 3, 1),
+    ).record
+    entry = create_entry(
+        author=user,
+        date=date(2027, 3, 1),
+        body="Second variety observation",
+        links=[added],
+        uploads=[],
+        submission_key=uuid4(),
+    ).entry
+    assert added.batch_key == original.batch_key
+    assert (original.label, added.label) == ("Tomato-Golden", "Tomato-Red")
+    assert (original.quantity, added.quantity) == (0, 12)
+    assert (original.evaluation, added.evaluation) == ("First evaluation", "Second evaluation")
+    assert original.photos.count() == 1 and added.photos.count() == 0
+    assert not original.events.exists() and added.events.get() == event
+    assert list(observations_for("variety", second)) == [entry]
+    assert not observations_for("variety", first)
+    assert list(planting_history(variety=second)) == [added]
+    tree = planting_tree(year=2027, area=area)
+    assert len(tree["roots"][0].groups) == 1
+    assert len(tree["roots"][0].groups[0]["records"]) == 2
+    filtered = planting_tree(year=2027, variety=second)
+    assert filtered["roots"][0].groups[0]["records"] == [added]
+    other_batch = create_planting(actor=user, crop=crop, variety=second, start_year=2027).record
+    assert other_batch.batch_key != added.batch_key
+
+
+@override("en")
+def test_batch_constraints_and_retry_survive_deleted_original_member(user, planting_catalog):
+    crop, first, second, _ = planting_catalog
+    original = create_planting(actor=user, crop=crop, variety=first, start_year=2027).record
+    with pytest.raises(ValidationError, match="already in the batch"):
+        create_planting(
+            actor=user, crop=crop, variety=first, start_year=2027, batch_planting=original
+        )
+    with pytest.raises(ValidationError, match="Choose a variety"):
+        create_planting(actor=user, crop=crop, start_year=2027, batch_planting=original)
+    other_crop = create_crop(actor=user, name="Bean").record
+    with pytest.raises(ValidationError, match="same crop"):
+        create_planting(actor=user, crop=other_crop, start_year=2027, batch_planting=original)
+    key = uuid4()
+    values = dict(
+        actor=user,
+        crop=crop,
+        variety=second,
+        start_year=2027,
+        batch_planting=original,
+        submission_key=key,
+    )
+    added = create_planting(**values).record
+    with pytest.raises(ValidationError, match="same crop"):
+        edit_planting(
+            actor=user,
+            pk=added.pk,
+            crop=other_crop,
+            start_year=2027,
+            expected_updated_at=added.updated_at,
+        )
+    delete_planting(actor=user, pk=original.pk, expected_updated_at=original.updated_at)
+    assert create_planting(**values).replayed
+    assert Planting.objects.get(pk=added.pk).batch_key == added.batch_key
+
+
+@pytest.mark.django_db
+def test_batch_member_uniqueness_is_enforced_by_sqlite(planting_catalog):
+    crop, first, _, _ = planting_catalog
+    with validated_write():
+        original = Planting.objects.create(crop=crop, start_year=2027)
+        Planting.objects.create(
+            crop=crop, variety=first, start_year=2027, batch_key=original.batch_key
+        )
+    for variety in (None, first):
+        with pytest.raises(IntegrityError), transaction.atomic(), validated_write():
+            Planting.objects.create(
+                crop=crop, variety=variety, start_year=2027, batch_key=original.batch_key
+            )
+    assert Planting.objects.filter(batch_key=original.batch_key).count() == 2
+
+
+@override("en")
+def test_known_variety_can_only_be_cleared_after_other_batch_members_are_deleted(
+    user, planting_catalog
+):
+    crop, first, second, _ = planting_catalog
+    original = create_planting(actor=user, crop=crop, variety=first, start_year=2027).record
+    added = create_planting(
+        actor=user, crop=crop, variety=second, start_year=2027, batch_planting=original
+    ).record
+    key = uuid4()
+    values = dict(actor=user, **edit_values(added, variety=None), submission_key=key)
+    with pytest.raises(ValidationError, match="Keep a variety") as rejected:
+        edit_planting(**values)
+    assert "variety" in rejected.value.message_dict
+    added.refresh_from_db()
+    assert added.variety_id == second.pk
+    assert not PlantingSubmission.objects.filter(key=key).exists()
+    delete_planting(actor=user, pk=original.pk, expected_updated_at=original.updated_at)
+    cleared = edit_planting(**values).record
+    assert cleared.variety_id is None
+    assert edit_planting(**values).replayed
+
+
+def test_initially_unknown_batch_member_can_be_edited_and_assigned_a_variety(
+    user, planting_catalog
+):
+    crop, first, second, _ = planting_catalog
+    original = create_planting(actor=user, crop=crop, start_year=2027).record
+    create_planting(actor=user, crop=crop, variety=first, start_year=2027, batch_planting=original)
+    edited = edit_planting(actor=user, **edit_values(original, quantity=5)).record
+    assert edited.variety_id is None and edited.quantity == 5
+    assigned = edit_planting(actor=user, **edit_values(edited, variety=second)).record
+    assert assigned.batch_key == original.batch_key and assigned.variety_id == second.pk
+
+
+@override("en")
+@pytest.mark.parametrize("unknown", [False, True])
+@pytest.mark.parametrize("with_photos", [False, True])
+def test_batch_unique_constraint_failure_rolls_back_before_becoming_a_field_error(
+    user, planting_catalog, image_upload, settings, monkeypatch, unknown, with_photos
+):
+    from core.models import Photo
+    from garden.services import plantings as services
+
+    crop, first, second, _ = planting_catalog
+    original = create_planting(
+        actor=user, crop=crop, variety=None if unknown else first, start_year=2027
+    ).record
+    added = create_planting(
+        actor=user, crop=crop, variety=second, start_year=2027, batch_planting=original
+    ).record
+    # Exercise the final SQLite guard even if earlier validation misses a duplicate.
+    version = added.updated_at
+    monkeypatch.setattr(
+        services,
+        "_validate_planting",
+        lambda record, previous: record.full_clean(validate_constraints=False),
+    )
+    key = uuid4()
+    with pytest.raises(ValidationError, match="already in the batch") as rejected:
+        edit_planting(
+            actor=user,
+            **edit_values(added, variety=original.variety_id),
+            submission_key=key,
+            uploads=[image_upload()] if with_photos else [],
+        )
+    assert "variety" in rejected.value.message_dict
+    assert isinstance(rejected.value.__cause__, IntegrityError)
+    added.refresh_from_db()
+    assert added.variety_id == second.pk and added.updated_at == version
+    assert not PlantingSubmission.objects.filter(key=key).exists()
+    assert not Photo.objects.exists()
+    assert not list(settings.MEDIA_ROOT.rglob("original*"))
+
+
+def test_unrelated_sqlite_integrity_errors_are_not_reported_as_batch_duplicates(
+    user, planting_catalog, monkeypatch
+):
+    from garden.services import plantings as services
+
+    crop, _, _, _ = planting_catalog
+
+    def invalid_year(record, previous):
+        record.start_year = 0
+
+    monkeypatch.setattr(services, "_validate_planting", invalid_year)
+    with pytest.raises(IntegrityError, match="planting_start_year_range"):
+        create_planting(actor=user, crop=crop, start_year=2027, label="Synthetic planting")
+    assert not Planting.objects.exists()
+
+
+@pytest.mark.parametrize("archived_child", [False, True])
+def test_parent_area_writes_preserve_existing_assignments_and_receipts(
+    user, planting_catalog, archived_child
+):
+    crop, _, _, area = planting_catalog
+    values = dict(actor=user, crop=crop, area=area, start_year=2027, submission_key=uuid4())
+    existing = create_planting(**values).record
+    unassigned = create_planting(actor=user, crop=crop, start_year=2027).record
+    child = create_area(actor=user, name="Child", parent=area).record
+    if archived_child:
+        archive_area(actor=user, pk=child.pk)
+    with pytest.raises(ValidationError) as rejected:
+        create_planting(actor=user, crop=crop, area=area, start_year=2027)
+    assert "area" in rejected.value.message_dict
+    with pytest.raises(ValidationError) as rejected:
+        edit_planting(
+            actor=user,
+            pk=unassigned.pk,
+            crop=crop,
+            area=area,
+            start_year=2027,
+            expected_updated_at=unassigned.updated_at,
+        )
+    assert "area" in rejected.value.message_dict
+    edited = edit_planting(
+        actor=user,
+        pk=existing.pk,
+        crop=crop,
+        area=area,
+        start_year=2027,
+        label="Existing assignment",
+        expected_updated_at=existing.updated_at,
+    ).record
+    assert edited.area_id == area.pk
+    assert create_planting(**values).replayed
+    assert Planting.objects.count() == 2

@@ -1,5 +1,9 @@
 """Routing metadata shared by register pages and scoped planting histories."""
 
+from urllib.parse import urlsplit
+
+from django.urls import Resolver404, resolve
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 
 from ..forms import AreaForm, CropCategoryForm, CropForm, VarietyForm
@@ -24,3 +28,23 @@ REGISTERS = {
         _("Edit growing area"),
     ),
 }
+
+
+def return_url(request):
+    """Accept only local garden list/detail destinations, including their filters."""
+    value = request.POST.get("next", request.GET.get("next", ""))
+    if not value.startswith("/") or not url_has_allowed_host_and_scheme(value, allowed_hosts=set()):
+        return ""
+    try:
+        match = resolve(urlsplit(value).path)
+    except Resolver404:
+        return ""
+    allowed = {
+        "garden:area-detail",
+        "garden:category-detail",
+        "garden:uncategorized",
+        "garden:all-crops",
+        "garden:variety-list",
+        "garden:planting-detail",
+    }
+    return value if match.view_name in allowed else ""

@@ -138,3 +138,17 @@ def corrupt_apple_hdr_upload(apple_hdr_upload):
         return SimpleUploadedFile("synthetic-corrupt-hdr.jpeg", bytes(data), "image/jpeg")
 
     return make
+
+
+@pytest.fixture
+def planting_catalog(user):
+    """Seed valid synthetic records for both write tests and isolated read tests."""
+    from core.writes import validated_write
+    from garden.models import Crop, GrowingArea, Variety
+
+    with validated_write():
+        crop = Crop.objects.create(name="Tomato", name_key="tomato")
+        first = Variety.objects.create(crop=crop, name="Golden", name_key="golden")
+        second = Variety.objects.create(crop=crop, name="Red", name_key="red")
+        area = GrowingArea.objects.create(name="Bed", name_key="bed")
+    return crop, first, second, area
