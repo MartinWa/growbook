@@ -73,7 +73,7 @@ jobs:
           docker compose -f compose.development.yaml up -d --no-build app
           docker compose -f compose.development.yaml exec -T app python tools/check_development.py
       - name: Run application tests
-        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q
+        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q --durations=20
       - name: Stop development containers
         if: always()
         run: docker compose -f compose.development.yaml down
@@ -127,7 +127,7 @@ jobs:
           cache-from: type=gha,scope=ci-development
           github-token: ""
       - name: Run browser tests
-        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser
+        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser --durations=20
       - name: Stop development containers
         if: always()
         run: docker compose -f compose.development.yaml down

@@ -1,17 +1,23 @@
 {% load i18n %}
 <article class="panel diary-card" id="entry-{{ entry.pk }}">
   <header class="entry-heading">
-    <h2 tabindex="-1"><a href="{{ entry.get_absolute_url }}"><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time></a></h2>
+    <h2 tabindex="-1"><a href="{{ entry.get_absolute_url }}"><time datetime="{{ entry.date|date:'Y-m-d' }}">{{ entry.date }}</time>{% if entry.title %}<span class="entry-title">{{ entry.title }}</span>{% endif %}</a></h2>
     <span class="muted">{{ entry.author.get_username }}</span>
   </header>
-  {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
-  {% include 'diary/_links.html' with entry=entry %}
-  {% if entry.can_edit %}<p class="muted entry-actions"><a href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit' %}</a></p>{% endif %}
-  {% if entry.photos.all %}
-  <div class="photo-grid">
-    {% for photo in entry.photos.all %}
-    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
-    {% endfor %}
+  <div class="diary-card-content{% if entry.photos.all and entry.body %} has-note-and-photos{% endif %}">
+    {% if entry.photos.all %}
+    <div class="photo-grid diary-photos">
+      {% for photo in entry.photos.all %}
+      <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.display_url }}" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if entry.body or entry.links.all %}
+    <div class="diary-card-note">
+      {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
+      {% include 'diary/_links.html' with entry=entry %}
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
+  {% if entry.can_edit %}<p class="muted entry-actions"><a href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit' %}</a></p>{% endif %}
 </article>

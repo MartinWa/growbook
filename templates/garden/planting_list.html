@@ -3,21 +3,21 @@
 {% block title %}{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
 {% block page_class %}page register-page{% endblock %}
 {% block content %}
-<div class="page-heading">
-  <h1>{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}</h1>
-  <div class="heading-actions">
-    <a class="btn btn-primary" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
-  </div>
-</div>
+{% include 'components/register_heading.html' with illustration='images/registers/plantings.webp' %}
 <div class="filter-layout" data-filter-page data-results-id="planting-results"
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
   data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
   data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
-  <details class="filter-disclosure" data-filter-disclosure{% if form.errors %} open{% endif %}>
-    {% translate 'Planting filters' as filter_label %}
-    {% include 'components/filter_summary.html' %}
-    {% include 'garden/planting_filters.html' %}
-  </details>
+  <div class="overview-toolbar">
+    <div class="heading-actions">
+      <a class="btn btn-primary" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
+    </div>
+    <details class="filter-disclosure" data-filter-disclosure{% if form.errors %} open{% endif %}>
+      {% translate 'Planting filters' as filter_label %}
+      {% include 'components/filter_summary.html' %}
+      {% include 'garden/planting_filters.html' %}
+    </details>
+  </div>
   <div class="filter-stream">
     <p id="filter-status" class="field-errors" role="alert"></p>
     {% include 'garden/planting_results.html' %}

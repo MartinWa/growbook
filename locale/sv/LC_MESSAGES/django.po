@@ -130,6 +130,15 @@ msgstr "Logga in på en ny flik"
 msgid "Date"
 msgstr "Datum"
 
+msgid "Title"
+msgstr "Rubrik"
+
+msgid "A short heading for the observation (up to 200 characters)."
+msgstr "En kort rubrik för observationen (högst 200 tecken)."
+
+msgid "Enter a title, or leave it blank."
+msgstr "Ange en rubrik, eller lämna fältet tomt."
+
 msgid "Note"
 msgstr "Anteckning"
 
@@ -989,8 +998,8 @@ msgstr "Skriv en anteckning eller behåll minst en bild."
 msgid "Year"
 msgstr "År"
 
-msgid "Your date, note and link selections were kept. Select any photos again before retrying."
-msgstr "Datum, anteckning och länkval behölls. Välj bilderna igen innan du försöker spara."
+msgid "Your date, title, note and link selections were kept. Select any photos again before retrying."
+msgstr "Datum, rubrik, anteckning och länkval behölls. Välj bilderna igen innan du försöker spara."
 
 msgid "Check the filters"
 msgstr "Kontrollera filtren"
@@ -1178,3 +1187,99 @@ msgstr "Inga grödor eller sorter matchar sökningen"
 
 msgid "Details could not be loaded. Close and reopen to retry, or open the record in a new tab."
 msgstr "Detaljerna kunde inte laddas. Stäng och öppna igen för att försöka på nytt, eller öppna posten i en ny flik."
+
+msgid "Season"
+msgstr "Årstid"
+
+msgid "Automatic (follow date)"
+msgstr "Automatiskt (följ datum)"
+
+msgid "Spring"
+msgstr "Vår"
+
+msgid "Summer"
+msgstr "Sommar"
+
+msgid "Autumn"
+msgstr "Höst"
+
+msgid "Winter"
+msgstr "Vinter"
+
+msgid "Choose a valid season."
+msgstr "Välj en giltig årstid."
+
+msgid "Choose an item from the list to view its details."
+msgstr "Välj något i listan för att visa detaljer."
+
+msgid "Back to list"
+msgstr "Tillbaka till listan"
+
+msgid "Raised bed"
+msgstr "Pallkrage"
+
+msgid "Growing area navigation"
+msgstr "Navigering för odlingsytor"
+
+msgid "Includes child areas."
+msgstr "Inkluderar underliggande odlingsytor."
+
+msgid "Area filters normally include child areas. Links from growing-area pages show only the selected area. Archived records remain in histories."
+msgstr "Filter för odlingsytor inkluderar normalt underytor. Länkar från odlingsytornas sidor visar bara den valda ytan. Arkiverade poster finns kvar i historiken."
+
+msgid "Only plantings assigned directly to the selected growing area are shown."
+msgstr "Endast odlingar som är placerade direkt på den valda odlingsytan visas."
+
+msgid "No plantings for this growing area yet."
+msgstr "Inga odlingar för den här odlingsytan ännu."
+
+msgid "Categories"
+msgstr "Kategorier"
+
+msgid "New category"
+msgstr "Ny kategori"
+
+msgid "Edit category"
+msgstr "Redigera kategori"
+
+msgid "Delete category"
+msgstr "Ta bort kategori"
+
+msgid "Uncategorized"
+msgstr "Utan kategori"
+
+msgid "Category navigation"
+msgstr "Kategorinavigering"
+
+msgid "Show all crops and varieties"
+msgstr "Visa alla grödor och sorter"
+
+msgid "Remove current image"
+msgstr "Ta bort nuvarande bild"
+
+msgid "Category image"
+msgstr "Kategoribild"
+
+msgid "Current category image"
+msgstr "Nuvarande kategoribild"
+
+msgid "Choose one image. A new image replaces the current image."
+msgstr "Välj en bild. En ny bild ersätter den nuvarande bilden."
+
+msgid "Choose active crops for new category links."
+msgstr "Välj aktiva grödor för nya kategorikopplingar."
+
+msgid "A category can have only one image."
+msgstr "En kategori kan bara ha en bild."
+
+msgid "Choose a valid value."
+msgstr "Välj ett giltigt värde."
+
+msgid "No crops in this category"
+msgstr "Inga grödor i den här kategorin"
+
+msgid "Link existing crops or create a crop in this category."
+msgstr "Koppla befintliga grödor eller skapa en gröda i den här kategorin."
+
+msgid "Deletion removes this category, its image and its crop links. Crops, varieties, plantings and diary records are kept."
+msgstr "Borttagning tar bort kategorin, dess bild och kopplingar till grödor. Grödor, sorter, odlingar och dagboksanteckningar behålls."

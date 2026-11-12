@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
+from .models import Crop, CropCategory, GrowingArea, Planting, PlantingEvent, Variety
 
 
 class ReadOnlyRegisterAdmin(admin.ModelAdmin):
@@ -26,6 +26,12 @@ class ReadOnlyRegisterAdmin(admin.ModelAdmin):
 @admin.register(Crop)
 class CropAdmin(ReadOnlyRegisterAdmin):
     pass
+
+
+@admin.register(CropCategory)
+class CropCategoryAdmin(ReadOnlyRegisterAdmin):
+    list_display = ["name", "updated_at"]
+    list_filter = []
 
 
 @admin.register(Variety)

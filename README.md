@@ -15,10 +15,15 @@ interface defaults to Swedish, with English available.
 ## Current features
 
 - Administrator-managed accounts and a shared garden; no public signup.
+- Four seasonal colour schemes with matching diary illustrations, selected per browser
+  or changed automatically with the garden's local date.
 - Discreet footer links to GitHub and releases, the deployed release version, and an
   orange indicator when a newer stable release is available.
-- A combined crop and variety register with searchable crop groups, and
-  nested growing-area disclosures, with editing and non-cascading archive.
+- A combined crop and variety register with searchable crop groups, and a growing-area
+  card overview with child-area detail pages, editing and non-cascading archive.
+- A permanent crop-category overview with an uncategorized view and shared,
+  user-defined categories; crops can belong to multiple categories. An optional
+  private category image, including transparency, is reused on its card and heading.
 - Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed
   deletion of records without protected references.
 - Multiple private photos on varieties, areas and plantings, with editable captions and
@@ -29,8 +34,9 @@ interface defaults to Swedish, with English available.
   crop/variety/descendant-area histories that include archived associations.
 - Repeated planting events with independent planned and actual dates, plus cumulative
   evaluation text and private photos.
-- Dated text-only, photo-only and text-plus-photo entries with chronological paging,
-  note search and combined year, area, crop, variety and planting filters.
+- Dated text-only, photo-only and text-plus-photo entries with optional titles,
+  chronological paging, title and note search, and combined year, area, crop, variety
+  and planting filters.
 - Optional tags during capture and editing, with one searchable picker for plantings,
   growing areas, crops and varieties; linked records
   show their observations, and derived filters follow plantings and area descendants.
@@ -56,12 +62,12 @@ interface defaults to Swedish, with English available.
 - Diary tags are chosen explicitly; there is no automatic matching.
   Structured harvest accounting and portable data import/export are
   not provided.
-- Entry deletion permanently removes the note, links and photos, including private
-  originals; linked registers and plantings remain. Creation and edit receipts are kept
-  to reject retries against deleted entries.
-- Diary search is a literal, Unicode-casefolded substring of the note. Diacritics remain
-  significant (`Å` is not `A`, `å` is not `a`), and captions, author names and linked
-  record names are not searched.
+- Entry deletion permanently removes the title, note, links and photos, including
+  private originals; linked registers and plantings remain. Creation and edit receipts
+  are kept to reject retries against deleted entries.
+- Diary search is a literal, Unicode-casefolded substring of titles and notes.
+  Diacritics remain significant (`Å` is not `A`, `å` is not `a`), and captions,
+  author names and linked record names are not searched.
 - Filters combine with AND. A planting match also matches its crop, variety and area; an
   area filter includes descendant areas. Archived records stay visible through existing
   links and filters but cannot be chosen for a new link.
@@ -71,6 +77,7 @@ interface defaults to Swedish, with English available.
   photo, 80 MiB per upload and 50 million decoded pixels per photo. Apple HDR JPEGs with
   one auxiliary grayscale gain map use the primary photo; both images count toward the
   pixel limit. Other multi-image and animated files are rejected.
+  A crop category has at most one image, with the same file and decoded-pixel limits.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public Internet
   exposure. Verify backup and clean-instance recovery before recording real data.
 
@@ -100,8 +107,8 @@ startup, automatic reload, VS Code debugging and persistent development storage.
 
 Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts. There
 are no seeded credentials. Diary, photo, register and planting admin screens are
-read-only; use the diary pages for observations, **Garden** for records and
-**Plantings** for plans and milestones.
+read-only; use the diary pages for observations, **Growing areas** and
+**Crops and varieties** for records, and **Plantings** for plans and milestones.
 
 The separate development Compose configuration publishes HTTP only on host loopback.
 Its database, photos, generated secret, Linux virtualenv and test scratch files live in
@@ -109,9 +116,9 @@ Docker volumes. Do not expose the development server or point it at production d
 
 ## Using growbook
 
-- **Garden** holds growing areas and the combined **Crops and varieties** register,
-  plus a link to this year's plantings. Expand crop groups or nested areas, select names
-  for information and photos, search crop and variety names, and maintain records.
+- **Growing areas** and **Crops and varieties** open directly from the main menu.
+  Browse top-level areas and their child cards, choose a crop category, expand crop
+  groups, read information and photos, search crop and variety names, and maintain records.
 - **Plantings** shows growing-year results grouped by area, with filters and expandable
   batches. Create annual or persistent plantings, record events, and open crop, variety and area
   histories.
@@ -150,7 +157,7 @@ operational recovery, not portable import/export.
 
 | Guide | Contents |
 |---|---|
-| [Using growbook](docs/usage.md) | Garden, plantings, diary, photos and retries |
+| [Using growbook](docs/usage.md) | Registers, plantings, diary, photos and retries |
 | [Development, CI and releases](docs/development.md) | Tests, browser suite, styles, translations, workflows, dependency updates and release images |
 | [Deployment](docs/deployment.md) | Docker, private configuration, upgrades and SQLite runtime |
 | [Backup and recovery](docs/backup-and-recovery.md) | Backup, verification, restore and orphan cleanup |

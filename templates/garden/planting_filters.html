@@ -3,7 +3,8 @@
   <form data-filter-form method="get" action="{{ request.path }}">
     <div class="filter-fields">
       {% for field in form %}
-      {% if field.name in locked_filters %}{{ field.as_hidden }}{% else %}
+      {% if field.name == 'area_only' %}<input type="hidden" name="area_only" id="id_area_only" value="{% if area_only %}1{% endif %}">
+      {% elif field.name in locked_filters %}{{ field.as_hidden }}{% else %}
       <div class="field{% if field.name == 'unassigned' or field.name == 'unknown_variety' %} checkbox-field{% endif %}">
         {{ field.label_tag }}{{ field }}
         <div id="{{ field.auto_id }}_errors" class="field-errors" data-filter-field-errors="{{ field.name }}">{{ field.errors }}</div>
@@ -19,9 +20,8 @@
       </div>
       <details class="filter-help">
         <summary>{% translate 'How filters work' %}</summary>
-        <p class="field-help">{% translate 'Area filters include descendants and show the actual assigned place. Archived records remain in histories.' %}</p>
+        <p class="field-help">{% translate 'Area filters normally include child areas. Links from growing-area pages show only the selected area. Archived records remain in histories.' %}</p>
         <p class="field-help">{% translate 'Histories use current area assignments and nesting, not historical layouts.' %}</p>
-        <p class="field-help">{% translate 'Expand several rows at once to compare details.' %}</p>
       </details>
     </div>
   </form>

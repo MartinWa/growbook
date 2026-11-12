@@ -66,7 +66,7 @@ def test_favicon_is_public_and_self_hosted(client):
 
 def test_swedish_default_does_not_follow_browser_language(client):
     response = client.get("/accounts/login/", HTTP_ACCEPT_LANGUAGE="en-US,en")
-    assert '<html lang="sv">' in response.text
+    assert '<html lang="sv" ' in response.text
     assert "Logga in" in response.text
 
 
@@ -74,7 +74,7 @@ def test_english_locale_is_available(client, user):
     client.force_login(user)
     client.cookies["django_language"] = "en"
     response = client.get("/")
-    assert '<html lang="en">' in response.text
+    assert '<html lang="en" ' in response.text
     assert "Save observation" in response.text
 
 

@@ -28,9 +28,14 @@ def recovery_config(tmp_path):
     return path
 
 
-def capture(user, uploads=(), body="Synthetic backup note"):
+def capture(user, uploads=(), body="Synthetic backup note", title="Synthetic backup title"):
     return create_entry(
-        author=user, date=date(2026, 5, 9), body=body, uploads=uploads, submission_key=uuid4()
+        author=user,
+        date=date(2026, 5, 9),
+        title=title,
+        body=body,
+        uploads=uploads,
+        submission_key=uuid4(),
     ).entry
 
 
@@ -49,7 +54,10 @@ def test_consistent_backup_and_clean_restore(
     assert restore_backup(backup, restored) == manifest
     snapshot = open_snapshot(restored / "db.sqlite3")
     try:
-        assert snapshot.execute("SELECT body, author_id FROM diary_diaryentry").fetchone() == (
+        assert snapshot.execute(
+            "SELECT title, body, author_id FROM diary_diaryentry"
+        ).fetchone() == (
+            entry.title,
             entry.body,
             user.pk,
         )
@@ -90,6 +98,7 @@ def test_restored_instance_authenticates_and_reads_photos_in_fresh_process(
     edit_payload = {
         "pk": entry.pk,
         "date": entry.date.isoformat(),
+        "title": "Edited synthetic recovery title",
         "body": "Edited synthetic recovery note",
         "submission_key": str(uuid4()),
         "expected_updated_at": entry.updated_at.isoformat(),
@@ -125,8 +134,10 @@ retry = update_entry(
        'expected_updated_at': parse_datetime(edit_payload['expected_updated_at'])}, actor=user,
 )
 assert retry.updated_at == before and retry.body == 'Edited synthetic recovery note'
+assert retry.title == 'Edited synthetic recovery title'
 assert retry.photos.count() == 1 and DiaryEditSubmission.objects.count() == 1
-assert client.get(entry.get_absolute_url()).status_code == 200
+response = client.get(entry.get_absolute_url())
+assert response.status_code == 200 and 'Edited synthetic recovery title' in response.text
 response = client.get(Photo.objects.get().display_url)
 assert response.status_code == 200
 assert len(b''.join(response.streaming_content)) > 0

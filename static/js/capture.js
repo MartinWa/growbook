@@ -11,7 +11,7 @@
   let busy = false;
 
   function syncFieldErrors() {
-    for (const name of ["date", "body", "camera", "library"]) {
+    for (const name of ["date", "title", "body", "camera", "library"]) {
       const input = form.elements.namedItem(name);
       const target = document.getElementById(`capture-${name}-errors`);
       const source = errors.querySelector(`[data-field-errors="${name}"]`);
@@ -42,6 +42,7 @@
     busy = value;
     save.disabled = value;
     document.getElementById("id_body").readOnly = value;
+    document.getElementById("id_title").readOnly = value;
     document.getElementById("id_date").readOnly = value;
     inputs.forEach(input => { input.disabled = value; });
     if (value) form.setAttribute("aria-busy", "true");

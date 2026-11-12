@@ -41,13 +41,51 @@ class Crop(ValidatedModel):
         return reverse("garden:crop-detail", args=[self.pk])
 
 
+class CropCategory(ValidatedModel):
+    name = models.CharField(_("Name"), max_length=150)
+    name_key = models.CharField(max_length=450, editable=False)
+    crops = models.ManyToManyField(Crop, through="CropCategoryLink", related_name="categories")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name_key", "id"]
+        verbose_name = _("Category")
+        verbose_name_plural = _("Categories")
+        constraints = [
+            models.UniqueConstraint(fields=["name_key"], name="category_name_key_unique"),
+            models.CheckConstraint(
+                condition=~Q(name="") & ~Q(name_key=""), name="category_name_not_blank"
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        self.name, self.name_key = normalize_name(self.name)
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("garden:category-detail", args=[self.pk])
+
+
+class CropCategoryLink(ValidatedModel):
+    category = models.ForeignKey(CropCategory, on_delete=models.CASCADE)
+    crop = models.ForeignKey(Crop, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["category", "crop"], name="category_crop_unique"),
+        ]
+
+
 class Variety(ValidatedModel):
     crop = models.ForeignKey(
         Crop, on_delete=models.PROTECT, related_name="varieties", verbose_name=_("Crop")
     )
     name = models.CharField(_("Name"), max_length=150)
     name_key = models.CharField(max_length=450, editable=False)
-    category = models.CharField(_("Category"), max_length=150, blank=True)
     description = models.TextField(_("Description"), blank=True)
     source = models.CharField(_("Source"), max_length=250, blank=True)
     experiences = models.TextField(_("Experiences"), blank=True)
@@ -322,6 +360,9 @@ class RegisterSubmission(ValidatedModel):
     area = models.ForeignKey(
         GrowingArea, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    category = models.ForeignKey(
+        CropCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -329,9 +370,10 @@ class RegisterSubmission(ValidatedModel):
             # Only the matching target may be set. All-null means the record was deleted.
             models.CheckConstraint(
                 condition=(
-                    Q(kind="crop", variety__isnull=True, area__isnull=True)
-                    | Q(kind="variety", crop__isnull=True, area__isnull=True)
-                    | Q(kind="area", crop__isnull=True, variety__isnull=True)
+                    Q(kind="crop", variety__isnull=True, area__isnull=True, category__isnull=True)
+                    | Q(kind="variety", crop__isnull=True, area__isnull=True, category__isnull=True)
+                    | Q(kind="area", crop__isnull=True, variety__isnull=True, category__isnull=True)
+                    | Q(kind="category", crop__isnull=True, variety__isnull=True, area__isnull=True)
                 ),
                 name="register_receipt_target_kind",
             ),

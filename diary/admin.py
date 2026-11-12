@@ -7,7 +7,7 @@ from .models import DiaryEntry
 class DiaryEntryAdmin(admin.ModelAdmin):
     """Read-only register: entries are managed through validated application flows."""
 
-    list_display = ["date", "author", "created_at"]
+    list_display = ["date", "title", "author", "created_at"]
     readonly_fields = [field.name for field in DiaryEntry._meta.fields]
     actions = None
 

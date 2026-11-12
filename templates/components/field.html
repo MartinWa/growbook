@@ -1,6 +1,12 @@
 {% load i18n %}
 {% if field.is_hidden %}{{ field }}{% elif field.name == 'photos' %}
-  {% include 'components/photo_picker.html' with existing_photos=record.photos.count %}
+  {% if replace_image %}{% include 'components/photo_picker.html' with existing_photos=0 %}{% else %}{% include 'components/photo_picker.html' with existing_photos=record.photos.count %}{% endif %}
+{% elif field.name == 'crop_ids' %}
+<fieldset class="field category-crops" id="{{ field.auto_id }}_group" tabindex="-1" data-field-name="{{ field.name }}" aria-describedby="{{ field.auto_id }}_errors">
+  <legend>{{ field.label }} {% translate '(optional)' %}</legend>
+  {{ field }}
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-register-field-errors="{{ field.name }}">{{ field.errors }}</div>
+</fieldset>
 {% else %}
 <div class="field" data-field-name="{{ field.name }}">
   <label for="{{ field.id_for_label }}">{{ field.label }} <span class="field-requirement">{% if field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></label>

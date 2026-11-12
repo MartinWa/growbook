@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{{ title }} · GrowBook{% endblock %}
 {% block content %}
-{% if kind == 'planting' %}<nav class="register-nav" aria-label="{% translate 'Planting navigation' %}"><a href="{% url 'garden:planting-list' %}">{% translate 'Year overview' %}</a><a href="{% url 'garden:planting-history' %}">{% translate 'All years' %}</a></nav>{% elif kind != 'event' %}{% include 'garden/nav.html' %}{% endif %}
+{% if kind == 'planting' %}<nav class="year-navigation" aria-label="{% translate 'Planting navigation' %}"><a href="{% url 'garden:planting-list' %}">{% translate 'Year overview' %}</a><a href="{% url 'garden:planting-history' %}">{% translate 'All years' %}</a></nav>{% endif %}
 <section class="panel register-form-panel">
 <h1>{{ title }}</h1>
 <form id="register-form" method="post" action="{{ action }}" enctype="multipart/form-data"
@@ -19,12 +19,14 @@
   {% if kind == 'planting' %}
     {% include 'garden/planting_fields.html' %}
   {% else %}
+  {% if kind == 'category' and record %}{% with photo=record.photos.first %}{% if photo %}<p><a href="{{ photo.get_absolute_url }}"><img class="category-current-image" src="{{ photo.thumbnail_url }}" alt="{% translate 'Current category image' %}"></a></p>{% endif %}{% endwith %}{% endif %}
   {% for field in form %}{% include 'components/field.html' %}{% endfor %}
   {% endif %}
   {% if kind == 'area' %}
     <datalist id="area-types">
       <option value="{% translate 'Bed' %}"></option><option value="{% translate 'Greenhouse' %}"></option>
       <option value="{% translate 'Pot' %}"></option><option value="{% translate 'Border' %}"></option>
+      <option value="{% translate 'Raised bed' %}"></option>
     </datalist>
     <p class="muted">{% translate 'Type and dimensions are descriptive; either dimension may be left blank.' %}</p>
   {% endif %}
@@ -35,7 +37,7 @@
   {% if record and record.is_archived %}<p class="muted">{% translate 'This record is archived. Editing it does not restore it to active selections.' %}</p>{% endif %}
   <p data-register-status role="status" aria-live="polite"></p>
   <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
-  <div class="form-actions"><button type="submit" class="btn btn-primary">{% translate 'Save' %}</button><a{% if record and kind != 'planting' and kind != 'event' %} data-register-cancel{% endif %} href="{% if kind == 'event' %}{{ planting.get_absolute_url }}{% elif record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
+  <div class="form-actions"><button type="submit" class="btn btn-primary">{% translate 'Save' %}</button><a{% if record and kind != 'planting' and kind != 'event' %} data-register-cancel{% endif %} href="{% if cancel_url %}{{ cancel_url }}{% elif kind == 'event' %}{{ planting.get_absolute_url }}{% elif record %}{{ record.get_absolute_url }}{% else %}{{ list_url }}{% endif %}">{% translate 'Cancel' %}</a></div>
 </form>
 </section>
 {% endblock %}

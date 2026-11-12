@@ -57,7 +57,7 @@ def test_variety_search_uses_literal_normalized_name_keys(
 ):
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"} if partial else {}
-    response = client.get(reverse("garden:variety-list"), {"q": search}, **headers)
+    response = client.get(reverse("garden:all-crops"), {"q": search}, **headers)
     assert response.status_code == 200
     assert [record.pk for record in response.context["records"]] == [
         varieties[i].pk for i in indices
@@ -74,7 +74,7 @@ def test_variety_search_uses_literal_normalized_name_keys(
 
 def test_variety_archive_clear_and_empty_results_keep_filter_choices(client, user, varieties):
     client.force_login(user)
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     response = client.get(path, {"q": "ÄRTOR", "archived": "1"})
     assert [record.pk for record in response.context["records"]] == [
         varieties[4].pk,
@@ -97,7 +97,7 @@ def test_archive_submit_preserves_unapplied_search_without_javascript(
     client, user, varieties, current, toggle, count
 ):
     client.force_login(user)
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     response = client.get(path, {"q": "ÄRTOR", "archived": current, "archive_toggle": toggle})
     assert response.status_code == 302
     query = parse_qs(urlsplit(response.url).query)
@@ -115,7 +115,7 @@ def test_combined_register_keeps_empty_crops_and_crop_maintenance(client, user):
     archive_variety(actor=user, pk=variety.pk)
     empty = create_crop(actor=user, name="Empty crop").record
     client.force_login(user)
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     response = client.get(reverse("garden:crop-list"), {"q": "Pea", "archived": "1"})
     assert response.status_code == 302
     assert parse_qs(urlsplit(response.url).query) == {"q": ["Pea"], "archived": ["1"]}
@@ -162,12 +162,15 @@ def test_area_register_keeps_only_needed_archived_ancestors_from_one_read(
     assert all(not event["node"].open for event in tree["events"])
     client.force_login(user)
     response = client.get(reverse("garden:area-list"))
-    assert [record.pk for record in response.context["records"]] == [leaf.pk]
-    assert response.text.count("data-structural") == 2
+    assert [record.pk for record in response.context["records"]] == [root.pk]
     assert unrelated.name not in response.text
-    assert response.text.count('class="area-branch"') == 2
-    assert response.text.count(f'data-area-id="{leaf.pk}"') == 1
-    assert f'aria-controls="details-area-{leaf.pk}"' in response.text
+    assert response.text.count('class="category-card area-card"') == 1
+    assert f'data-area-id="{leaf.pk}"' not in response.text
+    parent_page = client.get(root.get_absolute_url())
+    assert [child.pk for child in parent_page.context["children"]] == [middle.pk]
+    middle_page = client.get(middle.get_absolute_url())
+    assert [child.pk for child in middle_page.context["children"]] == [leaf.pk]
+    assert f'href="{leaf.get_absolute_url()}"' in middle_page.text
     assert unrelated.name in client.get(reverse("garden:area-list"), {"archived": "1"}).text
 
 
@@ -358,7 +361,7 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
 
 
 def test_register_search_fragments_require_an_active_session(client, user, varieties):
-    path = reverse("garden:variety-list")
+    path = reverse("garden:all-crops")
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"}
     assert client.get(path, {"q": "Åsa"}).status_code == 302
     response = client.get(path, {"q": "Åsa"}, **headers)
@@ -373,16 +376,16 @@ def test_register_search_fragments_require_an_active_session(client, user, varie
 def test_invalid_variety_search_returns_retryable_field_feedback(client, user, partial):
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"} if partial else {}
-    response = client.get(reverse("garden:variety-list"), {"q": "\x00", "archived": "1"}, **headers)
+    response = client.get(reverse("garden:all-crops"), {"q": "\x00", "archived": "1"}, **headers)
     assert response.status_code == 422
     assert response.context["form"].errors["q"]
     assert 'data-field-errors="q"' in response.text
-    assert response.context["empty_action_url"] == reverse("garden:variety-list") + "?archived=1"
+    assert response.context["empty_action_url"] == reverse("garden:all-crops") + "?archived=1"
 
 
 @pytest.mark.parametrize("partial", [False, True])
 @pytest.mark.parametrize("year", [2026, 2027])
-def test_area_information_links_to_current_year_and_descendant_plantings(
+def test_area_information_links_to_current_year_and_direct_plantings(
     client, user, monkeypatch, partial, year
 ):
     monkeypatch.setattr(timezone, "localdate", lambda: date(year, 11, 8))
@@ -402,17 +405,65 @@ def test_area_information_links_to_current_year_and_descendant_plantings(
     client.force_login(user)
     response = client.get(area.get_absolute_url(), HTTP_HX_REQUEST="true" if partial else "false")
     assert response.status_code == 200
-    assert (parent.name not in response.text) if partial else (parent.name in response.text)
+    assert parent.name in response.text
     assert "Raised bed" in response.text
     assert response.context["planting_year"] == year
-    assert response.context["planting_count"] == 2
+    assert response.context["planting_count"] == 1
+    assert len(response.context["plantings"]) == 3
+    assert persistent not in response.context["plantings"]
     target = response.context["planting_url"]
     assert urlsplit(target).path == reverse("garden:planting-list")
-    assert parse_qs(urlsplit(target).query) == {"year": [str(year)], "area": [str(area.pk)]}
+    assert parse_qs(urlsplit(target).query) == {
+        "year": [str(year)],
+        "area": [str(area.pk)],
+        "area_only": ["1"],
+    }
     plantings = client.get(target)
     assert plantings.context["year"] == year
     assert plantings.context["form"]["area"].value() == str(area.pk)
-    assert set(plantings.context["records"]) == {current, persistent}
+    assert plantings.context["records"] == [current]
+    all_years = client.get(plantings.context["all_years_url"])
+    assert len(all_years.context["records"]) == 3
+    assert persistent not in all_years.context["records"]
+    previous_year = client.get(plantings.context["previous_url"])
+    assert len(previous_year.context["records"]) == 1
+    assert persistent not in previous_year.context["records"]
+    inclusive = client.get(reverse("garden:planting-list"), {"year": year, "area": area.pk})
+    assert set(inclusive.context["records"]) == {current, persistent}
+
+
+@pytest.mark.parametrize("partial", [False, True])
+def test_removing_area_filter_restores_descendants_and_preserves_other_filters(
+    client, user, batches, partial
+):
+    crop, variety, root, child, grandchild, unused, records = batches
+    client.force_login(user)
+    headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
+    path = reverse("garden:planting-list")
+    response = client.get(
+        path, {"year": 2026, "crop": crop.pk, "area": child.pk, "area_only": "1"}, **headers
+    )
+    assert len(response.context["records"]) == 2
+    area_filter = next(
+        item for item in response.context["active_filters"] if item["value"] == "Root / Bed"
+    )
+    clear_query = parse_qs(urlsplit(area_filter["url"]).query)
+    assert clear_query == {"year": ["2026"], "crop": [str(crop.pk)]}
+    cleared = client.get(area_filter["url"], **headers)
+    assert set(cleared.context["records"]) == set(records)
+    assert not cleared.context["area_only"]
+    clear_query["area"] = [str(child.pk)]
+    selected = client.get(path, clear_query, **headers)
+    assert set(selected.context["records"]) == set(records[1:4])
+    assert not selected.context["area_only"]
+
+
+def test_direct_area_modifier_without_an_area_is_removed_from_navigation(client, user, batches):
+    client.force_login(user)
+    response = client.get(reverse("garden:planting-list"), {"year": 2026, "area_only": "1"})
+    assert not response.context["form"].cleaned_data["area_only"]
+    for name in ("previous_url", "next_url", "all_years_url", "overview_url"):
+        assert "area_only" not in parse_qs(urlsplit(response.context[name]).query)
 
 
 @pytest.mark.parametrize("kind", ["area", "variety"])
@@ -459,7 +510,7 @@ def test_variety_groups_show_one_private_thumbnail_per_record(
     create_variety(actor=user, crop=crop, name="No photo")
     client.force_login(user)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "register-results"} if partial else {}
-    response = client.get(reverse("garden:variety-list"), **headers)
+    response = client.get(reverse("garden:all-crops"), **headers)
     assert response.text.count('class="variety-thumbnail"') == 2
     with django_assert_num_queries(0):
         for record in response.context["records"]:

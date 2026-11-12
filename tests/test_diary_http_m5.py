@@ -57,6 +57,7 @@ def edit_data(record, **overrides):
         "submission_key": str(uuid4()),
         "expected_updated_at": record.updated_at.isoformat(),
         "date": record.date.isoformat(),
+        "title": record.title,
         "body": record.body,
     }
     data.update(overrides)
@@ -92,13 +93,14 @@ def test_staff_administrator_can_open_edit(client, user, staff_user):
     assert client.get(reverse("diary:delete", args=[record.pk])).status_code == 200
 
 
-def test_edit_post_updates_note_and_links(client, user, garden_records):
+def test_edit_post_updates_title_note_and_links(client, user, garden_records):
     record = make_entry(user)
     client.force_login(user)
     response = client.post(
         reverse("diary:edit", args=[record.pk]),
         edit_data(
             record,
+            title="Edited title",
             body="Edited note",
             date="2026-06-01",
             link_areas=[garden_records.parent.pk],
@@ -110,7 +112,11 @@ def test_edit_post_updates_note_and_links(client, user, garden_records):
     assert response.status_code == 302
     assert response.url == record.get_absolute_url()
     record.refresh_from_db()
-    assert (record.body, record.date) == ("Edited note", date(2026, 6, 1))
+    assert (record.title, record.body, record.date) == (
+        "Edited title",
+        "Edited note",
+        date(2026, 6, 1),
+    )
     assert record.links.count() == 4
 
 

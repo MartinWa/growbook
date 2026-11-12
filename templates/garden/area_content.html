@@ -1,0 +1,58 @@
+{% load i18n %}
+<section class="record-details area-details" aria-label="{{ record.name }}">
+  <nav class="area-navigation" aria-label="{% translate 'Growing area navigation' %}">
+    <a href="{% url 'garden:area-list' %}{% if show_archived %}?archived=1{% endif %}">{% translate 'Growing areas' %}</a>
+    {% for ancestor in ancestors %}<span aria-hidden="true">/</span><a href="{{ ancestor.get_absolute_url }}{% if show_archived %}?archived=1{% endif %}">{{ ancestor.name }}</a>{% endfor %}
+  </nav>
+  {% include 'components/register_heading.html' with heading=record.name illustration='images/registers/growing-areas.webp' illustration_photo=area_image %}
+  {% if record.is_archived %}<p><span class="archive-label">{% translate 'Archived' %}</span></p>{% endif %}
+  {% if record.children.all %}
+  <section class="area-section area-child-section" aria-labelledby="area-children-{{ record.pk }}">
+    <div class="page-heading">
+      <h2 id="area-children-{{ record.pk }}">{% translate 'Child areas' %}</h2>
+      {% include 'garden/archive_toggle.html' with list_url=record.get_absolute_url %}
+    </div>
+    {% if show_archived %}<p class="archive-state">{% translate 'Showing archived records' %} · <a href="{{ hide_archived_url }}">{% translate 'Hide archived records' %}</a></p>{% endif %}
+    {% if children %}{% include 'garden/area_cards.html' with areas=children child_cards=True %}{% else %}<p class="field-help">{% translate 'No active records' %}</p>{% endif %}
+  </section>
+  {% endif %}
+  <section class="panel area-information" aria-labelledby="area-information-{{ record.pk }}">
+    <h2 id="area-information-{{ record.pk }}">{% translate 'Details' %}</h2>
+    <dl class="record-fields">
+      {% if record.area_type %}<dt>{% translate 'Type' %}</dt><dd>{{ record.area_type }}</dd>{% endif %}
+      {% if record.length_cm %}<dt>{% translate 'Length (cm)' %}</dt><dd>{{ record.length_cm }}</dd>{% endif %}
+      {% if record.width_cm %}<dt>{% translate 'Width (cm)' %}</dt><dd>{{ record.width_cm }}</dd>{% endif %}
+      {% if record.description %}<dt>{% translate 'Description' %}</dt><dd>{{ record.description|linebreaksbr }}</dd>{% endif %}
+      {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
+    </dl>
+    {% include 'garden/register_photos.html' %}
+    <div class="form-actions">
+      <a class="btn btn-primary" href="{{ edit_url }}">{% translate 'Edit' %}</a>
+      <form method="post" action="{{ archive_url }}">
+        {% csrf_token %}
+        {% if record.is_archived %}<input type="hidden" name="archived" value="false"><button type="submit" class="btn btn-outline">{% translate 'Restore to active selections' %}</button>
+        {% else %}<input type="hidden" name="archived" value="true"><button type="submit" class="btn btn-outline">{% translate 'Archive' %}</button>{% endif %}
+      </form>
+      <a href="{{ delete_url }}">{% translate 'Delete' %}</a>
+    </div>
+  </section>
+  <section class="area-section" aria-labelledby="area-plantings-{{ record.pk }}">
+    <div class="page-heading">
+      <h2 id="area-plantings-{{ record.pk }}">{% translate 'Plantings' %} ({{ plantings|length }})</h2>
+      <a class="btn btn-outline" href="{{ planting_url }}">{% translate 'Plantings' %} {{ planting_year }} ({{ planting_count }}) <span aria-hidden="true">→</span></a>
+    </div>
+    <ul class="record-list area-plantings">
+      {% for planting in plantings %}
+      <li>
+        <a class="record-name" href="{{ planting.get_absolute_url }}">{{ planting.display_label }}</a>
+        <span class="field-help">{{ planting.crop.name }}{% if planting.variety %} · {{ planting.variety.name }}{% endif %} · {{ planting.start_year }}{% if planting.end_year %}–{{ planting.end_year }}{% elif planting.lifespan == 'persistent' %}–{% endif %} · {{ planting.area_path }}</span>
+      </li>
+      {% empty %}<li>{% translate 'No plantings for this growing area yet.' %}</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="diary-observations area-section" id="diary-observations-area-{{ record.pk }}" aria-labelledby="area-observations-{{ record.pk }}">
+    <h2 id="area-observations-{{ record.pk }}">{% translate 'Diary observations' %} ({{ observation_count }})</h2>
+    {% if record.children.all %}<p class="field-help">{% translate 'Includes child areas.' %}</p>{% endif %}
+    {% include 'diary/_observations.html' with limited_link=True %}
+  </section>
+</section>

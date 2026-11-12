@@ -1,0 +1,16 @@
+{% load i18n %}
+<form method="post" action="{% url 'set_season' %}" class="season-form" data-season-form>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <label for="season">{% translate 'Season' %}</label>
+  <div class="season-controls">
+    <select id="season" name="season">
+      <option value="auto"{% if season_mode == 'auto' %} selected{% endif %}>{% translate 'Automatic (follow date)' %}</option>
+      <option value="spring"{% if season_mode == 'spring' %} selected{% endif %}>{% translate 'Spring' %}</option>
+      <option value="summer"{% if season_mode == 'summer' %} selected{% endif %}>{% translate 'Summer' %}</option>
+      <option value="autumn"{% if season_mode == 'autumn' %} selected{% endif %}>{% translate 'Autumn' %}</option>
+      <option value="winter"{% if season_mode == 'winter' %} selected{% endif %}>{% translate 'Winter' %}</option>
+    </select>
+    <button type="submit" class="btn btn-outline">{% translate 'Change' %}</button>
+  </div>
+</form>

@@ -3,7 +3,8 @@
   data-photo-file-bytes="{{ photo_max_file_bytes }}" data-photo-total-bytes="{{ photo_max_total_bytes }}"
   data-photos-selected="{% translate 'Photos selected: {selected}' %}" data-remove="{% translate 'Remove' %}" data-clear="{% translate 'Clear selected photos' %}"
   data-preview-unavailable="{% translate 'Preview unavailable; the original photo will still be uploaded.' %}">
-  <legend{% if quick %} class="visually-hidden"{% endif %}>{% translate 'Photos (optional)' %}</legend>
+  <legend{% if quick %} class="visually-hidden"{% endif %}>{% if replace_image %}{% translate 'Category image' %}{% else %}{% translate 'Photos (optional)' %}{% endif %}</legend>
+  {% if replace_image %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
   <button type="button" class="btn btn-outline" data-photo-chooser hidden><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-images"/></svg> {% translate 'Add photos' %}</button>
   <div class="photo-inputs" data-native-photos>
     <div class="field">

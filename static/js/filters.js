@@ -160,6 +160,10 @@
     load(url);
   });
   form.addEventListener("change", event => {
+    if (event.target.name === "area" && !event.target.value) {
+      const areaOnly = form.elements.namedItem("area_only");
+      if (areaOnly) areaOnly.value = "";
+    }
     // Search is handled by its debounced input listener and the submit path.
     if (event.target.name !== "q") load(formURL());
   });

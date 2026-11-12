@@ -2,7 +2,8 @@
 
 The interface uses the committed, self-hosted `static/css/app.css`, built from
 `assets/app.css` with the pinned Tailwind CSS and daisyUI versions in `package.json`,
-system fonts and server-rendered Django templates. Rebuilding that stylesheet needs
+system body fonts, a self-hosted Barlow Condensed heading font and server-rendered
+Django templates. Rebuilding that stylesheet needs
 Node.js and pnpm; running the application does not.
 
 ## Tokens
@@ -14,15 +15,32 @@ Colour roles map to daisyUI theme variables: `--color-base-100`, `--color-base-2
 surfaces have their own roles and content colours. Keep error and status meaning in
 text as well as colour.
 
-The `growbook` theme in `assets/app.css` fixes the warm paper surfaces, the green
-primary action and the amber focus colour. Spacing uses Tailwind's quarter-rem
+The `growbook` theme in `assets/app.css` supplies shared controls and status colours.
+Four palettes selected through the root's `data-season` attribute change the page and
+card surfaces, text, borders, primary and secondary actions, accents, muted text and
+focus colour. Spring uses sage and cream, summer deeper leaf green and warm ivory,
+autumn earth brown and parchment, and winter blue green and cool pale surfaces.
+Status roles retain the same meaning in every season.
+The browser-local choice and automatic date rules are described in
+[Seasonal appearance](usage.md#seasonal-appearance).
+
+Page headings use regular, upright Barlow Condensed, uppercase presentation and
+responsive sizing from roughly 36 to 56 px at the default text size. The
+[font's original license and pinned source](../third_party/barlow-condensed/README.md)
+are retained with the application. The GrowBook wordmark keeps its system font.
+Spacing uses Tailwind's quarter-rem
 steps. `--radius-selector`, `--radius-field` and `--radius-box` set the small,
 medium and large radii. The base font is 106.25% of the browser default, with a
 1.6 line height, and `--size-field` gives a 44 px control target at that size.
 
+The four main pages share a 1200 px content limit, horizontal padding aligned with
+the header, and the same heading offset. Their illustrated headings reserve the
+same height, with growing-area, crop/variety and planting illustrations filling
+nearly half the heading width. Narrow layouts reduce the heading height.
+
 ## Components
 
-- Buttons and links use daisyUI's `btn` with `btn-primary` for the primary green
+- Buttons and links use daisyUI's `btn` with `btn-primary` for the primary
   action, `btn-outline` for secondary actions and `btn-error` for destructive ones.
   Use one primary action in a form. Disabled controls retain their label; an
   uploading form uses `aria-busy` and a visible status line.
@@ -58,7 +76,14 @@ medium and large radii. The base font is 106.25% of the browser default, with a
 
 ## Capture layout and interaction
 
-The diary uses one inline composer with a three-row note and compact date. Editing
+The diary has a decorative, text-free seasonal tree header above its collapsed
+filters. Its four optimized, self-hosted WebP illustrations occupy the same banner
+area; headings remain ordinary translated HTML. Growing areas, crops and varieties,
+and plantings share a heading with a fixed decorative WebP illustration. Their
+text and controls use the selected seasonal palette.
+
+The diary uses one inline composer with a compact date, optional title, three-row note
+and generous minimum writing area. Editing
 an existing observation also includes its saved photos and a Cancel action. The
 note grows with its content where native `field-sizing` is supported, with
 a maximum height and ordinary textarea scrolling for longer text.
@@ -66,7 +91,12 @@ The inline composer and observation editing put **Add tags** and **Add photos** 
 left of one action row and **Save observation** on the right. The row wraps on narrow
 screens. Native grouped tag checkboxes are enhanced into a searchable popover with
 removable chips; see the [diary workflow](usage.md#diary). Existing observations align
-their edit actions to the right.
+their edit actions to the right. Optional entry titles appear beneath the date in
+regular, uppercase Barlow Condensed and wrap at every width. Cards with notes and
+photos put photos beside the complete note on wide screens and above it on narrow
+ones. Photo-only cards use
+the available width. Images use the protected display derivative and preserve their
+aspect ratio; galleries show every photo. Notes remain fully visible at every width.
 
 With JavaScript, Add photos is one button that opens the native image picker
 directly. Camera/library options and their language are supplied by the browser
@@ -76,7 +106,7 @@ two columns above it. Photo limits appear with warnings after a selection exceed
 the configured count or byte limits.
 
 `components/photo_picker.html` and `photos.js` share this behavior across capture,
-observation editing and Garden forms. Garden and edit inputs share the existing
+observation editing and register forms. Register and edit inputs share the existing
 `photos` field name, so Django combines both sources through its multiple-file
 widget. Selection and removal update native FileLists where supported; previews
 use object URLs, released on replacement or page exit. Removing a preview keeps
@@ -110,6 +140,13 @@ With JavaScript, the main header sticks to the top and its measured height keeps
 anchor targets below it as navigation wraps or text size changes. The header and
 form actions return to normal flow when either consumes more than a quarter of
 the viewport height. Without JavaScript, the header stays in normal document flow.
+On narrow screens, main navigation moves below the wordmark and account control.
+
+`season.js` changes only appearance attributes and the browser's season cookie,
+preserving the current form and its files. The server reads the same bounded choice
+before rendering, so it also works without JavaScript and survives page navigation.
+The ordinary POST form retains CSRF protection and returns only to validated
+root-relative paths.
 
 Original downloads are available in the photo viewer's Photo options disclosure,
 with keyboard and Escape handling shared with the account menu. Diary photos link
@@ -119,33 +156,52 @@ For local operation and checks, use the canonical
 [development guide](development.md#test-and-check). Browser checks cannot
 verify device-native camera/library pickers; those require the intended phone.
 
-## Garden layout and interaction
+## Register layout and interaction
 
-Garden cards link to growing areas, the combined crop/variety register and the current
-planting year. Crop headings use native disclosures; variety and area names open
-information independently. Name lists use `.record-list`, `.record-name` and `.record-info`,
+Main navigation links directly to Diary, Growing areas, Crops and varieties, and
+Plantings; the former Garden landing URL redirects to Growing areas. Growing areas
+reuse the crop-category grid and card styles for top-level areas and child areas.
+Cards open dedicated pages with ancestor navigation, child cards before the parent's
+information, protected photos, linked plantings and diary observations. Their links and
+archive controls use ordinary HTML navigation at every screen width.
+Crop headings use native disclosures; variety names select their information independently
+of those disclosures. Name lists use `.record-list`, `.record-name` and `.record-info`,
 with underlined names, the selected name highlighted and archived records labelled.
 Varieties show one thumbnail when available. Record observations use a native disclosure
 with their total count; the link to all observations appears inside when the five-item
 preview omits older entries. Crop maintenance links sit in their own disclosure.
 The combined register uses a compact search/archive form with the shared filter module,
 debounced search, request cancellation, URL history, visible errors and a Retry action.
-The compact form stays above results at every width. A single archive-visibility action
+The compact form stays above results at every width. Search, archive and creation
+actions share a row when they fit and wrap on narrower screens. The search label and
+help remain available to assistive technology; the placeholder identifies the visible
+field. Submit and retry controls occupy space only when available.
+A single archive-visibility action
 beside creation links preserves search, shows its selected state and uses ordinary GET
 navigation without JavaScript.
 
-Registers and planting results share a server-rendered area hierarchy built from bounded
-area reads and parent IDs. Its iterative presentation supports deep nesting and cuts
-legacy cycles defensively. Native details/summary controls keep area expansion usable
-with keyboard and without JavaScript. Area names are links inside the summary, with a
-separate arrow for expansion and a descriptive accessible name on the summary. Leaf
-areas have no arrow. Register branches start collapsed; archived ancestors of active
-children remain labelled context. Planting branches retain ancestors, omit empty subtrees and open
+Crop/variety and planting results share `.record-workspace`: a list and one selected
+details panel. JavaScript moves the existing detail containers into that panel and
+closes the previous selection when another name is activated. At 900 px and wider
+the list and details sit side by side; below that width they stack. Details remain
+visible when a list branch closes. Before selection, the panel explains how to choose
+a record. Without JavaScript the panel stays hidden and names link to full records.
+Selections bring off-screen details into view and move focus to their labelled region.
+**Back to list** returns focus to the selected name and reveals its ancestor groups.
+This navigation happens during activation. Delayed responses do not repeat it,
+and browser history retains its saved scroll position.
+
+Growing-area cards and planting results use bounded area reads and parent IDs to
+retain ancestor context and cut legacy cycles defensively. Planting results render
+the hierarchy iteratively, supporting deep nesting without recursive template includes.
+Native details/summary controls keep planting-area expansion usable with keyboard and
+without JavaScript. Growing-area cards retain archived ancestors of active children.
+Planting branches retain ancestors, omit empty subtrees and open
 when their matching subtree has one crop/variety pair. Batches attach only to their own
-area, with their names opening information through the shared register module. An unassigned
+area, with their names selecting information through the shared register module. An unassigned
 group follows the hierarchy. Indentation is reduced on narrow screens, names wrap and controls retain
-their touch targets and focus outlines. Browser history restores register disclosure
-states, information panels and scroll after returning from editing. Stored state contains
+their touch targets and focus outlines. Browser history restores crop-register disclosure
+states, the selected details and scroll after returning from editing. Stored state contains
 the list URL, record IDs, disclosure flags and scroll position. Information reloads from
 authenticated endpoints; no record content is cached in history.
 Other result replacements use the default disclosure states.
@@ -156,6 +212,9 @@ end year stays visible when switching to Annual so it can be corrected. Dependen
 variety failures open their group and expose a retry action.
 
 Planting filters share the diary disclosure and URL history behavior. Returned
-lists initialize independent information controls after each filter update. Planting
+lists initialize the shared details panel after each filter update. Planting
 lists show area and batch names at every width; all other fields and history links are
 in opened information. Nested event tables retain their own horizontal scrolling.
+The filter toggle and creation action share one row when space allows; expanded
+filters still span the content width. Result counts and growing-year navigation
+share a compact row, with active filter chips underneath.

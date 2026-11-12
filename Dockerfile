@@ -49,12 +49,15 @@ RUN mkdir -p /opt/native/share/sources \
 FROM native-build AS python-build
 ENV LD_LIBRARY_PATH=/opt/native/lib LIBHEIF_ROOT=/opt/native
 COPY requirements.txt requirements-build.txt /tmp/
-COPY locale /tmp/translations/locale
-COPY tools/compile_translations.py /tmp/translations/tools/compile_translations.py
 RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements-build.txt \
-    && python /tmp/translations/tools/compile_translations.py \
     && python -m pip install --no-cache-dir --require-hashes --no-build-isolation \
       --no-binary=pillow-heif --prefix=/opt/python -r /tmp/requirements.txt
+
+# Translation edits must not invalidate dependencies or the development browser layers.
+FROM python-build AS translations-build
+COPY locale /tmp/translations/locale
+COPY tools/compile_translations.py /tmp/translations/tools/compile_translations.py
+RUN python /tmp/translations/tools/compile_translations.py
 
 FROM os-base AS runtime-base
 RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
@@ -113,7 +116,7 @@ ENV GROWBOOK_VERSION=${GROWBOOK_VERSION} \
     GROWBOOK_DATA_DIR=/data \
     DJANGO_SETTINGS_MODULE=growbook.settings.production
 COPY . /app
-COPY --from=python-build /tmp/translations/locale /app/locale
+COPY --from=translations-build /tmp/translations/locale /app/locale
 RUN python -c 'import sqlite3; assert sqlite3.sqlite_version_info >= (3,51,3)' \
     && python -c 'import pillow_heif; info=pillow_heif.libheif_info(); assert "libde265" in info["decoders"]; assert "x265" not in info["encoders"]' \
     && python -c "from PIL import Image; import pillow_heif; pillow_heif.register_heif_opener(); im=Image.open('tests/fixtures/synthetic.heic'); im.load(); assert im.size == (80,60)" \

@@ -1,15 +1,40 @@
-/* Independent information panels, transient navigation state and bounded form feedback. */
+/* Shared selected details, transient navigation state and bounded form feedback. */
 (() => {
   "use strict";
   if (!window.htmx) return;
   const expansions = new WeakMap();
 
   function initializeRows(root) {
+    root.querySelectorAll("[data-record-workspace]").forEach(workspace => {
+      const browser = workspace.querySelector("[data-record-browser]");
+      const pane = workspace.querySelector("[data-record-detail-pane]");
+      const returnButton = pane.querySelector("[data-record-return]");
+      for (const row of browser.querySelectorAll(".register-expanded")) pane.insertBefore(row, returnButton);
+      pane.hidden = false;
+      workspace.classList.add("record-workspace-enhanced");
+      if (returnButton.dataset.registerReady) return;
+      returnButton.dataset.registerReady = "true";
+      returnButton.addEventListener("click", () => {
+        const selected = workspace.querySelector('[data-register-toggle][aria-expanded="true"]');
+        if (!selected) return;
+        for (let parent = selected.parentElement; parent && parent !== workspace; parent = parent.parentElement) {
+          if (parent.tagName === "DETAILS" && !parent.querySelector(":scope > summary")?.contains(selected)) {
+            parent.open = true;
+          }
+        }
+        selected.focus({ preventScroll: true });
+        selected.scrollIntoView({ block: "center" });
+      });
+    });
     root.querySelectorAll("[data-register-toggle]").forEach(link => {
       if (link.dataset.registerReady) return;
       link.dataset.registerReady = "true";
       const row = document.getElementById(link.getAttribute("aria-controls"));
       const details = row.querySelector(".register-details");
+      const workspace = link.closest("[data-record-workspace]");
+      const placeholder = workspace?.querySelector("[data-record-placeholder]");
+      const returnButton = workspace?.querySelector("[data-record-return]");
+      details.tabIndex = -1;
       let loaded = false;
       let loading;
       let finishLoad;
@@ -21,8 +46,18 @@
         }
       });
       function expand(expanded) {
+        if (expanded && workspace) {
+          for (const other of workspace.querySelectorAll('[data-register-toggle][aria-expanded="true"]')) {
+            if (other !== link) expansions.get(other)?.(false);
+          }
+        }
         link.setAttribute("aria-expanded", String(expanded));
         row.hidden = !expanded;
+        if (placeholder) {
+          const selected = !!workspace.querySelector('[data-register-toggle][aria-expanded="true"]');
+          placeholder.hidden = selected;
+          returnButton.hidden = !selected;
+        }
         if (!expanded || loaded) return Promise.resolve();
         if (loading) return loading;
         loading = new Promise(resolve => { finishLoad = resolve; }).finally(() => {
@@ -46,7 +81,18 @@
         // Preserve ordinary open-in-new-tab/window shortcuts and the no-JS link fallback.
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        expand(link.getAttribute("aria-expanded") !== "true");
+        const expanded = link.getAttribute("aria-expanded") !== "true";
+        expand(expanded);
+        if (expanded && workspace) {
+          const top = details.getBoundingClientRect().top;
+          const headerBottom = document.querySelector(".site-header-sticky")?.getBoundingClientRect().bottom || 0;
+          const lineHeight = parseFloat(getComputedStyle(details).lineHeight);
+          // Navigate at activation time; late responses and history restoration must not steal focus.
+          if (top < headerBottom || top + lineHeight > innerHeight) {
+            details.focus({ preventScroll: true });
+            details.scrollIntoView({ block: "start" });
+          }
+        }
       });
       details.addEventListener("htmx:afterSwap", () => {
         loaded = true;
@@ -126,7 +172,8 @@
         !document.referrer || history.length < 2) return;
     const previous = new URL(document.referrer);
     if (previous.origin === location.origin &&
-        ["/garden/areas/", "/garden/varieties/"].includes(previous.pathname)) {
+        (["/garden/areas/", "/garden/varieties/"].includes(previous.pathname) ||
+         /^\/garden\/categories\/(?:all|uncategorized|\d+)\/$/.test(previous.pathname))) {
       event.preventDefault();
       history.back();
     }

@@ -18,10 +18,37 @@ local changes or commits after a release. Builds without version metadata show
 **Development**. See
 [deployment configuration](deployment.md#application-version-and-update-check).
 
-## Garden
+## Seasonal appearance
 
-Open **Garden** for growing areas, **Crops and varieties**, and this year's plantings, with
-record counts and creation links. Garden navigation stays visible on register pages.
+The account menu's **Season** selector changes the application's colours and the
+diary's tree illustration. **Spring**, **Summer**, **Autumn** and **Winter** keep that
+appearance until another choice is made. **Automatic (follow date)** is the default:
+March–May uses spring, June–August summer, September–November autumn and
+December–February winter, using today's date in the garden's configured timezone.
+Viewing older diary years or changing an observation date does not change the season.
+An open page with JavaScript recalculates the automatic season each minute and when
+the page regains focus.
+
+The choice is remembered in this browser for one year, including after signing out;
+each browser chooses independently. Changing it with JavaScript keeps the current
+page, filters, unfinished note and selected photos. Without JavaScript, select the
+season and use **Change** to reload the current page; save an unfinished form first.
+The login page also offers the selector. Colours apply throughout the application.
+The diary illustration changes with the season; **Growing areas**, **Crops and varieties**
+and **Plantings** have default illustrations with translated headings. Category
+and growing-area headings use their first uploaded image when available.
+
+## Growing areas, crops and varieties
+
+Open **Growing areas** or **Crops and varieties** directly from the main menu.
+Existing `/garden/` links redirect to **Growing areas**. Creation and archive actions
+appear above the lists, with crop and variety search alongside them.
+With JavaScript, selecting a variety or planting shows one record in a shared
+details panel beside the list on wide screens and below it on narrow screens. Selecting
+another record replaces those details; selecting the same name again closes them.
+If the details would open outside the viewport, selection scrolls to them and moves
+keyboard focus there. **Back to list** returns to the selected name, opening any closed
+ancestor groups needed to show it. Browser Back from editing keeps its saved scroll position.
 Crops and varieties share one register. Crop names are grouping headings: activate a
 heading with the mouse, Enter or Space to reveal its varieties.
 Groups start collapsed, several can remain open, and crops without varieties remain visible.
@@ -29,6 +56,38 @@ Each variety shows its first photo as a thumbnail when available. Select its und
 name to open information and photos. **Diary observations (count)** expands its latest
 five observations; **View all observations** appears inside when older observations exist.
 **Manage crops** opens maintenance links for crop notes, editing and archiving.
+
+**New category** creates a shared crop category with a name, optional private image
+and selected crops. Categories have one level above crops; a crop can belong to
+several categories. Varieties remain attached to their existing crop. Category
+names use the same Unicode-aware uniqueness rules as the other registers and are
+not translated.
+
+**Crops and varieties** always opens the category overview, including when there
+are no user-created categories. **New category** is available only on this overview.
+Category cards have **Edit** and **Delete** actions. Open a category to browse and
+search only its crops and varieties. **Uncategorized** opens crops without category
+links; **Show all crops and varieties** opens the full register. Search and archive
+controls retain their scope.
+Empty categories remain available. **New crop** from a category page links the
+new crop to that category; from Uncategorized it leaves the crop unlinked.
+The same category image appears on its card and in the register heading. Transparent
+PNG and WebP images retain their transparency. Uncategorized uses the default crop
+illustration on its card and in its heading; categories without an image also use
+that heading illustration. Older filtered register links open the full register.
+
+Edit a category to change its name or crop links, remove its image, or upload one
+replacement image. Selecting another image replaces the saved image on a successful
+save. Open the current image from the edit form for viewing and private original
+download. Category forms use the same save-key retries and stale-edit protection
+as the registers. A category has at most one image, with the existing file and
+decoded-pixel limits. The overview, forms and category navigation work without
+JavaScript.
+
+Category deletion requires confirmation and removes its image and crop links.
+Crops, varieties, plantings and diary records remain. A crop with no remaining
+category links appears in Uncategorized; deleting the final category returns to
+the overview, where Uncategorized remains available.
 
 Varieties use normalized name ordering within each crop. **Search crops and varieties**
 matches literal substrings of variety or crop names after Unicode NFC,
@@ -41,23 +100,27 @@ Search opens matching groups. Active varieties remain visible under archived cro
 marked by the crop's archive badge. Existing crop-list URLs open the combined register
 and retain their search and archive choices.
 
-Growing areas appear beneath their actual parents, with names as the list labels. Use a
-parent's arrow, Enter or Space to reveal its children; select its name to open information
-independently. Branches start collapsed, several can remain open, and closing a parent
-preserves its children's disclosure and information states until it is reopened. Leaf areas
-have no expansion arrow. Inline area information shows its own fields, photos and
-expandable observations, without repeating its parent area's name. The full record keeps
-a parent link. Browser Back from editing restores open branches and information panels,
-filter choices and scroll position. With JavaScript, **Cancel** also returns to that list
-when editing started there in the same tab; otherwise it opens the record.
+**Growing areas** opens an overview of top-level area cards. Each card shows its name
+and first photo when available, using the same layout as crop-category cards. Open a
+card for the area's own page. Child-area cards appear before the parent's description,
+dimensions, notes and photo controls. Each child opens its own page with the same
+layout; the navigation above the heading links to the overview and ancestor areas.
+Area pages show only plantings assigned directly to that area, across all years.
+Each child area's plantings appear on its own page. The latest five linked diary
+observations include descendant areas and archived associations. Each linked record
+appears once. Select a planting or observation to open it;
+**View all observations** appears when older observations exist.
 **Plantings YEAR (count)** opens Plantings with the current year and that area selected;
-its count includes descendant areas. **Planting history** remains available for all years.
+its count and results include only plantings assigned directly to that area. This
+selection continues through year changes and **All years**. The Plantings section
+retains its year filters and histories. **Cancel** from area editing returns to the area's page, retaining
+**Include archived** when selected; saved edits retain that choice too.
 
-Archived ancestors of active areas remain as context, without increasing active counts;
+Archived ancestors of active areas remain available as cards leading to their children;
 unrelated archived branches stay hidden until **Include archived** is selected.
-The hierarchy works without JavaScript. Area and variety names open full records in that
-case. With JavaScript, several information panels can remain open; **Open record** inside
-a panel, or opening its name in a new tab, opens the full record.
+The overview, child cards, record links and archive controls work without JavaScript.
+Variety names open full records without JavaScript. **Open record** inside a variety's
+details panel, or opening its name in a new tab, opens the full record.
 
 - Crop names are unique globally; variety names within a crop. Area names are unique
   among top-level areas or among siblings with the same parent. Comparison uses Unicode
@@ -65,7 +128,8 @@ a panel, or opening its name in a new tab, opens the full record.
   Archived records still reserve their names.
 - Areas may have a parent, a descriptive type and optional positive length/width in
   centimetres. A parent cannot be itself or a descendant; dimensions do not enforce a
-  layout or capacity.
+  layout or capacity. Type accepts custom text and suggestions, including **Raised bed**
+  (**Pallkrage** in Swedish). Stored type text keeps the language in which it was entered.
 - Archive hides a record from default lists and new associations, not from direct links
   or existing associations. It does not archive child areas or varieties. Toggle
   **Include archived** beside the creation actions to show or hide archived records
@@ -118,7 +182,9 @@ full forms keep their save actions visible at the bottom while scrolling.
 ## Plantings and histories
 
 Open **Plantings** for growing-year results grouped by area. **Planting filters** starts
-collapsed above the results at every screen width. Expand it to change filters;
+collapsed above the results at every screen width, alongside **New planting** when
+space allows. Counts and growing-year links share a row, with active filter chips below.
+Expand the filters to change choices;
 changes apply automatically and Enter submits a typed year. Active choices remain
 visible as chips when collapsed. Remove an adjustable choice with its chip; scoped
 crop, variety and area choices stay fixed. Use **All years** to leave the year overview.
@@ -126,10 +192,11 @@ Failed requests keep existing results and show **Retry**; invalid choices open t
 Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
 **Next year**; **All years** shows each planting once across its full history. Crop,
 variety and area histories default to all years. Lists show only area and batch names;
-select a batch name to open its crop, variety, years, quantity, events, notes, evaluation,
-photos and diary observations. Several batches can stay open independently. History links
-inside batch information keep an explicitly selected year. Register details also link to
-their **Planting history**.
+select a batch name to show its crop, variety, years, quantity, events, notes, evaluation,
+photos and diary observations in the shared details panel. Area branches stay independent
+of the selected batch. History links
+inside batch information keep an explicitly selected year. Crop and variety details also
+link to their **Planting history**.
 
 Matching plantings attach only to their exact assigned areas, with ancestors retained for
 context and empty branches omitted. Parent assignments and child assignments remain
@@ -162,7 +229,7 @@ crop, variety and area histories and work without JavaScript.
   its events, evaluation and photos. Viewing another year never copies the planting or
   counts the original quantity as repeated production.
 - Filter by crop, variety or area, or find **Unassigned area only** or **Unknown variety
-  only**. Area filters include the selected area and all descendants, once per batch,
+  only**. Area filters normally include the selected area and all descendants, once per batch,
   showing the actual assigned place. Archived register items stay visible in existing
   histories and associations.
 - **New planting event** supports sowing, transplanting, harvest start/end and other
@@ -182,11 +249,16 @@ presence, not exact movement dates, lineage or historical layouts.
 ## Diary
 
 Open **Diary** to add an observation or browse observations newest first. The inline
-composer accepts a note, photos or both, with optional tags. A confirmed save clears
-the composer, shows a receipt and refreshes the first results page with current
-filters. Failed saves keep the draft and selected files in the open form. Without
-JavaScript, reselect photos as instructed and
+composer accepts a note, photos or both, with an optional title and tags. A confirmed
+save clears the composer, shows a receipt and refreshes the first results page with
+current filters. Failed saves keep the draft and selected files in the open form.
+Without JavaScript, reselect photos as instructed and
 retry with the same save key.
+
+**Title** is optional and accepts up to 200 characters. It appears beneath the date
+on cards and observation pages, and in linked observation previews. Leave it blank
+to use the date as the heading. An observation needs a note or at least one photo,
+even when it has a title.
 
 The inline composer and observation editing place **Add tags** and **Add photos** on
 the left of the action row, with **Save observation** aligned right. The row wraps on
@@ -220,7 +292,7 @@ invalid choices open the filters, and failed requests keep results and show **Re
 Search applies after a short pause or Enter, other filters apply on change, and chips
 remove individual filters. Paging and Back preserve filter URLs; updating results keeps
 an unfinished quick-add and its selected files. Without JavaScript, open the filter
-disclosure and submit the form. Search matches note text only; the year, area, crop,
+disclosure and submit the form. Search matches titles and notes; the year, area, crop,
 variety and planting controls combine in one form. A planting filter also matches its
 crop, variety and area, and an area filter includes descendants. Results are deduplicated
 and paging preserves active filters.
@@ -228,20 +300,20 @@ and paging preserves active filters.
 Open a photo and use **Photo options → Download original**. Originals stay out of the
 ordinary diary view and are included in operational backups.
 
-The account menu contains Language, Log out and, for staff, Operator. Language changes
+The account menu contains Language, Season, Log out and, for staff, Operator. Language changes
 apply immediately with JavaScript and retain the page and filters; a submit button
 remains without JavaScript. The login page has its own selector.
 
 - Search is a literal substring match after Unicode NFC normalization and casefolding:
   uppercase and lowercase match, diacritics do not (`Ångström` finds `ångström`, but
   `Angstrom` does not). Captions and linked record names are not searched.
-- Open an observation to read its note, links and photos. The author may edit or delete
-  it; an active staff administrator may edit or delete any entry; other active accounts
-  can read it. The list shows **Edit** only on entries the signed-in account may
+- Open an observation to read its title, note, links and photos. The author may edit or
+  delete it; an active staff administrator may edit or delete any entry; other active
+  accounts can read it. The list shows **Edit** only on entries the signed-in account may
   change. A deactivated author cannot write, even while signed in.
-- Edit changes the date, note, garden links and photos. A planting link also matches its
-  crop, variety and area. Each link points to exactly one area, crop, variety or planting,
-  and the same record can be linked once. New direct links to crops, varieties and areas
+- Edit changes the date, optional title, note, garden links and photos. A planting link
+  also matches its crop, variety and area. Each link points to exactly one area, crop,
+  variety or planting, and the same record can be linked once. New direct links to crops, varieties and areas
   must target active records; existing archived links remain visible and removable.
   Older or ended plantings, including those with archived associations, stay selectable.
   Ordinary **Edit** includes the same picker and preserves existing explicit links.
@@ -249,9 +321,9 @@ remains without JavaScript. The login page has its own selector.
   newer change. Identical retries use immutable edit receipts; follow
   [Saving changes and retries](#saving-changes-and-retries) after an uncertain save.
   Reload after a version conflict to see saved values. With JavaScript only errors are
-  replaced and the form stays open; without it, date, note and link selections are kept,
+  replaced and the form stays open; without it, date, title, note and link selections are kept,
   but photos must be reselected before retrying.
-- Delete requires confirmation and permanently removes the note, links and photos,
+- Delete requires confirmation and permanently removes the title, note, links and photos,
   including private originals. Linked registers, plantings and their photos remain. A
   stale deletion is rejected and asks you to reload.
 - On a photo page, the author or an administrator can change the caption and order, or

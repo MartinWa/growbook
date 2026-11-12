@@ -2,7 +2,6 @@
 {% load i18n %}
 {% block title %}{% translate 'Edit photo details' %} · GrowBook{% endblock %}
 {% block content %}
-{% if not photo.planting_id %}{% include 'garden/nav.html' %}{% endif %}
 <section class="panel register-form-panel">
   <h1>{% translate 'Edit photo details' %}</h1>
   <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% if photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}"></a>

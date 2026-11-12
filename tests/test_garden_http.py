@@ -1,11 +1,13 @@
 from datetime import date
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
-from django.test import Client
-from django.urls import reverse
+from django.test import Client, RequestFactory
+from django.urls import resolve, reverse
 
 from core.media import private_path
 from core.models import Photo
@@ -16,6 +18,7 @@ from garden.services import (
     archive_crop,
     archive_variety,
     create_area,
+    create_category,
     create_crop,
     create_variety,
     delete_area,
@@ -27,17 +30,61 @@ from garden.services import (
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize(
+    "view_name",
+    [
+        "garden:area-list",
+        "garden:area-detail",
+        "garden:variety-list",
+        "garden:all-crops",
+        "garden:uncategorized",
+        "garden:category-detail",
+    ],
+)
+@pytest.mark.parametrize("toggle", ["0", "1"])
+def test_archive_redirect_uses_local_routes_and_preserves_encoded_filters(user, view_name, toggle):
+    args = None
+    if view_name == "garden:area-detail":
+        args = [create_area(actor=user, name="Synthetic area").record.pk]
+    elif view_name == "garden:category-detail":
+        args = [create_category(actor=user, name="Synthetic category").record.pk]
+    path = reverse(view_name, args=args)
+    search = "Ärtor & plants # /"
+    destinations = ["https://example.invalid/", "//example.invalid/"]
+    request = RequestFactory().get(
+        path,
+        {"archive_toggle": toggle, "archived": "1", "q": search, "next": destinations},
+        HTTP_HX_REQUEST="true",
+        HTTP_HX_TARGET="register-results",
+    )
+    request.user = user
+    # The redirect must remain local even if the request path is untrusted.
+    request.path = "//example.invalid" + path
+    match = resolve(path)
+    response = match.func(request, *match.args, **match.kwargs)
+    assert response.status_code == 302
+    location = urlsplit(response["Location"])
+    assert not location.scheme and not location.netloc and not location.fragment
+    assert location.path == path
+    expected = {"q": [search], "next": destinations}
+    if toggle == "1":
+        expected["archived"] = ["1"]
+    assert parse_qs(location.query) == expected
+
+
 @pytest.mark.parametrize("kind", ["crop", "variety", "area"])
 def test_empty_register_offers_creation_with_crop_prerequisite(client, user, kind):
     client.force_login(user)
-    response = client.get(reverse(f"garden:{kind}-list"), follow=True)
+    response = client.get(
+        reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
+    )
     action = reverse(f"garden:{'crop' if kind == 'variety' else kind}-create")
     assert response.context["empty_action_url"] == action
     assert b'class="panel empty-state"' in response.content
     assert b'class="register-table' not in response.content
     if kind == "variety":
         create_crop(actor=user, name="First crop")
-        response = client.get(reverse("garden:variety-list"))
+        response = client.get(reverse("garden:all-crops"))
         assert response.context["has_records"]
         assert response.context["variety_groups"][0]["records"] == []
         assert response.context["create_url"] == reverse("garden:variety-create")
@@ -49,7 +96,9 @@ def test_archived_only_register_offers_a_view_that_contains_records(client, user
         actor=user, pk=record.pk
     )
     client.force_login(user)
-    response = client.get(reverse(f"garden:{kind}-list"), follow=True)
+    response = client.get(
+        reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
+    )
     assert not response.context["records"]
     archived_url = response.context["list_url"] + "?archived=1"
     if kind == "variety":
@@ -62,28 +111,19 @@ def test_archived_only_register_offers_a_view_that_contains_records(client, user
     assert b'class="panel empty-state"' not in archived.content
 
 
-def test_garden_landing_requires_login_and_counts_only_active_records(client, user):
+def test_legacy_garden_url_requires_login_and_redirects_to_active_areas(client, user):
     path = reverse("garden:home")
     assert client.get(path).status_code == 302
     assert client.get(path, HTTP_HX_REQUEST="true").status_code == 401
-    crop = create_crop(actor=user, name="Active crop").record
-    archived_crop = create_crop(actor=user, name="Archived crop").record
-    variety = create_variety(actor=user, crop=crop, name="Archived variety").record
-    create_variety(actor=user, crop=crop, name="Active variety")
     area = create_area(actor=user, name="Archived area").record
-    create_area(actor=user, name="Active area")
-    archive_crop(actor=user, pk=archived_crop.pk)
-    archive_variety(actor=user, pk=variety.pk)
+    active = create_area(actor=user, name="Active area").record
     archive_area(actor=user, pk=area.pk)
     client.force_login(user)
     response = client.get(path)
-    assert response.status_code == 200
+    assert response.status_code == 302 and response.url == reverse("garden:area-list")
     assert "no-store" in response["Cache-Control"]
-    assert [response.context[key] for key in ("crop_count", "variety_count", "area_count")] == [
-        1,
-        1,
-        1,
-    ]
+    page = client.get(response.url)
+    assert [record.pk for record in page.context["records"]] == [active.pk]
 
 
 @pytest.fixture(params=["crop", "variety", "area"])
@@ -145,12 +185,19 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
 ):
     kind, record = register_record
     client.force_login(user)
-    response = client.get(reverse(f"garden:{kind}-list"), follow=True)
+    response = client.get(
+        reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
+    )
     assert response.status_code == 200
-    assert ('class="variety-group"' if kind != "area" else 'class="area-tree"') in response.text
-    if kind != "crop":
+    assert (
+        'class="variety-group"' if kind != "area" else 'class="category-card area-card"'
+    ) in response.text
+    if kind == "variety":
         assert f'aria-controls="details-{kind}-{record.pk}"' in response.text
         assert 'aria-expanded="false"' in response.text
+    elif kind == "area":
+        assert "data-register-toggle" not in response.text
+        assert "data-record-workspace" not in response.text
     assert f'href="{record.get_absolute_url()}"' in response.text
     assert "record-details" not in response.text
     fragment = client.get(record.get_absolute_url(), HTTP_HX_REQUEST="true")
@@ -161,8 +208,10 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
     full = client.get(record.get_absolute_url())
     assert "<!doctype" in full.text and "record-details" in full.text
     client.cookies["django_language"] = "en"
-    english = client.get(reverse(f"garden:{kind}-list"), follow=True)
-    assert '<html lang="en">' in english.text
+    english = client.get(
+        reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
+    )
+    assert '<html lang="en" ' in english.text
     assert ("Growing areas" if kind == "area" else "Crops and varieties") in english.text
 
 
@@ -185,13 +234,57 @@ def test_normal_create_edit_and_archive_controls(client, user, register_record):
     assert client.post(archive_path, {"archived": "true"}).status_code == 302
     new.refresh_from_db()
     assert new.is_archived
-    assert new not in listed_records(client.get(reverse(f"garden:{kind}-list"), follow=True), kind)
+    assert new not in listed_records(
+        client.get(
+            reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"), follow=True
+        ),
+        kind,
+    )
     assert new in listed_records(
-        client.get(reverse(f"garden:{kind}-list"), {"archived": "1"}, follow=True), kind
+        client.get(
+            reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list"),
+            {"archived": "1"},
+            follow=True,
+        ),
+        kind,
     )
     assert client.get(new.get_absolute_url()).status_code == 200
     assert client.post(archive_path, {"archived": "false"}).status_code == 302
     assert client.post(archive_path, {"archived": "nonsense"}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "failure,status", [("invalid", 422), ("conflict", 409), ("unavailable", 503)]
+)
+def test_archive_errors_offer_a_working_register_return(
+    client, user, register_record, monkeypatch, failure, status
+):
+    kind, record = register_record
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    archive_path = reverse(f"garden:{kind}-archive", args=[record.pk])
+    with monkeypatch.context() as patches:
+        if failure != "invalid":
+
+            def fail_archive(**kwargs):
+                if failure == "conflict":
+                    raise ValidationError("Synthetic archive conflict")
+                raise OperationalError("Synthetic unavailable database")
+
+            patches.setattr(f"garden.views.registers.services.archive_{kind}", fail_archive)
+        response = client.post(
+            archive_path, {"archived": "nonsense" if failure == "invalid" else "true"}
+        )
+    assert response.status_code == status
+    list_path = reverse("garden:area-list" if kind == "area" else "garden:variety-list")
+    heading = "Growing areas" if kind == "area" else "Crops and varieties"
+    assert f'<a href="{list_path}">{heading}</a>' in response.text
+    assert client.get(list_path).status_code == 200
+    record.refresh_from_db()
+    assert not record.is_archived
+    assert client.post(archive_path, {"archived": "true"}).status_code == 302
+    record.refresh_from_db()
+    assert record.is_archived
 
 
 def test_htmx_register_save_redirects_and_invalid_form_replaces_only_errors(

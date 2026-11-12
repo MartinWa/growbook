@@ -2,7 +2,6 @@
 {% load i18n %}
 {% block title %}{{ record.name }} · GrowBook{% endblock %}
 {% block content %}
-{% include 'garden/nav.html' %}
 <p><a href="{{ list_url }}">← {{ heading }}</a></p>
 <h1>{{ record.name }}</h1>
 <div class="panel">{% include 'garden/details.html' %}</div>

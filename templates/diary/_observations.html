@@ -4,6 +4,7 @@
   {% for observation in observations %}
   <li>
     <a href="{{ observation.get_absolute_url }}"><time datetime="{{ observation.date|date:'Y-m-d' }}">{{ observation.date }}</time></a>
+    {% if observation.title %}<strong>{{ observation.title }}</strong>{% endif %}
     {% if observation.body %}<span>{{ observation.body|truncatechars:140 }}</span>{% endif %}
     <span class="muted">{{ observation.author.get_username }}</span>
   </li>
