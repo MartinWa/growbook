@@ -5,6 +5,26 @@
   const status = form?.querySelector("#variety-status");
   if (!form || !status || !window.htmx) return;
   const crop = form.querySelector("#id_crop");
+  const label = form.querySelector("#id_label");
+  let generatedLabel = "";
+  let customLabel = !!label.value;
+  function updateLabel() {
+    if (!form.hasAttribute("data-new-planting") || customLabel) return;
+    const cropName = crop.value ? crop.selectedOptions[0].textContent.trim() : "";
+    const variety = form.querySelector("#id_variety");
+    let varietyName = variety.value ? variety.selectedOptions[0].textContent.trim() : "";
+    const suffix = ` (${cropName})`;
+    if (varietyName.endsWith(suffix)) varietyName = varietyName.slice(0, -suffix.length);
+    generatedLabel = cropName + (varietyName ? `-${varietyName}` : "");
+    label.value = generatedLabel;
+  }
+  label.addEventListener("input", () => {
+    customLabel = label.value !== generatedLabel;
+  });
+  form.addEventListener("change", event => {
+    if (event.target.id === "id_variety") updateLabel();
+  });
+  updateLabel();
   const lifespan = form.querySelector("#id_lifespan");
   const endYear = form.querySelector("#id_end_year");
   const endField = endYear.closest("[data-field-name]");
@@ -37,6 +57,7 @@
     variety.querySelectorAll("option[value]:not([value=''])").forEach(option => {
       if (option.dataset.crop !== crop.value) option.remove();
     });
+    updateLabel();
   });
   form.addEventListener("htmx:configRequest", event => {
     if (event.detail.elt !== form) return;
@@ -65,6 +86,7 @@
   form.addEventListener("htmx:afterSwap", event => {
     if (event.detail.target?.id !== "id_variety") return;
     markChoices();
+    updateLabel();
     status.textContent = status.dataset.choicesReady;
   });
   form.addEventListener("htmx:afterRequest", event => {

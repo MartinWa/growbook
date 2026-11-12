@@ -44,7 +44,6 @@ def catalog(user):
     other_variety = create_variety(actor=user, crop=other_crop, name="Golden").record
     root = create_area(actor=user, name="Greenhouse").record
     child = create_area(actor=user, name="Bed", parent=root).record
-    grandchild = create_area(actor=user, name="Pot", parent=child).record
     other_area = create_area(actor=user, name="Border").record
     return {
         "crop": crop,
@@ -53,7 +52,6 @@ def catalog(user):
         "other_variety": other_variety,
         "root": root,
         "child": child,
-        "grandchild": grandchild,
         "other_area": other_area,
     }
 
@@ -123,7 +121,7 @@ def test_year_is_required_bounded_and_integer_on_non_ui_writer(user, catalog, ye
         {"quantity": "1"},
         {"notes": None},
         {"evaluation": 123},
-        {"label": "x" * 151},
+        {"label": "x" * 302},
     ],
 )
 def test_local_planting_rules_reject_invalid_complete_save(user, catalog, overrides):
@@ -278,6 +276,14 @@ def test_ending_persistent_planting_keeps_cumulative_evaluation_and_events(user,
 
 
 def test_descendants_archives_unknown_varieties_and_current_area_corrections(user, catalog):
+    # Create legacy parent assignments before each area gains children.
+    child = edit_area(
+        actor=user,
+        pk=catalog["child"].pk,
+        name="Bed",
+        parent=None,
+        expected_updated_at=catalog["child"].updated_at,
+    ).record
     rows = {}
     for name, area in (
         ("own", "root"),
@@ -285,6 +291,18 @@ def test_descendants_archives_unknown_varieties_and_current_area_corrections(use
         ("grandchild", "grandchild"),
         ("other", "other_area"),
     ):
+        if name == "child":
+            catalog["child"] = edit_area(
+                actor=user,
+                pk=child.pk,
+                name="Bed",
+                parent=catalog["root"],
+                expected_updated_at=child.updated_at,
+            ).record
+        elif name == "grandchild":
+            catalog["grandchild"] = create_area(
+                actor=user, name="Pot", parent=catalog["child"]
+            ).record
         rows[name] = create_planting(
             actor=user,
             crop=catalog["crop"],

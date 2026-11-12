@@ -173,6 +173,18 @@ def planting_rows(queryset, *, areas=None):
     return records
 
 
+def planting_groups(records):
+    """Group only the matching records; filters never bring in unrelated members."""
+    groups = {}
+    for record in records:
+        group = groups.setdefault(
+            record.batch_key,
+            {"key": record.batch_key, "crop": record.crop, "records": []},
+        )
+        group["records"].append(record)
+    return list(groups.values())
+
+
 def planting_tree(**filters):
     """Keep batches and their tree together when an area disappears between reads."""
     records = list(planting_history(**filters))
@@ -185,4 +197,7 @@ def planting_tree(**filters):
             records = list(planting_history(**filters))
             areas = list(GrowingArea.objects.all())
     records = planting_rows(records, areas=areas)
-    return {"records": records, **area_tree(areas=areas, plantings=records)}
+    tree = area_tree(areas=areas, plantings=records)
+    for event in tree["events"]:
+        event["node"].groups = planting_groups(event["node"].records)
+    return {"records": records, **tree}

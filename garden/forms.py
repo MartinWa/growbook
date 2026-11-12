@@ -194,10 +194,13 @@ def planting_variety_choices(crop_id, record=None):
 
 
 class PlantingForm(forms.Form):
-    detail_names = ("variety", "area", "lifespan", "end_year", "label", "quantity")
+    detail_names = ("variety", "area", "lifespan", "end_year", "quantity")
     note_names = ("notes", "evaluation", "photos")
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
+    batch_planting = forms.IntegerField(
+        min_value=1, max_value=2**63 - 1, required=False, widget=forms.HiddenInput
+    )
     crop = RecordIDChoiceField(label=_("Crop"), queryset=Crop.objects.none())
     start_year = forms.IntegerField(
         label=_("Start year"),
@@ -232,7 +235,12 @@ class PlantingForm(forms.Form):
         required=False,
         help_text=_("Persistent plantings only. Leave blank for ongoing presence."),
     )
-    label = forms.CharField(label=_("Batch label"), max_length=150, required=False)
+    label = forms.CharField(
+        label=_("Batch label"),
+        max_length=301,
+        required=False,
+        help_text=_("Defaults to crop-variety. You can change it."),
+    )
     quantity = forms.IntegerField(
         label=_("Quantity"),
         min_value=0,
@@ -251,7 +259,7 @@ class PlantingForm(forms.Form):
         widget=MultipleFileInput(attrs={"accept": "image/*"}),
     )
 
-    def __init__(self, *args, record=None, **kwargs):
+    def __init__(self, *args, record=None, batch_member=None, **kwargs):
         super().__init__(*args, **kwargs)
         describe_fields(self)
         variety_attrs = self.fields["variety"].widget.attrs
@@ -267,11 +275,24 @@ class PlantingForm(forms.Form):
         except forms.ValidationError:
             crop_id = None
         self.fields["variety"].queryset = planting_variety_choices(crop_id, record)
+        if batch_member is not None:
+            self.fields["variety"].queryset = self.fields["variety"].queryset.exclude(
+                pk__in=Planting.objects.filter(
+                    batch_key=batch_member.batch_key, variety_id__isnull=False
+                ).values("variety_id")
+            )
+        if (
+            batch_member is not None
+            or self.initial.get("batch_planting")
+            or self.data.get("batch_planting")
+        ):
+            self.fields["variety"].required = True
+            self.fields["variety"].empty_label = _("Choose a variety")
         areas = list(GrowingArea.objects.all())
         self.fields["area"].paths = area_paths(areas)
         self.fields["area"].queryset = GrowingArea.objects.filter(
-            Q(is_archived=False) | Q(pk=record.area_id if record else None)
-        )
+            Q(is_archived=False, children__isnull=True) | Q(pk=record.area_id if record else None)
+        ).distinct()
         if self.is_bound:
             # Keep submitted selections in a failed ordinary-page draft, even when
             # choices are archived/deleted during a save. These IDs gain no eligibility:
@@ -299,9 +320,13 @@ class PlantingForm(forms.Form):
                     field.choices = choices
 
         values = self.data if self.is_bound else self.initial
-        self._details_open = any(
-            values.get(name) not in (None, "", Planting.Lifespan.ANNUAL)
-            for name in self.detail_names
+        self._details_open = (
+            bool(batch_member)
+            or self.data.get("choose_crop") == "1"
+            or any(
+                values.get(name) not in (None, "", Planting.Lifespan.ANNUAL)
+                for name in self.detail_names
+            )
         )
         self._notes_open = any(values.get(name) for name in self.note_names) or bool(self.files)
         if record is not None and record.photos.exists():

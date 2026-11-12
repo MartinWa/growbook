@@ -71,6 +71,8 @@ links; **Show all crops and varieties** opens the full register. Search and arch
 controls retain their scope.
 Empty categories remain available. **New crop** from a category page links the
 new crop to that category; from Uncategorized it leaves the crop unlinked.
+Creating a crop or variety from the register returns to the same category, search
+and archive filters after Save or Cancel. Failed saves keep that destination.
 The same category image appears on its card and in the register heading. Transparent
 PNG and WebP images retain their transparency. Uncategorized uses the default crop
 illustration on its card and in its heading; categories without an image also use
@@ -211,8 +213,11 @@ manual open states last only in the currently rendered results. These rules also
 crop, variety and area histories and work without JavaScript.
 
 - **New planting** requires a crop and start year (1–9999). Variety and final growing
-  area may be unknown; no placeholder records are created. **More details** groups
-  variety, area, lifespan, end year, batch label and quantity; **Notes and photos** groups
+  area may be unknown; no placeholder records are created. The visible **Batch label**
+  defaults to crop-variety, or the crop alone when variety is unknown. With JavaScript
+  it follows selections until you edit it; without JavaScript a blank label is filled
+  when saved. **More details** groups variety, area, lifespan, end year and quantity;
+  **Notes and photos** groups
   notes, evaluation and uploads. Populated or invalid groups stay open. Variety choices
   follow the crop without reloading and clear an incompatible selection. Without
   JavaScript, use **Update variety choices** before choosing a variety; the server also
@@ -222,6 +227,18 @@ crop, variety and area histories and work without JavaScript.
 - **Batch label** distinguishes similar rows; several batches may share identical
   year/crop/variety/area values. Quantity is a nonnegative plant count: blank is unknown,
   zero is a known zero.
+- **Add variety to batch** on a planting's details starts another member of that batch,
+  preselecting its crop, year, area and lifespan. Choose an unused variety of the same
+  crop. Each member keeps its own label, quantity, events, evaluation, photos and diary
+  links; shared batches expand to show their matching members in overviews. Filters
+  show only matching members. Editing or deleting one member affects that member.
+- New area selections offer active areas without children. Parents with archived
+  children are also omitted.
+  An existing parent-area assignment remains available when editing that planting.
+  Saves also check this rule if the area gains children while a form is open.
+  **New planting** on an active area without children preselects that area and returns
+  there after Save or Cancel. Area pages list direct plantings from all years with photo
+  thumbnails, and offer **All years**, the current year, **Previous year** and **Next year**.
 - **Annual** is the default and belongs only to the start year, with no end year. With
   JavaScript a blank end year is hidden; an entered end year is preserved for
   correction. **Persistent** belongs to every year from start through its optional end
@@ -297,6 +314,7 @@ variety and planting controls combine in one form. A planting filter also matche
 crop, variety and area, and an area filter includes descendants. Results are deduplicated
 and paging preserves active filters.
 
+Observation pages show compact photo previews; select one to view the larger image.
 Open a photo and use **Photo options → Download original**. Originals stay out of the
 ordinary diary view and are included in operational backups.
 

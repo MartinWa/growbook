@@ -20,10 +20,10 @@ from diary.queries import observation_count, observations_for
 
 from ..forms import PlantingFilterForm, PlantingForm, clean_record_id
 from ..models import Crop, GrowingArea, Planting
-from ..queries import area_paths, planting_history, planting_tree
+from ..queries import area_paths, planting_groups, planting_history, planting_rows, planting_tree
 from ..services import RegisterConflict
 from ..services import plantings as services
-from ._shared import REGISTERS
+from ._shared import REGISTERS, return_url
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +165,7 @@ def planting_list(request, history=False, kind=None, pk=None):
             "records": records,
             "area_events": tree["events"],
             "unassigned_records": tree["unassigned"],
+            "unassigned_groups": planting_groups(tree["unassigned"]),
             "year": year,
             "area_only": bool(form.cleaned_data.get("area_only") and form.cleaned_data.get("area")),
             "scope": scope,
@@ -204,6 +205,14 @@ def _planting_context(pk):
         "observations": observations_for("planting", record),
         "observation_count": observation_count("planting", record),
         "observations_url": reverse("diary:list") + "?" + urlencode({"planting": record.pk}),
+        "batch_members": planting_rows(
+            Planting.objects.filter(batch_key=record.batch_key).select_related(
+                "crop", "variety", "area"
+            ),
+        ),
+        "add_variety_url": reverse("garden:planting-create")
+        + "?"
+        + urlencode({"batch_planting": record.pk, "next": record.get_absolute_url()}),
     }
 
 
@@ -225,6 +234,8 @@ def planting_detail(request, pk):
 @require_http_methods(["GET", "POST"])
 def planting_form(request, pk=None):
     record = get_object_or_404(Planting, pk=pk) if pk is not None else None
+    destination = return_url(request)
+    batch_member = None
     initial = {}
     if record:
         initial = {
@@ -240,10 +251,27 @@ def planting_form(request, pk=None):
         except ValueError:
             year = timezone.localdate().year
         initial["start_year"] = year if 1 <= year <= 9999 else timezone.localdate().year
+        raw_batch = (
+            request.POST.get("batch_planting")
+            if request.method == "POST"
+            else request.GET.get("batch_planting")
+        )
+        if raw_batch:
+            try:
+                batch_id = clean_record_id(raw_batch)
+            except ValidationError:
+                batch_id = None
+            if batch_id is not None:
+                batch_member = Planting.objects.filter(pk=batch_id).select_related("crop").first()
+                initial["batch_planting"] = batch_id
+            if batch_member is not None:
+                for field in ("crop_id", "area_id", "start_year", "lifespan", "end_year"):
+                    initial[field.removesuffix("_id")] = getattr(batch_member, field)
     form = PlantingForm(
         request.POST if request.method == "POST" else None,
         request.FILES if request.method == "POST" else None,
         record=record,
+        batch_member=batch_member,
         initial=initial,
     )
     form.fields["crop"].widget.attrs.update(
@@ -252,7 +280,9 @@ def planting_form(request, pk=None):
             "hx-trigger": "change",
             "hx-target": "#id_variety",
             "hx-swap": "outerHTML",
-            "hx-include": "#id_variety, #planting-context" if record else "#id_variety",
+            "hx-include": "#id_variety, #planting-context"
+            if record
+            else "#id_variety, #id_batch_planting",
             "hx-sync": "this:replace",
         }
     )
@@ -260,10 +290,17 @@ def planting_form(request, pk=None):
         "kind": "planting",
         "form": form,
         "record": record,
-        "title": _("Edit planting") if record else _("New planting"),
+        "title": _("Edit planting")
+        if record
+        else _("Add variety to batch")
+        if batch_member
+        else _("New planting"),
         "has_photos": True,
         "action": request.path,
         "list_url": reverse("garden:planting-list"),
+        "cancel_url": destination,
+        "return_url": destination,
+        "batch_member": batch_member,
     }
     if request.method == "POST":
         if request.POST.get("choose_crop") == "1":
@@ -283,6 +320,7 @@ def planting_form(request, pk=None):
                 values.pop("expected_updated_at")
             else:
                 values["pk"] = pk
+                values.pop("batch_planting")
             writer = services.edit_planting if pk is not None else services.create_planting
             try:
                 result = writer(**values)
@@ -307,9 +345,9 @@ def planting_form(request, pk=None):
                 )
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
-                    response["HX-Redirect"] = result.record.get_absolute_url()
+                    response["HX-Redirect"] = destination or result.record.get_absolute_url()
                     return response
-                return redirect(result.record)
+                return redirect(destination or result.record.get_absolute_url())
         if request.headers.get("HX-Request") == "true":
             return render(request, "garden/form_errors.html", {"form": form}, status=status)
         context["failed"] = True
@@ -330,7 +368,14 @@ def planting_varieties(request):
         except ValidationError:
             return HttpResponse(status=400)
         record = get_object_or_404(Planting, pk=planting_id)
-    form = PlantingForm(record=record, initial={"crop": crop_id})
+    batch_member = None
+    if request.GET.get("batch_planting"):
+        try:
+            batch_id = clean_record_id(request.GET["batch_planting"], required=True)
+        except ValidationError:
+            return HttpResponse(status=400)
+        batch_member = Planting.objects.filter(pk=batch_id).first()
+    form = PlantingForm(record=record, batch_member=batch_member, initial={"crop": crop_id})
     try:
         current_id = clean_record_id(request.GET.get("variety"))
     except ValidationError:

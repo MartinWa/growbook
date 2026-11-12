@@ -28,8 +28,9 @@ interface defaults to Swedish, with English available.
   deletion of records without protected references.
 - Multiple private photos on varieties, areas and plantings, with editable captions and
   order, confirmed deletion, protected viewing and private original downloads.
-- Early planting plans with crop and start year, optional variety or area, independent
-  batches, and quantity that distinguishes unknown from zero.
+- Early planting plans with crop and start year, optional variety or area, automatic
+  editable labels, and batches containing separately tracked varieties. Each variety's
+  quantity distinguishes unknown from zero.
 - Annual and persistent plantings grouped by area, inclusive end years, year overviews, and
   crop/variety/descendant-area histories that include archived associations.
 - Repeated planting events with independent planned and actual dates, plus cumulative

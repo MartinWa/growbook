@@ -19,6 +19,7 @@ from garden.services import (
     create_planting,
     create_planting_event,
     create_variety,
+    edit_area,
     edit_planting,
     edit_variety,
 )
@@ -373,6 +374,13 @@ def test_area_history_keeps_all_years_or_the_explicit_year(
 
 def test_area_rollups_persistent_years_unknown_and_unassigned_filters(client, user, catalog):
     current = catalog["planting"]
+    child = edit_area(
+        actor=user,
+        pk=catalog["child"].pk,
+        name="Bed",
+        parent=None,
+        expected_updated_at=catalog["child"].updated_at,
+    ).record
     persistent = create_planting(
         actor=user,
         crop=catalog["crop"],
@@ -382,6 +390,13 @@ def test_area_rollups_persistent_years_unknown_and_unassigned_filters(client, us
         end_year=2026,
         label="Parent perennial",
     ).record
+    edit_area(
+        actor=user,
+        pk=child.pk,
+        name="Bed",
+        parent=catalog["root"],
+        expected_updated_at=child.updated_at,
+    )
     unknown = create_planting(
         actor=user, crop=catalog["crop"], start_year=2026, label="Early plan"
     ).record
@@ -759,6 +774,7 @@ def test_no_javascript_crop_choice_refresh_preserves_draft_without_saving(client
     assert response.status_code == 200 and Planting.objects.count() == 1
     form = response.context["form"]
     assert "Blue" in str(form["variety"]) and "Golden" not in str(form["variety"])
+    assert form.details_open
     assert (
         form["notes"].value() == data["notes"]
         and form["submission_key"].value() == data["submission_key"]

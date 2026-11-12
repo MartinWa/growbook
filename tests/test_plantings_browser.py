@@ -28,6 +28,16 @@ def catalog(user, image_upload):
     archived = create_variety(actor=user, crop=crop, name="Archived trial").record
     archive_variety(actor=user, pk=archived.pk)
     parent = create_area(actor=user, name="Greenhouse").record
+    second = create_planting(
+        actor=user,
+        crop=crop,
+        area=parent,
+        start_year=2024,
+        lifespan="persistent",
+        label="Persistent batch",
+        notes="Synthetic cumulative note",
+        end_year=2026,
+    ).record
     child = create_area(actor=user, name="Bed", parent=parent).record
     first = create_planting(
         actor=user,
@@ -38,16 +48,6 @@ def catalog(user, image_upload):
         label="First batch",
         notes="Synthetic first note",
         uploads=[image_upload()],
-    ).record
-    second = create_planting(
-        actor=user,
-        crop=crop,
-        area=parent,
-        start_year=2024,
-        lifespan="persistent",
-        label="Persistent batch",
-        notes="Synthetic cumulative note",
-        end_year=2026,
     ).record
     create_planting_event(
         actor=user,
@@ -116,11 +116,11 @@ def save(page):
 def test_minimal_planting_and_optional_error_reveal(page, live_server, user, catalog):
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/new/")
-    expect(page.locator("#id_label")).to_be_hidden()
+    expect(page.locator("#id_label")).to_be_visible()
     expect(page.locator("#id_notes")).to_be_hidden()
     page.locator("#id_crop").select_option(str(catalog["crop"].pk))
     expect(page.locator("#id_variety option")).to_have_count(2)
-    expect(page.locator("#id_label")).to_be_hidden()
+    expect(page.locator("#id_label")).to_have_value("Tomato")
     page.locator("#id_start_year").fill("2027")
     save(page)
     expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))

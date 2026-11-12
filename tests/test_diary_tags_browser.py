@@ -262,9 +262,7 @@ def test_year_ranking_search_and_honest_unknowns(page, live_server, user, browse
     expect(current).to_contain_text("2022–Ongoing")
     expect(row(page, "link_plantings", browser_tags.unknown.pk)).to_contain_text("Unknown variety")
     expect(row(page, "link_plantings", browser_tags.unknown.pk)).to_contain_text("Unassigned area")
-    expect(row(page, "link_plantings", browser_tags.unknown.pk)).to_contain_text(
-        f"Batch {browser_tags.unknown.pk}"
-    )
+    expect(row(page, "link_plantings", browser_tags.unknown.pk)).to_contain_text("Tomato")
     search = page.locator("[data-tag-search]")
     search.fill("2025")
     expect(row(page, "link_plantings", browser_tags.older.pk)).to_be_visible()

@@ -45,30 +45,35 @@ def ux(user, image_upload):
     duplicate = create_variety(actor=user, crop=bean, name="Åsa Grön").record
     old = create_variety(actor=user, crop=pea, name="Old trial").record
     root = create_area(actor=user, name="North", notes="Root notes").record
-    child = create_area(actor=user, name="Bed", parent=root, notes="Child notes").record
-    grandchild = create_area(actor=user, name="Section", parent=child).record
     sibling = create_area(actor=user, name="South", notes="Sibling notes").record
-    create_area(actor=user, name="Border", parent=sibling)
+    areas = {"root": root, "sibling": sibling}
     batches = []
     for label, area, variety, quantity in (
-        ("Parent unknown", root, None, None),
-        ("First batch", child, green, 0),
-        ("Second batch", child, green, 7),
-        ("Other batch", sibling, green, None),
+        ("Parent unknown", "root", None, None),
+        ("First batch", "child", green, 0),
+        ("Second batch", "child", green, 7),
+        ("Other batch", "sibling", green, None),
         ("Unassigned batch", None, None, None),
     ):
+        if area == "child" and area not in areas:
+            areas[area] = create_area(
+                actor=user, name="Bed", parent=root, notes="Child notes"
+            ).record
         batches.append(
             create_planting(
                 actor=user,
                 crop=pea,
                 variety=variety,
-                area=area,
+                area=areas.get(area),
                 start_year=2026,
                 label=label,
                 quantity=quantity,
                 notes="Synthetic batch note",
             ).record
         )
+    child = areas["child"]
+    grandchild = create_area(actor=user, name="Section", parent=child).record
+    create_area(actor=user, name="Border", parent=sibling)
     archive_variety(actor=user, pk=old.pk)
     archive_crop(actor=user, pk=pea.pk)
     archive_area(actor=user, pk=root.pk)
@@ -320,7 +325,7 @@ def test_variety_search_clear_back_retry_and_direct_links(
     page.locator("[data-filter-retry]").click()
     expect(results.locator(".empty-state")).to_be_visible()
     expect(search).to_be_focused()
-    expect(page.locator('.register-toolbar a[href="/garden/varieties/new/"]')).to_be_visible()
+    expect(page.locator('.register-toolbar a[href^="/garden/varieties/new/"]')).to_be_visible()
     search.fill("Åsa")
     search.press("Enter")
     expect(results.locator(".variety-list > li")).to_have_count(2)
@@ -467,7 +472,7 @@ def test_area_information_opens_plantings_with_year_and_area_selected(
     expect(details.locator(".record-fields")).not_to_contain_text("North")
     year = ux["current_year"]
     target = f"/garden/plantings/?year={year}&area={ux['child'].pk}&area_only=1"
-    link = details.locator('a[href^="/garden/plantings/?"]')
+    link = details.locator(f'a[href="{target}"]')
     expect(link).to_have_attribute("href", target)
     link.focus()
     link.press("Enter")

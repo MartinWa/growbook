@@ -1,14 +1,14 @@
 """Register lists, details and maintenance forms."""
 
 import logging
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import OperationalError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import resolve, reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -20,10 +20,10 @@ from diary.queries import observation_count, observations_for
 from ..forms import ArchiveForm, VarietyFilterForm
 from ..models import Crop, CropCategory, GrowingArea
 from ..names import normalize_name
-from ..queries import area_tree, planting_history, planting_rows
+from ..queries import area_tree, planting_groups, planting_history, planting_rows
 from ..services import RegisterConflict
 from ..services import registers as services
-from ._shared import REGISTERS
+from ._shared import REGISTERS, return_url
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +136,13 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
         uncategorized=uncategorized,
         category_image=category.photos.first() if category else None,
         crop_create_url=reverse("garden:crop-create")
-        + ("?category=" + str(category.pk) if category else ""),
+        + "?"
+        + urlencode(
+            {"next": request.get_full_path(), **({"category": category.pk} if category else {})}
+        ),
+        create_url=reverse("garden:variety-create")
+        + "?"
+        + urlencode({"next": request.get_full_path()}),
     )
     if category or uncategorized:
         context["heading"] = category.name if category else _("Uncategorized")
@@ -300,12 +306,45 @@ def _detail_context(kind, pk, *, show_archived=False):
             hide_archived_url=record.get_absolute_url(),
             edit_url=reverse("garden:area-edit", args=[pk])
             + ("?archived=1" if show_archived else ""),
-            plantings=planting_rows(planting_history(area=record, area_only=True), areas=areas),
+            plantings=planting_rows(
+                planting_history(area=record, area_only=True).prefetch_related("photos"),
+                areas=areas,
+            ),
             planting_year=year,
             planting_count=planting_history(year=year, area=record, area_only=True).count(),
             planting_url=reverse("garden:planting-list")
             + "?"
             + urlencode({"year": year, "area": record.pk, "area_only": "1"}),
+        )
+        context["planting_groups"] = planting_groups(context["plantings"])
+        for group in context["planting_groups"]:
+            group["thumbnail"] = next(
+                (photo for member in group["records"] for photo in member.photos.all()), None
+            )
+        context["planting_create_url"] = (
+            reverse("garden:planting-create")
+            + "?"
+            + urlencode(
+                {
+                    "area": record.pk,
+                    "next": record.get_absolute_url() + ("?archived=1" if show_archived else ""),
+                }
+            )
+        )
+        context["can_create_planting"] = not record.is_archived and not record.children.all()
+        history_query = {"area": record.pk, "area_only": "1"}
+        context["planting_all_years_url"] = (
+            reverse("garden:planting-history") + "?" + urlencode(history_query)
+        )
+        context["planting_previous_url"] = (
+            reverse("garden:planting-list") + "?" + urlencode({**history_query, "year": year - 1})
+            if year > 1
+            else ""
+        )
+        context["planting_next_url"] = (
+            reverse("garden:planting-list") + "?" + urlencode({**history_query, "year": year + 1})
+            if year < 9999
+            else ""
         )
     return context
 
@@ -367,6 +406,7 @@ def _save(request, kind, pk, data):
 def register_form(request, kind, pk=None):
     model, form_class, heading, create_label, edit_label = REGISTERS[kind]
     record = get_object_or_404(model, pk=pk) if pk is not None else None
+    destination = return_url(request)
     initial = {}
     if record is not None:
         model_fields = {field.name for field in model._meta.fields}
@@ -389,6 +429,18 @@ def register_form(request, kind, pk=None):
         initial=initial,
         **kwargs,
     )
+    if kind == "variety" and record is None and destination:
+        origin = resolve(urlsplit(destination).path)
+        if origin.view_name == "garden:category-detail":
+            form.fields["crop"].queryset = form.fields["crop"].queryset.filter(
+                categories__pk=origin.kwargs["category_pk"]
+            )
+        elif origin.view_name == "garden:uncategorized":
+            form.fields["crop"].queryset = form.fields["crop"].queryset.filter(
+                categories__isnull=True
+            )
+        if form.is_bound:
+            form.fields["crop"].preserve_selection(request.POST.get("crop"))
     context = _context(kind)
     context.update(
         form=form,
@@ -396,6 +448,8 @@ def register_form(request, kind, pk=None):
         title=edit_label if record else create_label,
         has_photos=kind != "crop",
         action=request.path,
+        return_url=destination,
+        cancel_url=destination,
     )
     if kind == "area":
         context["action"] = request.get_full_path()
@@ -433,7 +487,7 @@ def register_form(request, kind, pk=None):
                 messages.success(
                     request, _("Record already saved.") if result.replayed else _("Record saved.")
                 )
-                target = result.record.get_absolute_url()
+                target = destination or result.record.get_absolute_url()
                 if kind == "area" and request.GET.get("archived") == "1":
                     target += "?archived=1"
                 if request.headers.get("HX-Request") == "true":

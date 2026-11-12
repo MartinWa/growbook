@@ -203,7 +203,8 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         page.get_by_role("link", name=labels["newcrop"], exact=True).click()
         page.locator("#id_name").fill("Pepper")
         page.get_by_role("button", name=labels["save"], exact=True).click()
-        expect(page).to_have_url(re.compile(r"/garden/crops/\d+/$"))
+        expect(page).to_have_url(re.compile(r"/garden/categories/\d+/$"))
+        expect(page.locator("[data-crop-id]")).to_have_count(2)
         page.goto(live_server.url + "/garden/varieties/")
         expect(
             page.locator(".category-card").filter(has_text="Vegetables").locator("img")

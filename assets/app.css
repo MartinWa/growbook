@@ -680,6 +680,22 @@
     @apply grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3;
   }
 
+  .entry-photos {
+    @apply my-5 grid-cols-[repeat(auto-fill,minmax(140px,240px))];
+  }
+
+  .planting-batch > summary {
+    @apply cursor-pointer rounded-lg px-2 py-2 font-semibold;
+  }
+
+  .planting-batch > .record-list {
+    @apply ml-4;
+  }
+
+  .batch-varieties {
+    @apply my-4;
+  }
+
   .photo-grid figure {
     @apply m-0 min-w-0;
   }

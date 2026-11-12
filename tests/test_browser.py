@@ -261,7 +261,7 @@ def test_apple_hdr_library_photo_saves_from_the_edit_form(
     expect(page.locator("[data-photo-previews] figure")).to_have_count(1)
     page.locator('#entry-form button[type="submit"]').click()
     expect(page).to_have_url(entry_url)
-    image = page.locator(".large-photo img")
+    image = page.locator(".entry-photos figure img")
     image.evaluate("image => image.decode()")
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [80, 60]
 
@@ -323,9 +323,12 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     entry_url = page.url
-    photo_link = page.locator(".large-photo > a")
+    photo_link = page.locator(".entry-photos figure > a")
     viewer_path = photo_link.get_attribute("href")
     expect(photo_link).to_have_attribute("href", re.compile(r"/photos/\d+/$"))
+    preview = photo_link.locator("img")
+    preview.evaluate("image => image.decode()")
+    assert preview.bounding_box()["width"] <= 240
     photo_link.click()
     expect(page).to_have_url(live_server.url + viewer_path)
     options = page.locator(".photo-options > summary")
@@ -399,7 +402,7 @@ def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(
     page.locator("#save-entry").click()
     page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
-    expect(page.locator(".large-photo")).to_have_count(3)
+    expect(page.locator(".entry-photos figure")).to_have_count(3)
     expect(page.locator(".entry-body")).to_contain_text("Ärtor")
     assert errors == []
     assert page.evaluate("Object.keys(localStorage).length") == 0
@@ -471,7 +474,7 @@ def test_preview_rejects_unexpected_urls_without_losing_upload(
     page.locator("#save-entry").click()
     page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
-    expect(page.locator(".large-photo")).to_have_count(1)
+    expect(page.locator(".entry-photos figure")).to_have_count(1)
 
 
 def test_validation_preserves_text_photos_and_submission_key(page, live_server, user, image_upload):
@@ -500,7 +503,7 @@ def test_validation_preserves_text_photos_and_submission_key(page, live_server, 
     page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
     expect(page.locator(".entry-body")).to_have_text("Keep this draft")
-    expect(page.locator(".large-photo")).to_have_count(1)
+    expect(page.locator(".entry-photos figure")).to_have_count(1)
 
 
 @pytest.mark.parametrize("language", ["sv", "en"])
@@ -619,7 +622,7 @@ def test_capture_without_javascript_keeps_native_inputs_and_retry_help(
         plain.locator("#save-entry").click()
         expect(plain).to_have_url(re.compile(r"/#entry-\d+$"))
         plain.locator(".diary-card .entry-heading a").click()
-        expect(plain.locator(".large-photo")).to_have_count(1)
+        expect(plain.locator(".entry-photos figure")).to_have_count(1)
     finally:
         context.close()
 
@@ -666,7 +669,7 @@ def test_network_error_preserves_selection_then_retry_saves_once(
     page.locator("#save-entry").click()
     page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
-    expect(page.locator(".large-photo")).to_have_count(1)
+    expect(page.locator(".entry-photos figure")).to_have_count(1)
 
 
 def test_session_expiry_and_new_tab_login_keep_draft_and_rotate_csrf(
@@ -694,7 +697,7 @@ def test_session_expiry_and_new_tab_login_keep_draft_and_rotate_csrf(
     page.locator("#save-entry").click()
     page.locator("#quick-receipt a").click()
     expect(page).to_have_url(re.compile(r"/entries/\d+/$"))
-    expect(page.locator(".large-photo")).to_have_count(1)
+    expect(page.locator(".entry-photos figure")).to_have_count(1)
     other.close()
 
 
@@ -786,7 +789,7 @@ def test_edit_validation_preserves_draft_and_photo_changes_then_retry_saves(
     form.locator("button[type=submit]").click()
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-body")).to_contain_text("Keep the edited note and photo changes")
-    expect(page.locator(".large-photo")).to_have_count(2)
+    expect(page.locator(".entry-photos figure")).to_have_count(2)
     assert script_errors == []
 
 
@@ -817,7 +820,7 @@ def test_edit_photo_limit_counts_kept_photos_and_can_be_corrected(
     expect(page.locator("[data-photo-limit-warning]")).to_be_hidden()
     page.locator("#entry-form button[type=submit]").click()
     expect(page).to_have_url(entry_url)
-    expect(page.locator(".large-photo")).to_have_count(10)
+    expect(page.locator(".entry-photos figure")).to_have_count(10)
 
 
 def test_edit_conflict_is_visible_and_preserves_the_unsaved_draft(
@@ -847,7 +850,7 @@ def test_edit_conflict_is_visible_and_preserves_the_unsaved_draft(
     expect(page.locator("#entry-form button[type=submit]")).to_be_enabled()
     other.reload()
     expect(other.locator(".entry-body")).to_have_text("Saved in another tab")
-    expect(other.locator(".large-photo")).to_have_count(0)
+    expect(other.locator(".entry-photos figure")).to_have_count(0)
     other.close()
 
 
@@ -908,7 +911,7 @@ def test_edit_failure_unlocks_the_form_and_preserves_photos_for_retry(
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-title")).to_have_text("Retry the edited heading")
     expect(page.locator(".entry-body")).to_have_text("Retry the edited observation")
-    expect(page.locator(".large-photo")).to_have_count(1)
+    expect(page.locator(".entry-photos figure")).to_have_count(1)
 
 
 @pytest.mark.parametrize("photo_count", [0, 1, 3])
@@ -955,7 +958,7 @@ def test_edit_lost_response_retries_committed_save_without_reapplying_photos(
     assert replayed.value.status == 204
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-title")).to_have_text("Heading after a lost response")
-    expect(page.locator(".large-photo")).to_have_count(photo_count)
+    expect(page.locator(".entry-photos figure")).to_have_count(photo_count)
 
 
 def test_edit_session_recovery_keeps_draft_and_refreshes_csrf(
@@ -990,7 +993,7 @@ def test_edit_session_recovery_keeps_draft_and_refreshes_csrf(
     page.locator("#entry-form button[type=submit]").click()
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-body")).to_have_text("Edit after logging in again")
-    expect(page.locator(".large-photo")).to_have_count(1)
+    expect(page.locator(".entry-photos figure")).to_have_count(1)
     other.close()
 
 
@@ -1666,7 +1669,7 @@ def test_title_errors_keep_photos_and_are_accessible_for_retry(
     save.click()
     if operation == "edit":
         expect(page).to_have_url(entry_url)
-        expect(page.locator(".large-photo")).to_have_count(1)
+        expect(page.locator(".entry-photos figure")).to_have_count(1)
     else:
         expect(page.locator("#quick-receipt")).to_contain_text("har sparats")
         expect(title).to_have_value("")

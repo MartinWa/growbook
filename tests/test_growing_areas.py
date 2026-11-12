@@ -77,6 +77,10 @@ def test_detail_pages_keep_children_photos_and_deduplicated_planting_diary_assoc
         notes="Synthetic parent notes",
         uploads=[image_upload()],
     ).record
+    crop = create_crop(actor=user, name="Synthetic crop").record
+    direct = create_planting(
+        actor=user, crop=crop, area=root, start_year=2026, label="Parent batch"
+    ).record
     child = create_area(
         actor=user,
         name="Child bed",
@@ -86,16 +90,12 @@ def test_detail_pages_keep_children_photos_and_deduplicated_planting_diary_assoc
         notes="Synthetic bed notes",
         uploads=[image_upload(), image_upload()],
     ).record
-    grandchild = create_area(actor=user, name="Inner section", parent=child).record
-    retired = create_area(actor=user, name="Retired bed", parent=root).record
-    unrelated = create_area(actor=user, name="Other garden").record
-    crop = create_crop(actor=user, name="Synthetic crop").record
-    direct = create_planting(
-        actor=user, crop=crop, area=root, start_year=2026, label="Parent batch"
-    ).record
     linked = create_planting(
         actor=user, crop=crop, area=child, start_year=2026, label="Child batch", quantity=0
     ).record
+    grandchild = create_area(actor=user, name="Inner section", parent=child).record
+    retired = create_area(actor=user, name="Retired bed", parent=root).record
+    unrelated = create_area(actor=user, name="Other garden").record
     deep = create_planting(
         actor=user,
         crop=crop,

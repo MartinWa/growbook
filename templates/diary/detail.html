@@ -10,9 +10,10 @@
   </header>
   {% if entry.body %}<div class="entry-body">{{ entry.body|linebreaksbr }}</div>{% endif %}
   {% include 'diary/_links.html' with entry=entry %}
+  <div class="photo-grid entry-photos">
   {% for photo in entry.photos.all %}
-  <figure class="large-photo">
-    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.display_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}"></a>
+  <figure>
+    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
     {% if photo.caption or can_edit %}<figcaption>
       {% if photo.caption %}{{ photo.caption }}{% if can_edit %} · {% endif %}{% endif %}
       {% if can_edit %}
@@ -22,6 +23,7 @@
     </figcaption>{% endif %}
   </figure>
   {% endfor %}
+  </div>
   {% if can_edit %}
   <div class="form-actions entry-actions">
     <a class="btn btn-primary" href="{% url 'diary:edit' entry.pk %}">{% translate 'Edit' %}</a>
