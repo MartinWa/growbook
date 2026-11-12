@@ -11,6 +11,7 @@
     </nav>
   </div>
   {% include 'components/filter_chips.html' with clear_filters_url=request.path %}
+{% if area_only %}<p class="field-help">{% translate 'Only plantings assigned directly to the selected growing area are shown.' %}</p>{% endif %}
 {% if scope %}<p class="related-actions"><a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a></p>{% endif %}
 {% if records %}
 <div class="record-workspace" data-record-workspace>

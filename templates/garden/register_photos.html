@@ -1,0 +1,13 @@
+{% load i18n %}
+{% if record.photos.all %}
+<div class="photo-grid register-photos">
+  {% for photo in record.photos.all %}
+  <figure>
+    <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Register photo' %} {{ forloop.counter }}{% endif %}"></a>
+    {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
+    <a href="{% url 'garden:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
+    <a href="{% url 'garden:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
+  </figure>
+  {% endfor %}
+</div>
+{% endif %}

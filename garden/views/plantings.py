@@ -42,6 +42,8 @@ def planting_list(request, history=False, kind=None, pk=None):
         if kind == "variety":
             data["crop"] = str(scope.crop_id)
             locked.add("crop")
+    if not data.get("area"):
+        data.pop("area_only", None)
     form = PlantingFilterForm(data)
     records, year = [], None
     tree = {"events": [], "unassigned": []}
@@ -53,6 +55,8 @@ def planting_list(request, history=False, kind=None, pk=None):
         records = tree["records"]
     active_filters = []
     for name, field in form.fields.items():
+        if name == "area_only":
+            continue
         value = form.cleaned_data.get(name, data.get(name))
         if not value:
             continue
@@ -61,6 +65,8 @@ def planting_list(request, history=False, kind=None, pk=None):
             display = _("Yes")
         remaining = data.copy()
         remaining.pop(name, None)
+        if name == "area":
+            remaining.pop("area_only", None)
         # The overview defaults to the current year; its year stays visible while
         # All years provides the explicit route to an unbounded history.
         removable = name not in locked and (name != "year" or history)
@@ -101,6 +107,8 @@ def planting_list(request, history=False, kind=None, pk=None):
             "empty_action_label": _("New planting"),
         }
         scope_filters = {kind: scope} if scope else {}
+        if valid and filters["area_only"] and filters["area"] is not None:
+            scope_filters.update(area=filters["area"], area_only=True)
         history_path = request.path if history else reverse("garden:planting-history")
         if not valid:
             empty.update(
@@ -158,6 +166,7 @@ def planting_list(request, history=False, kind=None, pk=None):
             "area_events": tree["events"],
             "unassigned_records": tree["unassigned"],
             "year": year,
+            "area_only": bool(form.cleaned_data.get("area_only") and form.cleaned_data.get("area")),
             "scope": scope,
             "kind": kind or "planting",
             "locked_filters": locked,

@@ -16,7 +16,11 @@ def registers(user, image_upload):
     first = create_crop(actor=user, name="Ärtor", notes="Full first crop note").record
     second = create_crop(actor=user, name="Bean", notes="Full second crop note").record
     first_variety = create_variety(
-        actor=user, crop=first, name="Green trial", description="Full first variety note"
+        actor=user,
+        crop=first,
+        name="Green trial",
+        description="Full first variety note",
+        uploads=[image_upload(), image_upload()],
     ).record
     second_variety = create_variety(
         actor=user, crop=second, name="Blue trial", description="Full second variety note"
@@ -320,27 +324,27 @@ def test_register_rows_select_shared_details_with_keyboard_focus_and_csp(
 def test_inline_details_retry_after_failed_request_and_links_navigate_normally(
     page, live_server, user, registers
 ):
-    area = registers["child"]
+    variety = registers["first_variety"]
     login(page, live_server, user)
-    page.goto(live_server.url + "/garden/areas/")
-    page.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').press("Enter")
-    details = page.locator(f"#details-area-{area.pk}")
-    toggle = page.get_by_role("button", name=area.name, exact=True)
+    page.goto(live_server.url + "/garden/categories/all/")
+    page.locator(f'[data-crop-id="{variety.crop_id}"] > summary').press("Enter")
+    details = page.locator(f"#details-variety-{variety.pk}")
+    toggle = page.get_by_role("button", name=variety.name, exact=True)
     page.route(
-        f"**{area.get_absolute_url()}",
+        f"**{variety.get_absolute_url()}",
         lambda route: route.fulfill(status=503, body="Synthetic failure"),
     )
     toggle.click()
     expect(details).to_contain_text("Detaljerna kunde inte laddas")
     toggle.click()
     expect(details).to_be_hidden()
-    page.unroute(f"**{area.get_absolute_url()}")
+    page.unroute(f"**{variety.get_absolute_url()}")
     toggle.click()
-    expect(details).to_contain_text("Full notes")
+    expect(details).to_contain_text("Full first variety note")
     expect(details.locator(".register-photos figure")).to_have_count(2)
-    page.get_by_role("link", name="Öppna post: Child", exact=True).click()
-    expect(page).to_have_url(live_server.url + area.get_absolute_url())
-    expect(page.locator("h1")).to_have_text("Child")
+    page.get_by_role("link", name="Öppna post: Green trial", exact=True).click()
+    expect(page).to_have_url(live_server.url + variety.get_absolute_url())
+    expect(page.locator("h1")).to_have_text("Green trial")
 
 
 def test_register_session_expiry_new_tab_login_preserves_fields_photos_and_key(
@@ -484,7 +488,7 @@ def test_register_detail_without_javascript_keeps_links_forms_and_drafts(
     )
     plain = context.new_page()
     plain.goto(live_server.url + "/garden/areas/")
-    plain.locator(f'[data-area-id="{registers["parent"].pk}"] > details > summary').press("Enter")
+    plain.get_by_role("link", name=registers["parent"].name, exact=True).click()
     plain.get_by_role("link", name=area.name, exact=True).click()
     expect(plain).to_have_url(live_server.url + area.get_absolute_url())
     expect(plain.locator(".record-fields")).to_contain_text("Full notes")

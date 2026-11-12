@@ -14,28 +14,9 @@
     {% if record.description %}<dt>{% translate 'Description' %}</dt><dd>{{ record.description|linebreaksbr }}</dd>{% endif %}
     {% if record.source %}<dt>{% translate 'Source' %}</dt><dd>{{ record.source }}</dd>{% endif %}
     {% if record.experiences %}<dt>{% translate 'Experiences' %}</dt><dd>{{ record.experiences|linebreaksbr }}</dd>{% endif %}
-  {% else %}
-    {% if not inline %}<dt>{% translate 'Parent area' %}</dt><dd>{% if record.parent %}<a href="{{ record.parent.get_absolute_url }}">{{ record.parent.name }}</a>{% else %}—{% endif %}</dd>{% endif %}
-    {% if record.area_type %}<dt>{% translate 'Type' %}</dt><dd>{{ record.area_type }}</dd>{% endif %}
-    {% if record.length_cm %}<dt>{% translate 'Length (cm)' %}</dt><dd>{{ record.length_cm }}</dd>{% endif %}
-    {% if record.width_cm %}<dt>{% translate 'Width (cm)' %}</dt><dd>{{ record.width_cm }}</dd>{% endif %}
-    {% if record.description %}<dt>{% translate 'Description' %}</dt><dd>{{ record.description|linebreaksbr }}</dd>{% endif %}
-    {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
-    <dt>{% translate 'Child areas' %}</dt><dd>{% for child in record.children.all %}<a href="{{ child.get_absolute_url }}">{{ child.name }}</a>{% if child.is_archived %} ({% translate 'Archived' %}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
   {% endif %}
   </dl>
-  {% if kind != 'crop' and record.photos.all %}
-  <div class="photo-grid register-photos">
-    {% for photo in record.photos.all %}
-    <figure>
-      <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Register photo' %} {{ forloop.counter }}{% endif %}"></a>
-      {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
-      <a href="{% url 'garden:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
-      <a href="{% url 'garden:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
-    </figure>
-    {% endfor %}
-  </div>
-  {% endif %}
+  {% if kind != 'crop' %}{% include 'garden/register_photos.html' %}{% endif %}
   <div class="form-actions">
     <a class="btn btn-primary" href="{{ edit_url }}">{% translate 'Edit' %}</a>
     <form method="post" action="{{ archive_url }}">
@@ -46,7 +27,6 @@
     <a href="{{ delete_url }}">{% translate 'Delete' %}</a>
   </div>
   <div class="related-actions">
-    {% if kind == 'area' %}<a class="btn btn-outline" href="{{ planting_url }}">{% translate 'Plantings' %} {{ planting_year }} ({{ planting_count }}) <span aria-hidden="true">→</span></a>{% endif %}
     <a href="{{ history_url }}">{% translate 'Planting history' %}</a>
     {% if inline %}<a href="{{ record.get_absolute_url }}" aria-label="{% translate 'Open record' %}: {{ record.name }}">{% translate 'Open record' %}</a>{% endif %}
     {% if kind == 'crop' %}<a href="{% url 'garden:variety-create' %}?crop={{ record.pk }}">{% translate 'New variety' %}</a>{% endif %}

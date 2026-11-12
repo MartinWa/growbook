@@ -318,7 +318,7 @@
     @apply block text-base-content;
   }
 
-  .category-card-link h2 {
+  .category-card-link :is(h2, h3) {
     @apply m-0 p-4;
     overflow-wrap: anywhere;
   }
@@ -331,6 +331,13 @@
 
   .category-card > .related-actions { @apply m-0 px-4 pb-4; }
   .category-current-image { @apply max-h-40 max-w-full rounded-box; }
+
+  .area-card-status { @apply m-0 px-4 pb-4; }
+  .area-navigation { @apply mb-3 flex flex-wrap items-center gap-2; overflow-wrap: anywhere; }
+  .area-section { @apply my-6; }
+  .area-information { @apply my-6; }
+  .area-plantings > li { @apply flex flex-col gap-1 border-b border-base-300 py-3; }
+  .area-plantings .field-help { @apply m-0; overflow-wrap: anywhere; }
 
   .category-crops label { @apply flex min-h-11 items-center gap-2; }
 

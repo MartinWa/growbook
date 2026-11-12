@@ -1215,6 +1215,24 @@ msgstr "Välj något i listan för att visa detaljer."
 msgid "Back to list"
 msgstr "Tillbaka till listan"
 
+msgid "Raised bed"
+msgstr "Pallkrage"
+
+msgid "Growing area navigation"
+msgstr "Navigering för odlingsytor"
+
+msgid "Includes child areas."
+msgstr "Inkluderar underliggande odlingsytor."
+
+msgid "Area filters normally include child areas. Links from growing-area pages show only the selected area. Archived records remain in histories."
+msgstr "Filter för odlingsytor inkluderar normalt underytor. Länkar från odlingsytornas sidor visar bara den valda ytan. Arkiverade poster finns kvar i historiken."
+
+msgid "Only plantings assigned directly to the selected growing area are shown."
+msgstr "Endast odlingar som är placerade direkt på den valda odlingsytan visas."
+
+msgid "No plantings for this growing area yet."
+msgstr "Inga odlingar för den här odlingsytan ännu."
+
 msgid "Categories"
 msgstr "Kategorier"
 

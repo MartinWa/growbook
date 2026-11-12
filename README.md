@@ -19,8 +19,8 @@ interface defaults to Swedish, with English available.
   or changed automatically with the garden's local date.
 - Discreet footer links to GitHub and releases, the deployed release version, and an
   orange indicator when a newer stable release is available.
-- A combined crop and variety register with searchable crop groups, and
-  nested growing-area disclosures, with editing and non-cascading archive.
+- A combined crop and variety register with searchable crop groups, and a growing-area
+  card overview with child-area detail pages, editing and non-cascading archive.
 - A permanent crop-category overview with an uncategorized view and shared,
   user-defined categories; crops can belong to multiple categories. An optional
   private category image, including transparency, is reused on its card and heading.
@@ -117,8 +117,8 @@ Docker volumes. Do not expose the development server or point it at production d
 ## Using growbook
 
 - **Growing areas** and **Crops and varieties** open directly from the main menu.
-  Choose a crop category, expand crop groups or nested areas, select names for
-  information and photos, search crop and variety names, and maintain records.
+  Browse top-level areas and their child cards, choose a crop category, expand crop
+  groups, read information and photos, search crop and variety names, and maintain records.
 - **Plantings** shows growing-year results grouped by area, with filters and expandable
   batches. Create annual or persistent plantings, record events, and open crop, variety and area
   histories.

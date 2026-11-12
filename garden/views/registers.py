@@ -18,9 +18,9 @@ from core.media import MediaBusy
 from diary.queries import observation_count, observations_for
 
 from ..forms import ArchiveForm, VarietyFilterForm
-from ..models import Crop, CropCategory
+from ..models import Crop, CropCategory, GrowingArea
 from ..names import normalize_name
-from ..queries import area_tree, planting_history
+from ..queries import area_tree, planting_history, planting_rows
 from ..services import RegisterConflict
 from ..services import registers as services
 from ._shared import REGISTERS
@@ -43,6 +43,45 @@ def _context(kind):
 @require_GET
 def garden_home(request):
     return redirect("garden:area-list")
+
+
+def _area_list(request):
+    show_archived = request.GET.get("archived") == "1"
+    areas = list(GrowingArea.objects.prefetch_related("photos"))
+    tree = area_tree(
+        areas=areas,
+        visible_ids={area.pk for area in areas if show_archived or not area.is_archived},
+    )
+    records = [node.area for node in tree["roots"]]
+    context = _context("area")
+    context.update(
+        records=records,
+        has_records=bool(records),
+        show_archived=show_archived,
+        hide_archived_url=context["list_url"],
+        empty_heading=_("No growing areas yet"),
+        empty_description=_("Add a growing area to record where you grow and link observations."),
+        empty_action_url=context["create_url"],
+        empty_action_label=context["create_label"],
+    )
+    if not records and areas and not show_archived:
+        context.update(
+            empty_heading=_("No active records"),
+            empty_description=_("Your archived records are available in the archive view."),
+            empty_action_url=context["list_url"] + "?archived=1",
+            empty_action_label=_("Show archived records"),
+        )
+    return render(request, "garden/areas.html", context)
+
+
+def _archive_redirect(request, view_name, *, args=None):
+    # The external submit button preserves even an unapplied search without JavaScript.
+    filters = request.GET.copy()
+    if filters.pop("archive_toggle")[-1] == "1":
+        filters.setlist("archived", ["1"])
+    else:
+        filters.pop("archived", None)
+    return redirect(reverse(view_name, args=args, query=filters))
 
 
 @require_GET
@@ -78,14 +117,17 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
             },
         )
     if "archive_toggle" in request.GET:
-        # The external submit button preserves even an unapplied search without JavaScript.
-        filters = request.GET.copy()
-        if filters.pop("archive_toggle")[-1] == "1":
-            filters.setlist("archived", ["1"])
-        else:
-            filters.pop("archived", None)
-        query = filters.urlencode()
-        return redirect(request.path + ("?" + query if query else ""))
+        if category:
+            return _archive_redirect(request, "garden:category-detail", args=[category.pk])
+        if uncategorized:
+            return _archive_redirect(request, "garden:uncategorized")
+        if all_crops:
+            return _archive_redirect(request, "garden:all-crops")
+        return _archive_redirect(
+            request, "garden:area-list" if kind == "area" else "garden:variety-list"
+        )
+    if kind == "area":
+        return _area_list(request)
     model = REGISTERS[kind][0]
     context = _context(kind)
     context["list_url"] = request.path
@@ -100,7 +142,6 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
         context["heading"] = category.name if category else _("Uncategorized")
     show_archived = request.GET.get("archived") == "1"
     records = model.objects.all()
-    areas = list(records) if kind == "area" else None
     if kind == "variety":
         crops = category.crops.all() if category else Crop.objects.all()
         if uncategorized:
@@ -114,11 +155,7 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
     scoped_records = records
     if not show_archived:
         records = records.filter(is_archived=False)
-    records = (
-        [area for area in areas if show_archived or not area.is_archived]
-        if kind == "area"
-        else list(records)
-    )
+    records = list(records)
     search = ""
     valid = True
     if kind == "variety":
@@ -147,10 +184,6 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
                     continue
                 groups.append({"crop": crop, "records": varieties})
         context.update(form=form, variety_groups=groups, search=search)
-    if kind == "area":
-        context["area_events"] = area_tree(
-            areas=areas, visible_ids={record.pk for record in records}
-        )["events"]
     filters = {"q": search} if search else {}
     context.update(
         records=records,
@@ -221,7 +254,7 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
     )
 
 
-def _detail_context(kind, pk):
+def _detail_context(kind, pk, *, show_archived=False):
     model = REGISTERS[kind][0]
     if kind == "category":
         return {**_context(kind), "record": get_object_or_404(model, pk=pk)}
@@ -231,7 +264,7 @@ def _detail_context(kind, pk):
     elif kind == "variety":
         queryset = queryset.select_related("crop").prefetch_related("photos")
     else:
-        queryset = queryset.select_related("parent").prefetch_related("photos", "children")
+        queryset = queryset.select_related("parent").prefetch_related("photos", "children__photos")
     record = get_object_or_404(queryset, pk=pk)
     context = _context(kind)
     context.update(
@@ -245,22 +278,48 @@ def _detail_context(kind, pk):
         observations_url=reverse("diary:list") + "?" + urlencode({kind: record.pk}),
     )
     if kind == "area":
+        areas = list(GrowingArea.objects.all())
+        by_id = {area.pk: area for area in areas}
+        ancestors, seen = [], {record.pk}
+        parent = by_id.get(record.parent_id)
+        while parent is not None and parent.pk not in seen:
+            seen.add(parent.pk)
+            ancestors.append(parent)
+            parent = by_id.get(parent.parent_id)
+        tree = area_tree(
+            areas=areas,
+            visible_ids={area.pk for area in areas if show_archived or not area.is_archived},
+        )
+        visible_ids = {event["node"].area.pk for event in tree["events"] if not event["closing"]}
         year = timezone.localdate().year
         context.update(
+            ancestors=list(reversed(ancestors)),
+            children=[child for child in record.children.all() if child.pk in visible_ids],
+            area_image=record.photos.first(),
+            show_archived=show_archived,
+            hide_archived_url=record.get_absolute_url(),
+            edit_url=reverse("garden:area-edit", args=[pk])
+            + ("?archived=1" if show_archived else ""),
+            plantings=planting_rows(planting_history(area=record, area_only=True), areas=areas),
             planting_year=year,
-            planting_count=planting_history(year=year, area=record).count(),
+            planting_count=planting_history(year=year, area=record, area_only=True).count(),
             planting_url=reverse("garden:planting-list")
             + "?"
-            + urlencode({"year": year, "area": record.pk}),
+            + urlencode({"year": year, "area": record.pk, "area_only": "1"}),
         )
     return context
 
 
 @require_GET
 def register_detail(request, kind, pk):
-    context = _detail_context(kind, pk)
+    if kind == "area" and "archive_toggle" in request.GET:
+        return _archive_redirect(request, "garden:area-detail", args=[pk])
+    context = _detail_context(kind, pk, show_archived=request.GET.get("archived") == "1")
     context["inline"] = request.headers.get("HX-Request") == "true"
-    template = "garden/details.html" if context["inline"] else "garden/detail.html"
+    if kind == "area":
+        template = "garden/area_content.html" if context["inline"] else "garden/area_detail.html"
+    else:
+        template = "garden/details.html" if context["inline"] else "garden/detail.html"
     return render(request, template, context)
 
 
@@ -338,6 +397,12 @@ def register_form(request, kind, pk=None):
         has_photos=kind != "crop",
         action=request.path,
     )
+    if kind == "area":
+        context["action"] = request.get_full_path()
+        if record is not None:
+            context["cancel_url"] = record.get_absolute_url() + (
+                "?archived=1" if request.GET.get("archived") == "1" else ""
+            )
     if kind == "category":
         context.update(photo_max_count=1, replace_image=True)
     if request.method == "POST":
@@ -368,11 +433,14 @@ def register_form(request, kind, pk=None):
                 messages.success(
                     request, _("Record already saved.") if result.replayed else _("Record saved.")
                 )
+                target = result.record.get_absolute_url()
+                if kind == "area" and request.GET.get("archived") == "1":
+                    target += "?archived=1"
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
-                    response["HX-Redirect"] = result.record.get_absolute_url()
+                    response["HX-Redirect"] = target
                     return response
-                return redirect(result.record)
+                return redirect(target)
         if request.headers.get("HX-Request") == "true":
             return render(request, "garden/form_errors.html", {"form": form}, status=status)
         context["failed"] = True

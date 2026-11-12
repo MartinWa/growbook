@@ -9,9 +9,7 @@
   {% if has_records %}
   <div class="record-workspace" data-record-workspace>
     <div class="record-browser" data-record-browser>
-    {% if kind == 'area' %}
-      {% include 'garden/area_tree.html' %}
-    {% elif kind == 'variety' %}
+    {% if kind == 'variety' %}
       {% for group in variety_groups %}
       <details class="variety-group" id="crop-group-{{ group.crop.pk }}" data-crop-id="{{ group.crop.pk }}"{% if search %} open{% endif %}>
         <summary><span class="crop-name">{{ group.crop.name }}</span> {% if group.crop.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</summary>
