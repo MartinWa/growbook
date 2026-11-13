@@ -359,7 +359,8 @@ photo previews; select one to view the larger image. The photo viewer has a dire
 **Download original** button above the image. Authors and administrators also have
 **Edit photo details** on the left and **Delete photo** on the right; deletion still
 requires confirmation. Originals stay out of the ordinary diary view and are included
-in operational backups.
+in operational backups. If your session expires, downloading opens the sign-in page
+so you can regain access.
 
 The account menu contains Language, Season, Log out and, for staff, Operator. Language changes
 apply immediately with JavaScript and retain the page and filters; a submit button

@@ -4,7 +4,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from io import BytesIO
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 import pytest
@@ -399,6 +399,97 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
         assert downloaded.value.failure() is None
         expect(plain).to_have_url(live_server.url + viewer_path)
     assert errors == []
+
+
+@pytest.fixture
+def photo_viewer_url(page, live_server, user, image_upload):
+    login(page, live_server, user)
+    page.locator("#id_library").set_input_files(upload(image_upload()))
+    page.locator("#save-entry").click()
+    page.locator("#quick-receipt a").click()
+    page.locator(".entry-photos figure > a").click()
+    expect(page).to_have_url(re.compile(r"/photos/\d+/$"))
+    return page.url
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+def test_photo_download_redirects_expired_session_to_login(
+    page, live_server, photo_viewer_url, javascript
+):
+    with page.context.browser.new_context(
+        java_script_enabled=javascript, storage_state=page.context.storage_state()
+    ) as context:
+        view = context.new_page()
+        view.goto(photo_viewer_url)
+        original = view.get_by_role("link", name="Ladda ner original", exact=True)
+        original_path = original.get_attribute("href")
+        downloads = []
+        view.on("download", lambda download: downloads.append(download))
+        context.clear_cookies()
+        original.click()
+        expect(view).to_have_url(re.compile(r"/accounts/login/\?next="))
+        expect(view.locator("#id_username")).to_be_visible()
+        assert parse_qs(urlsplit(view.url).query)["next"] == [original_path]
+        assert downloads == []
+
+
+@pytest.mark.parametrize("language", ["sv", "en"])
+@pytest.mark.parametrize("javascript", [False, True])
+def test_photo_viewer_actions_fit_large_text(
+    page, live_server, photo_viewer_url, language, javascript
+):
+    with page.context.browser.new_context(
+        java_script_enabled=javascript, storage_state=page.context.storage_state()
+    ) as context:
+        context.add_cookies(
+            [{"name": "django_language", "value": language, "url": live_server.url}]
+        )
+        context.route(
+            "**/static/css/test-text-size.css",
+            lambda route: route.fulfill(
+                status=200, content_type="text/css", body=":root { font-size: 212.5%; }"
+            ),
+        )
+        view = context.new_page()
+        view.goto(photo_viewer_url)
+        view.evaluate("""() => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet'; link.href = '/static/css/test-text-size.css';
+            document.head.append(link);
+        }""")
+        expect(view.locator("html")).to_have_css("font-size", "34px")
+        actions = view.locator(".photo-actions a")
+        expect(actions).to_have_count(3)
+        for width in (320, 390, 1280):
+            view.set_viewport_size({"width": width, "height": 1000})
+            boxes = actions.evaluate_all("""buttons => buttons.map(button => {
+                const range = document.createRange();
+                range.selectNodeContents(button);
+                const box = button.getBoundingClientRect();
+                return {left: box.left, right: box.right, top: box.top, bottom: box.bottom,
+                    label: button.textContent,
+                    text: [...range.getClientRects()].map(rect => ({left: rect.left,
+                        right: rect.right, top: rect.top, bottom: rect.bottom}))};
+            })""")
+            for index, box in enumerate(boxes):
+                assert box["left"] >= 0 and box["right"] <= width + 1, box
+                for text in box["text"]:
+                    assert text["left"] >= box["left"] - 1, box
+                    assert text["right"] <= box["right"] + 1, box
+                    assert text["top"] >= box["top"] - 1, box
+                    assert text["bottom"] <= box["bottom"] + 1, box
+                for previous in boxes[:index]:
+                    assert (
+                        box["left"] >= previous["right"] - 1
+                        or box["right"] <= previous["left"] + 1
+                        or box["top"] >= previous["bottom"] - 1
+                        or box["bottom"] <= previous["top"] + 1
+                    ), (previous, box)
+            actions.nth(0).focus()
+            view.keyboard.press("Tab")
+            expect(actions.nth(1)).to_be_focused()
+            view.keyboard.press("Tab")
+            expect(actions.nth(2)).to_be_focused()
 
 
 def test_multiphoto_capture_accumulates_and_saves_under_strict_csp(

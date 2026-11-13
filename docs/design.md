@@ -158,8 +158,10 @@ The ordinary POST form retains CSRF protection and returns only to validated
 root-relative paths.
 
 The photo viewer places a direct original-download button above the image, beside
-photo editing on the left, with deletion aligned right for diary editors. Diary
-photos link to the viewer; observation-page captions show photo-maintenance actions.
+photo editing on the left, with deletion aligned right for diary editors. Actions
+wrap onto additional rows when space is limited or text is enlarged; button heights
+grow to fit their labels. Diary photos link to the viewer; observation-page captions
+show photo-maintenance actions.
 
 For local operation and checks, use the canonical
 [development guide](development.md#test-and-check). Browser checks cannot
