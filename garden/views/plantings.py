@@ -67,7 +67,10 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
         records = tree["records"]
     all_groups = cycle_groups(records)
     cards = []
-    query = "?" + data.urlencode() if data else ""
+    navigation_data = data.copy()
+    if history:
+        navigation_data["all_years"] = "1"
+    query = "?" + navigation_data.urlencode() if navigation_data else ""
     for value, label in PlantingCycle.Status.choices:
         cards.append(
             {
@@ -234,8 +237,7 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             "category_cards": cards,
             "category_overview": category_overview,
             "category": category,
-            "category_overview_url": reverse("garden:planting-list")
-            + ("?" + data.urlencode() if data else ""),
+            "category_overview_url": reverse("garden:planting-list") + query,
             "area_events": tree["events"],
             "unassigned_records": tree["unassigned"],
             "unassigned_groups": planting_groups(tree["unassigned"]),

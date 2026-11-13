@@ -273,7 +273,8 @@ class CycleFieldsForm(forms.Form):
             data["started_on"] = data["completed_on"] = None
         elif status == PlantingCycle.Status.ONGOING:
             data["completed_on"] = None
-        needs_dates = self.cycle is None or self.cycle.status != status
+        # Edit requirements depend on saved status; the writer checks them after receipts.
+        needs_dates = self.cycle is None
         if needs_dates and status == PlantingCycle.Status.ONGOING and not data.get("started_on"):
             self.add_error("started_on", _("Set the actual start date for an ongoing cycle."))
         if (

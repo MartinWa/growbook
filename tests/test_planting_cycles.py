@@ -9,12 +9,14 @@ import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, close_old_connections, transaction
 from django.urls import reverse
+from django.utils import timezone
 
 from core.writes import validated_write
 from garden.models import CycleSubmission, Planting, PlantingCategory, PlantingCycle
 from garden.queries import plantings_in_year
 from garden.services import (
     RegisterConflict,
+    create_crop,
     create_planting,
     create_planting_event,
     delete_planting,
@@ -101,6 +103,55 @@ def test_shared_status_categories_distinct_filtered_counts_and_zero_cards(client
     )
     assert not response.context["records"]
     assert response.context["empty_action_url"] == sale.get_absolute_url() + "?all_years=1"
+
+
+@pytest.mark.parametrize("scope", ["planting", "crop", "variety", "area"])
+@pytest.mark.parametrize("year", [None, 2025])
+def test_history_category_navigation_preserves_year_and_scope(
+    client, user, planting_catalog, monkeypatch, scope, year
+):
+    monkeypatch.setattr(timezone, "localdate", lambda: date(2026, 5, 9))
+    crop, variety, _other_variety, area = planting_catalog
+    sale = create_planting_category(actor=user, name="For Sale").record
+    members = [
+        create_planting(
+            actor=user,
+            crop=crop,
+            variety=variety,
+            area=area,
+            start_year=2025,
+            status=status,
+            started_on=date(2025, 3, 1) if status == "ongoing" else None,
+            completed_on=date(2025, 9, 1) if status == "completed" else None,
+            category_ids=[sale.pk],
+        ).record
+        for status in PlantingCycle.Status.values
+    ]
+    if scope != "planting":
+        create_planting(
+            actor=user,
+            crop=create_crop(actor=user, name="Bean").record,
+            start_year=2025,
+        )
+    client.force_login(user)
+    pk = {"crop": crop.pk, "variety": variety.pk, "area": area.pk}.get(scope)
+    source = client.get(
+        reverse(f"garden:{scope}-history", args=[pk] if pk else []),
+        {"year": year} if year else {},
+    )
+    overview = client.get(source.context["category_overview_url"])
+    assert overview.context["category_overview"]
+    assert overview.context["year"] == year
+    assert set(overview.context["records"]) == set(members)
+    for card in overview.context["category_cards"]:
+        result = client.get(card["url"])
+        assert result.context["year"] == year
+        assert len(result.context["cycle_groups"]) == card["count"]
+        assert card["count"] == (3 if card.get("category") else 1)
+        assert set(result.context["records"]) <= set(members)
+        categories = client.get(result.context["category_overview_url"])
+        assert categories.context["year"] == year
+        assert set(categories.context["records"]) == set(members)
 
 
 def test_start_complete_and_corrections_preserve_ids_years_events_and_members(user, batch):
@@ -360,6 +411,58 @@ def test_cycle_edit_accepts_checkbox_ids_and_preserves_return_scope(client, user
     assert response.status_code == 302 and response["Location"] == destination
     assert batch[0].cycle.categories.get().pk == sale.pk
     assert client.post(path, data).status_code == 302
+
+
+@pytest.mark.parametrize("status", ["ongoing", "completed"])
+@pytest.mark.parametrize("hx", [False, True])
+def test_unknown_date_category_edit_retries_after_later_status_change(
+    client, user, batch, status, hx
+):
+    cycle = batch[0].cycle
+    # Migrated cycles retain unknown actual dates.
+    with validated_write():
+        PlantingCycle.objects.filter(pk=cycle.pk).update(status=status)
+    sale = create_planting_category(actor=user, name="For Sale").record
+    client.force_login(user)
+    path = reverse("garden:cycle-edit", args=[cycle.pk])
+    form = client.get(path).context["form"]
+    data = {
+        "submission_key": str(form["submission_key"].value()),
+        "expected_updated_at": form["expected_updated_at"].value(),
+        "status": status,
+        "started_on": "",
+        "completed_on": "",
+        "category_ids": [str(sale.pk)],
+    }
+    headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
+    success = 204 if hx else 302
+    assert client.post(path, data, **headers).status_code == success
+    cycle.refresh_from_db()
+    later = change(
+        user,
+        cycle,
+        status="completed" if status == "ongoing" else "ongoing",
+        completed_on=date(2027, 9, 1) if status == "ongoing" else None,
+        started_on=date(2025, 3, 1) if status == "completed" else None,
+    ).record
+    receipts = CycleSubmission.objects.count()
+    retry = client.post(path, data, **headers)
+    assert retry.status_code == success
+    assert retry["HX-Redirect" if hx else "Location"] == cycle.get_absolute_url()
+    assert CycleSubmission.objects.count() == receipts
+    cycle.refresh_from_db()
+    assert (cycle.status, cycle.started_on, cycle.completed_on, cycle.updated_at) == (
+        later.status,
+        later.started_on,
+        later.completed_on,
+        later.updated_at,
+    )
+    field = "started_on" if status == "ongoing" else "completed_on"
+    assert client.post(path, {**data, field: "2025-09-01"}, **headers).status_code == 409
+    fresh = {**data, "submission_key": str(uuid4()), "expected_updated_at": later.updated_at}
+    rejected = client.post(path, fresh, **headers)
+    assert rejected.status_code == 422 and field in rejected.context["form"].errors
+    assert CycleSubmission.objects.count() == receipts
 
 
 def test_category_assignment_preserves_member_versions(user, batch):

@@ -7,8 +7,10 @@ from django.db import close_old_connections
 from django.utils import timezone
 from playwright.sync_api import expect, sync_playwright
 
+from core.writes import validated_write
 from garden.models import CycleSubmission, PlantingCycle
 from garden.services import create_crop, create_planting, create_variety
+from garden.services.cycles import create_planting_category
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
@@ -237,3 +239,86 @@ def test_category_navigation_and_date_form_without_javascript(page, live_server,
         assert stored_cycle(cycle)["status"] == "ongoing"
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("scope", ["planting", "crop"])
+@pytest.mark.parametrize("javascript", [False, True])
+def test_all_years_cards_and_category_return_keep_historical_annuals(
+    browser_endpoint, live_server, user, scope, javascript
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    category = create_planting_category(actor=user, name="For Sale").record
+    create_planting(
+        actor=user,
+        crop=crop,
+        start_year=timezone.localdate().year - 2,
+        label="Historical annual",
+        category_ids=[category.pk],
+    )
+    path = (
+        "/garden/plantings/history/" if scope == "planting" else f"/garden/crops/{crop.pk}/history/"
+    )
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        page = context.new_page()
+        login(page, live_server, user)
+        page.goto(live_server.url + path)
+        if scope == "crop":
+            page.get_by_role("link", name="Planting categories", exact=True).click()
+        planned = page.locator(".category-card-link").filter(has_text="Planned")
+        expect(planned).to_contain_text("1 · All years")
+        planned.click()
+        expect(page.locator(".result-count")).to_contain_text("1 planting cycle · All years")
+        expect(page.locator(".planting-list")).to_contain_text("Historical annual")
+        page.get_by_role("link", name="Planting categories", exact=True).click()
+        custom = page.locator(".category-card-link").filter(has_text="For Sale")
+        expect(custom).to_contain_text("1 · All years")
+        custom.click()
+        expect(page.locator(".result-count")).to_contain_text("1 planting cycle · All years")
+        expect(page.locator(".planting-list")).to_contain_text("Historical annual")
+
+
+def test_lost_unknown_start_edit_retries_after_another_tab_completes_cycle(
+    browser_endpoint, live_server, user
+):
+    crop = create_crop(actor=user, name="Tomato").record
+    category = create_planting_category(actor=user, name="For Sale").record
+    member = create_planting(actor=user, crop=crop, start_year=2025, lifespan="persistent").record
+    cycle = member.cycle_id
+    with validated_write():
+        PlantingCycle.objects.filter(pk=cycle).update(status="ongoing")
+    receipts = CycleSubmission.objects.count()
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint) as browser,
+        browser.new_context() as context,
+    ):
+        page = context.new_page()
+        login(page, live_server, user)
+        page.goto(live_server.url + f"/garden/plantings/cycles/{cycle}/edit/")
+        expect(page.locator("#id_started_on")).to_have_value("")
+        page.get_by_label(category.name, exact=True).check()
+        key = page.locator("#id_submission_key").input_value()
+
+        def lose_response(route):
+            route.fetch()
+            route.abort()
+
+        page.route(f"**/cycles/{cycle}/edit/", lose_response, times=1)
+        save(page)
+        expect(page.locator("#register-errors")).to_contain_text("The connection failed")
+        other = context.new_page()
+        other.goto(live_server.url + f"/garden/plantings/cycles/{cycle}/complete/")
+        other.locator("#id_date").fill("2027-09-01")
+        save(other)
+        expect(other).to_have_url(live_server.url + f"/garden/plantings/cycles/{cycle}/")
+        expect(page.locator("#id_submission_key")).to_have_value(key)
+        save(page)
+        expect(page).to_have_url(live_server.url + f"/garden/plantings/cycles/{cycle}/")
+        expect(page.get_by_role("status")).to_contain_text("Record already saved.")
+        shared = stored_cycle(cycle)
+        assert shared["receipts"] == receipts + 2 and shared["status"] == "completed"
+        assert shared["categories"] == 1 and shared["end_years"] == [2027]
