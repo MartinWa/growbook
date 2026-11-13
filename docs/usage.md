@@ -74,9 +74,9 @@ new crop to that category; from Uncategorized it leaves the crop unlinked.
 Creating a crop or variety from the register returns to the same category, search
 and archive filters after Save or Cancel. Failed saves keep that destination.
 The same category image appears on its card and in the register heading. Transparent
-PNG and WebP images retain their transparency. Uncategorized uses the default crop
-illustration on its card and in its heading; categories without an image also use
-that heading illustration. Older filtered register links open the full register.
+PNG and WebP images retain their transparency. Uncategorized uses its own built-in
+illustration on its card and in its heading; categories without an image use the
+default crop heading illustration. Older filtered register links open the full register.
 
 Edit a category to change its name or crop links, remove its image, or upload one
 replacement image. Selecting another image replaces the saved image on a successful
@@ -184,8 +184,9 @@ full forms keep their save actions visible at the bottom while scrolling.
 ## Plantings and histories
 
 Open **Plantings** for category cards styled like Growing areas. The built-in
-categories are **Ongoing**, **Planned** and **Completed**; every batch is one cycle
-with exactly one status. **New category** creates a shared custom category, such as
+categories are **Ongoing**, **Planned** and **Completed**, each with its own built-in
+illustration on its card and heading; every batch is one cycle with exactly one
+status. **New category** creates a shared custom category, such as
 For Sale. Assign a cycle to any number of custom categories through creation or
 **Edit cycle**. An ongoing cycle assigned to For Sale appears in both cards.
 Category names persist across years; each card's count and year describe the view.

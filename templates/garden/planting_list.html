@@ -3,7 +3,7 @@
 {% block title %}{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
 {% block page_class %}page register-page{% endblock %}
 {% block content %}
-{% include 'components/register_heading.html' with illustration='images/registers/plantings.webp' %}
+{% include 'components/register_heading.html' with illustration=planting_illustration %}
 <div class="filter-layout" data-filter-page data-results-id="planting-results"
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
   data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"

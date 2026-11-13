@@ -31,7 +31,8 @@ interface defaults to Swedish, with English available.
 - Early planting plans with crop and start year, optional variety or area, automatic
   editable labels, and batches containing separately tracked varieties. Each variety's
   quantity distinguishes unknown from zero.
-- Planting-cycle cards for Ongoing, Planned and Completed, plus shared custom categories.
+- Planting-cycle cards with status illustrations for Ongoing, Planned and Completed,
+  plus shared custom categories.
   Each batch has one status and can belong to several custom categories; Start and
   Complete record dates, and Edit allows corrections without losing history.
 - Annual and persistent growing-year views with inclusive end years, distinct cycle

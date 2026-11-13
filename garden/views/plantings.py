@@ -76,6 +76,7 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             {
                 "name": label,
                 "url": reverse("garden:planting-status", args=[value]) + query,
+                "illustration": f"images/registers/{value}.webp",
                 "count": sum(group["cycle"].status == value for group in all_groups),
             }
         )
@@ -231,6 +232,9 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             else _("Planting history")
             if history
             else _("Plantings"),
+            "planting_illustration": f"images/registers/{status}.webp"
+            if status
+            else "images/registers/plantings.webp",
             "form": form,
             "records": records,
             "cycle_groups": groups,
