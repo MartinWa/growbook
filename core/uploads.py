@@ -11,6 +11,7 @@ class PhotoLimitUploadHandler(FileUploadHandler):
         self.total = 0
         self.current = 0
         self.count = 0
+        self.planting_count = 0
 
     def reject(self, message):
         self.request.photo_upload_error = message
@@ -19,8 +20,13 @@ class PhotoLimitUploadHandler(FileUploadHandler):
     def new_file(self, *args, **kwargs):
         super().new_file(*args, **kwargs)
         self.current = 0
-        self.count += 1
-        if self.count > settings.PHOTO_MAX_COUNT:
+        if self.request.path == "/capture/" and self.field_name == "planting-photos":
+            self.planting_count += 1
+            count = self.planting_count
+        else:
+            self.count += 1
+            count = self.count
+        if count > settings.PHOTO_MAX_COUNT:
             self.reject(_("Too many photos were selected. Nothing was saved."))
 
     def receive_data_chunk(self, raw_data, start):

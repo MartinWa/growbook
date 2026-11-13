@@ -116,7 +116,7 @@
     chooser.setAttribute("aria-describedby",
       [...picker.querySelectorAll(".field-errors[id]")].map(slot => slot.id).join(" "));
     const actions = form.querySelector(".capture-actions");
-    if (actions) actions.insertBefore(chooser, actions.querySelector('[type="submit"]'));
+    if (actions && !picker.closest("[data-capture-action]")) actions.insertBefore(chooser, actions.querySelector('[type="submit"]'));
     picker.querySelector("[data-native-photos]").hidden = true;
     chooser.hidden = false;
 

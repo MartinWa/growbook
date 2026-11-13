@@ -113,6 +113,17 @@ Category-only cycle changes preserve member versions. `edit_planting_category` a
 linked cycles' versions while preserving their members. Category creation needs no
 version token. Pass typed integer category IDs to cycle and creation writers.
 
+Completion and cycle corrections optionally accept `evaluations` keyed by member ID
+and `expected_member_versions` containing the entire member-version snapshot read by
+the form. Supplied text may be blank to clear it; omitted evaluations stay intact.
+Membership, member versions, lifecycle dates and end years are checked and saved
+atomically. Omitting evaluations preserves older receipt fingerprints.
+
+`diary.services.create_entry` accepts one typed action from `diary.actions` and separate
+`planting_uploads` for new plantings. It runs transaction-level garden writes under the
+diary's active-actor checks, media lock and creation receipt. An identical replay returns
+the entry without rerunning its action. Diary edits and deletion never undo an action.
+
 For create/edit saves with submission receipts, retry the original payload, version
 token and `submission_key`. Writers check the active actor and matching immutable
 receipt before current association eligibility and stale-state checks within short

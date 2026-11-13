@@ -1,0 +1,7 @@
+{% load i18n %}
+{% if form.evaluation_fields %}
+<section data-cycle-evaluations>
+  <p class="field-help">{% translate 'Evaluation is optional and cumulative, separately for each planting. Clear a field to remove its text.' %}</p>
+  {% for field in form.evaluation_fields %}{% include 'components/field.html' %}{% endfor %}
+</section>
+{% endif %}

@@ -24,6 +24,7 @@ from core.photo_storage import (
 from core.writes import validated_write
 from garden.models import Crop, GrowingArea, Planting, Variety
 
+from .actions import action_payload, execute_action, normalize_action
 from .models import DiaryEditSubmission, DiaryEntry, DiaryLink, DiarySubmission
 from .permissions import can_edit_entry
 from .search import entry_search_text
@@ -47,7 +48,7 @@ class CaptureResult:
     created: bool
 
 
-def payload_fingerprint(date, body, photos, links=(), *, title=""):
+def payload_fingerprint(date, body, photos, links=(), *, title="", action=None):
     payload = {
         "version": 1,
         "date": date.isoformat(),
@@ -60,6 +61,8 @@ def payload_fingerprint(date, body, photos, links=(), *, title=""):
     # Blank titles preserve receipts issued before titles were supported.
     if title:
         payload["title"] = title
+    if action is not None:
+        payload["action"] = action
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -90,7 +93,18 @@ def _normalize_title(title):
         raise ValidationError({"title": exc}) from exc
 
 
-def create_entry(*, author, date, body, uploads, submission_key, links=(), title=""):
+def create_entry(
+    *,
+    author,
+    date,
+    body,
+    uploads,
+    submission_key,
+    links=(),
+    title="",
+    action=None,
+    planting_uploads=(),
+):
     """Process outside atomic; revalidate shared state inside the serialized write."""
     if connection.in_atomic_block:
         raise RuntimeError("Call create_entry outside any existing transaction.")
@@ -106,10 +120,25 @@ def create_entry(*, author, date, body, uploads, submission_key, links=(), title
     body = body.strip()
     links = _normalize_links(links)
     uploads = list(uploads)
+    action = normalize_action(action, date)
+    planting_uploads = list(planting_uploads)
+    if planting_uploads and (action is None or action["kind"] != "new"):
+        raise ValidationError(_("Planting photos require a new planting."))
     if not body and not uploads:
         raise ValidationError(_("Write a note or add at least one photo."))
-    with media_operation(), staged_uploads(uploads) as photos:
-        fingerprint = payload_fingerprint(date, body, photos, links, title=title)
+    with (
+        media_operation(),
+        staged_uploads(uploads) as photos,
+        staged_uploads(planting_uploads) as planting_photos,
+    ):
+        if (
+            sum(photo.byte_count for photo in [*photos, *planting_photos])
+            > settings.PHOTO_MAX_TOTAL_BYTES
+        ):
+            raise ValidationError(_("The selected photos exceed the total upload limit."))
+        fingerprint = payload_fingerprint(
+            date, body, photos, links, title=title, action=action_payload(action, planting_photos)
+        )
         # Match retries before decoding against the receipt, not mutable entry fields.
         with transaction.atomic():
             if not User.objects.filter(pk=author.pk, is_active=True).exists():
@@ -117,7 +146,7 @@ def create_entry(*, author, date, body, uploads, submission_key, links=(), title
             result = check_receipt(key, author.pk, fingerprint)
             if result:
                 return result
-        with published_uploads(photos) as rows:
+        with published_uploads(photos) as rows, published_uploads(planting_photos) as planting_rows:
             with transaction.atomic(), validated_write():
                 if not User.objects.filter(pk=author.pk, is_active=True).exists():
                     raise PermissionDenied
@@ -125,6 +154,9 @@ def create_entry(*, author, date, body, uploads, submission_key, links=(), title
                 if result:
                     return result
                 resolved_links = _resolve_links(links)
+                if action is not None:
+                    planting = execute_action(action, planting_rows)
+                    resolved_links[("planting", planting.pk)] = planting
                 entry = DiaryEntry(
                     date=date,
                     title=title,

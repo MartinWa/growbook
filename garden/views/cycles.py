@@ -92,7 +92,9 @@ def cycle_form(request, pk, action=None):
     initial = {"expected_updated_at": cycle.updated_at}
     if action:
         form = CycleTransitionForm(
-            request.POST if request.method == "POST" else None, initial=initial
+            request.POST if request.method == "POST" else None,
+            initial=initial,
+            cycle=cycle if action == "complete" else None,
         )
         form.fields["date"].label = (
             _("Actual start date") if action == "start" else _("Completion date")
@@ -122,7 +124,8 @@ def cycle_form(request, pk, action=None):
     if request.method == "POST":
         status = 422
         if valid_post(request, form):
-            values = {**form.cleaned_data, "actor": request.user, "pk": pk}
+            evaluation_values = form.evaluation_values()
+            values = {**form.cleaned_data, **evaluation_values, "actor": request.user, "pk": pk}
             try:
                 result = (
                     services.transition_cycle(**values, action=action)

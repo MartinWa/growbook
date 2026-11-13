@@ -11,3 +11,15 @@
   {% endfor %}
 </div>
 {% endif %}
+{% with action_form=form.selected_action_form %}
+{% if action_form.errors %}
+<div class="error-summary">
+  {{ action_form.non_field_errors }}
+  {% for field in action_form %}{% if field.errors %}
+  <div><a href="#{{ field.auto_id }}">{{ field.label }}</a>:
+    <div data-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+  </div>
+  {% endif %}{% endfor %}
+</div>
+{% endif %}
+{% endwith %}

@@ -50,6 +50,9 @@ interface defaults to Swedish, with English available.
 - Inline diary capture with native photo selection,
   multiple photos, previews and upload feedback; native inputs also work without
   JavaScript.
+- Optional planting actions during diary capture: create a planting, add an event or
+  change a cycle's status in the same retry-safe save, automatically linking the entry.
+  Completion and status corrections offer separate, prefilled evaluations for each member.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped WebP
   display images and thumbnails. Originals are retained privately and served only through
   authenticated downloads; there is no public media directory.
@@ -64,7 +67,8 @@ interface defaults to Swedish, with English available.
   entries, records, photos and original downloads, and maintain registers, plantings and
   events. Only an entry's author or an active staff administrator may edit or delete
   that entry. There are no per-user gardens or read-only member roles.
-- Diary tags are chosen explicitly; there is no automatic matching.
+- Diary tags are chosen explicitly; a capture planting action adds its planting link.
+  There is no automatic text matching.
   Structured harvest accounting and portable data import/export are
   not provided.
 - Entry deletion permanently removes the title, note, links and photos, including

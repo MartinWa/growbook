@@ -1,0 +1,29 @@
+{% load i18n %}
+<details class="form-disclosure" data-planting-action{% if form.action_open %} open{% endif %}>
+  <summary>{% translate 'Link to a planting' %}</summary>
+  <div class="disclosure-fields">
+    {% include 'components/field.html' with field=form.planting_action %}
+    <div data-existing-planting>{% include 'components/field.html' with field=form.action_planting %}</div>
+    <button type="button" class="btn btn-outline" data-action-load hidden>{% translate 'Load planting details' %}</button>
+    <noscript><button type="submit" class="btn btn-outline" name="choose_action" value="1" formnovalidate>{% translate 'Load planting details' %}</button></noscript>
+    <p data-action-status role="status" aria-live="polite" data-error="{% translate 'Planting details could not be loaded. Retry before saving.' %}"></p>
+    <section data-capture-action="new" data-new-planting>
+      {% with planting_form=form.planting_form %}
+        {% for field in planting_form.hidden_fields %}{{ field }}{% endfor %}
+        {% include 'components/field.html' with field=planting_form.crop %}
+        {% include 'components/field.html' with field=planting_form.start_year %}
+        {% include 'components/field.html' with field=planting_form.label %}
+        {% include 'garden/cycle_fields.html' with form=planting_form %}
+        {% for field in planting_form.detail_fields %}{% include 'components/field.html' %}{% endfor %}
+        <p class="field-help">{% translate 'These optional photos belong to the planting. Diary photos stay with the observation.' %}</p>
+        {% for field in planting_form.note_fields %}{% include 'components/field.html' %}{% endfor %}
+      {% endwith %}
+    </section>
+    <section data-capture-action="event">
+      {% for field in form.event_form %}{% include 'components/field.html' %}{% endfor %}
+    </section>
+    <section data-capture-action="cycle">{% include 'diary/_cycle_action_fields.html' with form=form.cycle_form %}</section>
+    <p class="field-help">{% translate 'The observation is linked automatically. Notes for the planting or event are optional. Status changes apply to the entire cycle.' %}</p>
+    <noscript><p class="field-help">{% translate 'Choose an action and planting, then load its details before changing cycle fields. Use Current status for Start, Complete, Reopen or Return to Planned.' %}</p></noscript>
+  </div>
+</details>

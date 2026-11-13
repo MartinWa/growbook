@@ -1422,3 +1422,98 @@ msgid "%(count)s matching variety"
 msgid_plural "%(count)s matching varieties"
 msgstr[0] "%(count)s matchande sort"
 msgstr[1] "%(count)s matchande sorter"
+
+msgid "Link to a planting"
+msgstr "Koppla till en odling"
+
+msgid "Start"
+msgstr "Starta"
+
+msgid "Complete"
+msgstr "Avsluta"
+
+msgid "Planting action"
+msgstr "Odlingsåtgärd"
+
+msgid "No planting action"
+msgstr "Ingen odlingsåtgärd"
+
+msgid "Start a new planting"
+msgstr "Starta en ny odling"
+
+msgid "Add an event"
+msgstr "Lägg till en händelse"
+
+msgid "Change cycle status"
+msgstr "Ändra odlingsomgångens status"
+
+msgid "Existing planting"
+msgstr "Befintlig odling"
+
+msgid "Load planting details"
+msgstr "Hämta odlingsuppgifter"
+
+msgid "Reopen"
+msgstr "Återöppna"
+
+msgid "Return to Planned"
+msgstr "Återgå till Planerad"
+
+msgid "Check the planting action fields."
+msgstr "Kontrollera fälten för odlingsåtgärden."
+
+msgid "Choose a valid planting action."
+msgstr "Välj en giltig odlingsåtgärd."
+
+msgid "Choose a crop or a variety."
+msgstr "Välj en gröda eller en sort."
+
+msgid "Planting photos require a new planting."
+msgstr "Odlingsbilder kräver en ny odling."
+
+msgid "Reload the cycle evaluations before saving."
+msgstr "Ladda om odlingsomgångens utvärderingar innan du sparar."
+
+msgid "The cycle membership changed. Reload the form."
+msgstr "Odlingsomgångens medlemmar har ändrats. Ladda om formuläret."
+
+msgid "A cycle member changed. Reload the evaluations."
+msgstr "En medlem i odlingsomgången har ändrats. Ladda om utvärderingarna."
+
+msgid "Evaluation is offered when completing a cycle."
+msgstr "Utvärdering erbjuds när en odlingsomgång avslutas."
+
+msgid "Evaluation: %(planting)s"
+msgstr "Utvärdering: %(planting)s"
+
+msgid ""
+"Evaluation is optional and cumulative, separately for each planting. Clear a"
+" field to remove its text."
+msgstr ""
+"Utvärderingen är valfri och samlad över tid, separat för varje odling. Töm "
+"ett fält för att ta bort dess text."
+
+msgid "Planting details could not be loaded. Retry before saving."
+msgstr "Odlingsuppgifterna kunde inte hämtas. Försök igen innan du sparar."
+
+msgid ""
+"These optional photos belong to the planting. Diary photos stay with the "
+"observation."
+msgstr ""
+"Dessa valfria bilder tillhör odlingen. Dagboksbilderna hör till "
+"observationen."
+
+msgid ""
+"The observation is linked automatically. Notes for the planting or event are"
+" optional. Status changes apply to the entire cycle."
+msgstr ""
+"Observationen kopplas automatiskt. Anteckningar för odlingen eller händelsen"
+" är valfria. Statusändringar gäller hela odlingsomgången."
+
+msgid ""
+"Choose an action and planting, then load its details before changing cycle "
+"fields. Use Current status for Start, Complete, Reopen or Return to Planned."
+msgstr ""
+"Välj en åtgärd och odling och hämta sedan uppgifterna innan du ändrar "
+"odlingsomgångens fält. Använd Nuvarande status för att starta, avsluta, "
+"återöppna eller återgå till Planerad."

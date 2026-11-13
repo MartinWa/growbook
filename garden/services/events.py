@@ -22,6 +22,20 @@ from ._shared import (
 )
 
 
+def write_event(values, pk=None, expected_updated_at=None):
+    """Validate and save within the caller's serialized transaction; no receipt."""
+    owner = _current(Planting, values["planting_id"])
+    record = _current(PlantingEvent, pk, expected_updated_at) if pk is not None else PlantingEvent()
+    if pk is not None and record.planting_id != values["planting_id"]:
+        raise ValidationError({"planting": _("Choose a valid record.")})
+    for field, value in values.items():
+        setattr(record, field, value)
+    record.full_clean()
+    record.save()
+    owner.save(update_fields=["updated_at"])
+    return record
+
+
 def _save_event(
     actor, planting, pk, kind, planned_date, actual_date, note, submission_key, expected_updated_at
 ):
@@ -49,17 +63,7 @@ def _save_event(
         retry = _planting_receipt(key, actor, "event", fingerprint)
         if retry is not None:
             return retry
-        owner = _current(Planting, planting_id)
-        record = (
-            _current(PlantingEvent, pk, expected_updated_at) if pk is not None else PlantingEvent()
-        )
-        if pk is not None and record.planting_id != planting_id:
-            raise ValidationError({"planting": _("Choose a valid record.")})
-        for field, value in values.items():
-            setattr(record, field, value)
-        record.full_clean()
-        record.save()
-        owner.save(update_fields=["updated_at"])
+        record = write_event(values, pk, expected_updated_at)
         receipt = PlantingSubmission(
             key=key, author=actor, kind="event", payload_sha256=fingerprint, event=record
         )

@@ -25,6 +25,11 @@
   {% elif kind == 'cycle' %}
     {% for field in form.hidden_fields %}{{ field }}{% endfor %}
     {% include 'garden/cycle_fields.html' %}
+    {% include 'garden/cycle_evaluations.html' %}
+  {% elif kind == 'cycle-transition' %}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% include 'components/field.html' with field=form.date %}
+    {% include 'garden/cycle_evaluations.html' %}
   {% else %}
   {% if kind == 'category' and record %}{% with photo=record.photos.first %}{% if photo %}<p><a href="{{ photo.get_absolute_url }}"><img class="category-current-image" src="{{ photo.thumbnail_url }}" alt="{% translate 'Current category image' %}"></a></p>{% endif %}{% endwith %}{% endif %}
   {% for field in form %}{% include 'components/field.html' %}{% endfor %}

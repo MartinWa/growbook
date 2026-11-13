@@ -112,6 +112,61 @@ def _validate_planting(record, previous):
     record.full_clean()
 
 
+def write_planting(pk, values, rows, expected_updated_at=None):
+    """Validate and save within the caller's serialized transaction; no receipt."""
+    record = _current(Planting, pk, expected_updated_at) if pk is not None else Planting()
+    previous = {field: getattr(record, field) for field in ("crop_id", "variety_id", "area_id")}
+    batch_planting = values.get("batch_planting")
+    if batch_planting is not None:
+        member = _current(Planting, batch_planting)
+        record.batch_key = member.batch_key
+        record.cycle = member.cycle
+    elif pk is None:
+        record.cycle = PlantingCycle(
+            pk=record.batch_key,
+            status=values.get("status", PlantingCycle.Status.PLANNED),
+            started_on=values.get("started_on"),
+            completed_on=values.get("completed_on"),
+        )
+        validate_lifecycle(record.cycle, require_dates=True)
+        record.cycle.save()
+        set_categories(record.cycle, values.get("category_ids", []))
+    for field, value in values.items():
+        if field in (
+            "batch_planting",
+            "status",
+            "started_on",
+            "completed_on",
+            "category_ids",
+        ):
+            continue
+        setattr(record, field, value)
+    if pk is None and record.lifespan == Planting.Lifespan.PERSISTENT and record.cycle.completed_on:
+        record.end_year = record.cycle.completed_on.year
+    _validate_planting(record, previous)
+    if batch_planting is not None and record.variety_id is None:
+        raise ValidationError({"variety": _("Choose a variety to add to this batch.")})
+    if pk is None and not record.label:
+        record.label = record.crop.name
+        if record.variety_id is not None:
+            record.label += "-" + record.variety.name
+        record.full_clean()
+    photos = list(record.photos.all()) if pk is not None else []
+    if len(photos) + len(rows) > settings.PHOTO_MAX_COUNT:
+        raise ValidationError(
+            _("A record can have no more than %(count)s photos."),
+            params={"count": settings.PHOTO_MAX_COUNT},
+        )
+    record.save()
+    record.cycle.save()
+    position = max((photo.position for photo in photos), default=-1) + 1
+    for offset, photo_values in enumerate(rows):
+        photo = Photo(planting=record, **photo_values, position=position + offset)
+        photo.full_clean()
+        photo.save()
+    return record
+
+
 def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_at):
     try:
         with transaction.atomic(), validated_write():
@@ -119,62 +174,7 @@ def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_
             retry = _planting_receipt(key, actor, "planting", fingerprint)
             if retry is not None:
                 return retry
-            record = _current(Planting, pk, expected_updated_at) if pk is not None else Planting()
-            previous = {
-                field: getattr(record, field) for field in ("crop_id", "variety_id", "area_id")
-            }
-            batch_planting = values.get("batch_planting")
-            if batch_planting is not None:
-                member = _current(Planting, batch_planting)
-                record.batch_key = member.batch_key
-                record.cycle = member.cycle
-            elif pk is None:
-                record.cycle = PlantingCycle(
-                    pk=record.batch_key,
-                    status=values.get("status", PlantingCycle.Status.PLANNED),
-                    started_on=values.get("started_on"),
-                    completed_on=values.get("completed_on"),
-                )
-                validate_lifecycle(record.cycle, require_dates=True)
-                record.cycle.save()
-                set_categories(record.cycle, values.get("category_ids", []))
-            for field, value in values.items():
-                if field in (
-                    "batch_planting",
-                    "status",
-                    "started_on",
-                    "completed_on",
-                    "category_ids",
-                ):
-                    continue
-                setattr(record, field, value)
-            if (
-                pk is None
-                and record.lifespan == Planting.Lifespan.PERSISTENT
-                and record.cycle.completed_on
-            ):
-                record.end_year = record.cycle.completed_on.year
-            _validate_planting(record, previous)
-            if batch_planting is not None and record.variety_id is None:
-                raise ValidationError({"variety": _("Choose a variety to add to this batch.")})
-            if pk is None and not record.label:
-                record.label = record.crop.name
-                if record.variety_id is not None:
-                    record.label += "-" + record.variety.name
-                record.full_clean()
-            photos = list(record.photos.all()) if pk is not None else []
-            if len(photos) + len(rows) > settings.PHOTO_MAX_COUNT:
-                raise ValidationError(
-                    _("A record can have no more than %(count)s photos."),
-                    params={"count": settings.PHOTO_MAX_COUNT},
-                )
-            record.save()
-            record.cycle.save()
-            position = max((photo.position for photo in photos), default=-1) + 1
-            for offset, photo_values in enumerate(rows):
-                photo = Photo(planting=record, **photo_values, position=position + offset)
-                photo.full_clean()
-                photo.save()
+            record = write_planting(pk, values, rows, expected_updated_at)
             receipt = PlantingSubmission(
                 key=key, author=actor, kind="planting", payload_sha256=fingerprint, planting=record
             )

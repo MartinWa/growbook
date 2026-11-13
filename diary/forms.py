@@ -9,8 +9,11 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
+from garden.forms import CycleEditForm, PlantingEventForm, PlantingForm, RecordIDChoiceField
 from garden.models import Crop, GrowingArea, Planting, Variety
 from garden.queries import area_paths
+
+from .actions import CycleStatusAction, NewPlantingAction, PlantingEventAction
 
 TAG_FIELDS = {
     "link_plantings": (Planting, "planting", _("Plantings")),
@@ -153,6 +156,25 @@ class TaggedForm(forms.Form):
 
 
 class CaptureForm(TaggedForm):
+    date_overrides = forms.CharField(required=False, widget=forms.HiddenInput)
+    default_date = forms.DateField(
+        required=False, widget=forms.HiddenInput, initial=timezone.localdate
+    )
+    planting_action = forms.ChoiceField(
+        label=_("Planting action"),
+        required=False,
+        choices=[
+            ("", _("No planting action")),
+            ("new", _("Start a new planting")),
+            ("event", _("Add an event")),
+            ("cycle", _("Change cycle status")),
+        ],
+    )
+    action_planting = RecordIDChoiceField(
+        label=_("Existing planting"),
+        required=False,
+        queryset=Planting.objects.select_related("crop", "variety", "area", "cycle"),
+    )
     submission_key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid4)
     date = forms.DateField(
         label=_("Date"),
@@ -206,14 +228,163 @@ class CaptureForm(TaggedForm):
     def __init__(self, *args, quick=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.setup_tags()
+        paths = area_paths(list(GrowingArea.objects.all()))
+        self.fields["action_planting"].label_from_instance = lambda obj: " · ".join(
+            [
+                obj.crop.name,
+                obj.variety.name if obj.variety_id else str(_("Unknown variety")),
+                paths.get(obj.area_id, str(_("Unassigned area"))),
+                str(obj.start_year),
+                obj.cycle.get_status_display(),
+                obj.label or str(obj.pk),
+                str(obj.batch_key)[:8],
+            ]
+        )
+        self.fields["action_planting"].preserve_selection(self["action_planting"].value())
+        data = self.data.copy() if self.is_bound else None
+        raw_date = self["date"].value()
+        try:
+            observed = raw_date if hasattr(raw_date, "year") else parse_date(str(raw_date))
+        except ValueError:
+            observed = None
+        observed = observed or timezone.localdate()
+        if self.is_bound:
+            try:
+                previous_default = parse_date(str(data.get("default_date", "")))
+            except ValueError:
+                previous_default = None
+            overridden = set(data.get("date_overrides", "").split(","))
+            if previous_default is not None:
+                for name in ("planting-started_on", "planting-completed_on", "event-actual_date"):
+                    if name not in overridden and data.get(name) == previous_default.isoformat():
+                        data[name] = observed.isoformat()
+                if "planting-start_year" not in overridden and data.get(
+                    "planting-start_year"
+                ) == str(previous_default.year):
+                    data["planting-start_year"] = str(observed.year)
+                data["default_date"] = observed.isoformat()
+                self.data = data
+        new_initial = {
+            "status": "ongoing",
+            "started_on": observed,
+            "completed_on": observed,
+            "start_year": observed.year,
+        }
+        self.planting_form = PlantingForm(
+            data,
+            self.files if self.is_bound else None,
+            prefix="planting",
+            initial=new_initial,
+            use_required_attribute=False,
+        )
+        for name in ("submission_key", "expected_updated_at", "batch_planting"):
+            self.planting_form.fields.pop(name, None)
+        self.planting_form.fields["crop"].required = False
+        variety_attrs = self.planting_form.fields["variety"].widget.attrs
+        variety_attrs["aria-describedby"] = " ".join(
+            identifier
+            for identifier in variety_attrs["aria-describedby"].split()
+            if identifier != "variety-status"
+        )
+        self.planting_form.fields["variety"].queryset = Variety.objects.filter(
+            is_archived=False, crop__is_archived=False
+        ).select_related("crop")
+        if self.is_bound:
+            self.planting_form.fields["variety"].preserve_selection(
+                self.data.get("planting-variety")
+            )
+        self.event_form = PlantingEventForm(
+            data, prefix="event", initial={"actual_date": observed}, use_required_attribute=False
+        )
+        for name in ("submission_key", "expected_updated_at"):
+            self.event_form.fields.pop(name)
+        try:
+            selected = int(self["action_planting"].value() or 0)
+        except TypeError, ValueError:
+            selected = 0
+        planting = Planting.objects.select_related("cycle").filter(pk=selected).first()
+        cycle = planting.cycle if planting else None
+        cycle_initial = {
+            "status": cycle.status if cycle else "ongoing",
+            "started_on": cycle.started_on if cycle else None,
+            "completed_on": cycle.completed_on if cycle else None,
+            "expected_updated_at": cycle.updated_at if cycle else None,
+            "category_ids": list(cycle.categories.values_list("pk", flat=True)) if cycle else [],
+        }
+        self.cycle_form = CycleEditForm(
+            data, prefix="cycle", cycle=cycle, initial=cycle_initial, use_required_attribute=False
+        )
+        self.cycle_form.fields.pop("submission_key")
+        self.action_forms = {
+            "new": self.planting_form,
+            "event": self.event_form,
+            "cycle": self.cycle_form,
+        }
+        if self.is_bound:
+            from django.forms.utils import ErrorDict
+
+            for name, subform in self.action_forms.items():
+                if name != self.data.get("planting_action"):
+                    subform._errors = ErrorDict()
         if quick:
             self.fields["body"].widget.attrs["rows"] = 3
 
     def clean(self):
         cleaned = super().clean()
+        action = cleaned.get("planting_action")
+        cleaned["action"] = None
+        cleaned["planting_uploads"] = []
+        if self.files.getlist("planting-photos") and action != "new":
+            self.add_error(None, _("Planting photos require a new planting."))
+        if action in self.action_forms:
+            selected_form = self.action_forms[action]
+            if not selected_form.is_valid():
+                self.add_error(None, _("Check the planting action fields."))
+            else:
+                if action != "new" and not cleaned.get("action_planting"):
+                    self.add_error("action_planting", _("Choose a valid record."))
+                elif action == "new":
+                    values = selected_form.cleaned_data.copy()
+                    values.pop("generated_label")
+                    cleaned["planting_uploads"] = values.pop("photos")
+                    cleaned["action"] = NewPlantingAction(**values)
+                elif action == "event":
+                    cleaned["action"] = PlantingEventAction(
+                        planting=cleaned["action_planting"], **selected_form.cleaned_data
+                    )
+                else:
+                    evaluation_values = selected_form.evaluation_values()
+                    cleaned["action"] = CycleStatusAction(
+                        planting=cleaned["action_planting"],
+                        **selected_form.cleaned_data,
+                        **evaluation_values,
+                    )
         if not cleaned.get("body") and not cleaned.get("camera") and not cleaned.get("library"):
             raise forms.ValidationError(_("Write a note or add at least one photo."))
         return cleaned
+
+    def action_error(self, error):
+        from core.forms import form_error
+
+        action = self.data.get("planting_action")
+        target = self.action_forms.get(action)
+        if target is not None and hasattr(error, "error_dict"):
+            for field, errors in error.error_dict.items():
+                if field in target.fields:
+                    target.add_error(field, errors)
+                    self.add_error(None, _("Check the planting action fields."))
+                else:
+                    self.add_error(field if field in self.fields else None, errors)
+        else:
+            form_error(self, error)
+
+    @property
+    def selected_action_form(self):
+        return self.action_forms.get(self["planting_action"].value())
+
+    @property
+    def action_open(self):
+        return bool(self["planting_action"].value())
 
 
 def _eligible(model, current_ids):

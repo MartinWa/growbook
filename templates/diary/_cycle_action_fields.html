@@ -1,0 +1,12 @@
+{% load i18n %}
+<div data-cycle-action-fields>
+  {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+  <div class="form-actions" data-cycle-presets hidden>
+    <button type="button" class="btn btn-outline" data-cycle-preset="start">{% translate 'Start' %}</button>
+    <button type="button" class="btn btn-outline" data-cycle-preset="complete">{% translate 'Complete' %}</button>
+    <button type="button" class="btn btn-outline" data-cycle-preset="reopen">{% translate 'Reopen' %}</button>
+    <button type="button" class="btn btn-outline" data-cycle-preset="planned">{% translate 'Return to Planned' %}</button>
+  </div>
+  {% include 'garden/cycle_fields.html' %}
+  {% include 'garden/cycle_evaluations.html' %}
+</div>
