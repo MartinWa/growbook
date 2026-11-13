@@ -721,7 +721,7 @@ msgid "No plantings match these filters."
 msgstr "Inga odlingar matchar filtren."
 
 msgid "Ongoing"
-msgstr "Tills vidare"
+msgstr "Pågående"
 
 msgid ""
 "Only crop and start year are required. Quantity is a plant count: blank "
@@ -1322,3 +1322,106 @@ msgstr "Gröda, startår och sort är obligatoriska."
 
 msgid "Defaults to crop-variety. You can change it."
 msgstr "Fylls automatiskt med gröda-sort. Du kan ändra namnet."
+
+msgid "Planned"
+msgstr "Planerad"
+
+msgid "Completed"
+msgstr "Avslutad"
+
+msgid "Current status"
+msgstr "Aktuell status"
+
+msgid "Actual start date"
+msgstr "Faktiskt startdatum"
+
+msgid "Completion date"
+msgstr "Avslutsdatum"
+
+msgid "Custom categories"
+msgstr "Egna kategorier"
+
+msgid "Planting cycle"
+msgstr "Odlingsomgång"
+
+msgid "Planting categories"
+msgstr "Odlingskategorier"
+
+msgid "Start cycle"
+msgstr "Starta odlingsomgång"
+
+msgid "Complete cycle"
+msgstr "Avsluta odlingsomgång"
+
+msgid "Edit cycle"
+msgstr "Redigera odlingsomgång"
+
+msgid "Open cycle"
+msgstr "Öppna odlingsomgång"
+
+msgid "No end year"
+msgstr "Inget slutår"
+
+msgid "%(year)s onwards"
+msgstr "Från %(year)s"
+
+msgid "Enter a valid date."
+msgstr "Ange ett giltigt datum."
+
+msgid "Choose a valid planting cycle."
+msgstr "Välj en giltig odlingsomgång."
+
+msgid "Choose a valid action and date."
+msgstr "Välj en giltig åtgärd och ett giltigt datum."
+
+msgid "A planned cycle has no actual start or completion date."
+msgstr "En planerad odlingsomgång har inget faktiskt startdatum eller avslutsdatum."
+
+msgid "Only a completed cycle has a completion date."
+msgstr "Endast en avslutad odlingsomgång har ett avslutsdatum."
+
+msgid "The completion date cannot precede the actual start date."
+msgstr "Avslutsdatumet kan inte vara före det faktiska startdatumet."
+
+msgid "Set the actual start date for an ongoing cycle."
+msgstr "Ange det faktiska startdatumet för en pågående odlingsomgång."
+
+msgid "Set the completion date for a completed cycle."
+msgstr "Ange avslutsdatumet för en avslutad odlingsomgång."
+
+msgid "The end year must match this cycle's completion date. Correct the cycle through Edit cycle."
+msgstr "Slutåret måste stämma med odlingsomgångens avslutsdatum. Ändra odlingsomgången via Redigera odlingsomgång."
+
+msgid "A selected category no longer exists. Reload the form."
+msgstr "En vald kategori finns inte längre. Ladda om formuläret."
+
+msgid "This action is no longer available. Reload the cycle."
+msgstr "Den här åtgärden är inte längre tillgänglig. Ladda om odlingsomgången."
+
+msgid "A category with this name already exists."
+msgstr "En kategori med det här namnet finns redan."
+
+msgid "Status, dates and custom categories apply to every variety in this cycle."
+msgstr "Status, datum och egna kategorier gäller alla sorter i den här odlingsomgången."
+
+msgid "Categories show current status. A cycle can also appear in several custom categories."
+msgstr "Kategorier visar aktuell status. En odlingsomgång kan även visas i flera egna kategorier."
+
+msgid "Showing the whole cycle. The category list retains its year and filters."
+msgstr "Hela odlingsomgången visas. Kategorilistan behåller sitt år och sina filter."
+
+msgid "This action applies to every variety in the cycle. Choose the actual date; the viewed growing year does not set it."
+msgstr "Åtgärden gäller alla sorter i odlingsomgången. Välj det faktiska datumet; det visade odlingsåret bestämmer inte datumet."
+
+msgid "Deletion removes this category and its links. Planting cycles, varieties, history and photos are kept."
+msgstr "Borttagning tar bort kategorin och dess kopplingar. Odlingsomgångar, sorter, historik och bilder behålls."
+
+msgid "%(count)s planting cycle"
+msgid_plural "%(count)s planting cycles"
+msgstr[0] "%(count)s odlingsomgång"
+msgstr[1] "%(count)s odlingsomgångar"
+
+msgid "%(count)s matching variety"
+msgid_plural "%(count)s matching varieties"
+msgstr[0] "%(count)s matchande sort"
+msgstr[1] "%(count)s matchande sorter"

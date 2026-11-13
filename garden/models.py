@@ -177,12 +177,122 @@ class GrowingArea(ValidatedModel):
         return reverse("garden:area-detail", args=[self.pk])
 
 
+class PlantingCycle(ValidatedModel):
+    class Status(models.TextChoices):
+        ONGOING = "ongoing", _("Ongoing")
+        PLANNED = "planned", _("Planned")
+        COMPLETED = "completed", _("Completed")
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    status = models.CharField(
+        _("Current status"), max_length=10, choices=Status.choices, default=Status.PLANNED
+    )
+    started_on = models.DateField(_("Actual start date"), null=True, blank=True)
+    completed_on = models.DateField(_("Completion date"), null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(status__in=["planned", "ongoing", "completed"]),
+                name="cycle_known_status",
+            ),
+            models.CheckConstraint(
+                condition=~Q(status="planned")
+                | Q(started_on__isnull=True, completed_on__isnull=True),
+                name="cycle_planned_no_actual_dates",
+            ),
+            models.CheckConstraint(
+                condition=Q(status="completed") | Q(completed_on__isnull=True),
+                name="cycle_completion_status",
+            ),
+            models.CheckConstraint(
+                condition=Q(started_on__isnull=True)
+                | Q(completed_on__isnull=True)
+                | Q(completed_on__gte=F("started_on")),
+                name="cycle_date_order",
+            ),
+        ]
+
+    def get_absolute_url(self):
+        return reverse("garden:cycle-detail", args=[self.pk])
+
+    def __str__(self):
+        return str(self.pk)
+
+
+class PlantingCategory(ValidatedModel):
+    name = models.CharField(_("Name"), max_length=150)
+    name_key = models.CharField(max_length=450, editable=False)
+    cycles = models.ManyToManyField(
+        PlantingCycle, through="PlantingCategoryLink", related_name="categories"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name_key", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["name_key"], name="planting_category_name_unique"),
+            models.CheckConstraint(
+                condition=~Q(name="") & ~Q(name_key=""), name="planting_category_name_not_blank"
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        self.name, self.name_key = normalize_name(self.name)
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("garden:planting-category-detail", args=[self.pk])
+
+
+class PlantingCategoryLink(ValidatedModel):
+    category = models.ForeignKey(PlantingCategory, on_delete=models.CASCADE)
+    cycle = models.ForeignKey(PlantingCycle, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["category", "cycle"], name="planting_category_cycle_unique"
+            )
+        ]
+
+
+class CycleSubmission(ValidatedModel):
+    """Immutable shared-cycle/category receipts, retaining deleted-target tombstones."""
+
+    key = models.UUIDField(primary_key=True, editable=False)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    payload_sha256 = models.CharField(max_length=64)
+    kind = models.CharField(max_length=10)
+    cycle = models.ForeignKey(PlantingCycle, on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey(PlantingCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(kind="cycle", category__isnull=True)
+                | Q(kind="category", cycle__isnull=True),
+                name="cycle_receipt_target_kind",
+            )
+        ]
+
+
 class Planting(ValidatedModel):
     class Lifespan(models.TextChoices):
         ANNUAL = "annual", _("Annual")
         PERSISTENT = "persistent", _("Persistent")
 
     batch_key = models.UUIDField(default=uuid4, db_index=True, editable=False)
+    cycle = models.ForeignKey(
+        PlantingCycle, on_delete=models.PROTECT, related_name="members", editable=False
+    )
     start_year = models.PositiveIntegerField(
         _("Start year"), db_index=True, validators=[MinValueValidator(1), MaxValueValidator(9999)]
     )
@@ -226,6 +336,9 @@ class Planting(ValidatedModel):
         verbose_name = _("Planting")
         verbose_name_plural = _("Plantings")
         constraints = [
+            models.CheckConstraint(
+                condition=Q(cycle=F("batch_key")), name="planting_cycle_matches_batch"
+            ),
             models.UniqueConstraint(
                 fields=["batch_key", "variety"],
                 condition=Q(variety__isnull=False),

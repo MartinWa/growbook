@@ -115,7 +115,9 @@
         document.title = results.dataset.heading + " · growbook";
         const create = document.querySelector("[data-filter-create]");
         create.href = results.dataset.createUrl;
-        create.hidden = results.dataset.hasRecords === "false";
+        create.hidden = !create.hasAttribute("data-always-visible") && results.dataset.hasRecords === "false";
+        const categoryCreate = document.querySelector("[data-filter-category-create]");
+        if (categoryCreate) categoryCreate.href = results.dataset.categoryCreateUrl;
       }
       document.dispatchEvent(new CustomEvent("growbook:results", {
         detail: { root: results, url: url.pathname + url.search }

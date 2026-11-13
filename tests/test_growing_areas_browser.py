@@ -136,6 +136,9 @@ def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
             exact=True,
         ).press("Enter")
         expect(page.locator("#id_area_only")).to_have_value("1")
+        page.locator(".category-card-link").filter(
+            has_text="Planerad" if language == "sv" else "Planned"
+        ).press("Enter")
         expect(page.locator("#planting-results")).to_contain_text("Synthetic batch")
         expect(page.locator("#planting-results")).not_to_contain_text("Inner section batch")
         page.locator("[data-filter-disclosure] > summary").press("Enter")
@@ -188,6 +191,7 @@ def test_clearing_area_filter_restores_descendants_for_another_area(
         login(page, live_server, user)
         page.goto(live_server.url + areas["child"].get_absolute_url())
         page.get_by_role("link", name=f"Odlingar {areas['year']} (1)", exact=True).click()
+        page.locator(".category-card-link").filter(has_text="Planerad").click()
         results = page.locator("#planting-results")
         expect(results).to_contain_text("Synthetic batch")
         expect(results).not_to_contain_text("Inner section batch")

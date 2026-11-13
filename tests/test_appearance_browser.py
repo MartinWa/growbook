@@ -291,6 +291,9 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
                 assert abs(action.bounding_box()["y"] - summary.bounding_box()["y"]) < 2
             action.focus()
             action.press("Tab")
+            category_action = page.locator("[data-filter-category-create]")
+            expect(category_action).to_be_focused()
+            category_action.press("Tab")
             expect(summary).to_be_focused()
             summary.press("Enter")
             summary.press("Tab")

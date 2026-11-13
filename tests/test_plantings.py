@@ -844,14 +844,23 @@ def test_batch_constraints_and_retry_survive_deleted_original_member(user, plant
 def test_batch_member_uniqueness_is_enforced_by_sqlite(planting_catalog):
     crop, first, _, _ = planting_catalog
     with validated_write():
-        original = Planting.objects.create(crop=crop, start_year=2027)
+        from garden.models import PlantingCycle
+
+        cycle = PlantingCycle.objects.create()
+        original = Planting.objects.create(
+            crop=crop, start_year=2027, batch_key=cycle.pk, cycle=cycle
+        )
         Planting.objects.create(
-            crop=crop, variety=first, start_year=2027, batch_key=original.batch_key
+            crop=crop, variety=first, start_year=2027, batch_key=original.batch_key, cycle=cycle
         )
     for variety in (None, first):
         with pytest.raises(IntegrityError), transaction.atomic(), validated_write():
             Planting.objects.create(
-                crop=crop, variety=variety, start_year=2027, batch_key=original.batch_key
+                crop=crop,
+                variety=variety,
+                start_year=2027,
+                batch_key=original.batch_key,
+                cycle=cycle,
             )
     assert Planting.objects.filter(batch_key=original.batch_key).count() == 2
 

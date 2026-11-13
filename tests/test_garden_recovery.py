@@ -348,6 +348,19 @@ def test_clean_restore_preserves_batch_members_and_independent_tracking(
         batch_planting=original,
     ).record
     create_planting_event(actor=user, planting=added, kind="sowing", planned_date=date(2027, 3, 1))
+    from garden.services.cycles import create_planting_category, edit_cycle
+
+    category = create_planting_category(actor=user, name="For Sale").record
+    original.refresh_from_db()
+    cycle = edit_cycle(
+        actor=user,
+        pk=original.cycle_id,
+        expected_updated_at=original.cycle.updated_at,
+        status="completed",
+        started_on=date(2027, 3, 1),
+        completed_on=date(2027, 9, 1),
+        category_ids=[category.pk],
+    ).record
     configuration = tmp_path / "operator.env"
     configuration.write_text(
         "GROWBOOK_SECRET_KEY=synthetic-recovery-configuration\n", encoding="utf-8"
@@ -361,6 +374,12 @@ def test_clean_restore_preserves_batch_members_and_independent_tracking(
             "SELECT batch_key, quantity, evaluation FROM garden_planting ORDER BY id"
         ).fetchall()
         assert rows == [(original.batch_key.hex, 0, "First"), (original.batch_key.hex, 7, "Second")]
+        assert snapshot.execute(
+            "SELECT status, started_on, completed_on FROM garden_plantingcycle"
+        ).fetchall() == [("completed", "2027-03-01", "2027-09-01")]
+        assert snapshot.execute("SELECT cycle_id FROM garden_plantingcategorylink").fetchall() == [
+            (cycle.pk.hex,)
+        ]
     finally:
         snapshot.close()
     script = """
@@ -375,6 +394,10 @@ from django.test import Client
 user = User.objects.get(username='gardener')
 records = list(Planting.objects.order_by('id'))
 assert records[0].batch_key == records[1].batch_key
+assert records[0].cycle_id == records[1].cycle_id == records[0].batch_key
+assert records[0].cycle.status == 'completed'
+assert records[0].cycle.completed_on.isoformat() == '2027-09-01'
+assert list(records[0].cycle.categories.values_list('name', flat=True)) == ['For Sale']
 assert records[0].photos.count() == 1 and not records[1].photos.exists()
 assert not records[0].events.exists() and records[1].events.count() == 1
 client = Client(HTTP_HOST='localhost')
@@ -385,6 +408,7 @@ variety = create_variety(actor=user, crop=records[0].crop, name='Restored variet
 added = create_planting(actor=user, crop=records[0].crop, variety=variety, start_year=2027,
                         batch_planting=records[1]).record
 assert added.batch_key == records[0].batch_key
+assert added.cycle_id == records[0].cycle_id and added.cycle.status == 'completed'
 """
     environment = {**os.environ, "GROWBOOK_DATA_DIR": str(restored)}
     result = subprocess.run(

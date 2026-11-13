@@ -4,6 +4,7 @@
 {% include 'garden/field.html' with field=form.crop %}
 {% include 'garden/field.html' with field=form.start_year %}
 {% include 'garden/field.html' with field=form.label %}
+{% if form.status %}{% include 'garden/cycle_fields.html' %}{% endif %}
 <details class="form-disclosure" id="planting-more-details"{% if form.details_open %} open{% endif %}>
   <summary>{% translate 'More details' %}</summary>
   <div class="disclosure-fields">{% for field in form.detail_fields %}{% include 'garden/field.html' %}{% endfor %}</div>

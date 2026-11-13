@@ -10,7 +10,8 @@
   data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
   <div class="overview-toolbar">
     <div class="heading-actions">
-      <a class="btn btn-primary" data-filter-create href="{{ create_url }}"{% if not records %} hidden{% endif %}>{% translate 'New planting' %}</a>
+      <a class="btn btn-primary" data-filter-create data-always-visible href="{{ create_url }}">{% translate 'New planting' %}</a>
+      {% if category_overview %}<a class="btn btn-outline" data-filter-category-create href="{% url 'garden:planting-category-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'New category' %}</a>{% endif %}
     </div>
     <details class="filter-disclosure" data-filter-disclosure{% if form.errors %} open{% endif %}>
       {% translate 'Planting filters' as filter_label %}

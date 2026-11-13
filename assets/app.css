@@ -357,6 +357,11 @@
     height: auto;
   }
 
+  .category-card-count {
+    @apply m-0 px-5 pb-4 text-sm;
+    color: var(--color-muted);
+  }
+
   .category-card > .related-actions { @apply mx-5 mt-auto mb-0 gap-2 border-t border-base-300 py-3; }
   .card-botanical-placeholder {
     @apply relative grid w-full place-items-center border-b border-base-300 bg-base-200/50 text-secondary/40;

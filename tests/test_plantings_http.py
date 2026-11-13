@@ -10,7 +10,14 @@ from django.utils import timezone
 
 from core.models import Photo
 from core.writes import validated_write
-from garden.models import Crop, GrowingArea, Planting, PlantingEvent, PlantingSubmission
+from garden.models import (
+    Crop,
+    GrowingArea,
+    Planting,
+    PlantingCycle,
+    PlantingEvent,
+    PlantingSubmission,
+)
 from garden.services import (
     archive_area,
     archive_crop,
@@ -304,8 +311,10 @@ def test_default_year_and_all_years_do_not_infer_years_from_event_dates(client, 
     assert response.context["records"] == [catalog["planting"]]
     assert client.get(reverse("garden:planting-list"), {"year": 2025}).context["records"] == []
     response = client.get(reverse("garden:planting-list"), {"year": 2026})
+    assert 'class="category-grid"' in response.text
+    response = client.get(reverse("garden:planting-status", args=["planned"]), {"year": 2026})
     assert '<ul class="record-list planting-list"' in response.text
-    assert f'aria-controls="details-planting-{catalog["planting"].pk}"' in response.text
+    assert f'aria-controls="details-cycle-{catalog["planting"].cycle_id}"' in response.text
     assert "Synthetic event note" not in response.text
     assert "Unknown variety" not in response.text  # Swedish is the default locale.
     fragment = client.get(catalog["planting"].get_absolute_url(), HTTP_HX_REQUEST="true")
@@ -910,7 +919,7 @@ def test_user_content_is_escaped_in_lists_details_events_and_fragments(client, u
     )
     client.force_login(user)
     for path, headers in (
-        (reverse("garden:planting-list"), {}),
+        (reverse("garden:planting-status", args=["planned"]), {}),
         (record.get_absolute_url(), {}),
         (record.get_absolute_url(), {"HTTP_HX_REQUEST": "true"}),
     ):
@@ -926,7 +935,10 @@ def test_batch_variety_choices_stay_required_after_reloading(client, user, plant
 
     crop, first, second, _ = planting_catalog
     with validated_write():
-        original = Planting.objects.create(crop=crop, variety=first, start_year=2027)
+        cycle = PlantingCycle.objects.create()
+        original = Planting.objects.create(
+            crop=crop, variety=first, start_year=2027, batch_key=cycle.pk, cycle=cycle
+        )
     client.force_login(user)
     response = client.get(
         reverse("garden:planting-varieties"),
@@ -1118,22 +1130,28 @@ def test_batch_overviews_show_crop_count_and_first_available_member_photo(
     path = (
         area.get_absolute_url()
         if overview == "area"
-        else reverse("garden:planting-list" if overview == "list" else "garden:planting-history")
+        else reverse("garden:planting-status", args=["planned"])
     )
     response = client.get(path, {"year": 2027})
     if overview == "area":
         groups = response.context["planting_groups"]
         assert "Planting batches (1)" in response.text
-    elif assigned:
-        groups = response.context["area_events"][0]["node"].groups
     else:
-        groups = response.context["unassigned_groups"]
+        groups = response.context["cycle_groups"]
     group = groups[0]
     assert group["records"][0] == original
     assert group["thumbnail"] == added.photos.get()
-    summary = response.text.split('<details class="planting-batch"')[1].split("</summary>")[0]
-    assert group["thumbnail"].thumbnail_url in summary and "Planting batch · Tomato (2)" in summary
-    assert "Golden" not in summary and "Custom planting" not in summary
+    if overview == "area":
+        summary = response.text.split('<details class="planting-batch"')[1].split("</summary>")[0]
+        assert (
+            group["thumbnail"].thumbnail_url in summary and "Planting batch · Tomato (2)" in summary
+        )
+        assert "Golden" not in summary and "Custom planting" not in summary
+    else:
+        assert len(groups) == 1
+        assert group["thumbnail"].thumbnail_url in response.text
+        assert 'aria-controls="details-cycle-' + str(original.cycle_id) in response.text
+        assert "Custom planting" in response.text
     with django_assert_num_queries(0):
         assert not list(group["records"][0].photos.all())
         assert list(group["records"][1].photos.all()) == [group["thumbnail"]]
@@ -1145,7 +1163,10 @@ def test_batch_overviews_show_crop_count_and_first_available_member_photo(
 def test_batch_add_action_follows_crop_archive_state(client, user, planting_catalog, hx, archived):
     crop, first, _, _ = planting_catalog
     with validated_write():
-        original = Planting.objects.create(crop=crop, variety=first, start_year=2027)
+        cycle = PlantingCycle.objects.create()
+        original = Planting.objects.create(
+            crop=crop, variety=first, start_year=2027, batch_key=cycle.pk, cycle=cycle
+        )
         Crop.objects.filter(pk=crop.pk).update(is_archived=archived)
     client.force_login(user)
     response = client.get(original.get_absolute_url(), HTTP_HX_REQUEST="true" if hx else "false")

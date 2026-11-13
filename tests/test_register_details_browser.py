@@ -28,7 +28,11 @@ def long_list(request, user):
             ).record
         records.append(record)
     return {
-        "path": reverse("garden:all-crops" if kind == "variety" else f"garden:{kind}-list")
+        "path": (
+            reverse("garden:all-crops")
+            if kind == "variety"
+            else reverse("garden:planting-status", args=["planned"])
+        )
         + ("?year=2026" if kind == "planting" else ""),
         "kind": kind,
         "records": records,
@@ -74,7 +78,9 @@ def test_long_lists_reveal_selected_details_and_return_to_the_selected_name(
         toggle.scroll_into_view_if_needed()
         toggle.focus()
         toggle.press("Enter")
-        details = page.locator(f"#details-{long_list['kind']}-{record.pk} .register-details")
+        kind = "variety" if long_list["kind"] == "variety" else "cycle"
+        pk = record.pk if kind == "variety" else record.cycle_id
+        details = page.locator(f"#details-{kind}-{pk} .register-details")
         expect(details).to_contain_text(f"Synthetic details for item {index:02}.")
         expect(details.locator("h2").first).to_be_in_viewport()
         if (width < 900 and index == 0) or (width >= 900 and index == 29):

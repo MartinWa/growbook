@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete category' %} · GrowBook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete category' %}: {{ record.name }}</h1>
+  <p>{% translate 'Deletion removes this category and its links. Planting cycles, varieties, history and photos are kept.' %}</p>
+  <form method="post">
+    {% csrf_token %}<input type="hidden" name="next" value="{{ destination }}">
+    <div role="alert">{% include 'garden/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}<p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete category' %}</button><a href="{{ destination }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}

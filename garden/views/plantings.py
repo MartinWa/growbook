@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import OperationalError
 from django.db.models.functions import Coalesce
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -19,8 +19,15 @@ from core.media import MediaBusy
 from diary.queries import observation_count, observations_for
 
 from ..forms import PlantingFilterForm, PlantingForm, clean_record_id
-from ..models import Crop, GrowingArea, Planting
-from ..queries import area_paths, planting_groups, planting_history, planting_rows, planting_tree
+from ..models import Crop, GrowingArea, Planting, PlantingCategory, PlantingCycle
+from ..queries import (
+    area_paths,
+    cycle_groups,
+    planting_groups,
+    planting_history,
+    planting_rows,
+    planting_tree,
+)
 from ..services import RegisterConflict
 from ..services import plantings as services
 from ._shared import REGISTERS, return_url
@@ -29,10 +36,15 @@ logger = logging.getLogger(__name__)
 
 
 @require_GET
-def planting_list(request, history=False, kind=None, pk=None):
+def planting_list(request, history=False, kind=None, pk=None, status=None, category_pk=None):
     """The year overview and scoped histories share one explicit, deduplicated query."""
     scope = get_object_or_404(REGISTERS[kind][0], pk=pk) if kind else None
     data = request.GET.copy()
+    history = history or data.get("all_years") == "1"
+    if status is not None and status not in PlantingCycle.Status.values:
+        raise Http404
+    category = get_object_or_404(PlantingCategory, pk=category_pk) if category_pk else None
+    category_overview = kind is None and status is None and category is None
     if not history and not data.get("year"):
         data["year"] = str(timezone.localdate().year)
     locked = set()
@@ -53,6 +65,41 @@ def planting_list(request, history=False, kind=None, pk=None):
         year = filters["year"]
         tree = planting_tree(**filters)
         records = tree["records"]
+    all_groups = cycle_groups(records)
+    cards = []
+    navigation_data = data.copy()
+    if history:
+        navigation_data["all_years"] = "1"
+    query = "?" + navigation_data.urlencode() if navigation_data else ""
+    for value, label in PlantingCycle.Status.choices:
+        cards.append(
+            {
+                "name": label,
+                "url": reverse("garden:planting-status", args=[value]) + query,
+                "count": sum(group["cycle"].status == value for group in all_groups),
+            }
+        )
+    for custom in PlantingCategory.objects.all():
+        cards.append(
+            {
+                "name": custom.name,
+                "url": custom.get_absolute_url() + query,
+                "count": sum(
+                    any(item.pk == custom.pk for item in group["cycle"].categories.all())
+                    for group in all_groups
+                ),
+                "category": custom,
+            }
+        )
+    if status is not None:
+        records = [record for record in records if record.cycle.status == status]
+    elif category is not None:
+        records = [
+            record
+            for record in records
+            if any(item.pk == category.pk for item in record.cycle.categories.all())
+        ]
+    groups = cycle_groups(records)
     active_filters = []
     for name, field in form.fields.items():
         if name == "area_only":
@@ -90,6 +137,11 @@ def planting_list(request, history=False, kind=None, pk=None):
             following["year"] = str(year + 1)
             next_url = request.path + "?" + following.urlencode()
     create = {}
+    create["next"] = request.get_full_path()
+    if status:
+        create["status"] = status
+    if category:
+        create["category"] = category.pk
     if year:
         create["year"] = year
     for field in ("crop", "variety", "area"):
@@ -113,6 +165,13 @@ def planting_list(request, history=False, kind=None, pk=None):
         if valid and filters["area_only"] and filters["area"] is not None:
             scope_filters.update(area=filters["area"], area_only=True)
         history_path = request.path if history else reverse("garden:planting-history")
+        existing = planting_history(**scope_filters)
+        if status is not None:
+            existing = existing.filter(cycle__status=status)
+        elif category is not None:
+            existing = existing.filter(cycle__categories=category)
+        if status is not None or category is not None:
+            history_path = request.path + "?all_years=1"
         if not valid:
             empty.update(
                 empty_heading=_("Check the filters"),
@@ -121,7 +180,7 @@ def planting_list(request, history=False, kind=None, pk=None):
                 empty_action_label=_("Clear filters"),
                 empty_filter_link=True,
             )
-        elif planting_history(**scope_filters).exists():
+        elif existing.exists():
             adjustable_filters = any(
                 filters[field]
                 for field in ("crop", "variety", "area", "unassigned", "unknown_variety")
@@ -146,7 +205,9 @@ def planting_list(request, history=False, kind=None, pk=None):
             )
     all_years_data = data.copy()
     all_years_data.pop("year", None)
+    all_years_data["all_years"] = "1"
     overview_data = data.copy()
+    overview_data.pop("all_years", None)
     overview_data["year"] = str(year or timezone.localdate().year)
     observations = []
     observation_total = 0
@@ -163,9 +224,20 @@ def planting_list(request, history=False, kind=None, pk=None):
         request,
         "garden/planting_results.html" if partial else "garden/planting_list.html",
         {
-            "heading": _("Planting history") if history else _("Plantings"),
+            "heading": category.name
+            if category
+            else PlantingCycle.Status(status).label
+            if status
+            else _("Planting history")
+            if history
+            else _("Plantings"),
             "form": form,
             "records": records,
+            "cycle_groups": groups,
+            "category_cards": cards,
+            "category_overview": category_overview,
+            "category": category,
+            "category_overview_url": reverse("garden:planting-list") + query,
             "area_events": tree["events"],
             "unassigned_records": tree["unassigned"],
             "unassigned_groups": planting_groups(tree["unassigned"]),
@@ -182,8 +254,8 @@ def planting_list(request, history=False, kind=None, pk=None):
             "create_url": create_url,
             "previous_url": previous_url,
             "next_url": next_url,
-            "overview_url": reverse("garden:planting-list") + "?" + overview_data.urlencode(),
-            "all_years_url": reverse("garden:planting-history")
+            "overview_url": request.path + "?" + overview_data.urlencode(),
+            "all_years_url": request.path
             + ("?" + all_years_data.urlencode() if all_years_data else ""),
             **empty,
         },
@@ -223,6 +295,7 @@ def _planting_context(pk):
 @require_GET
 def planting_detail(request, pk):
     context = _planting_context(pk)
+    context["destination"] = return_url(request)
     context["inline"] = request.headers.get("HX-Request") == "true"
     try:
         year = int(request.GET.get("year", ""))
@@ -255,6 +328,9 @@ def planting_form(request, pk=None):
         except ValueError:
             year = timezone.localdate().year
         initial["start_year"] = year if 1 <= year <= 9999 else timezone.localdate().year
+        initial["status"] = request.GET.get("status", PlantingCycle.Status.PLANNED)
+        if request.GET.get("category"):
+            initial["category_ids"] = [request.GET["category"]]
         raw_batch = (
             request.POST.get("batch_planting")
             if request.method == "POST"
@@ -323,6 +399,9 @@ def planting_form(request, pk=None):
             generated_label = values.pop("generated_label")
             if pk is None:
                 values.pop("expected_updated_at")
+                if "status" not in request.POST:
+                    for field in ("status", "started_on", "completed_on", "category_ids"):
+                        values.pop(field, None)
                 if values["label"] == generated_label:
                     values["label"] = ""
             else:

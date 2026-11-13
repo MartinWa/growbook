@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ heading }} · GrowBook{% endblock %}
+{% block content %}
+<p><a href="{{ destination|default:'/garden/plantings/' }}">{% translate 'Back to list' %}</a></p>
+<h1>{{ heading }}</h1>
+<div class="panel">{% include 'garden/cycle_details.html' %}</div>
+{% endblock %}

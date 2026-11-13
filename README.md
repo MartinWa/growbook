@@ -31,8 +31,11 @@ interface defaults to Swedish, with English available.
 - Early planting plans with crop and start year, optional variety or area, automatic
   editable labels, and batches containing separately tracked varieties. Each variety's
   quantity distinguishes unknown from zero.
-- Annual and persistent plantings grouped by area, inclusive end years, year overviews, and
-  crop/variety/descendant-area histories that include archived associations.
+- Planting-cycle cards for Ongoing, Planned and Completed, plus shared custom categories.
+  Each batch has one status and can belong to several custom categories; Start and
+  Complete record dates, and Edit allows corrections without losing history.
+- Annual and persistent growing-year views with inclusive end years, distinct cycle
+  counts and crop/variety/descendant-area histories that include archived associations.
 - Repeated planting events with independent planned and actual dates, plus cumulative
   evaluation text and private photos.
 - Dated text-only, photo-only and text-plus-photo entries with optional titles,
@@ -49,8 +52,8 @@ interface defaults to Swedish, with English available.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped WebP
   display images and thumbnails. Originals are retained privately and served only through
   authenticated downloads; there is no public media directory.
-- Retry-safe diary, register, planting and event saves with visible errors and no partial
-  photo saves.
+- Retry-safe diary, register, planting, cycle, category and event saves with visible
+  errors and no partial photo saves.
 - Operational database/photo backup, verification, clean-instance restore and orphan
   cleanup.
 
@@ -73,7 +76,8 @@ interface defaults to Swedish, with English available.
   area filter includes descendant areas. Archived records stay visible through existing
   links and filters but cannot be chosen for a new link.
 - Planting histories use current area assignments and nesting, not immutable past
-  layouts or movement history. Evaluation is cumulative, not per-year.
+  layouts or movement history. Category views use current cycle status and membership
+  even for past years. Evaluation is cumulative, not per-year.
 - Uploads are limited to 10 photos per diary entry, variety, area or planting, 20 MiB per
   photo, 80 MiB per upload and 50 million decoded pixels per photo. Apple HDR JPEGs with
   one auxiliary grayscale gain map use the primary photo; both images count toward the
@@ -120,9 +124,9 @@ Docker volumes. Do not expose the development server or point it at production d
 - **Growing areas** and **Crops and varieties** open directly from the main menu.
   Browse top-level areas and their child cards, choose a crop category, expand crop
   groups, read information and photos, search crop and variety names, and maintain records.
-- **Plantings** shows growing-year results grouped by area, with filters and expandable
-  batches. Create annual or persistent plantings, record events, and open crop, variety and area
-  histories.
+- **Plantings** opens status and custom-category cards with growing-year counts.
+  Choose a category, then a cycle to open its details. Create annual or persistent
+  cycles, start or complete a batch, record member events, and open register histories.
 - **Diary** holds observations. Quick-add a note, photos or both; search and filter by
   year, area, crop, variety or planting; open linked records from an entry.
 - **Photos** use the native image picker where available, with previews, captions,

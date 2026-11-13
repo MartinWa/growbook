@@ -1,0 +1,11 @@
+{% load i18n %}
+<ul class="record-list planting-list">
+{% for group in cycle_groups %}
+<li class="register-row-group">
+  <a class="record-name" href="{{ group.cycle.get_absolute_url }}?member={{ group.records.0.pk }}&amp;next={{ request.get_full_path|urlencode }}{% if year %}&amp;year={{ year }}{% endif %}" aria-controls="details-cycle-{{ group.cycle.pk }}" aria-expanded="false" data-register-toggle data-details-url="{{ group.cycle.get_absolute_url }}?member={{ group.records.0.pk }}&amp;next={{ request.get_full_path|urlencode }}{% if year %}&amp;year={{ year }}{% endif %}" data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Close and reopen to retry, or open the record in a new tab.' %}">{% if group.thumbnail %}<img class="variety-thumbnail" src="{{ group.thumbnail.thumbnail_url }}" width="64" height="64" loading="lazy" alt="">{% endif %}<span>{{ group.label }}</span></a>
+  <p class="field-help">{{ group.cycle.get_status_display }} · {{ group.years }}</p>
+  {% if group.records|length > 1 %}<details class="planting-batch"><summary>{% blocktranslate count count=group.records|length %}{{ count }} matching variety{% plural %}{{ count }} matching varieties{% endblocktranslate %}</summary><ul class="record-list">{% for record in group.records %}<li><a href="{{ record.get_absolute_url }}?next={{ request.get_full_path|urlencode }}{% if year %}&amp;year={{ year }}{% endif %}">{{ record.display_label }}</a> · {{ record.start_year }}{% if record.end_year %}–{{ record.end_year }}{% elif record.lifespan == 'persistent' %} · {% translate 'No end year' %}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
+  <div id="details-cycle-{{ group.cycle.pk }}" class="register-expanded record-info" hidden><div class="register-details" role="region" aria-label="{% translate 'Details' %}: {{ group.label }}" aria-live="polite"></div></div>
+</li>
+{% endfor %}
+</ul>
