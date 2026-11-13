@@ -184,8 +184,9 @@ full forms keep their save actions visible at the bottom while scrolling.
 ## Plantings and histories
 
 Open **Plantings** for category cards styled like Growing areas. The built-in
-categories are **Ongoing**, **Planned** and **Completed**; every batch is one cycle
-with exactly one status. **New category** creates a shared custom category, such as
+categories are **Ongoing**, **Planned** and **Completed**, each with its own built-in
+illustration on its card and heading; every batch is one cycle with exactly one
+status. **New category** creates a shared custom category, such as
 For Sale. Assign a cycle to any number of custom categories through creation or
 **Edit cycle**. An ongoing cycle assigned to For Sale appears in both cards.
 Category names persist across years; each card's count and year describe the view.

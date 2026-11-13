@@ -92,11 +92,19 @@ def test_shared_status_categories_distinct_filtered_counts_and_zero_cards(client
     assert [card["count"] for card in response.context["category_cards"]] == [1, 0, 0, 0, 1]
     assert 'class="category-grid"' in response.text
     assert "data-area-id=" not in response.text
+    assert response.context["planting_illustration"] == "images/registers/plantings.webp"
+    for status in PlantingCycle.Status.values:
+        illustration = f"images/registers/{status}.webp"
+        assert f'<img src="/static/{illustration}" alt=""' in response.text
+        result = client.get(reverse("garden:planting-status", args=[status]), {"year": 2026})
+        assert result.context["planting_illustration"] == illustration
+        assert f'class="register-illustration" src="/static/{illustration}"' in result.text
     for path in (reverse("garden:planting-status", args=["ongoing"]), sale.get_absolute_url()):
         result = client.get(path, {"year": 2026, "variety": two.variety_id})
         assert len(result.context["cycle_groups"]) == 1
         assert [member.pk for member in result.context["records"]] == [two.pk]
         assert str(cycle.pk) in result.text
+    assert result.context["planting_illustration"] == "images/registers/plantings.webp"
     # Area and variety must match the same member, not different members in the batch.
     response = client.get(
         sale.get_absolute_url(), {"year": 2026, "area": one.area_id, "variety": two.variety_id}

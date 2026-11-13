@@ -96,6 +96,21 @@ def test_categories_batch_actions_edit_correction_and_safe_deletion(
     root = live_server.url + "/garden/plantings/?year=2026"
     page.goto(root)
     expect(page.locator(".category-card")).to_have_count(3)
+    for status in PlantingCycle.Status.values:
+        source = f"/static/images/registers/{status}.webp"
+        card = page.locator(f'.category-card-link[href*="/status/{status}/"]')
+        image = card.locator("img")
+        expect(image).to_have_attribute("src", source)
+        expect(image).to_have_attribute("alt", "")
+        image.evaluate("image => image.decode()")
+        assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [1000, 500]
+        card.press("Enter")
+        heading_image = page.locator(".register-illustration")
+        expect(heading_image).to_have_attribute("src", source)
+        expect(heading_image).to_have_attribute("alt", "")
+        heading_image.evaluate("image => image.decode()")
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        page.goto(root)
     page.get_by_role(
         "link", name="New category" if language == "en" else "Ny kategori", exact=True
     ).click()
@@ -230,7 +245,13 @@ def test_category_navigation_and_date_form_without_javascript(page, live_server,
     try:
         plain = context.new_page()
         plain.goto(live_server.url + "/garden/plantings/?year=2026")
+        expect(
+            plain.locator('.category-card-link[href*="/status/planned/"] img')
+        ).to_have_attribute("src", "/static/images/registers/planned.webp")
         plain.locator(".category-card-link").filter(has_text="Planned").click()
+        expect(plain.locator(".register-illustration")).to_have_attribute(
+            "src", "/static/images/registers/planned.webp"
+        )
         plain.get_by_role("link", name="Category trial", exact=True).click()
         expect(plain.locator("#id_status")).to_have_count(0)
         plain.get_by_role("link", name="Start cycle", exact=True).click()
