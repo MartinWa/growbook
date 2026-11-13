@@ -462,16 +462,24 @@ def test_record_pages_show_linked_observations(client, user, garden_records):
     assert record.get_absolute_url() in response.text
 
 
-def test_photo_page_shows_edit_actions_only_to_editors(client, user, other_user, image_upload):
+def test_photo_page_shows_edit_actions_only_to_editors(
+    client, user, other_user, staff_user, image_upload
+):
     record = make_entry(user, body="Note", uploads=[image_upload()])
     photo = record.photos.get()
     edit_url = reverse("diary:photo-edit", args=[photo.pk])
-    client.force_login(user)
-    response = client.get(reverse("photos:detail", args=[photo.pk]))
-    assert edit_url in response.text
+    delete_url = reverse("diary:photo-delete", args=[photo.pk])
+    for editor in (user, staff_user):
+        client.force_login(editor)
+        response = client.get(reverse("photos:detail", args=[photo.pk]))
+        assert edit_url in response.text
+        assert delete_url in response.text
+        assert photo.original_url in response.text
     client.force_login(other_user)
     response = client.get(reverse("photos:detail", args=[photo.pk]))
     assert edit_url not in response.text
+    assert delete_url not in response.text
+    assert photo.original_url in response.text
 
 
 def test_photo_edit_and_delete_http_paths(client, user, image_upload):

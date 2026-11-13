@@ -8,7 +8,10 @@
     {% if entry.photos.all %}
     <div class="photo-grid diary-photos">
       {% for photo in entry.photos.all %}
+      <figure>
       <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.display_url }}" width="{{ photo.width }}" height="{{ photo.height }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Observation photo' %} {{ forloop.counter }}{% endif %}"></a>
+      {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
+      </figure>
       {% endfor %}
     </div>
     {% endif %}

@@ -7,7 +7,7 @@ import pytest
 from playwright.sync_api import expect, sync_playwright
 
 from core.appearance import SEASON_COOKIE
-from diary.services import create_entry
+from diary.services import create_entry, update_entry_photo
 from garden.services import create_area, create_crop, create_planting, create_variety
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
@@ -139,6 +139,69 @@ def test_seasonal_colours_and_diary_layout(page, live_server, user, sample_entri
     assert len({palette["primary"] for palette in palettes}) == 4
     assert len({palette["base-200"] for palette in palettes}) == 4
     assert len({palette["base-content"] for palette in palettes}) == 4
+
+
+@pytest.fixture(params=["", "Synthetic photo observation."])
+def captioned_entries(request, user, image_upload):
+    sizes = [(1600, 1200), (1200, 1600), (1600, 400)]
+    observations = []
+    caption = 'Synthetic <caption> & "photo" ' + "longcaption" * 20
+    for photo_sizes in [[size] for size in sizes] + [sizes]:
+        observation = create_entry(
+            author=user,
+            date=date(2026, 5, 9),
+            body=request.param,
+            uploads=[image_upload(size=size) for size in photo_sizes],
+            submission_key=uuid4(),
+        ).entry
+        photo = observation.photos.first()
+        update_entry_photo(
+            actor=user,
+            pk=photo.pk,
+            caption=caption,
+            position=photo.position,
+            expected_updated_at=observation.updated_at,
+        )
+        observations.append((observation.pk, photo.get_absolute_url()))
+    return observations, caption
+
+
+@pytest.mark.parametrize("javascript", [False, True])
+def test_diary_photo_captions_and_aspect_ratios(
+    captioned_entries, live_server, user, browser_endpoint, javascript
+):
+    observations, caption = captioned_entries
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
+        browser.new_context(java_script_enabled=javascript) as context,
+    ):
+        view = context.new_page()
+        login(view, live_server, user)
+        for width in (320, 390, 1280):
+            view.set_viewport_size({"width": width, "height": 1000})
+            for entry_id, photo_url in observations:
+                gallery = view.locator(f"#entry-{entry_id} .diary-photos")
+                expect(gallery.locator("figcaption")).to_have_text(caption)
+                for image in gallery.locator("img").all():
+                    image.evaluate("image => image.decode()")
+                    dimensions = image.evaluate("""image => {
+                        const box = image.getBoundingClientRect();
+                        return {width: box.width, height: box.height,
+                            ratio: image.naturalWidth / image.naturalHeight,
+                            radius: parseFloat(getComputedStyle(image).borderTopLeftRadius)};
+                    }""")
+                    assert dimensions["width"] / dimensions["height"] == pytest.approx(
+                        dimensions["ratio"], rel=0.01
+                    )
+                    assert dimensions["radius"] > 0
+                    limit = view.locator("html").evaluate(
+                        "element => parseFloat(getComputedStyle(element).fontSize) * 24"
+                    )
+                    assert max(dimensions["width"], dimensions["height"]) <= limit + 1
+                figure = gallery.locator("figure").first
+                expect(figure.locator("a")).to_have_attribute("href", photo_url)
+            assert view.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
 
 @pytest.mark.parametrize("language", ["sv", "en"])

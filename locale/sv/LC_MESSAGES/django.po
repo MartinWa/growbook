@@ -70,9 +70,6 @@ msgstr "Tillbaka till observationen"
 msgid "Download original"
 msgstr "Ladda ner original"
 
-msgid "Photo options"
-msgstr "Bildalternativ"
-
 msgid "A photo, a note, or both. Nothing else is required."
 msgstr "En bild, en anteckning eller båda. Inget mer krävs."
 

@@ -636,7 +636,12 @@
   }
 
   .photo-grid.diary-photos img {
-    @apply h-auto max-h-[24rem] w-full object-contain;
+    @apply h-auto max-h-[24rem] w-auto max-w-[min(100%,24rem)];
+  }
+
+  .photo-grid.diary-photos figcaption {
+    @apply mt-1 text-sm;
+    overflow-wrap: anywhere;
   }
 
   @media (min-width: 800px) {
@@ -780,6 +785,23 @@
 
   .photo-viewer {
     @apply my-5;
+  }
+
+  .photo-actions {
+    @apply my-5 flex flex-wrap items-start gap-3;
+  }
+
+  .photo-primary-actions {
+    @apply flex min-w-0 flex-[1_1_9rem] flex-wrap items-center gap-3;
+  }
+
+  .photo-actions > .btn {
+    @apply ml-auto;
+  }
+
+  .photo-actions .btn {
+    @apply h-auto min-h-11;
+    overflow-wrap: anywhere;
   }
 
   .photo-viewer img {
@@ -1088,18 +1110,6 @@
 
   .account-menu .btn {
     @apply w-full;
-  }
-
-  .photo-options {
-    @apply relative;
-  }
-
-  .photo-options > .menu-panel {
-    @apply absolute top-full right-0 z-50 mt-2 w-max max-w-[min(22rem,calc(100vw-2rem))];
-  }
-
-  .photo-options .menu-link {
-    @apply block min-h-11 py-2;
   }
 
   .language-form {
