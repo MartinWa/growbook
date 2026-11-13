@@ -1,16 +1,18 @@
 {% load i18n %}
 <div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-has-records="{{ records|yesno:'true,false' }}">
   <div role="alert">{% include 'garden/form_errors.html' %}</div>
-  <div class="result-toolbar">
-    <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=records|length %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</p>
-    <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
-      <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
-      <a href="{{ all_years_url }}">{% translate 'All years' %}</a>
-      {% if previous_url %}<a aria-label="{% translate 'Previous year' %}" href="{{ previous_url }}" data-filter-link>← {% translate 'Previous year' %}</a>{% endif %}
-      {% if next_url %}<a aria-label="{% translate 'Next year' %}" href="{{ next_url }}" data-filter-link>{% translate 'Next year' %} →</a>{% endif %}
-    </nav>
+  <div class="planting-toolbar">
+    <div class="result-toolbar">
+      <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=records|length %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</p>
+      <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
+        <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
+        <a href="{{ all_years_url }}">{% translate 'All years' %}</a>
+        {% if previous_url %}<a aria-label="{% translate 'Previous year' %}" href="{{ previous_url }}" data-filter-link>← {% translate 'Previous year' %}</a>{% endif %}
+        {% if next_url %}<a aria-label="{% translate 'Next year' %}" href="{{ next_url }}" data-filter-link>{% translate 'Next year' %} →</a>{% endif %}
+      </nav>
+    </div>
+    {% include 'components/filter_chips.html' with clear_filters_url=request.path %}
   </div>
-  {% include 'components/filter_chips.html' with clear_filters_url=request.path %}
 {% if area_only %}<p class="field-help">{% translate 'Only plantings assigned directly to the selected growing area are shown.' %}</p>{% endif %}
 {% if scope %}<p class="related-actions"><a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a></p>{% endif %}
 {% if records %}

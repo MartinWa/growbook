@@ -24,6 +24,12 @@ Status roles retain the same meaning in every season.
 The browser-local choice and automatic date rules are described in
 [Seasonal appearance](usage.md#seasonal-appearance).
 
+Secondary controls use `--color-control-border` and `--color-control-hover` for
+quiet outlines and hover/selected surfaces. `--color-shadow-ink` supplies the
+subtle notebook and floating-menu shadows. These roles follow each season's palette;
+autumn uses cream cards, parchment, soil brown and warm sand outlines, while the
+other seasons retain their sage, leaf-green and blue-green character.
+
 Page headings use regular, upright Barlow Condensed, uppercase presentation and
 responsive sizing from roughly 36 to 56 px at the default text size. The
 [font's original license and pinned source](../third_party/barlow-condensed/README.md)
@@ -51,8 +57,8 @@ nearly half the heading width. Narrow layouts reduce the heading height.
   fields in words and associate help/errors through `aria-describedby`.
   Their error summaries link to fields; HTMX feedback also updates adjacent
   errors and `aria-invalid` without replacing the draft or selected files.
-- `.panel` uses a surface, border and large radius; `.panel-header` separates
-  its heading and introductory text from the form. Panels have no shadow.
+- `.panel` uses a surface, hairline border, large radius and soft seasonal shadow;
+  `.panel-header` separates its heading and introductory text from the form.
 - Login and `.empty-state` panels reuse the decorative favicon mark. Empty states
   have an explanation and one action for creating a record or adjusting the view.
   The self-hosted 180×180 touch icon uses the same artwork on an opaque background.
@@ -82,7 +88,8 @@ area; headings remain ordinary translated HTML. Growing areas, crops and varieti
 and plantings share a heading with a fixed decorative WebP illustration. Their
 text and controls use the selected seasonal palette.
 
-The diary uses one inline composer with a compact date, optional title, three-row note
+The diary uses one inline composer with a compact date and optional title aligned in
+one row on wider screens and stacked on narrow screens, a three-row note
 and generous minimum writing area. Editing
 an existing observation also includes its saved photos and a Cancel action. The
 note grows with its content where native `field-sizing` is supported, with
@@ -161,6 +168,9 @@ verify device-native camera/library pickers; those require the intended phone.
 Main navigation links directly to Diary, Growing areas, Crops and varieties, and
 Plantings; the former Garden landing URL redirects to Growing areas. Growing areas
 reuse the crop-category grid and card styles for top-level areas and child areas.
+Cards share title and footer spacing, soft shadows and a decorative botanical sprig
+on an inset seasonal surface when no photo is available. Category maintenance actions
+use quiet pill buttons in the card footer.
 Cards open dedicated pages with ancestor navigation, child cards before the parent's
 information, protected photos, linked plantings and diary observations. Their links and
 archive controls use ordinary HTML navigation at every screen width.
@@ -185,7 +195,8 @@ details panel. JavaScript moves the existing detail containers into that panel a
 closes the previous selection when another name is activated. At 900 px and wider
 the list and details sit side by side; below that width they stack. Details remain
 visible when a list branch closes. Before selection, the panel explains how to choose
-a record. Without JavaScript the panel stays hidden and names link to full records.
+a record in a centred inset surface with a subtle dashed outline. Without JavaScript
+the panel stays hidden and names link to full records.
 Selections bring off-screen details into view and move focus to their labelled region.
 **Back to list** returns focus to the selected name and reveals its ancestor groups.
 This navigation happens during activation. Delayed responses do not repeat it,
@@ -216,5 +227,6 @@ lists initialize the shared details panel after each filter update. Planting
 lists show area and batch names at every width; all other fields and history links are
 in opened information. Nested event tables retain their own horizontal scrolling.
 The filter toggle and creation action share one row when space allows; expanded
-filters still span the content width. Result counts and growing-year navigation
-share a compact row, with active filter chips underneath.
+filters still span the content width. Result counts, growing-year navigation and
+active filter chips share a bordered seasonal toolbar, with the chips underneath
+the count and year links.
