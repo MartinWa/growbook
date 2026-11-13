@@ -17,8 +17,10 @@
     {{ form.expected_updated_at }}
     <div id="entry-errors" role="alert" tabindex="-1">{% include 'diary/form_errors.html' %}</div>
     {% if failed %}<p role="alert">{% translate 'Your date, title, note and link selections were kept. Select any photos again before retrying.' %}</p>{% endif %}
-    {% include 'components/field.html' with field=form.date %}
-    {% include 'components/field.html' with field=form.title %}
+    <div class="capture-metadata">
+      {% include 'components/field.html' with field=form.date %}
+      {% include 'components/field.html' with field=form.title %}
+    </div>
     {% include 'components/field.html' with field=form.body %}
 
     <fieldset class="photo-picker" id="id_remove_photos" tabindex="-1">
