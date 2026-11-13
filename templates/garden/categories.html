@@ -21,6 +21,6 @@
     <div class="related-actions"><a class="btn btn-outline rounded-full px-3 text-sm" href="{% url 'garden:category-edit' category.pk %}" aria-label="{% translate 'Edit category' %}: {{ category.name }}">{% translate 'Edit' %}</a><a class="btn btn-outline rounded-full px-3 text-sm" href="{% url 'garden:category-delete' category.pk %}" aria-label="{% translate 'Delete category' %}: {{ category.name }}">{% translate 'Delete' %}</a></div>
   </article>
   {% endfor %}
-  <article class="category-card"><a class="category-card-link" href="{% url 'garden:uncategorized' %}"><img src="{% static 'images/registers/crops-and-varieties.webp' %}" alt="" loading="lazy" width="1000" height="500"><h2>{% translate 'Uncategorized' %}</h2></a></article>
+  <article class="category-card"><a class="category-card-link" href="{% url 'garden:uncategorized' %}"><img src="{% static 'images/registers/uncategorized.webp' %}" alt="" loading="lazy" width="1000" height="500"><h2>{% translate 'Uncategorized' %}</h2></a></article>
 </div>
 {% endblock %}

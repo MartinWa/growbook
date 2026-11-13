@@ -160,7 +160,7 @@ def test_category_transparency_and_heading_image(user, client, encoding):
     assert reverse("garden:category-create") not in response.text
     unlinked = client.get(reverse("garden:uncategorized"))
     assert (
-        'class="register-illustration" src="/static/images/registers/crops-and-varieties.webp"'
+        'class="register-illustration" src="/static/images/registers/uncategorized.webp"'
         in unlinked.text
     )
     assert reverse("garden:category-create") not in unlinked.text

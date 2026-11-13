@@ -163,7 +163,7 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         page.goto(live_server.url + "/garden/varieties/")
         expect(page.locator(".category-card")).to_have_count(1)
         expect(page.locator(".category-card img")).to_have_attribute(
-            "src", "/static/images/registers/crops-and-varieties.webp"
+            "src", "/static/images/registers/uncategorized.webp"
         )
         page.get_by_role("link", name=labels["new"], exact=True).click()
         page.locator("#id_name").fill(" ")
@@ -214,7 +214,7 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         expect(page.locator("[data-crop-id]")).to_have_count(1)
         expect(page.locator("[data-crop-id] > summary")).to_contain_text("Bean")
         expect(page.locator(".register-illustration")).to_have_attribute(
-            "src", "/static/images/registers/crops-and-varieties.webp"
+            "src", "/static/images/registers/uncategorized.webp"
         )
         expect(page.get_by_role("link", name=labels["new"], exact=True)).to_have_count(0)
         page.goto(live_server.url + "/garden/varieties/")

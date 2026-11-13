@@ -74,9 +74,9 @@ new crop to that category; from Uncategorized it leaves the crop unlinked.
 Creating a crop or variety from the register returns to the same category, search
 and archive filters after Save or Cancel. Failed saves keep that destination.
 The same category image appears on its card and in the register heading. Transparent
-PNG and WebP images retain their transparency. Uncategorized uses the default crop
-illustration on its card and in its heading; categories without an image also use
-that heading illustration. Older filtered register links open the full register.
+PNG and WebP images retain their transparency. Uncategorized uses its own built-in
+illustration on its card and in its heading; categories without an image use the
+default crop heading illustration. Older filtered register links open the full register.
 
 Edit a category to change its name or crop links, remove its image, or upload one
 replacement image. Selecting another image replaces the saved image on a successful
