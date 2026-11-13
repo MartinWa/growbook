@@ -183,7 +183,16 @@ full forms keep their save actions visible at the bottom while scrolling.
 
 ## Plantings and histories
 
-Open **Plantings** for growing-year results grouped by area. **Planting filters** starts
+Open **Plantings** for category cards styled like Growing areas. The built-in
+categories are **Ongoing**, **Planned** and **Completed**; every batch is one cycle
+with exactly one status. **New category** creates a shared custom category, such as
+For Sale. Assign a cycle to any number of custom categories through creation or
+**Edit cycle**. An ongoing cycle assigned to For Sale appears in both cards.
+Category names persist across years; each card's count and year describe the view.
+Edit or delete custom categories from their cards. Confirmed category deletion removes
+membership links while preserving cycles, members, history and photos.
+
+**Planting filters** starts
 collapsed above the results at every screen width, alongside **New planting** when
 space allows. Counts and growing-year links share a row, with active filter chips below.
 Expand the filters to change choices;
@@ -192,25 +201,23 @@ visible as chips when collapsed. Remove an adjustable choice with its chip; scop
 crop, variety and area choices stay fixed. Use **All years** to leave the year overview.
 Failed requests keep existing results and show **Retry**; invalid choices open the filters.
 Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
-**Next year**; **All years** shows each planting once across its full history. Crop,
-variety and area histories default to all years. Lists show areas and planting labels;
-select a planting label to show its crop, variety, years, quantity, events, notes, evaluation,
-photos and diary observations in the shared details panel. Area branches stay independent
-of the selected batch. History links
-inside batch information keep an explicitly selected year. Crop and variety details also
-link to their **Planting history**.
+**Next year**; **All years** shows each matching cycle once across its full history.
+Crop, variety and area histories default to all years. Choose a category to see one
+row per matching cycle, then select its name to open the shared details panel.
+The row shows its current status and exact growing-year ranges. Batch members expand
+independently; the panel includes status, categories, dates and all members, plus the
+selected member's quantity, events, notes, evaluation, photos and diary observations.
+Ordinary links open full detail pages without JavaScript. **Planting categories**
+returns to the overview with the year and filters preserved.
 
-Matching plantings attach only to their exact assigned areas, with ancestors retained for
-context and empty branches omitted. Parent assignments and child assignments remain
-distinct. A subtree with one crop/variety
-combination opens automatically, showing every batch; mixed combinations start collapsed.
-Unknown variety counts as a distinct combination. Activate an area name to expand or collapse
-its batches and children. Unassigned plantings appear in a final **Unassigned area** group.
-Planting labels wrap on narrow screens; variety and quantity are shown in opened information.
-Blank quantity is shown as a dash and zero as zero. Crop, variety and area history links
-are in the batch information. Filters and Back recalculate the default disclosure states;
-manual open states last only in the currently rendered results. These rules also apply to
-crop, variety and area histories and work without JavaScript.
+All filters apply together to the same member. A batch with three matching varieties
+counts once; a cycle appears if at least one member matches all selected filters.
+Lists expose the matching members, while cycle details make the whole batch accessible.
+Custom-category counts overlap and can sum to more than the overview's unique cycle
+total. Empty categories remain visible. Past-year views show current status and current
+category membership, rather than reconstructing past lifecycle state.
+History links in member information retain an explicitly selected year. Blank quantity
+is shown as a dash and zero as zero.
 
 - **New planting** requires a crop and start year (1–9999). Variety and final growing
   area may be unknown; no placeholder records are created. The visible **Planting label**
@@ -225,6 +232,11 @@ crop, variety and area histories and work without JavaScript.
   rejects mismatches and ineligible new associations.
   If a save interrupts loading variety choices and then fails, use **Retry variety
   choices** to reload them while keeping the draft and selected photos.
+  The initial status defaults to **Planned**, with explicit **Ongoing** and
+  **Completed** choices. Actual-date fields default to today and can be changed.
+  Ongoing requires an actual start date; Completed requires a completion date.
+  Creating from a status card preselects that status; creating from a custom category
+  preselects its membership. The initial choice remains editable.
 - **Planting label** names an individual planting; several batches may share identical
   year/crop/variety/area values. Quantity is a nonnegative plant count: blank is unknown,
   zero is a known zero.
@@ -234,8 +246,9 @@ crop, variety and area histories and work without JavaScript.
   If the inherited area is no longer eligible, it stays selected as unavailable;
   choose an eligible area or explicitly leave it unassigned before saving.
   Each member keeps its own label, quantity, events, evaluation, photos and diary
-  links; shared batches expand to show their matching members in overviews. Batch
-  headings show the crop, matching member count and a member's photo when available.
+  links; the new member inherits the cycle's status, dates and categories.
+  Shared batches expand to show their matching members. Cycle headings use the
+  earliest remaining member's label and a member's photo when available.
   Filters show only matching members. Editing or deleting one member affects that
   member. A known variety cannot be cleared while the batch has other members;
   an initially unknown variety can remain unknown or be assigned later.
@@ -251,22 +264,39 @@ crop, variety and area histories and work without JavaScript.
 - **Annual** is the default and belongs only to the start year, with no end year. With
   JavaScript a blank end year is hidden; an entered end year is preserved for
   correction. **Persistent** belongs to every year from start through its optional end
-  year, inclusive; a blank end year means ongoing. Ending a persistent planting keeps
-  its events, evaluation and photos. Viewing another year never copies the planting or
+  year, inclusive; a blank end year leaves year membership unbounded and does not
+  determine lifecycle status. Setting an end year keeps events, evaluation and photos.
+  Viewing another year never copies the planting or
   counts the original quantity as repeated production.
+- **Start cycle** changes Planned to Ongoing and asks for the actual start date,
+  defaulting to today in the garden's timezone. It preserves growing-year assignments.
+  **Complete cycle** changes Ongoing to Completed and asks for the completion date.
+  Each persistent member's inclusive end year becomes that date's year; annual
+  members keep their start year and have no end year. The viewed year never supplies
+  the transition date. Invalid date ordering or incompatible member years reject
+  the entire save. After saving, the category list refreshes; **Open record** reaches
+  the cycle even if it no longer matches that category.
+- **Edit cycle** is the route for correcting status and actual dates, including
+  returning to Planned or reopening a Completed cycle. Reopening clears the completion
+  date and persistent end years. Changing shared categories leaves member records
+  intact. Transitions and corrections preserve IDs, events, evaluation, photos and
+  diary links. Older automatically classified cycles can have unknown actual dates;
+  correct their classification here. The initial upgrade rule is documented in
+  [deployment](deployment.md#upgrade-an-existing-installation).
 - Filter by crop, variety or area, or find **Unassigned area only** or **Unknown variety
-  only**. Area filters normally include the selected area and all descendants, showing
-  each matching planting once,
-  showing the actual assigned place. Archived register items stay visible in existing
+  only**. Area filters normally include the selected area and all descendants; each
+  cycle counts once and member details show the actual assigned place.
+  Archived register items stay visible in existing
   histories and associations.
 - **New planting event** supports sowing, transplanting, harvest start/end and other
   milestones. Planned and actual dates are separate and at least one is required; dates
-  do not determine the growing year. Repeated event types are valid. Each planting
+  do not determine the growing year or change lifecycle status. Repeated event types
+  are valid. Each planting
   in a batch has its own events and evaluation. Event edits and deletion
   use version checks; deletion requires confirmation.
 - Edit a planting to add cumulative evaluation text or photos. Photo controls match
   register photos. Planting deletion is permanent and removes its events and photos;
-  ending a persistent planting is the history-preserving alternative.
+  completing a cycle is the history-preserving alternative.
 
 Each planting has one current area. Correcting that assignment or reparenting an area
 changes past-year results too. For an established plant that moves, prefer ending the

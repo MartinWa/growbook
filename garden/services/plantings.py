@@ -16,7 +16,7 @@ from core.photo_storage import (
 )
 from core.writes import validated_write
 
-from ..models import Crop, GrowingArea, Planting, PlantingSubmission, Variety
+from ..models import Crop, GrowingArea, Planting, PlantingCycle, PlantingSubmission, Variety
 from ._shared import (
     PlantingResult,
     _active_actor,
@@ -27,6 +27,12 @@ from ._shared import (
     _planting_fingerprint,
     _planting_receipt,
     _version,
+)
+from .cycles import (
+    normalize_category_ids,
+    set_categories,
+    validate_lifecycle,
+    validate_member_years,
 )
 
 
@@ -102,6 +108,7 @@ def _validate_planting(record, previous):
         raise ValidationError({"variety": _("Keep a variety for a planting in a shared batch.")})
     if peers.filter(variety_id=record.variety_id).exists():
         raise ValidationError({"variety": _("This variety is already in the batch.")})
+    validate_member_years(record, record.cycle)
     record.full_clean()
 
 
@@ -120,10 +127,33 @@ def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_
             if batch_planting is not None:
                 member = _current(Planting, batch_planting)
                 record.batch_key = member.batch_key
+                record.cycle = member.cycle
+            elif pk is None:
+                record.cycle = PlantingCycle(
+                    pk=record.batch_key,
+                    status=values.get("status", PlantingCycle.Status.PLANNED),
+                    started_on=values.get("started_on"),
+                    completed_on=values.get("completed_on"),
+                )
+                validate_lifecycle(record.cycle, require_dates=True)
+                record.cycle.save()
+                set_categories(record.cycle, values.get("category_ids", []))
             for field, value in values.items():
-                if field == "batch_planting":
+                if field in (
+                    "batch_planting",
+                    "status",
+                    "started_on",
+                    "completed_on",
+                    "category_ids",
+                ):
                     continue
                 setattr(record, field, value)
+            if (
+                pk is None
+                and record.lifespan == Planting.Lifespan.PERSISTENT
+                and record.cycle.completed_on
+            ):
+                record.end_year = record.cycle.completed_on.year
             _validate_planting(record, previous)
             if batch_planting is not None and record.variety_id is None:
                 raise ValidationError({"variety": _("Choose a variety to add to this batch.")})
@@ -139,6 +169,7 @@ def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_
                     params={"count": settings.PHOTO_MAX_COUNT},
                 )
             record.save()
+            record.cycle.save()
             position = max((photo.position for photo in photos), default=-1) + 1
             for offset, photo_values in enumerate(rows):
                 photo = Photo(planting=record, **photo_values, position=position + offset)
@@ -197,12 +228,28 @@ def create_planting(
     uploads=(),
     submission_key=None,
     batch_planting=None,
+    status=None,
+    started_on=None,
+    completed_on=None,
+    category_ids=None,
 ):
     values = _planting_values(
         crop, start_year, variety, area, lifespan, end_year, label, quantity, notes, evaluation
     )
     if batch_planting is not None:
         values["batch_planting"] = _identifier(batch_planting, "batch_planting", model=Planting)
+    elif (
+        status is not None
+        or started_on is not None
+        or completed_on is not None
+        or category_ids is not None
+    ):
+        values.update(
+            status=status or PlantingCycle.Status.PLANNED,
+            started_on=started_on,
+            completed_on=completed_on,
+            category_ids=normalize_category_ids(category_ids or ()),
+        )
     return _save_planting(actor, None, values, uploads, submission_key, None)
 
 
@@ -243,7 +290,12 @@ def delete_planting(*, actor, pk, expected_updated_at):
                 record = _current(Planting, _identifier(pk, "id"), expected_updated_at)
                 folders.extend(photo_bundles(record.photos.all()))
                 try:
+                    cycle = record.cycle
                     record.delete()
+                    if not cycle.members.exists():
+                        cycle.delete()
+                    else:
+                        cycle.save()
                 except ProtectedError as exc:
                     raise ValidationError(
                         _("This planting is still referenced and cannot be deleted.")

@@ -382,47 +382,40 @@ def test_area_pages_and_grouped_batches_with_keyboard(page, live_server, user, u
     expect(page.locator(".area-card")).to_contain_text(ux["grandchild"].name)
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     page.goto(live_server.url + "/garden/plantings/?year=2026")
-    north, child, south = (
-        branch(page, ux["root"]),
-        branch(page, ux["child"]),
-        branch(page, ux["sibling"]),
-    )
-    expect(north).not_to_have_attribute("open", "")
-    expect(child).to_have_attribute("open", "")
-    expect(south).to_have_attribute("open", "")
-    expect(page.get_by_role("button", name="First batch", exact=True)).to_be_hidden()
-    north.locator(":scope > summary").press("Space")
+    expect(page.locator(".category-card")).to_have_count(3)
+    page.locator(".category-card-link").filter(
+        has_text="Planerad" if language == "sv" else "Planned"
+    ).press("Enter")
     expect(page.get_by_role("button", name="First batch", exact=True)).to_be_visible()
     expect(page.get_by_role("button", name="Second batch", exact=True)).to_be_visible()
-    expect(child.locator(".planting-list")).not_to_contain_text("Synthetic batch note")
-    expect(page.locator(".unassigned-group")).to_contain_text("Unassigned batch")
+    expect(page.locator(".planting-list")).not_to_contain_text("Synthetic batch note")
+    expect(page.locator(".planting-list")).to_contain_text("Unassigned batch")
     page.get_by_role("button", name="First batch", exact=True).click()
-    expect(page.locator(f"#details-planting-{ux['batches'][1].pk}")).to_contain_text(
+    expect(page.locator(f"#details-cycle-{ux['batches'][1].cycle_id}")).to_contain_text(
         "Synthetic batch note"
     )
-    expect(page.locator(f"#details-planting-{ux['batches'][1].pk} .record-fields")).to_contain_text(
-        "0"
-    )
+    expect(
+        page.locator(f"#details-cycle-{ux['batches'][1].cycle_id} .record-fields").last
+    ).to_contain_text("0")
     second = page.get_by_role("button", name="Second batch", exact=True)
     second.focus()
     second.press("Space")
-    expect(page.locator(f"#details-planting-{ux['batches'][2].pk}")).to_contain_text(
+    expect(page.locator(f"#details-cycle-{ux['batches'][2].cycle_id}")).to_contain_text(
         "Synthetic batch note"
     )
-    expect(page.locator(f"#details-planting-{ux['batches'][1].pk}")).to_be_hidden()
+    expect(page.locator(f"#details-cycle-{ux['batches'][1].cycle_id}")).to_be_hidden()
     expect(second).to_be_focused()
     page.locator("[data-filter-disclosure] > summary").click()
     page.locator("#id_variety").select_option(str(ux["green"].pk))
     expect(page).to_have_url(
-        live_server.url + f"/garden/plantings/?year=2026&variety={ux['green'].pk}"
+        live_server.url + f"/garden/plantings/status/planned/?year=2026&variety={ux['green'].pk}"
     )
-    expect(north).to_have_attribute("open", "")
     expect(page.locator("[data-record-placeholder]")).to_be_visible()
     if width < 900:
         page.keyboard.press("Escape")
     expect(page.get_by_role("button", name="First batch", exact=True)).to_be_visible()
     page.go_back()
-    expect(north).not_to_have_attribute("open", "")
+    expect(page.get_by_role("button", name="Unassigned batch", exact=True)).to_be_visible()
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
 
@@ -451,9 +444,11 @@ def test_no_javascript_search_and_native_hierarchies(page, live_server, user, ux
     expect(plain.locator(f'[data-area-id="{ux["grandchild"].pk}"]')).to_be_visible()
     expect(plain).to_have_url(live_server.url + ux["child"].get_absolute_url())
     plain.goto(live_server.url + "/garden/plantings/?year=2026")
-    branch(plain, ux["root"]).locator(":scope > summary").press("Space")
+    plain.locator(".category-card-link").filter(
+        has_text="Planerad" if language == "sv" else "Planned"
+    ).click()
     plain.get_by_role("link", name="Second batch", exact=True).click()
-    expect(plain).to_have_url(live_server.url + ux["batches"][2].get_absolute_url() + "?year=2026")
+    assert plain.url.startswith(live_server.url + ux["batches"][2].cycle.get_absolute_url())
     context.close()
 
 
@@ -480,6 +475,9 @@ def test_area_information_opens_plantings_with_year_and_area_selected(
     expect(page.locator("#id_year")).to_have_value(str(year))
     expect(page.locator("#id_area")).to_have_value(str(ux["child"].pk))
     if year == 2026:
+        page.locator(".category-card-link").filter(
+            has_text="Planerad" if language == "sv" else "Planned"
+        ).click()
         expect(page.locator("#planting-results")).to_contain_text("First batch")
         expect(page.locator("#planting-results")).not_to_contain_text("Other batch")
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

@@ -46,5 +46,13 @@ def return_url(request):
         "garden:all-crops",
         "garden:variety-list",
         "garden:planting-detail",
+        "garden:planting-list",
+        "garden:planting-history",
+        "garden:planting-status",
+        "garden:planting-category-detail",
+        "garden:cycle-detail",
+        "garden:crop-history",
+        "garden:variety-history",
+        "garden:area-history",
     }
     return value if match.view_name in allowed else ""

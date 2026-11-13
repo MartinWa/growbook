@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import events, photos, plantings, registers
+from .views import cycles, events, photos, plantings, registers
 
 app_name = "garden"
 
@@ -77,6 +77,35 @@ urlpatterns = [
     ),
     path("areas/<int:pk>/delete/", registers.register_delete, {"kind": "area"}, name="area-delete"),
     path("plantings/", plantings.planting_list, name="planting-list"),
+    path("plantings/status/<str:status>/", plantings.planting_list, name="planting-status"),
+    path("plantings/categories/new/", cycles.category_form, name="planting-category-create"),
+    path(
+        "plantings/categories/<int:category_pk>/",
+        plantings.planting_list,
+        name="planting-category-detail",
+    ),
+    path(
+        "plantings/categories/<int:pk>/edit/", cycles.category_form, name="planting-category-edit"
+    ),
+    path(
+        "plantings/categories/<int:pk>/delete/",
+        cycles.category_delete,
+        name="planting-category-delete",
+    ),
+    path("plantings/cycles/<uuid:pk>/", cycles.cycle_detail, name="cycle-detail"),
+    path("plantings/cycles/<uuid:pk>/edit/", cycles.cycle_form, name="cycle-edit"),
+    path(
+        "plantings/cycles/<uuid:pk>/start/",
+        cycles.cycle_form,
+        {"action": "start"},
+        name="cycle-start",
+    ),
+    path(
+        "plantings/cycles/<uuid:pk>/complete/",
+        cycles.cycle_form,
+        {"action": "complete"},
+        name="cycle-complete",
+    ),
     path("plantings/history/", plantings.planting_list, {"history": True}, name="planting-history"),
     path("plantings/new/", plantings.planting_form, name="planting-create"),
     path("plantings/varieties/", plantings.planting_varieties, name="planting-varieties"),

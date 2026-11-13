@@ -161,6 +161,16 @@ Each existing planting starts as its own batch, even when names match. Add furth
 varieties through the planting's details after upgrading; records are not merged
 automatically.
 
+The planting-cycle migration creates one shared cycle per existing batch and keeps
+all member IDs, associations, year ranges, labels, events, photos and save receipts.
+It captures the garden's local year once and classifies each member: a future start
+year suggests Planned; an annual start before that year or a persistent end before
+that year suggests Completed; otherwise Ongoing. A mixed batch is Ongoing if any
+member suggests Ongoing, otherwise Planned if any suggests Planned, otherwise Completed.
+Unknown actual start and completion dates remain blank. This is an initial classification;
+users can correct it through **Edit cycle**. Current statuses and custom-category
+memberships apply to past-year views too.
+
 ```sh
 docker compose build growbook
 docker compose stop growbook

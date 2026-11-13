@@ -5,6 +5,7 @@
 {% if kind == 'planting' %}<nav class="year-navigation" aria-label="{% translate 'Planting navigation' %}"><a href="{% url 'garden:planting-list' %}">{% translate 'Year overview' %}</a><a href="{% url 'garden:planting-history' %}">{% translate 'All years' %}</a></nav>{% endif %}
 <section class="panel register-form-panel">
 <h1>{{ title }}</h1>
+{% if kind == 'cycle-transition' %}<p class="field-help">{% translate 'This action applies to every variety in the cycle. Choose the actual date; the viewed growing year does not set it.' %}</p>{% endif %}
 <form id="register-form" method="post" action="{{ action }}" enctype="multipart/form-data"
       hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#register-errors" hx-swap="innerHTML" hx-sync="this:drop"
       data-register-form data-uploading="{% if has_photos %}{% translate 'Uploading photos…' %}{% else %}{% translate 'Saving…' %}{% endif %}"
@@ -21,6 +22,9 @@
   {% if kind == 'planting' %}
     {% if batch_member %}<p>{% blocktranslate with crop=batch_member.crop.name %}Add a variety to this {{ crop }} batch. Quantity, events, evaluation and photos are tracked separately.{% endblocktranslate %}</p>{% endif %}
     {% include 'garden/planting_fields.html' %}
+  {% elif kind == 'cycle' %}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% include 'garden/cycle_fields.html' %}
   {% else %}
   {% if kind == 'category' and record %}{% with photo=record.photos.first %}{% if photo %}<p><a href="{{ photo.get_absolute_url }}"><img class="category-current-image" src="{{ photo.thumbnail_url }}" alt="{% translate 'Current category image' %}"></a></p>{% endif %}{% endwith %}{% endif %}
   {% for field in form %}{% include 'components/field.html' %}{% endfor %}

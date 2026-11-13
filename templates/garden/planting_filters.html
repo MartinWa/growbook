@@ -1,6 +1,7 @@
 {% load i18n %}
 <div class="filter-panel" id="filter-panel">
   <form data-filter-form method="get" action="{{ request.path }}">
+    {% if history %}<input type="hidden" name="all_years" value="1">{% endif %}
     <div class="filter-fields">
       {% for field in form %}
       {% if field.name == 'area_only' %}<input type="hidden" name="area_only" id="id_area_only" value="{% if area_only %}1{% endif %}">

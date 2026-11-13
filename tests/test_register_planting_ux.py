@@ -262,7 +262,9 @@ def test_grouped_histories_preserve_year_boundaries_and_exact_assignments(
         assert [record.pk for record in nodes[child.pk].records] == [records[1].pk, records[2].pk]
         assert nodes[child.pk].open == (scope == "variety")
         for record in expected:
-            assert response.text.count(f'id="details-planting-{record.pk}"') == 1
+            if not response.context["category_overview"]:
+                assert response.text.count(f'id="details-cycle-{record.cycle_id}"') == 1
+        assert len(response.context["cycle_groups"]) == len(expected)
         if scope != "variety":
             assert nodes[grandchild.pk].open
             fragment = client.get(records[3].get_absolute_url(), HTTP_HX_REQUEST="true")
@@ -275,7 +277,7 @@ def test_filtered_overview_opens_same_pair_batches_and_keeps_year_links(client, 
     crop, variety, root, child, grandchild, unused, records = batches
     client.force_login(user)
     response = client.get(
-        reverse("garden:planting-list"),
+        reverse("garden:planting-status", args=["planned"]),
         {"year": 2026, "area": root.pk, "variety": variety.pk},
         HTTP_HX_REQUEST="true",
         HTTP_HX_TARGET="planting-results",
@@ -285,7 +287,8 @@ def test_filtered_overview_opens_same_pair_batches_and_keeps_year_links(client, 
     assert all(node.open for node in nodes)
     assert [node.area.pk for node in nodes] == [root.pk, child.pk]
     assert not response.context["unassigned_records"]
-    assert f'href="{records[1].get_absolute_url()}?year=2026"' in response.text
+    assert records[1].cycle.get_absolute_url() in response.text
+    assert "&amp;year=2026" in response.text
     details = client.get(records[1].get_absolute_url(), {"year": 2026}, HTTP_HX_REQUEST="true")
     assert f'href="{reverse("garden:area-history", args=[child.pk])}?year=2026"' in details.text
     unknown = client.get(reverse("garden:planting-list"), {"year": 2026, "unknown_variety": "on"})
@@ -363,7 +366,10 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
     assert set(nodes) == {root.pk, new_area.pk}
     assert nodes[root.pk].count == 1
     assert [record.pk for record in nodes[new_area.pk].records] == [planting.pk]
-    assert response.text.count(f'id="details-planting-{planting.pk}"') == 1
+    if response.context["category_overview"]:
+        assert len(response.context["cycle_groups"]) == 1
+    else:
+        assert response.text.count(f'id="details-cycle-{planting.cycle_id}"') == 1
 
 
 def test_register_search_fragments_require_an_active_session(client, user, varieties):

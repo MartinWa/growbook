@@ -12,7 +12,12 @@ pytestmark = pytest.mark.django_db
 def test_leaf_area_choices_preserve_existing_parent_assignments(planting_catalog):
     crop, _, _, area = planting_catalog
     with validated_write():
-        existing = Planting.objects.create(crop=crop, area=area, start_year=2027)
+        from garden.models import PlantingCycle
+
+        cycle = PlantingCycle.objects.create()
+        existing = Planting.objects.create(
+            crop=crop, area=area, start_year=2027, batch_key=cycle.pk, cycle=cycle
+        )
         GrowingArea.objects.create(name="Child", name_key="child", parent=area, is_archived=True)
     assert not PlantingForm().fields["area"].queryset.filter(pk=area.pk).exists()
     assert PlantingForm(record=existing).fields["area"].queryset.filter(pk=area.pk).exists()
@@ -21,9 +26,14 @@ def test_leaf_area_choices_preserve_existing_parent_assignments(planting_catalog
 def test_known_batch_member_requires_variety_until_it_is_alone(planting_catalog):
     crop, first, _, _ = planting_catalog
     with validated_write():
-        unknown = Planting.objects.create(crop=crop, start_year=2027)
+        from garden.models import PlantingCycle
+
+        cycle = PlantingCycle.objects.create()
+        unknown = Planting.objects.create(
+            crop=crop, start_year=2027, batch_key=cycle.pk, cycle=cycle
+        )
         known = Planting.objects.create(
-            crop=crop, variety=first, start_year=2027, batch_key=unknown.batch_key
+            crop=crop, variety=first, start_year=2027, batch_key=unknown.batch_key, cycle=cycle
         )
     assert not PlantingForm(record=unknown).fields["variety"].required
     assert PlantingForm(record=known).fields["variety"].required

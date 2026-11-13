@@ -140,7 +140,7 @@ def planting_history(
     unassigned=False,
     unknown_variety=False,
 ):
-    records = Planting.objects.select_related("crop", "variety", "area")
+    records = Planting.objects.select_related("crop", "variety", "area", "cycle")
     if year is not None:
         records = plantings_in_year(year, records)
     if crop is not None:
@@ -187,6 +187,33 @@ def planting_groups(records):
             (photo for member in group["records"] for photo in member.photos.all()), None
         )
     return list(groups.values())
+
+
+def cycle_years(records):
+    years = []
+    for record in records:
+        if record.lifespan == Planting.Lifespan.ANNUAL:
+            label = str(record.start_year)
+        elif record.end_year is None:
+            label = _("%(year)s onwards") % {"year": record.start_year}
+        else:
+            label = f"{record.start_year}–{record.end_year}"
+        if label not in years:
+            years.append(label)
+    return "; ".join(years)
+
+
+def cycle_groups(records):
+    records = list(records)
+    prefetch_related_objects(records, "photos", "cycle__categories", "cycle__members")
+    groups = planting_groups(records)
+    for group in groups:
+        first = group["records"][0]
+        group["cycle"] = first.cycle
+        initial = min(first.cycle.members.all(), key=lambda member: member.pk, default=first)
+        group["label"] = initial.label or _("Planting %(number)s") % {"number": initial.pk}
+        group["years"] = cycle_years(first.cycle.members.all())
+    return groups
 
 
 def planting_tree(**filters):

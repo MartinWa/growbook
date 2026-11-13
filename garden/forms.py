@@ -7,7 +7,15 @@ from django.utils.translation import gettext_lazy as _
 
 from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
 
-from .models import Crop, GrowingArea, Planting, PlantingEvent, Variety
+from .models import (
+    Crop,
+    GrowingArea,
+    Planting,
+    PlantingCategory,
+    PlantingCycle,
+    PlantingEvent,
+    Variety,
+)
 from .queries import area_paths, descendant_ids
 
 
@@ -203,7 +211,110 @@ class RecordNameSelect(forms.Select):
         return option
 
 
-class PlantingForm(forms.Form):
+class CycleFieldsForm(forms.Form):
+    status = forms.ChoiceField(
+        label=_("Current status"),
+        choices=PlantingCycle.Status.choices,
+        initial=PlantingCycle.Status.PLANNED,
+        required=False,
+    )
+    started_on = forms.DateField(
+        label=_("Actual start date"),
+        required=False,
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    completed_on = forms.DateField(
+        label=_("Completion date"),
+        required=False,
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    category_ids = forms.MultipleChoiceField(
+        label=_("Custom categories"), required=False, widget=forms.CheckboxSelectMultiple
+    )
+
+    def __init__(self, *args, cycle=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.cycle = cycle
+        choices = [(str(category.pk), category.name) for category in PlantingCategory.objects.all()]
+        if self.is_bound:
+            selected = (
+                self.data.getlist("category_ids")
+                if hasattr(self.data, "getlist")
+                else self.data.get("category_ids", [])
+            )
+            for value in selected:
+                try:
+                    identifier = clean_record_id(value)
+                except forms.ValidationError:
+                    continue
+                if identifier and str(identifier) not in {key for key, _label in choices}:
+                    choices.append(
+                        (
+                            str(identifier),
+                            _("Unavailable selection (%(number)s)") % {"number": identifier},
+                        )
+                    )
+        self.fields["category_ids"].choices = choices
+        describe_fields(self)
+
+    def clean(self):
+        data = super().clean()
+        if "status" not in self.fields:
+            return data
+        if "category_ids" in data:
+            data["category_ids"] = [
+                clean_record_id(value, required=True) for value in data["category_ids"]
+            ]
+        status = data.get("status") or PlantingCycle.Status.PLANNED
+        data["status"] = status
+        if status == PlantingCycle.Status.PLANNED:
+            data["started_on"] = data["completed_on"] = None
+        elif status == PlantingCycle.Status.ONGOING:
+            data["completed_on"] = None
+        needs_dates = self.cycle is None or self.cycle.status != status
+        if needs_dates and status == PlantingCycle.Status.ONGOING and not data.get("started_on"):
+            self.add_error("started_on", _("Set the actual start date for an ongoing cycle."))
+        if (
+            needs_dates
+            and status == PlantingCycle.Status.COMPLETED
+            and not data.get("completed_on")
+        ):
+            self.add_error("completed_on", _("Set the completion date for a completed cycle."))
+        return data
+
+
+class CycleEditForm(CycleFieldsForm):
+    submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
+    expected_updated_at = VersionField()
+
+
+class CycleTransitionForm(forms.Form):
+    submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
+    expected_updated_at = VersionField()
+    date = forms.DateField(
+        label=_("Date"),
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        describe_fields(self)
+
+
+class PlantingCategoryForm(forms.Form):
+    submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
+    expected_updated_at = VersionField(required=False)
+    name = forms.CharField(label=_("Name"), max_length=150)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        describe_fields(self)
+
+
+class PlantingForm(CycleFieldsForm):
     detail_names = ("variety", "area", "lifespan", "end_year", "quantity")
     note_names = ("notes", "evaluation", "photos")
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
@@ -276,6 +387,14 @@ class PlantingForm(forms.Form):
 
     def __init__(self, *args, record=None, batch_member=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if (
+            record is not None
+            or batch_member is not None
+            or self.initial.get("batch_planting")
+            or self.data.get("batch_planting")
+        ):
+            for name in ("status", "started_on", "completed_on", "category_ids"):
+                self.fields.pop(name)
         describe_fields(self)
         variety_attrs = self.fields["variety"].widget.attrs
         variety_attrs["aria-describedby"] = (

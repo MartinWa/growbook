@@ -152,19 +152,20 @@ def test_phone_filters_retry_back_and_reinitialize_rows(page, live_server, user,
     page.set_viewport_size({"width": 390, "height": 844})
     login(page, live_server, user)
     page.goto(live_server.url + "/garden/plantings/?year=2026")
+    page.locator(".category-card-link").filter(has_text="Planerad").click()
     expect(page.locator("#id_year")).to_be_hidden()
     expect(page.locator(".filter-chip")).to_have_text("Odlingsår: 2026")
     expect(page.locator("#planting-results .record-details")).to_have_count(0)
     open_filters(page)
     expect(page.locator("#id_year")).to_be_focused()
-    page.route("**/garden/plantings/?*", lambda route: route.abort())
+    page.route("**/garden/plantings/status/planned/?*", lambda route: route.abort())
     page.locator("#id_year").fill("2027")
     page.locator("#id_year").press("Enter")
     expect(page.locator("#filter-status")).to_contain_text("Filtren kunde inte uppdateras")
     expect(page.locator("#planting-results")).to_contain_text("First batch")
-    page.unroute("**/garden/plantings/?*")
+    page.unroute("**/garden/plantings/status/planned/?*")
     page.locator("[data-filter-retry]").click()
-    expect(page).to_have_url(live_server.url + "/garden/plantings/?year=2027")
+    expect(page).to_have_url(live_server.url + "/garden/plantings/status/planned/?year=2027")
     expect(page.locator(".filter-chip")).to_have_text("Odlingsår: 2027")
     expect(page.locator("#planting-results")).to_contain_text("Inga odlingar detta odlingsår")
     page.keyboard.press("Escape")
@@ -186,9 +187,8 @@ def test_phone_filters_retry_back_and_reinitialize_rows(page, live_server, user,
     page.locator("#id_year").press("Enter")
     expect(page.locator("#planting-results .error-summary")).to_have_count(0)
     page.keyboard.press("Escape")
-    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     page.get_by_role("button", name="First batch", exact=True).click()
-    expect(page.locator(f"#details-planting-{catalog['first'].pk}")).to_contain_text("Golden")
+    expect(page.locator(f"#details-cycle-{catalog['first'].cycle_id}")).to_contain_text("Golden")
     page.locator(".planting-list > li > [data-register-toggle]").first.evaluate(
         "link => link.textContent = 'Synthetic'.repeat(16)"
     )
@@ -311,18 +311,17 @@ def test_slow_variety_choices_are_superseded_and_save_cancellation_keeps_the_for
 def test_year_area_history_selects_shared_details_with_keyboard(page, live_server, user, catalog):
     login(page, live_server, user)
     page.goto(live_server.url + f"/garden/areas/{catalog['parent'].pk}/history/?year=2026")
-    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     first, second = catalog["first"], catalog["second"]
     first_toggle = page.get_by_role("button", name="First batch", exact=True)
     second_toggle = page.get_by_role("button", name="Persistent batch", exact=True)
-    first_details = page.locator(f"#details-planting-{first.pk}")
-    second_details = page.locator(f"#details-planting-{second.pk}")
+    first_details = page.locator(f"#details-cycle-{first.cycle_id}")
+    second_details = page.locator(f"#details-cycle-{second.cycle_id}")
     expect(page.locator("#planting-results .record-details")).to_have_count(0)
     first_toggle.focus()
     first_toggle.press("Enter")
     expect(first_details).to_contain_text("Synthetic overwintered sowing")
     expect(first_details).to_contain_text("2025-12-20")
-    expect(first_details.locator(".record-fields")).to_contain_text("Greenhouse / Bed")
+    expect(first_details.locator(".record-fields").last).to_contain_text("Greenhouse / Bed")
     expect(first_toggle).to_be_focused()
     second_toggle.focus()
     second_toggle.press("Space")
@@ -340,16 +339,15 @@ def test_year_area_history_selects_shared_details_with_keyboard(page, live_serve
         "Inga odlingar detta odlingsår"
     )
     page.get_by_role("link", name="Föregående år", exact=True).click()
-    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').click()
     page.get_by_role("button", name="First batch", exact=True).click()
-    page.locator(f"#details-planting-{first.pk} .record-fields").get_by_role(
+    page.locator(f"#details-cycle-{first.cycle_id} .record-fields").get_by_role(
         "link", name="Golden", exact=True
     ).click()
     expect(page).to_have_url(
         live_server.url + f"/garden/varieties/{catalog['variety'].pk}/history/?year=2026"
     )
     page.get_by_role("button", name="First batch", exact=True).click()
-    expect(page.locator(f"#details-planting-{first.pk}")).to_contain_text(
+    expect(page.locator(f"#details-cycle-{first.cycle_id}")).to_contain_text(
         "Synthetic overwintered sowing"
     )
 
@@ -358,14 +356,13 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
     page, live_server, user, catalog
 ):
     login(page, live_server, user)
-    page.goto(live_server.url + "/garden/plantings/history/")
-    page.locator(f'[data-area-id="{catalog["parent"].pk}"] > details > summary').press("Enter")
+    page.goto(live_server.url + "/garden/plantings/status/planned/?all_years=1")
     results = page.locator("#planting-results")
     expect(page.locator("#id_year")).to_have_value("")
     expect(results).to_contain_text("First batch")
     expect(results).to_contain_text("Persistent batch")
     page.get_by_role("button", name="First batch", exact=True).click()
-    page.locator(f"#details-planting-{catalog['first'].pk}").get_by_role(
+    page.locator(f"#details-cycle-{catalog['first'].cycle_id}").get_by_role(
         "link", name="Greenhouse / Bed", exact=True
     ).click()
     expect(page).to_have_url(live_server.url + f"/garden/areas/{catalog['child'].pk}/history/")
@@ -376,12 +373,12 @@ def test_all_years_area_links_keep_historical_rows_and_allow_year_switching(
     open_filters(page)
     page.locator("#id_year").fill("2027")
     page.locator("#id_year").press("Enter")
-    expect(results.locator(".empty-state")).to_contain_text("Inga odlingar matchar filtren.")
+    expect(results.locator(".empty-state")).to_contain_text("Inga odlingar detta odlingsår")
     page.locator(".year-navigation").get_by_role("link", name="Alla år", exact=True).click()
     expect(page.locator("#id_year")).to_have_value("")
     expect(results).to_contain_text("First batch")
     page.get_by_role("button", name="First batch", exact=True).click()
-    page.locator(f"#details-planting-{catalog['first'].pk}").get_by_role(
+    page.locator(f"#details-cycle-{catalog['first'].cycle_id}").get_by_role(
         "link", name="Greenhouse / Bed", exact=True
     ).click()
     expect(page.locator("#id_year")).to_have_value("")
@@ -439,7 +436,7 @@ def test_empty_scoped_history_action_restores_rows_and_preserves_scope(
     path = f"/garden/areas/{catalog['child'].pk}/history/"
     page.goto(live_server.url + path + "?year=2027")
     empty = page.locator("#planting-results .empty-state")
-    expect(page.locator("[data-filter-create]")).to_be_hidden()
+    expect(page.locator("[data-filter-create]")).to_be_visible()
     expect(empty.locator(".brand-mark")).to_be_visible()
     action = empty.get_by_role("link", name="Alla år", exact=True)
     expect(action).to_have_attribute("href", path)
@@ -559,7 +556,7 @@ def test_no_javascript_dependent_choices_drafts_and_early_plan_save(
     save(plain)
     expect(plain).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
     expect(plain.locator(".record-fields")).to_contain_text("Keep no-JS draft")
-    plain.goto(live_server.url + "/garden/plantings/history/")
+    plain.goto(live_server.url + "/garden/plantings/status/planned/?all_years=1")
     plain.locator("[data-filter-disclosure] > summary").click()
     plain.locator("#id_year").fill("2027")
     plain.locator("[data-filter-form]").get_by_role("button", name="Visa", exact=True).click()
@@ -857,24 +854,20 @@ def test_add_variety_to_batch_preserves_independent_photos_and_retries(
         expect(page.locator(".batch-varieties")).to_contain_text("Red")
         expect(page.locator(".record-fields")).to_contain_text("First evaluation")
         expect(page.locator(".register-photos figure")).to_have_count(1)
-        page.goto(live_server.url + "/garden/plantings/?year=2027")
+        page.goto(live_server.url + "/garden/plantings/status/planned/?year=2027")
         summary = page.locator(".planting-batch > summary")
-        expect(summary).to_have_text(f"Planting batch · {crop.name} (2)")
-        expect(summary.locator("img")).to_have_attribute("src", thumbnail_url)
+        expect(summary).to_have_text("2 matching varieties")
+        expect(page.locator(".planting-list .record-name img")).to_have_attribute(
+            "src", thumbnail_url
+        )
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         summary.focus()
         summary.press("Enter")
-        row = page.locator(".planting-batch [data-register-toggle]").filter(
-            has_text=f"{crop.name}-Red"
-        )
+        row = page.locator(".planting-batch a").filter(has_text=f"{crop.name}-Red")
         expect(row).to_be_visible()
         row.click()
         expect(page.locator(".record-fields")).to_contain_text("Second evaluation")
-        if javascript:
-            page.locator("[data-record-return]").click()
-            expect(row).to_be_focused()
-        else:
-            expect(page.locator(".register-photos figure")).to_have_count(1)
+        expect(page.locator(".register-photos figure")).to_have_count(1)
     added = Planting.objects.exclude(pk=original.pk).get()
     assert added.batch_key == original.batch_key and added.quantity == 12
     assert added.photos.count() == original.photos.count() == 1

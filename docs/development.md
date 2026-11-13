@@ -104,6 +104,15 @@ starting a subsequent independent edit; do not fetch a fresh timestamp merely to
 values from a stale read. Creation needs no version token, and archive operations keep
 their explicit desired-state contract.
 
+`edit_cycle` and `transition_cycle` use the shared cycle's `updated_at`.
+Adding, editing or deleting a member advances that version, so a stale cycle-wide
+action cannot miss changed membership or years. Cycle completion/corrections that
+change persistent end years also advance the affected members' versions.
+Category-only cycle changes preserve member versions. `edit_planting_category` and
+`delete_planting_category` use the category's version; deleting a category advances
+linked cycles' versions while preserving their members. Category creation needs no
+version token. Pass typed integer category IDs to cycle and creation writers.
+
 For create/edit saves with submission receipts, retry the original payload, version
 token and `submission_key`. Writers check the active actor and matching immutable
 receipt before current association eligibility and stale-state checks within short

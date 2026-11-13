@@ -202,30 +202,33 @@ Selections bring off-screen details into view and move focus to their labelled r
 This navigation happens during activation. Delayed responses do not repeat it,
 and browser history retains its saved scroll position.
 
-Growing-area cards and planting results use bounded area reads and parent IDs to
-retain ancestor context and cut legacy cycles defensively. Planting results render
-the hierarchy iteratively, supporting deep nesting without recursive template includes.
-Native details/summary controls keep planting-area expansion usable with keyboard and
-without JavaScript. Growing-area cards retain archived ancestors of active children.
-Planting branches retain ancestors, omit empty subtrees and open
-when their matching subtree has one crop/variety pair. Batches attach only to their own
-area, with their names selecting information through the shared register module. An unassigned
-group follows the hierarchy. Indentation is reduced on narrow screens, names wrap and controls retain
-their touch targets and focus outlines. Browser history restores crop-register disclosure
+Growing-area cards use bounded area reads and parent IDs to retain ancestor context
+and cut legacy cycles defensively. They retain archived ancestors of active children.
+Plantings reuses `.category-grid`, `.category-card` and the seasonal botanical
+placeholder for Ongoing, Planned, Completed and custom categories. Cards always show
+the matching cycle count and selected year, including zero counts. Quiet footer actions
+manage custom categories. Category lists show one batch per row, with current status
+and exact member year ranges. Native disclosures expose matching members; cycle names
+select shared information and existing member details through the register module.
+Names wrap and controls retain their touch targets and focus outlines.
+Browser history restores crop-register disclosure
 states, the selected details and scroll after returning from editing. Stored state contains
 the list URL, record IDs, disclosure flags and scroll position. Information reloads from
 authenticated endpoints; no record content is cached in history.
 Other result replacements use the default disclosure states.
 
-Planting forms show crop and start year first. Native disclosures group additional
+Planting forms show crop and start year first, followed by cycle status and custom
+categories for new batches. A small external module shows the actual dates relevant
+to the chosen status. Cycle editing and dated Start/Complete actions use the shared
+form and retry feedback. Native disclosures group additional
 details and notes/photos; populated or invalid groups open automatically. A typed
 end year stays visible when switching to Annual so it can be corrected. Dependent
 variety failures open their group and expose a retry action.
 
 Planting filters share the diary disclosure and URL history behavior. Returned
 lists initialize the shared details panel after each filter update. Planting
-lists show area and batch names at every width; all other fields and history links are
-in opened information. Nested event tables retain their own horizontal scrolling.
+lists show cycle names, status and years at every width; member fields and history
+links are in opened information. Nested event tables retain their own horizontal scrolling.
 The filter toggle and creation action share one row when space allows; expanded
 filters still span the content width. Result counts, growing-year navigation and
 active filter chips share a bordered seasonal toolbar, with the chips underneath

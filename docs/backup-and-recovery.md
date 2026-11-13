@@ -97,6 +97,9 @@ For each deployment, verify that:
   years, unknown/zero quantities, evaluation, dated events and save receipts are
   preserved, including batch membership and each variety's independent tracking;
   year/history views still include archived associations.
+- Cycle statuses, actual start/completion dates, custom-category names and multiple
+  memberships are preserved. Category counts count each matching batch once, and
+  Start/Complete and Edit cycle work without losing member history.
 - Referenced originals for diary entries, areas, varieties, plantings and categories match
   checksums; regenerated derivatives display and photo captions/order remain intact.
 - Anonymous clients cannot read entries, registers, planting/history pages, media
@@ -122,8 +125,8 @@ database commit may leave an orphan; a successful save must not leave a committe
 photo row pointing at a file that has not yet been published.
 
 Create/edit retries compare the original immutable payload fingerprint and actor
-against the stored receipt, not mutable record fields. Diary, register, planting and
-event create/edit saves retain receipts; an uncertain photo retry cannot append images
+against the stored receipt, not mutable record fields. Diary, register, planting,
+cycle, planting-category and event saves retain receipts; an uncertain photo retry cannot append images
 twice. A reused key with different content conflicts; a missing receipt target
 fails instead of recreating a deleted record. Matching receipts are checked before
 current association eligibility and stale-state checks; see

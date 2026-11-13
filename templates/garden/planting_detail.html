@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{{ record.display_label }} · GrowBook{% endblock %}
 {% block content %}
-<p><a href="{% url 'garden:planting-list' %}?year={{ record.start_year }}">← {% translate 'Year overview' %}</a></p>
+<p>{% if destination %}<a href="{{ destination }}">← {% translate 'Back to list' %}</a>{% else %}<a href="{% url 'garden:planting-list' %}?year={{ record.start_year }}">← {% translate 'Year overview' %}</a>{% endif %}</p>
 <h1>{{ record.display_label }}</h1>
 <div class="panel">{% include 'garden/planting_details.html' %}</div>
 {% endblock %}

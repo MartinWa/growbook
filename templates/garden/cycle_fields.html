@@ -1,0 +1,8 @@
+{% load i18n %}
+<section data-cycle-fields>
+  <p class="field-help">{% translate 'Status, dates and custom categories apply to every variety in this cycle.' %}</p>
+  {% include 'components/field.html' with field=form.status %}
+  {% include 'components/field.html' with field=form.started_on %}
+  {% include 'components/field.html' with field=form.completed_on %}
+  {% include 'components/field.html' with field=form.category_ids %}
+</section>

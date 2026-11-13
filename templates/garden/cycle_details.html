@@ -1,0 +1,24 @@
+{% load i18n %}
+<section class="record-details" aria-labelledby="cycle-{{ cycle.pk }}">
+  <h2 id="cycle-{{ cycle.pk }}">{{ heading }}</h2>
+  {% if destination %}<p class="field-help">{% translate 'Showing the whole cycle. The category list retains its year and filters.' %}</p>{% endif %}
+  <dl class="record-fields">
+    <dt>{% translate 'Current status' %}</dt><dd>{{ cycle.get_status_display }}</dd>
+    <dt>{% translate 'Growing years' %}</dt><dd>{{ years }}</dd>
+    <dt>{% translate 'Actual start date' %}</dt><dd>{{ cycle.started_on|date:'Y-m-d'|default:'—' }}</dd>
+    <dt>{% translate 'Completion date' %}</dt><dd>{{ cycle.completed_on|date:'Y-m-d'|default:'—' }}</dd>
+    <dt>{% translate 'Custom categories' %}</dt><dd>{% for category in cycle.categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
+  </dl>
+  <p class="field-help">{% translate 'Status, dates and custom categories apply to every variety in this cycle.' %}</p>
+  <div class="form-actions">
+    {% if cycle.status == 'planned' %}<a class="btn btn-primary" href="{% url 'garden:cycle-start' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Start cycle' %}</a>{% elif cycle.status == 'ongoing' %}<a class="btn btn-primary" href="{% url 'garden:cycle-complete' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Complete cycle' %}</a>{% endif %}
+    <a class="btn btn-outline" href="{% url 'garden:cycle-edit' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Edit cycle' %}</a>
+    {% if members.0 and not members.0.crop.is_archived %}<a href="{% url 'garden:planting-create' %}?batch_planting={{ members.0.pk }}&amp;next={{ cycle.get_absolute_url|urlencode }}">{% translate 'Add variety to batch' %}</a>{% endif %}
+    {% if inline %}<a href="{{ cycle.get_absolute_url }}?member={{ record.pk }}&amp;next={{ destination|urlencode }}{% if year %}&amp;year={{ year }}{% endif %}">{% translate 'Open record' %}</a>{% endif %}
+  </div>
+  <h3>{% translate 'Varieties in this batch' %}</h3>
+  <ul class="record-list">
+    {% for member in members %}<li><a href="{{ member.get_absolute_url }}?next={{ destination|default:cycle.get_absolute_url|urlencode }}{% if year %}&amp;year={{ year }}{% endif %}">{{ member.display_label }}</a><p class="field-help">{% if member.variety %}{{ member.variety.name }} · {% endif %}{{ member.start_year }}{% if member.lifespan == 'persistent' %}{% if member.end_year %}–{{ member.end_year }}{% else %} · {% translate 'No end year' %}{% endif %}{% endif %} · {{ member.quantity|default_if_none:'—' }}{% if member.area_path %} · {{ member.area_path }}{% endif %}</p></li>{% endfor %}
+  </ul>
+  {% if record %}{% include 'garden/planting_details.html' with cycle_panel=True %}{% endif %}
+</section>

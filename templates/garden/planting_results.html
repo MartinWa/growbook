@@ -1,9 +1,10 @@
 {% load i18n %}
-<div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-has-records="{{ records|yesno:'true,false' }}">
+<div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-category-create-url="{% url 'garden:planting-category-create' %}?next={{ request.get_full_path|urlencode }}" data-has-records="{{ records|yesno:'true,false' }}">
+{% if not category_overview %}<nav class="related-actions" aria-label="{% translate 'Planting navigation' %}"><a href="{{ category_overview_url }}">{% translate 'Planting categories' %}</a></nav>{% endif %}
   <div role="alert">{% include 'garden/form_errors.html' %}</div>
   <div class="planting-toolbar">
     <div class="result-toolbar">
-      <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=records|length %}{{ count }} planting{% plural %}{{ count }} plantings{% endblocktranslate %}</p>
+      <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=cycle_groups|length %}{{ count }} planting cycle{% plural %}{{ count }} planting cycles{% endblocktranslate %} · {% if year %}{{ year }}{% else %}{% translate 'All years' %}{% endif %}</p>
       <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
         <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
         <a href="{{ all_years_url }}">{% translate 'All years' %}</a>
@@ -15,17 +16,26 @@
   </div>
 {% if area_only %}<p class="field-help">{% translate 'Only plantings assigned directly to the selected growing area are shown.' %}</p>{% endif %}
 {% if scope %}<p class="related-actions"><a href="{{ scope.get_absolute_url }}">{{ scope.name }}</a></p>{% endif %}
-{% if records %}
+{% if category_overview %}
+<div class="category-grid">
+{% for card in category_cards %}
+  <article class="category-card">
+    <a class="category-card-link" href="{{ card.url }}"><span class="card-botanical-placeholder" aria-hidden="true">{% include 'components/botanical_sprig.html' %}</span><h2>{{ card.name }}</h2><p class="category-card-count">{{ card.count }} · {% if year %}{{ year }}{% else %}{% translate 'All years' %}{% endif %}</p></a>
+    {% if card.category %}<div class="related-actions"><a class="btn btn-outline" href="{% url 'garden:planting-category-edit' card.category.pk %}?next={{ request.get_full_path|urlencode }}" aria-label="{% translate 'Edit category' %}: {{ card.name }}">{% translate 'Edit' %}</a><a class="btn btn-outline" href="{% url 'garden:planting-category-delete' card.category.pk %}?next={{ request.get_full_path|urlencode }}" aria-label="{% translate 'Delete category' %}: {{ card.name }}">{% translate 'Delete' %}</a></div>{% endif %}
+  </article>
+{% endfor %}
+</div>
+{% elif records %}
 <div class="record-workspace" data-record-workspace>
 <div class="record-browser" data-record-browser>
-{% include 'garden/area_tree.html' with planting_tree=True %}
-{% if unassigned_records %}<section class="unassigned-group"><h2>{% translate 'Unassigned area' %}</h2>{% include 'garden/planting_table.html' with groups=unassigned_groups %}</section>{% endif %}
+{% include 'garden/cycle_list.html' %}
 </div>
 {% include 'components/record_detail_pane.html' %}
 </div>
 {% else %}
 {% include 'components/empty_state.html' %}
 {% endif %}
+<p class="field-help">{% translate 'Categories show current status. A cycle can also appear in several custom categories.' %}</p>
 {% if scope %}
 <section class="panel diary-observations" aria-labelledby="history-observations">
   <h2 id="history-observations">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>
