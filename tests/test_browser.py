@@ -331,18 +331,17 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     assert preview.bounding_box()["width"] <= 240
     photo_link.click()
     expect(page).to_have_url(live_server.url + viewer_path)
-    options = page.locator(".photo-options > summary")
-    expect(options).to_have_text("Bildalternativ")
     original = page.get_by_role("link", name="Ladda ner original", exact=True)
-    expect(original).to_be_hidden()
-    options.focus()
-    page.keyboard.press("Enter")
     expect(original).to_be_visible()
+    edit = page.get_by_role("link", name="Redigera bilduppgifter", exact=True)
+    delete = page.get_by_role("link", name="Radera bild", exact=True)
+    edit_path = edit.get_attribute("href")
+    delete_path = delete.get_attribute("href")
+    edit.focus()
     page.keyboard.press("Tab")
     expect(original).to_be_focused()
-    page.keyboard.press("Escape")
-    expect(original).to_be_hidden()
-    expect(options).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(delete).to_be_focused()
     image = page.locator(".photo-viewer img")
     image.evaluate("image => image.decode()")
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [1600, 1200]
@@ -361,17 +360,44 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
         page.set_viewport_size({"width": width, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         assert image.evaluate("image => image.getBoundingClientRect().right <= innerWidth")
+        actions = page.locator(".photo-actions").bounding_box()
+        assert actions["y"] + actions["height"] <= image.bounding_box()["y"]
+        assert edit.bounding_box()["x"] == pytest.approx(actions["x"], abs=1)
+        delete_box = delete.bounding_box()
+        assert delete_box["x"] + delete_box["width"] == pytest.approx(
+            actions["x"] + actions["width"], abs=1
+        )
+        assert original.bounding_box()["x"] < delete_box["x"]
+        assert delete_box["y"] == pytest.approx(edit.bounding_box()["y"], abs=1)
     assert image.evaluate("image => image.getBoundingClientRect().width > 1050")
-    page.locator(".photo-options > summary").click()
     with page.expect_download() as downloaded:
-        page.get_by_role("link", name="Ladda ner original").click()
+        original.click()
     assert downloaded.value.failure() is None
     assert downloaded.value.suggested_filename.endswith(".jpg")
+    expect(page).to_have_url(live_server.url + viewer_path)
+    edit.click()
+    expect(page).to_have_url(live_server.url + edit_path)
+    page.goto(live_server.url + viewer_path)
+    delete.click()
+    expect(page).to_have_url(live_server.url + delete_path)
+    expect(page.locator("#id_confirm")).not_to_be_checked()
+    page.goto(live_server.url + viewer_path)
     page.get_by_role("link", name="Tillbaka till observationen").click()
     expect(page).to_have_url(entry_url)
     page.get_by_role("navigation", name="Huvudmeny").get_by_role("link", name="Dagbok").click()
     page.locator(".photo-grid a").click()
     expect(page).to_have_url(live_server.url + viewer_path)
+    with page.context.browser.new_context(
+        java_script_enabled=False, storage_state=page.context.storage_state()
+    ) as context:
+        plain = context.new_page()
+        plain.goto(live_server.url + viewer_path)
+        expect(plain.get_by_role("link", name="Redigera bilduppgifter")).to_be_visible()
+        expect(plain.get_by_role("link", name="Radera bild")).to_be_visible()
+        with plain.expect_download() as downloaded:
+            plain.get_by_role("link", name="Ladda ner original").click()
+        assert downloaded.value.failure() is None
+        expect(plain).to_have_url(live_server.url + viewer_path)
     assert errors == []
 
 

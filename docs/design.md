@@ -68,8 +68,8 @@ nearly half the heading width. Narrow layouts reduce the heading height.
   with a two-pixel stroke. Icons accompany text labels and are hidden from
   assistive technology with `aria-hidden="true"` and `focusable="false"`.
   A control's accessible name comes from its text.
-- `.disclosure-menu` uses native `details`/`summary`. The account menu and the
-  viewer's Photo options open as bordered overlays; photo limits open inline
+- `.disclosure-menu` uses native `details`/`summary`. The account menu opens
+  as a bordered overlay; photo limits open inline
   below their summary. All are nonmodal. Escape returns focus to their summary;
   clicking outside closes them without taking focus from the clicked control.
 - `.filter-disclosure` uses native `details`/`summary` above Diary and Plantings
@@ -103,7 +103,9 @@ regular, uppercase Barlow Condensed and wrap at every width. Cards with notes an
 photos put photos beside the complete note on wide screens and above it on narrow
 ones. Photo-only cards use
 the available width. Images use the protected display derivative and preserve their
-aspect ratio; galleries show every photo. Notes remain fully visible at every width.
+aspect ratio, with both dimensions limited to 24 rem and rounded corners on the
+photo itself. Saved captions appear below their photos; galleries show every photo.
+Notes remain fully visible at every width.
 
 With JavaScript, Add photos is one button that opens the native image picker
 directly. Camera/library options and their language are supplied by the browser
@@ -155,9 +157,9 @@ before rendering, so it also works without JavaScript and survives page navigati
 The ordinary POST form retains CSRF protection and returns only to validated
 root-relative paths.
 
-Original downloads are available in the photo viewer's Photo options disclosure,
-with keyboard and Escape handling shared with the account menu. Diary photos link
-to the viewer; their captions show ordinary photo-maintenance actions.
+The photo viewer places a direct original-download button above the image, beside
+photo editing on the left, with deletion aligned right for diary editors. Diary
+photos link to the viewer; observation-page captions show photo-maintenance actions.
 
 For local operation and checks, use the canonical
 [development guide](development.md#test-and-check). Browser checks cannot

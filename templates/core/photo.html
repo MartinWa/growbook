@@ -7,19 +7,16 @@
 <section aria-labelledby="photo-heading">
   <div class="page-heading">
     <h1 id="photo-heading">{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}</h1>
-    <details class="disclosure-menu photo-options">
-      <summary class="btn btn-outline">{% translate 'Photo options' %}</summary>
-      <div class="menu-panel"><a class="menu-link" href="{{ photo.original_url }}">{% translate 'Download original' %}</a></div>
-    </details>
+  </div>
+  <div class="photo-actions">
+    <div class="photo-primary-actions">
+      {% if photo.entry_id and can_edit %}<a class="btn btn-primary" href="{% url 'diary:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>{% endif %}
+      <a class="btn btn-outline" href="{{ photo.original_url }}" download>{% translate 'Download original' %}</a>
+    </div>
+    {% if photo.entry_id and can_edit %}<a class="btn btn-error" href="{% url 'diary:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>{% endif %}
   </div>
   <figure class="photo-viewer">
     <img src="{{ photo.display_url }}" alt="{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}" width="{{ photo.width }}" height="{{ photo.height }}">
   </figure>
-  {% if photo.entry_id and can_edit %}
-  <div class="form-actions">
-    <a class="btn btn-primary" href="{% url 'diary:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
-    <a href="{% url 'diary:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
-  </div>
-  {% endif %}
 </section>
 {% endblock %}

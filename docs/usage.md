@@ -354,9 +354,12 @@ variety and planting controls combine in one form. A planting filter also matche
 crop, variety and area, and an area filter includes descendants. Results are deduplicated
 and paging preserves active filters.
 
-Observation pages show compact photo previews; select one to view the larger image.
-Open a photo and use **Photo options → Download original**. Originals stay out of the
-ordinary diary view and are included in operational backups.
+Diary cards show saved captions below their photos. Observation pages show compact
+photo previews; select one to view the larger image. The photo viewer has a direct
+**Download original** button above the image. Authors and administrators also have
+**Edit photo details** on the left and **Delete photo** on the right; deletion still
+requires confirmation. Originals stay out of the ordinary diary view and are included
+in operational backups.
 
 The account menu contains Language, Season, Log out and, for staff, Operator. Language changes
 apply immediately with JavaScript and retain the page and filters; a submit button
