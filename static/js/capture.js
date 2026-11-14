@@ -31,10 +31,14 @@
       const source = errors.querySelector(`[data-field-errors="${name}"]`);
       slot.replaceChildren();
       if (source) slot.append(source.cloneNode(true));
-      form.querySelectorAll(`input[name="${name}"]`).forEach(input => {
+      form.querySelectorAll(`[name="${name}"]`).forEach(input => {
         if (source) input.setAttribute("aria-invalid", "true");
         else input.removeAttribute("aria-invalid");
       });
+      if (source) {
+        let disclosure = slot.closest("details");
+        while (disclosure) { disclosure.open = true; disclosure = disclosure.parentElement.closest("details"); }
+      }
     }
   }
 
@@ -45,6 +49,10 @@
     document.getElementById("id_title").readOnly = value;
     document.getElementById("id_date").readOnly = value;
     inputs.forEach(input => { input.disabled = value; });
+    form.querySelectorAll("[data-planting-action] input, [data-planting-action] select, [data-planting-action] textarea, [data-planting-action] button").forEach(input => {
+      if (value) { input.dataset.wasDisabled = String(input.disabled); input.disabled = true; }
+      else { input.disabled = input.dataset.wasDisabled === "true"; delete input.dataset.wasDisabled; }
+    });
     if (value) form.setAttribute("aria-busy", "true");
     else form.removeAttribute("aria-busy");
   }
@@ -77,6 +85,7 @@
     }
   });
   form.addEventListener("htmx:beforeSwap", event => {
+    if (event.detail.target !== errors && event.detail.target?.id !== "quick-receipt") return;
     const code = event.detail.xhr.status;
     if ([409, 422, 503].includes(code)) {
       event.detail.shouldSwap = true;
@@ -111,6 +120,7 @@
     setBusy(false);
     progress.hidden = true;
     status.textContent = "";
+    document.dispatchEvent(new CustomEvent("capture:idle"));
   });
   ["htmx:sendError", "htmx:timeout"].forEach(name => {
     form.addEventListener(name, () => showError(form.dataset.networkError));

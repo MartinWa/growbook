@@ -7,6 +7,8 @@
       data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
   {% csrf_token %}
   {{ form.submission_key }}
+  {{ form.date_overrides }}
+  {{ form.default_date }}
   {% if quick %}
   <input type="hidden" name="capture_mode" value="quick">
   <input type="hidden" name="filter_query" value="{{ filter_query }}">
@@ -33,8 +35,12 @@
     <p id="capture-note-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Write a diary note, or leave this blank and add a photo.' %}</p>
     <div id="capture-body-errors" class="field-errors">{{ form.body.errors }}</div>
   </div>
-  {% include 'components/photo_picker.html' with field=None %}
+  {% include 'components/photo_picker.html' with field=None chooser_id='capture-photo-chooser' %}
   {% include 'diary/_tag_picker.html' %}
+  <div class="capture-tools" data-capture-tools>
+    {% include 'components/photo_chooser.html' with chooser_id='capture-photo-chooser' %}
+  </div>
+  {% include 'diary/_planting_action.html' %}
   <p id="capture-status" role="status" aria-live="polite"></p>
   <progress id="capture-progress" max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
   <div class="form-actions capture-actions">

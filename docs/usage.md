@@ -272,6 +272,10 @@ is shown as a dash and zero as zero.
 - **Start cycle** changes Planned to Ongoing and asks for the actual start date,
   defaulting to today in the garden's timezone. It preserves growing-year assignments.
   **Complete cycle** changes Ongoing to Completed and asks for the completion date.
+  It also offers each member's existing evaluation in a separate optional field.
+  Edit the text or clear it intentionally; omitted values are preserved. **Edit cycle**
+  offers the same fields for corrections to Completed. A stale cycle or member edit
+  must be reloaded before a new save; identical retries acknowledge the earlier save.
   Each persistent member's inclusive end year becomes that date's year; annual
   members keep their start year and have no end year. The viewed year never supplies
   the transition date. Invalid date ordering or incompatible member years reject
@@ -280,8 +284,8 @@ is shown as a dash and zero as zero.
 - **Edit cycle** is the route for correcting status and actual dates, including
   returning to Planned or reopening a Completed cycle. Reopening clears the completion
   date and persistent end years. Changing shared categories leaves member records
-  intact. Transitions and corrections preserve IDs, events, evaluation, photos and
-  diary links. Older automatically classified cycles can have unknown actual dates;
+  intact. Transitions and corrections preserve IDs, events, photos and diary links;
+  evaluations change only when supplied. Older automatically classified cycles can have unknown actual dates;
   correct their classification here. The initial upgrade rule is documented in
   [deployment](deployment.md#upgrade-an-existing-installation).
 - Filter by crop, variety or area, or find **Unassigned area only** or **Unknown variety
@@ -289,8 +293,8 @@ is shown as a dash and zero as zero.
   cycle counts once and member details show the actual assigned place.
   Archived register items stay visible in existing
   histories and associations.
-- **New planting event** supports sowing, transplanting, harvest start/end and other
-  milestones. Planned and actual dates are separate and at least one is required; dates
+- **New planting event** supports sowing, transplanting, replanting, harvest start/end
+  and other milestones. Planned and actual dates are separate and at least one is required; dates
   do not determine the growing year or change lifecycle status. Repeated event types
   are valid. Each planting
   in a batch has its own events and evaluation. Event edits and deletion
@@ -305,6 +309,44 @@ old planting and creating a new one at the destination; this preserves year-leve
 presence, not exact movement dates, lineage or historical layouts.
 
 ## Diary
+
+Capture's optional **Link to a planting** section starts collapsed. Its bordered
+control and chevron open the action selector; the chevron changes direction when
+expanded. Select one action:
+
+- **Start a new planting** requires a crop, or derives it from the selected variety.
+  Variety and growing area are optional. It defaults to Ongoing, using the diary date
+  for the actual start date and its year for the start year. Initial status, label,
+  quantity, lifespan, end year, categories, notes, evaluation and planting photos
+  remain editable.
+- **Add an event** accepts a planting in any status and year. The picker includes crop,
+  variety, area, year, status, label and batch context. Actual date defaults to the diary
+  date; planned and actual dates stay independent. Repeated event types are allowed and
+  events preserve cycle status.
+- **Change cycle status** loads the selected planting's recorded cycle dates,
+  categories and evaluations. **Start**, **Complete**, **Reopen** and **Return to Planned**
+  fill the status controls; **Current status** also allows corrections between all three
+  statuses. Saved dates stay intact until edited. Newly supplied dates follow changes
+  to the diary date with JavaScript until manually overridden. Completion offers one
+  prefilled, optional cumulative evaluation per member. Status applies to the whole
+  cycle, with the same date-order and persistent end-year rules as Plantings.
+
+The affected planting is linked automatically, with an already selected tag appearing
+once. Its crop, variety and area supply the usual derived diary filters. Planting and
+event notes are optional; the observation can be entered once. **Add photos** uploads
+diary photos to the observation. **Add planting photos** appears when starting a new
+planting, stays inside the planting fields, and uploads optional photos to that
+planting. Each owner
+has its own photo-count limit; the total byte limit applies to the whole upload.
+
+One save commits the observation, action, links, evaluations and photos together.
+Failures preserve the draft with JavaScript. Retry the same fields, photos and save key
+after an uncertain response; the action runs once even if the planting changes later.
+Editing, unlinking or deleting the observation does not repeat or undo its earlier action.
+Without JavaScript, choose an existing planting and use **Load planting details** before
+editing cycle fields. Untouched new-planting and event date defaults use the submitted
+diary date; set cycle dates explicitly. After a failed save or a choice update,
+select uploaded photos again before retrying.
 
 Open **Diary** to add an observation or browse observations newest first. The inline
 composer accepts a note, photos or both, with an optional title and tags. A confirmed

@@ -4,9 +4,10 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
+from browser_helpers import browser_page, login, wait_for_image
 from django.urls import reverse
 from django.utils import timezone
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from diary.services import create_entry
 from garden.services import archive_area, create_area, create_crop, create_planting
@@ -59,32 +60,18 @@ def areas(user, image_upload):
     }
 
 
-def login(page, live_server, user):
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('.login-panel button[type="submit"]').click()
-    expect(page).to_have_url(live_server.url + "/")
-
-
 @pytest.mark.parametrize("language", ["sv", "en"])
 @pytest.mark.parametrize("javascript", [False, True])
 @pytest.mark.parametrize("width", [320, 1280])
 def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
     live_server, user, areas, browser_endpoint, language, javascript, width, tmp_path
 ):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(
-            viewport={"width": width, "height": 1000}, java_script_enabled=javascript
-        ) as context,
-    ):
-        context.add_cookies(
+    with browser_page(
+        browser_endpoint, viewport={"width": width, "height": 1000}, java_script_enabled=javascript
+    ) as page:
+        page.context.add_cookies(
             [{"name": "django_language", "value": language, "url": live_server.url}]
         )
-        page = context.new_page()
-        page.set_default_timeout(8000)
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         login(page, live_server, user)
@@ -92,7 +79,7 @@ def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
         expect(page.locator(".area-card")).to_have_count(1)
         root_image = page.locator(".area-card img")
         expect(root_image).to_have_attribute("src", areas["root_image"])
-        root_image.evaluate("image => image.decode()")
+        wait_for_image(root_image)
         root_link = page.get_by_role("link", name=areas["root"].name, exact=True)
         root_link.focus()
         root_link.press("Enter")
@@ -102,7 +89,7 @@ def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
         children = page.locator(".area-child-section")
         expect(children.locator(".area-card")).to_have_count(1)
         expect(children.locator("img")).to_have_attribute("src", areas["child_image"])
-        children.locator("img").evaluate("image => image.decode()")
+        wait_for_image(children.locator("img"))
         assert children.bounding_box()["y"] < page.locator(".area-information").bounding_box()["y"]
         expect(page.locator(".area-plantings")).not_to_contain_text("Synthetic batch")
         expect(page.locator(".area-plantings")).not_to_contain_text("Inner section batch")
@@ -181,13 +168,7 @@ def test_area_cards_open_child_first_pages_and_existing_planting_diary_records(
 def test_clearing_area_filter_restores_descendants_for_another_area(
     live_server, user, areas, browser_endpoint, javascript, removal
 ):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(browser_endpoint, java_script_enabled=javascript) as page:
         login(page, live_server, user)
         page.goto(live_server.url + areas["child"].get_absolute_url())
         page.get_by_role("link", name=f"Odlingar {areas['year']} (1)", exact=True).click()
@@ -221,16 +202,10 @@ def test_clearing_area_filter_restores_descendants_for_another_area(
 def test_area_type_suggestions_and_custom_text_survive_editing(
     live_server, user, areas, browser_endpoint, language, raised_bed, javascript
 ):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        context.add_cookies(
+    with browser_page(browser_endpoint, java_script_enabled=javascript) as page:
+        page.context.add_cookies(
             [{"name": "django_language", "value": language, "url": live_server.url}]
         )
-        page = context.new_page()
-        page.set_default_timeout(8000)
         login(page, live_server, user)
         page.goto(live_server.url + areas["child"].get_absolute_url() + "?archived=1")
         page.get_by_role(
@@ -263,13 +238,7 @@ def test_long_child_card_lists_keep_keyboard_navigation_and_browser_back_usable(
         create_area(
             actor=user, parent=root, name=f"Synthetic bed {index:02}", notes=f"Notes {index:02}"
         )
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": width, "height": 844}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(browser_endpoint, viewport={"width": width, "height": 844}) as page:
         login(page, live_server, user)
         page.goto(live_server.url + root.get_absolute_url())
         expect(page.locator(".area-card")).to_have_count(30)

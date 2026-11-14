@@ -1,12 +1,12 @@
 /* Dependent variety choices use HTMX; preserve drafts and keyboard focus. */
 (() => {
   "use strict";
-  const form = document.querySelector("[data-register-form] #id_crop")?.closest("form");
+  const form = document.querySelector("[data-register-form] [name='crop']")?.closest("form");
   const status = form?.querySelector("#variety-status");
   if (!form || !status || !window.htmx) return;
-  const crop = form.querySelector("#id_crop");
-  const label = form.querySelector("#id_label");
-  const generated = form.querySelector("#id_generated_label");
+  const crop = form.querySelector("[name='crop']");
+  const label = form.querySelector("[name='label']");
+  const generated = form.querySelector("[name='generated_label']");
   let generatedLabel = generated.value;
   let customLabel = label.value !== generatedLabel;
   function updateLabel() {
@@ -14,7 +14,7 @@
     const cropName = crop.selectedOptions[0]?.dataset.recordName || "";
     // Keep the draft when an archived or deleted crop is offered as unavailable.
     if (crop.value && !cropName) return;
-    const variety = form.querySelector("#id_variety");
+    const variety = form.querySelector("[name='variety']");
     const varietyName = variety.selectedOptions[0]?.dataset.recordName || "";
     if (variety.value && !varietyName) return;
     generatedLabel = cropName + (varietyName ? `-${varietyName}` : "");
@@ -25,11 +25,11 @@
     customLabel = label.value !== generatedLabel;
   });
   form.addEventListener("change", event => {
-    if (event.target.id === "id_variety") updateLabel();
+    if (event.target.name.endsWith("variety")) updateLabel();
   });
   updateLabel();
-  const lifespan = form.querySelector("#id_lifespan");
-  const endYear = form.querySelector("#id_end_year");
+  const lifespan = form.querySelector("[name='lifespan']");
+  const endYear = form.querySelector("[name='end_year']");
   const endField = endYear.closest("[data-field-name]");
   const endHelp = endField.querySelector("[data-annual-end-help]");
   function updateEndYear() {
@@ -49,13 +49,13 @@
 
   // Remember each offered variety's crop so an incompatible selection is cleared immediately.
   function markChoices() {
-    form.querySelectorAll("#id_variety option[value]:not([value=''])").forEach(option => {
+    form.querySelectorAll("[name='variety'] option[value]:not([value=''])").forEach(option => {
       option.dataset.crop = crop.value;
     });
   }
   markChoices();
   crop.addEventListener("change", () => {
-    const variety = form.querySelector("#id_variety");
+    const variety = form.querySelector("[name='variety']");
     if (variety.selectedOptions[0]?.dataset.crop !== crop.value) variety.value = "";
     variety.querySelectorAll("option[value]:not([value=''])").forEach(option => {
       if (option.dataset.crop !== crop.value) option.remove();
@@ -77,7 +77,7 @@
     }
   });
   form.addEventListener("htmx:beforeSwap", event => {
-    if (event.detail.target?.id !== "id_variety") return;
+    if (!event.detail.target?.name?.endsWith("variety")) return;
     if (event.detail.xhr.status >= 400) {
       status.closest("details").open = true;
       event.detail.shouldSwap = false;
@@ -87,7 +87,7 @@
     }
   });
   form.addEventListener("htmx:afterSwap", event => {
-    if (event.detail.target?.id !== "id_variety") return;
+    if (!event.detail.target?.name?.endsWith("variety")) return;
     markChoices();
     updateLabel();
     status.textContent = status.dataset.choicesReady;

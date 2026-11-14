@@ -1,8 +1,9 @@
 """Shared details remain reachable in long lists at phone and desktop widths."""
 
 import pytest
+from browser_helpers import browser_page, login
 from django.urls import reverse
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from garden.services import create_crop, create_planting, create_variety
 
@@ -42,21 +43,10 @@ def long_list(request, user):
 
 @pytest.fixture
 def page(live_server, user, long_list, browser_endpoint):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 1280, "height": 844}) as context,
-    ):
-        context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 844}) as page:
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.goto(live_server.url + "/accounts/login/")
-        page.locator("#id_username").fill(user.username)
-        page.locator("#id_password").fill("Synthetic-password-42")
-        page.locator('.login-panel button[type="submit"]').click()
-        expect(page).to_have_url(live_server.url + "/")
+        login(page, live_server, user, "en")
         yield page
         assert errors == []
 

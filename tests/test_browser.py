@@ -8,9 +8,11 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 import pytest
+from browser_helpers import browser_page, wait_for_image
+from browser_helpers import login as login_through_form
 from django.db import close_old_connections, connection
 from PIL import Image
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from diary.services import create_entry
 from garden.models import Crop
@@ -20,15 +22,8 @@ pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
 
 @pytest.fixture
-def page(live_server, settings, user, browser_endpoint):
-    settings.WHITENOISE_USE_FINDERS = True
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 390, "height": 844}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+def page(live_server, user, browser_endpoint):
+    with browser_page(browser_endpoint, viewport={"width": 390, "height": 844}) as page:
         yield page
 
 
@@ -40,14 +35,9 @@ def open_filters(page):
     summary.press("Tab")
 
 
-def login(page, live_server, user):
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('button[type="submit"]').filter(has_text="Logga in").click()
-    expect(page).to_have_url(live_server.url + "/")
-    page.goto(live_server.url + "/")
-    page.wait_for_function("window.htmx !== undefined")
+def login(page, live_server, user, language=None):
+    login_through_form(page, live_server, user, language)
+    page.wait_for_function("() => window.htmx !== undefined")
 
 
 def upload(file, name="synthetic.jpg"):
@@ -71,9 +61,11 @@ def open_entry_edit(page, live_server, user, photos=()):
 def test_diary_has_one_composer_without_more_options(page, live_server, user):
     login(page, live_server, user)
     expect(page.locator("#capture-form")).to_be_visible()
+    expect(page.locator("#capture-form [data-photo-chooser]:visible")).to_have_count(1)
+    expect(page.locator('#capture-form input[type="file"]:visible')).to_have_count(0)
     expect(page.locator("[data-more-options]")).to_have_count(0)
     expect(page.locator(".photo-limits")).to_have_count(0)
-    expect(page.locator("[data-photo-limit-warning]")).to_be_hidden()
+    expect(page.locator("[data-photo-limit-warning]:not([data-capture-action] *)")).to_be_hidden()
     page.goto(live_server.url + "/capture/")
     expect(page).to_have_url(live_server.url + "/#id_body")
     expect(page.locator("#capture-form")).to_be_visible()
@@ -258,11 +250,13 @@ def test_apple_hdr_library_photo_saves_from_the_edit_form(
 ):
     entry_url = open_entry_edit(page, live_server, user)
     page.locator("input[type=file]:not([capture])").set_input_files(upload(apple_hdr_upload()))
-    expect(page.locator("[data-photo-previews] figure")).to_have_count(1)
+    expect(page.locator("[data-photo-previews]:not([data-capture-action] *) figure")).to_have_count(
+        1
+    )
     page.locator('#entry-form button[type="submit"]').click()
     expect(page).to_have_url(entry_url)
     image = page.locator(".entry-photos figure img")
-    image.evaluate("image => image.decode()")
+    wait_for_image(image)
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [80, 60]
 
 
@@ -281,11 +275,14 @@ def test_favicon_is_available_without_login(page, live_server):
         lambda response: response.url.endswith("/static/icons/favicon.svg")
     ) as fetched:
         page.evaluate(
-            """async () => {
-                const image = new Image();
-                image.src = document.querySelector('link[rel="icon"]').href;
-                await image.decode();
+            """() => {
+                window.faviconImage = new Image();
+                window.faviconImage.src = document.querySelector('link[rel="icon"]').href;
             }"""
+        )
+        page.wait_for_function(
+            "() => window.faviconImage.complete && window.faviconImage.naturalWidth > 0",
+            timeout=8000,
         )
     assert fetched.value.status == 200
     assert fetched.value.headers["content-type"] == "image/svg+xml"
@@ -327,7 +324,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     viewer_path = photo_link.get_attribute("href")
     expect(photo_link).to_have_attribute("href", re.compile(r"/photos/\d+/$"))
     preview = photo_link.locator("img")
-    preview.evaluate("image => image.decode()")
+    wait_for_image(preview)
     assert preview.bounding_box()["width"] <= 240
     photo_link.click()
     expect(page).to_have_url(live_server.url + viewer_path)
@@ -343,7 +340,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     page.keyboard.press("Tab")
     expect(delete).to_be_focused()
     image = page.locator(".photo-viewer img")
-    image.evaluate("image => image.decode()")
+    wait_for_image(image)
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [1600, 1200]
     expect(page.get_by_role("link", name="Tillbaka till observationen")).to_have_attribute(
         "href", urlsplit(entry_url).path
@@ -355,7 +352,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
         assert response.headers["content-type"].startswith("text/html")
         assert "style-src 'self'" in response.headers["content-security-policy"]
         assert "unsafe-inline" not in response.headers["content-security-policy"]
-        image.evaluate("image => image.decode()")
+        wait_for_image(image)
     for width in (320, 1280):
         page.set_viewport_size({"width": width, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -544,12 +541,14 @@ def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server,
     if mime_type == "image/svg+xml":
         expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
         expect(preview.locator("img")).to_have_attribute("alt", filename)
-        preview.locator("img").evaluate("image => image.decode()")
+        wait_for_image(preview.locator("img"))
         assert preview.locator("img").count() == 1
     else:
         expect(preview.locator("img")).to_have_count(0)
         expect(preview.locator("p")).to_have_text(
-            page.locator("[data-photo-picker]").get_attribute("data-preview-unavailable")
+            page.locator("[data-photo-picker]:not([data-capture-action] *)").get_attribute(
+                "data-preview-unavailable"
+            )
         )
     assert preview.locator("script, svg, [onerror], [onload]").count() == 0
     assert page.evaluate("window.previewExecuted === undefined")
@@ -583,7 +582,9 @@ def test_preview_rejects_unexpected_urls_without_losing_upload(
     expect(preview).to_have_count(1)
     expect(preview.locator("img")).to_have_count(0)
     expect(preview.locator("p")).to_have_text(
-        page.locator("[data-photo-picker]").get_attribute("data-preview-unavailable")
+        page.locator("[data-photo-picker]:not([data-capture-action] *)").get_attribute(
+            "data-preview-unavailable"
+        )
     )
     assert preview.locator("script, svg, [onerror], [onload]").count() == 0
     assert page.evaluate("window.previewExecuted === undefined")
@@ -629,11 +630,7 @@ def test_capture_foundation_reflows_and_supports_keyboard(
 ):
     # Enable interception before keyboard activation; a last-moment subscription can race.
     page.on("filechooser", lambda chooser: None)
-    login(page, live_server, user)
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.reload()
+    login(page, live_server, user, language)
     expect(page.locator("html")).to_have_attribute("lang", language)
     for width in (320, 390, 1280):
         page.set_viewport_size({"width": width, "height": 844})
@@ -641,7 +638,7 @@ def test_capture_foundation_reflows_and_supports_keyboard(
         for selector in (
             "#save-entry",
             "[data-tag-trigger]",
-            "[data-photo-chooser]",
+            "[data-photo-chooser]:not([data-capture-action] *)",
             "#id_date",
             "#id_body",
         ):
@@ -651,8 +648,13 @@ def test_capture_foundation_reflows_and_supports_keyboard(
         save = page.locator("#save-entry").bounding_box()
         assert abs(save["x"] + save["width"] - actions["x"] - actions["width"]) < 1
     tag = page.locator("[data-tag-trigger]")
-    photos = page.locator("[data-photo-chooser]")
-    assert tag.bounding_box()["y"] == photos.bounding_box()["y"] == save["y"]
+    photos = page.locator("[data-photo-chooser]:not([data-capture-action] *)")
+    assert tag.bounding_box()["y"] == photos.bounding_box()["y"]
+    summary = page.locator("[data-planting-action] > summary")
+    assert (
+        photos.bounding_box()["y"] + photos.bounding_box()["height"] < summary.bounding_box()["y"]
+    )
+    assert summary.bounding_box()["y"] < save["y"]
     expect(page.locator(".about-label")).to_have_count(0)
     page.locator("#id_body").focus()
     page.keyboard.press("Tab")
@@ -668,6 +670,8 @@ def test_capture_foundation_reflows_and_supports_keyboard(
     assert selection.value.element.get_attribute("id") == "id_library"
     assert selection.value.element.get_attribute("capture") is None
     page.keyboard.press("Tab")
+    expect(summary).to_be_focused()
+    page.keyboard.press("Tab")
     expect(page.locator("#save-entry")).to_be_focused()
     assert page.locator("#capture-form").evaluate(
         """form => [...form.querySelectorAll('[aria-describedby]')].every(input =>
@@ -681,12 +685,16 @@ def test_capture_foundation_reflows_and_supports_keyboard(
     )
     page.locator("#id_library").set_input_files(upload(image_upload()))
     expected = "Valda bilder: 1" if language == "sv" else "Photos selected: 1"
-    expect(page.locator("[data-photo-count]")).to_have_text(expected)
-    removal = page.locator("[data-photo-previews] button").bounding_box()
+    expect(page.locator("[data-photo-count]:not([data-capture-action] *)")).to_have_text(expected)
+    removal = page.locator(
+        "[data-photo-previews]:not([data-capture-action] *) button"
+    ).bounding_box()
     assert removal["width"] >= 44 and removal["height"] >= 44
     page.locator("#capture-form").evaluate("form => form.reset()")
-    expect(page.locator("[data-photo-count]")).to_have_text("")
-    expect(page.locator("[data-photo-previews] figure")).to_have_count(0)
+    expect(page.locator("[data-photo-count]:not([data-capture-action] *)")).to_have_text("")
+    expect(page.locator("[data-photo-previews]:not([data-capture-action] *) figure")).to_have_count(
+        0
+    )
     # Emulate larger user text with a self-hosted stylesheet under the unchanged CSP.
     page.route(
         "**/static/css/test-text-size.css",
@@ -753,17 +761,19 @@ def test_photo_limits_appear_only_after_exceeding_a_selection_limit(
     settings.PHOTO_MAX_FILE_BYTES = len(image) - 1 if limit == "file" else len(image) * 2
     settings.PHOTO_MAX_TOTAL_BYTES = len(image) * 3 // 2 if limit == "total" else len(image) * 10
     login(page, live_server, user)
-    warning = page.locator("[data-photo-limit-warning]")
+    warning = page.locator("[data-photo-limit-warning]:not([data-capture-action] *)")
     expect(warning).to_be_hidden()
     expect(page.locator(".photo-limit-line, .photo-limits")).to_have_count(0)
     file = {"name": "synthetic.jpg", "mimeType": "image/jpeg", "buffer": image}
     page.locator("#id_library").set_input_files([file] if limit == "file" else [file, file])
     expect(warning).to_be_visible()
     expect(warning).to_contain_text("JPEG, PNG, WebP")
-    page.locator("[data-photo-previews] button").first.click()
+    page.locator("[data-photo-previews]:not([data-capture-action] *) button").first.click()
     expect(warning).to_be_hidden()
     if limit != "file":
-        expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 1")
+        expect(page.locator("[data-photo-count]:not([data-capture-action] *)")).to_have_text(
+            "Valda bilder: 1"
+        )
 
 
 def test_network_error_preserves_selection_then_retry_saves_once(
@@ -923,18 +933,28 @@ def test_edit_photo_limit_counts_kept_photos_and_can_be_corrected(
     page.locator("#id_photos").set_input_files(
         [upload(image_upload(), f"library-{number}.jpg") for number in range(9)]
     )
-    expect(page.locator("[data-photo-limit-warning]")).to_be_visible()
-    expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 10")
-    expect(page.locator("[data-photo-previews] figure")).to_have_count(10)
+    expect(page.locator("[data-photo-limit-warning]:not([data-capture-action] *)")).to_be_visible()
+    expect(page.locator("[data-photo-count]:not([data-capture-action] *)")).to_have_text(
+        "Valda bilder: 10"
+    )
+    expect(page.locator("[data-photo-previews]:not([data-capture-action] *) figure")).to_have_count(
+        10
+    )
     page.locator("#entry-form button[type=submit]").click()
     expect(page.locator("#entry-errors")).to_contain_text("10")
-    expect(page.locator("[data-photo-previews] figure")).to_have_count(10)
+    expect(page.locator("[data-photo-previews]:not([data-capture-action] *) figure")).to_have_count(
+        10
+    )
     for capacity, removal in enumerate(page.locator('input[name="remove_photos"]').all(), start=9):
         removal.check()
-        expect(page.locator("[data-photo-count]")).to_have_text("Valda bilder: 10")
+        expect(page.locator("[data-photo-count]:not([data-capture-action] *)")).to_have_text(
+            "Valda bilder: 10"
+        )
         if capacity < 10:
-            expect(page.locator("[data-photo-limit-warning]")).to_be_visible()
-    expect(page.locator("[data-photo-limit-warning]")).to_be_hidden()
+            expect(
+                page.locator("[data-photo-limit-warning]:not([data-capture-action] *)")
+            ).to_be_visible()
+    expect(page.locator("[data-photo-limit-warning]:not([data-capture-action] *)")).to_be_hidden()
     page.locator("#entry-form button[type=submit]").click()
     expect(page).to_have_url(entry_url)
     expect(page.locator(".entry-photos figure")).to_have_count(10)
@@ -1124,7 +1144,7 @@ def test_quick_capture_saves_without_navigation_and_resets_only_after_success(
     page.locator("#id_title").fill("Synthetic quick heading")
     if photo_count:
         with page.expect_file_chooser() as picker:
-            page.locator("[data-photo-chooser]").click()
+            page.locator("[data-photo-chooser]:not([data-capture-action] *)").click()
         picker.value.set_files(
             [upload(image_upload(), f"synthetic-{number}.jpg") for number in range(photo_count)]
         )
@@ -1197,7 +1217,7 @@ def test_slow_capture_drops_repeated_submits_and_keeps_controls_locked(
     page.route("**/capture/", lambda route: pending.append(route))
     page.locator("#save-entry").click()
     expect(page.locator("#capture-form")).to_have_attribute("aria-busy", "true")
-    expect(page.locator("[data-photo-chooser]")).to_be_disabled()
+    expect(page.locator("[data-photo-chooser]:not([data-capture-action] *)")).to_be_disabled()
     expect(page.locator("#photo-previews button")).to_be_disabled()
     expect(page.locator("[data-tag-trigger]")).to_be_disabled()
     # Exercise the submit event path as well as the disabled button.
@@ -1211,7 +1231,7 @@ def test_slow_capture_drops_repeated_submits_and_keeps_controls_locked(
     page.locator("#id_q").press("Enter")
     expect(page).to_have_url(live_server.url + "/?q=slow")
     expect(page.locator("#save-entry")).to_be_disabled()
-    expect(page.locator("[data-photo-chooser]")).to_be_disabled()
+    expect(page.locator("[data-photo-chooser]:not([data-capture-action] *)")).to_be_disabled()
     expect(page.locator("#id_library")).to_be_disabled()
     expect(page.locator("#id_body")).not_to_be_editable()
     if failure:

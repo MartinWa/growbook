@@ -5,7 +5,7 @@
   document.querySelectorAll("[data-tag-picker]").forEach(picker => {
     const form = picker.closest("form");
     const trigger = picker.querySelector("[data-tag-trigger]");
-    const actions = form.querySelector(".capture-actions");
+    const actions = form.querySelector("[data-capture-tools], .capture-actions");
     if (actions) actions.prepend(trigger);
     const popover = picker.querySelector("[data-tag-popover]");
     const search = picker.querySelector("[data-tag-search]");

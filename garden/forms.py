@@ -140,7 +140,7 @@ class VarietyForm(forms.Form):
         current = record.crop_id if record else None
         self.fields["crop"].queryset = Crop.objects.filter(Q(is_archived=False) | Q(pk=current))
         if self.is_bound:
-            self.fields["crop"].preserve_selection(self.data.get("crop"))
+            self.fields["crop"].preserve_selection(self.data.get(self.add_prefix("crop")))
 
 
 class AreaChoiceField(forms.ModelChoiceField):
@@ -208,6 +208,8 @@ class RecordNameSelect(forms.Select):
         option = super().create_option(name, value, label, selected, index, subindex, attrs)
         if instance := getattr(value, "instance", None):
             option["attrs"]["data-record-name"] = instance.name
+            if hasattr(instance, "crop_id"):
+                option["attrs"]["data-crop"] = instance.crop_id
         return option
 
 
@@ -240,9 +242,9 @@ class CycleFieldsForm(forms.Form):
         choices = [(str(category.pk), category.name) for category in PlantingCategory.objects.all()]
         if self.is_bound:
             selected = (
-                self.data.getlist("category_ids")
+                self.data.getlist(self.add_prefix("category_ids"))
                 if hasattr(self.data, "getlist")
-                else self.data.get("category_ids", [])
+                else self.data.get(self.add_prefix("category_ids"), [])
             )
             for value in selected:
                 try:
@@ -286,12 +288,79 @@ class CycleFieldsForm(forms.Form):
         return data
 
 
-class CycleEditForm(CycleFieldsForm):
+class CycleEvaluationMixin:
+    """One cumulative evaluation per member, with the versions actually read by the form."""
+
+    def setup_evaluations(self, cycle):
+        self.evaluation_names = []
+        members = (
+            {member.pk: member for member in cycle.members.select_related("crop", "variety")}
+            if cycle
+            else {}
+        )
+        ids = set(members)
+        if self.is_bound:
+            for marker in (self.add_prefix("member_version_"), self.add_prefix("evaluation_")):
+                ids.update(
+                    int(key[len(marker) :])
+                    for key in self.data
+                    if key.startswith(marker) and key[len(marker) :].isdigit()
+                )
+        for pk in sorted(ids):
+            member = members.get(pk)
+            name, version = f"evaluation_{pk}", f"member_version_{pk}"
+            self.fields[name] = forms.CharField(
+                label=_("Evaluation: %(planting)s") % {"planting": str(member) if member else pk},
+                required=False,
+                initial=member.evaluation if member else "",
+                widget=forms.Textarea(attrs={"rows": 3}),
+            )
+            self.fields[version] = VersionField(
+                required=False, initial=member.updated_at if member else None
+            )
+            self.evaluation_names.append(name)
+        describe_fields(self)
+
+    @property
+    def evaluation_fields(self):
+        return [self[name] for name in self.evaluation_names]
+
+    def evaluation_values(self):
+        if (
+            "status" in self.cleaned_data
+            and self.cleaned_data["status"] != PlantingCycle.Status.COMPLETED
+        ):
+            for name in self.evaluation_names:
+                self.cleaned_data.pop(name, None)
+                self.cleaned_data.pop(name.replace("evaluation_", "member_version_"), None)
+            return {}
+        evaluations, versions = {}, {}
+        for name in self.evaluation_names:
+            pk = int(name.removeprefix("evaluation_"))
+            version_name = f"member_version_{pk}"
+            text = self.cleaned_data.pop(name, "")
+            version = self.cleaned_data.pop(version_name, None)
+            if self.add_prefix(version_name) in self.data:
+                versions[pk] = version
+            if self.add_prefix(name) in self.data:
+                evaluations[pk] = text
+        return (
+            {"evaluations": evaluations, "expected_member_versions": versions}
+            if versions or evaluations
+            else {}
+        )
+
+
+class CycleEditForm(CycleEvaluationMixin, CycleFieldsForm):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField()
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setup_evaluations(self.cycle)
 
-class CycleTransitionForm(forms.Form):
+
+class CycleTransitionForm(CycleEvaluationMixin, forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField()
     date = forms.DateField(
@@ -300,8 +369,9 @@ class CycleTransitionForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, cycle=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setup_evaluations(cycle)
         describe_fields(self)
 
 
@@ -392,7 +462,7 @@ class PlantingForm(CycleFieldsForm):
             record is not None
             or batch_member is not None
             or self.initial.get("batch_planting")
-            or self.data.get("batch_planting")
+            or self.data.get(self.add_prefix("batch_planting"))
         ):
             for name in ("status", "started_on", "completed_on", "category_ids"):
                 self.fields.pop(name)
@@ -404,7 +474,9 @@ class PlantingForm(CycleFieldsForm):
         self.fields["crop"].queryset = Crop.objects.filter(
             Q(is_archived=False) | Q(pk=record.crop_id if record else None)
         )
-        raw_crop = self.data.get("crop") if self.is_bound else self.initial.get("crop")
+        raw_crop = (
+            self.data.get(self.add_prefix("crop")) if self.is_bound else self.initial.get("crop")
+        )
         try:
             crop_id = clean_record_id(raw_crop)
         except forms.ValidationError:
@@ -419,7 +491,7 @@ class PlantingForm(CycleFieldsForm):
         if (
             batch_member is not None
             or self.initial.get("batch_planting")
-            or self.data.get("batch_planting")
+            or self.data.get(self.add_prefix("batch_planting"))
             or (
                 record is not None
                 and record.variety_id is not None
@@ -447,14 +519,14 @@ class PlantingForm(CycleFieldsForm):
                 field = self.fields[name]
                 choices = list(field.choices)
                 try:
-                    selected = int(self.data.get(name, ""))
+                    selected = int(self.data.get(self.add_prefix(name), ""))
                 except ValueError, TypeError:
                     selected = None
                 offered = {str(value) for value, _label in choices}
                 if selected is not None and selected > 0:
                     if str(selected) not in offered:
                         if name == "variety" and self.data.get("choose_crop") == "1":
-                            self.data[name] = ""
+                            self.data[self.add_prefix(name)] = ""
                         else:
                             choices.append(
                                 (
@@ -469,11 +541,15 @@ class PlantingForm(CycleFieldsForm):
             bool(batch_member)
             or self.data.get("choose_crop") == "1"
             or any(
-                values.get(name) not in (None, "", Planting.Lifespan.ANNUAL)
+                (values.get(self.add_prefix(name)) if self.is_bound else values.get(name))
+                not in (None, "", Planting.Lifespan.ANNUAL)
                 for name in self.detail_names
             )
         )
-        self._notes_open = any(values.get(name) for name in self.note_names) or bool(self.files)
+        self._notes_open = any(
+            values.get(self.add_prefix(name)) if self.is_bound else values.get(name)
+            for name in self.note_names
+        ) or bool(self.files)
         if record is not None and record.photos.exists():
             self._notes_open = True
 

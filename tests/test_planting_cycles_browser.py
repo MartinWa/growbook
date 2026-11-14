@@ -3,9 +3,11 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from browser_helpers import browser_page, wait_for_image
+from browser_helpers import login as login_through_form
 from django.db import close_old_connections
 from django.utils import timezone
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from core.writes import validated_write
 from garden.models import CycleSubmission, PlantingCycle
@@ -41,25 +43,12 @@ def cycle(user):
 
 @pytest.fixture
 def page(browser_endpoint, live_server, user, cycle):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context() as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
+    with browser_page(browser_endpoint, timeout=10000) as page:
         yield page
 
 
 def login(page, live_server, user, language="en"):
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('.login-panel button[type="submit"]').click()
-    expect(page).to_have_url(live_server.url + "/")
+    login_through_form(page, live_server, user, language)
 
 
 def save(page):
@@ -102,13 +91,13 @@ def test_categories_batch_actions_edit_correction_and_safe_deletion(
         image = card.locator("img")
         expect(image).to_have_attribute("src", source)
         expect(image).to_have_attribute("alt", "")
-        image.evaluate("image => image.decode()")
+        wait_for_image(image)
         assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [1000, 500]
         card.press("Enter")
         heading_image = page.locator(".register-illustration")
         expect(heading_image).to_have_attribute("src", source)
         expect(heading_image).to_have_attribute("alt", "")
-        heading_image.evaluate("image => image.decode()")
+        wait_for_image(heading_image)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         page.goto(root)
     page.get_by_role(
@@ -279,12 +268,7 @@ def test_all_years_cards_and_category_return_keep_historical_annuals(
     path = (
         "/garden/plantings/history/" if scope == "planting" else f"/garden/crops/{crop.pk}/history/"
     )
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        page = context.new_page()
+    with browser_page(browser_endpoint, timeout=30000, java_script_enabled=javascript) as page:
         login(page, live_server, user)
         page.goto(live_server.url + path)
         if scope == "crop":
@@ -312,12 +296,7 @@ def test_lost_unknown_start_edit_retries_after_another_tab_completes_cycle(
     with validated_write():
         PlantingCycle.objects.filter(pk=cycle).update(status="ongoing")
     receipts = CycleSubmission.objects.count()
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context() as context,
-    ):
-        page = context.new_page()
+    with browser_page(browser_endpoint, timeout=30000) as page:
         login(page, live_server, user)
         page.goto(live_server.url + f"/garden/plantings/cycles/{cycle}/edit/")
         expect(page.locator("#id_started_on")).to_have_value("")
@@ -331,7 +310,7 @@ def test_lost_unknown_start_edit_retries_after_another_tab_completes_cycle(
         page.route(f"**/cycles/{cycle}/edit/", lose_response, times=1)
         save(page)
         expect(page.locator("#register-errors")).to_contain_text("The connection failed")
-        other = context.new_page()
+        other = page.context.new_page()
         other.goto(live_server.url + f"/garden/plantings/cycles/{cycle}/complete/")
         other.locator("#id_date").fill("2027-09-01")
         save(other)

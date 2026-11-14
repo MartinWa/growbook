@@ -4,8 +4,9 @@ import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from browser_helpers import browser_page, login
 from django.utils import timezone
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from garden.models import Planting
 from garden.services import (
@@ -74,15 +75,10 @@ def catalog(user, image_upload):
 
 
 @pytest.fixture
-def page(live_server, settings, user, catalog, browser_endpoint):
-    settings.WHITENOISE_USE_FINDERS = True
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 1280, "height": 1000}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
+def page(live_server, user, catalog, browser_endpoint):
+    with browser_page(
+        browser_endpoint, timeout=10000, viewport={"width": 1280, "height": 1000}
+    ) as page:
         yield page
 
 
@@ -92,14 +88,6 @@ def open_filters(page):
     if disclosure.get_attribute("open") is None:
         summary.click()
     summary.press("Tab")
-
-
-def login(page, live_server, user):
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.get_by_role("button", name="Logga in", exact=True).click()
-    expect(page).to_have_url(live_server.url + "/")
 
 
 def image_file(image_upload, name="synthetic.jpg"):
@@ -631,17 +619,6 @@ PLANTING_COPY = {
 }
 
 
-def login_in_language(page, live_server, user, language):
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.get_by_role("button", name=PLANTING_COPY[language]["login"], exact=True).click()
-    expect(page).to_have_url(live_server.url + "/")
-
-
 def open_planting_details(page, selector="#planting-more-details"):
     group = page.locator(selector)
     if group.get_attribute("open") is None:
@@ -665,16 +642,13 @@ def test_area_creation_cancel_validation_labels_and_year_navigation(
     ).record
     future = create_planting(actor=user, crop=crop, area=area, start_year=year + 1).record
     destination = area.get_absolute_url() + "?archived=1"
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(
-            java_script_enabled=javascript, viewport={"width": width, "height": 1000}
-        ) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
-        login_in_language(page, live_server, user, language)
+    with browser_page(
+        browser_endpoint,
+        timeout=10000,
+        java_script_enabled=javascript,
+        viewport={"width": width, "height": 1000},
+    ) as page:
+        login(page, live_server, user, language)
         page.goto(live_server.url + destination)
         expect(
             page.locator(f'.area-plantings a[href="{past.get_absolute_url()}"] img')
@@ -755,14 +729,8 @@ def test_batch_addition_requires_explicit_area_correction_and_explains_required_
     else:
         archive_area(actor=user, pk=area.pk)
         replacement = create_area(actor=user, name="Alternative bed").record
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
-        login_in_language(page, live_server, user, language)
+    with browser_page(browser_endpoint, timeout=10000, java_script_enabled=javascript) as page:
+        login(page, live_server, user, language)
         page.goto(live_server.url + original.get_absolute_url())
         page.get_by_role("link", name=PLANTING_COPY[language]["add_variety"], exact=True).click()
         expect(page.locator("#id_area")).to_have_value(str(area.pk))
@@ -807,15 +775,13 @@ def test_add_variety_to_batch_preserves_independent_photos_and_retries(
         uploads=[image_upload()],
     ).record
     thumbnail_url = original.photos.get().thumbnail_url
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(
-            java_script_enabled=javascript, viewport={"width": width, "height": 1000}
-        ) as context,
-    ):
-        page = context.new_page()
-        login_in_language(page, live_server, user, "en")
+    with browser_page(
+        browser_endpoint,
+        timeout=30000,
+        java_script_enabled=javascript,
+        viewport={"width": width, "height": 1000},
+    ) as page:
+        login(page, live_server, user, "en")
         page.goto(live_server.url + original.get_absolute_url())
         page.get_by_role("link", name="Add variety to batch", exact=True).click()
         page.wait_for_load_state("load")
@@ -888,14 +854,8 @@ def test_label_names_and_automatic_state_survive_a_full_failed_form_reload(
     # Visible option labels may change without changing the stored names used for generation.
     monkeypatch.setattr(Crop, "__str__", lambda record: "Crop: " + record.name)
     monkeypatch.setattr(Variety, "__str__", lambda record: "Variety: " + record.name)
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context() as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
-        login_in_language(page, live_server, user, language)
+    with browser_page(browser_endpoint, timeout=10000) as page:
+        login(page, live_server, user, language)
         page.goto(live_server.url + "/garden/plantings/new/")
         page.locator("#id_crop").select_option(str(crop.pk))
         open_planting_details(page)
@@ -939,14 +899,8 @@ def test_archived_batch_has_no_add_action_and_known_members_keep_required_variet
     original = create_planting(actor=user, crop=crop, variety=first, start_year=2027).record
     create_planting(actor=user, crop=crop, variety=second, start_year=2027, batch_planting=original)
     archive_crop(actor=user, pk=crop.pk)
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
-        login_in_language(page, live_server, user, language)
+    with browser_page(browser_endpoint, timeout=10000, java_script_enabled=javascript) as page:
+        login(page, live_server, user, language)
         page.goto(live_server.url + original.get_absolute_url())
         expect(page.get_by_role("link", name=PLANTING_COPY[language]["add_variety"])).to_have_count(
             0

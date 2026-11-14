@@ -5,7 +5,9 @@
     const form = picker.closest("form");
     const inputs = [...picker.querySelectorAll("input[type=file]")];
     const nativePicker = inputs.find(input => !input.hasAttribute("capture"));
-    const chooser = picker.querySelector("[data-photo-chooser]");
+    const chooser = picker.dataset.photoChooserId
+      ? document.getElementById(picker.dataset.photoChooserId)
+      : picker.querySelector("[data-photo-chooser]");
     const previews = picker.querySelector("[data-photo-previews]");
     const count = picker.querySelector("[data-photo-count]");
     const warning = picker.querySelector("[data-photo-limit-warning]");
@@ -115,8 +117,6 @@
     });
     chooser.setAttribute("aria-describedby",
       [...picker.querySelectorAll(".field-errors[id]")].map(slot => slot.id).join(" "));
-    const actions = form.querySelector(".capture-actions");
-    if (actions) actions.insertBefore(chooser, actions.querySelector('[type="submit"]'));
     picker.querySelector("[data-native-photos]").hidden = true;
     chooser.hidden = false;
 

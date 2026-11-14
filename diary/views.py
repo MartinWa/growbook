@@ -14,6 +14,8 @@ from django.views.decorators.http import require_GET, require_http_methods
 from core.forms import DeleteForm, form_error, valid_post
 from core.media import MediaBusy
 from core.models import Photo
+from garden.models import Planting
+from garden.services import RegisterConflict
 
 from .forms import CaptureForm, DiaryFilterForm, EntryEditForm, EntryPhotoForm
 from .models import DiaryEntry
@@ -316,6 +318,47 @@ def capture(request):
     if request.method == "GET":
         return redirect(reverse("diary:list") + "#id_body")
     quick = request.method == "POST" and request.POST.get("capture_mode") == "quick"
+    if request.POST.get("choose_action") == "1":
+        data = request.POST.copy()
+        try:
+            selected = int(data.get("action_planting", ""))
+        except ValueError, TypeError:
+            selected = None
+        planting = Planting.objects.select_related("cycle").filter(pk=selected).first()
+        if planting:
+            cycle = planting.cycle
+            for name in list(data):
+                if name.startswith("cycle-"):
+                    data.pop(name)
+            data.update(
+                {
+                    "cycle-status": cycle.status,
+                    "cycle-started_on": cycle.started_on.isoformat() if cycle.started_on else "",
+                    "cycle-completed_on": cycle.completed_on.isoformat()
+                    if cycle.completed_on
+                    else "",
+                    "cycle-expected_updated_at": cycle.updated_at.isoformat(),
+                }
+            )
+            data.setlist(
+                "cycle-category_ids",
+                [str(pk) for pk in cycle.categories.values_list("pk", flat=True)],
+            )
+            for member in cycle.members.all():
+                data[f"cycle-evaluation_{member.pk}"] = member.evaluation
+                data[f"cycle-member_version_{member.pk}"] = member.updated_at.isoformat()
+        form = CaptureForm(data, quick=quick)
+        from django.forms.utils import ErrorDict
+
+        for choice_form in (form, *form.action_forms.values()):
+            choice_form._errors = ErrorDict()
+        if request.headers.get("HX-Request") == "true":
+            return render(request, "diary/_cycle_action_fields.html", {"form": form.cycle_form})
+        context = _list_context(
+            request, data=QueryDict(data.get("filter_query", "")), capture_form=form
+        )
+        context["failed"] = bool(request.FILES)
+        return render(request, "diary/list.html", context)
     form = CaptureForm(
         request.POST if request.method == "POST" else None,
         request.FILES if request.method == "POST" else None,
@@ -326,7 +369,7 @@ def capture(request):
         valid = valid_post(
             request,
             form,
-            photo_fields={"camera", "library"},
+            photo_fields={"camera", "library", "planting-photos"},
             unexpected_photo_message=_(
                 "An unexpected photo field was submitted. No entry was saved."
             ),
@@ -341,12 +384,17 @@ def capture(request):
                     uploads=form.cleaned_data["camera"] + form.cleaned_data["library"],
                     submission_key=form.cleaned_data["submission_key"],
                     links=form.selected_links,
+                    action=form.cleaned_data["action"],
+                    planting_uploads=form.cleaned_data["planting_uploads"],
                 )
             except (SubmissionConflict, SubmissionDeleted) as exc:
                 form.add_error(None, exc)
                 status = 409
+            except RegisterConflict as exc:
+                form.add_error(None, exc)
+                status = 409
             except ValidationError as exc:
-                form_error(form, exc)
+                form.action_error(exc)
             except MediaBusy, OperationalError, OSError:
                 logger.exception("Capture failed; a stable submission key makes retries safe.")
                 form.add_error(

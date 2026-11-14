@@ -61,7 +61,7 @@ that terminal. The supplied Django debug configuration starts a second server on
 loopback port 8001 without the reloader; forward that port to local loopback in VS Code's
 Ports panel. The normal server on port 8000 continues to reload on saves.
 
-Test runs share a disposable test database under `/state/test-state`; run suites
+Test invocations share disposable Linux state; run separate invocations
 sequentially within one Compose project. Temporary `compose run --rm` containers share
 the development volumes but do not publish the service's HTTP port.
 
@@ -113,6 +113,17 @@ Category-only cycle changes preserve member versions. `edit_planting_category` a
 linked cycles' versions while preserving their members. Category creation needs no
 version token. Pass typed integer category IDs to cycle and creation writers.
 
+Completion and cycle corrections optionally accept `evaluations` keyed by member ID
+and `expected_member_versions` containing the entire member-version snapshot read by
+the form. Supplied text may be blank to clear it; omitted evaluations stay intact.
+Membership, member versions, lifecycle dates and end years are checked and saved
+atomically. Omitting evaluations preserves older receipt fingerprints.
+
+`diary.services.create_entry` accepts one typed action from `diary.actions` and separate
+`planting_uploads` for new plantings. It runs transaction-level garden writes under the
+diary's active-actor checks, media lock and creation receipt. An identical replay returns
+the entry without rerunning its action. Diary edits and deletion never undo an action.
+
 For create/edit saves with submission receipts, retry the original payload, version
 token and `submission_key`. Writers check the active actor and matching immutable
 receipt before current association eligibility and stale-state checks within short
@@ -130,15 +141,23 @@ remain unchanged. Separate photo edits and deletions continue to use version che
 ## Browser tests
 
 The development image includes Playwright's pinned Chromium and Linux browser libraries.
-The suite reuses one Chromium process through a loopback-only Playwright browser server,
-using the driver bundled with the pinned Python package. Each test has a fresh browser
+The command below uses pytest-xdist to run four workers, each with its own file-backed
+SQLite/WAL database and static directory under `/state/test-state/gw*`. Pytest isolates
+temporary files and media per test in the Linux state volume. Each worker reuses one
+Chromium process through a loopback-only Playwright browser server, using
+the driver bundled with the pinned Python package. Each test has a fresh browser
 context and Python connection; Django's async safety checks remain enabled. Contexts
-close on test failures, and the server stops when the suite finishes.
+close on test failures, and the servers stop when the suite finishes or is interrupted.
 Run the full browser suite separately:
 
 ```powershell
-docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser
+docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser -n 4 --dist worksteal
 ```
+
+Use `-n 2` on machines with limited resources, or omit `-n` for serial debugging.
+File paths, `-k` filters and `--junitxml` also work with multiple workers. Browser setup
+and login helpers are shared; tests still use real login forms and fresh contexts.
+Image waits bring lazy images into view and fail after eight seconds.
 
 Add `--durations=20` to either suite to report its slowest setup, call and teardown
 steps. CI includes this report in both test jobs.

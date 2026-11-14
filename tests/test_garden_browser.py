@@ -3,7 +3,8 @@
 import re
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from browser_helpers import browser_page, login, wait_for_image
+from playwright.sync_api import expect
 
 from garden.services import create_area, create_crop, create_variety
 
@@ -54,24 +55,9 @@ def long_variety(user, registers):
 
 
 @pytest.fixture
-def page(live_server, settings, user, registers, browser_endpoint):
-    settings.WHITENOISE_USE_FINDERS = True
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 1280, "height": 900}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+def page(live_server, user, registers, browser_endpoint):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
         yield page
-
-
-def login(page, live_server, user):
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.get_by_role("button", name="Logga in", exact=True).click()
-    expect(page).to_have_url(live_server.url + "/")
 
 
 def image_file(image_upload, name="synthetic.jpg"):
@@ -412,7 +398,7 @@ def test_register_invalid_form_keeps_fields_photos_key_and_focus_then_saves(
     area_url = page.url
     page.locator(".register-photos figure").first.locator("a").first.click()
     expect(page).to_have_url(re.compile(r"/photos/\d+/$"))
-    page.locator(".photo-viewer img").evaluate("image => image.decode()")
+    wait_for_image(page.locator(".photo-viewer img"))
     page.get_by_role("link", name="Tillbaka till posten").click()
     expect(page).to_have_url(area_url)
 

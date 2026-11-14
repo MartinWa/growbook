@@ -127,7 +127,7 @@ jobs:
           cache-from: type=gha,scope=ci-development
           github-token: ""
       - name: Run browser tests
-        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser --durations=20
+        run: docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q -m browser -n 4 --dist worksteal --durations=20
       - name: Stop development containers
         if: always()
         run: docker compose -f compose.development.yaml down
