@@ -824,6 +824,37 @@
     @apply m-0 break-words whitespace-normal;
   }
 
+  .planting-detail-heading {
+    @apply flex flex-wrap items-center gap-x-3 gap-y-2;
+  }
+
+  .planting-detail-heading :is(h1, h2) { @apply m-0 min-w-0; overflow-wrap: anywhere; }
+  .planting-status { @apply rounded-full border border-control-border px-3 py-1 text-sm font-semibold; }
+  .planting-status-planned { @apply bg-base-200 text-base-content; }
+  .planting-status-ongoing { @apply border-success/30 bg-success/10 text-base-content; }
+  .planting-status-completed { @apply border-secondary/30 bg-secondary/10 text-base-content; }
+
+  .planting-summary { @apply my-3 flex flex-wrap gap-x-4 gap-y-1 text-sm; }
+  .planting-summary > div { @apply flex min-w-0 flex-wrap gap-x-2; }
+  .planting-summary dt { @apply font-semibold; }
+  .planting-summary dd { @apply m-0 min-w-0; overflow-wrap: anywhere; }
+  .planting-actions { @apply my-3 gap-2; }
+  .planting-actions .btn { @apply h-auto min-h-11; white-space: normal; overflow-wrap: anywhere; }
+  .planting-switcher { @apply my-4; }
+  .planting-switcher ul { @apply m-0 mt-1 flex list-none flex-wrap gap-2 p-0; }
+  .planting-switcher li { @apply min-w-0 max-w-full; }
+  .planting-switcher .btn { @apply h-auto min-h-11 max-w-full text-left; white-space: normal; overflow-wrap: anywhere; }
+  .planting-detail .record-fields { @apply my-2; }
+  .planting-detail h3 { @apply mb-1; }
+  .planting-maintenance { @apply my-2 gap-x-4 gap-y-1 text-sm; }
+  .planting-history-help { @apply my-2 text-sm; }
+  .planting-history-help summary,
+  .planting-activity summary { @apply cursor-pointer py-2; }
+  .planting-activity { @apply mt-4 min-w-0 border-t border-base-300 pt-3; }
+  .planting-section-heading { @apply flex flex-wrap items-center justify-between gap-2; }
+  .planting-section-heading h3 { @apply m-0; }
+  .planting-detail .field-help { @apply my-1; }
+
   .table-scroll {
     @apply mt-2 overflow-x-auto rounded-lg border border-base-300 bg-base-100;
   }

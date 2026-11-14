@@ -12,6 +12,13 @@
 <details class="form-disclosure" id="planting-notes-photos"{% if form.notes_open %} open{% endif %}>
   <summary>{% translate 'Notes and photos' %}</summary>
   <div class="disclosure-fields">
+    {% if photo_destination and record.photos.all %}
+    <section aria-labelledby="saved-planting-photos">
+      <h3 id="saved-planting-photos">{% translate 'Saved photos' %}</h3>
+      <p class="field-help">{% translate 'Save planting changes before editing or deleting saved photos.' %}</p>
+      {% include 'garden/register_photos.html' with destination=photo_destination %}
+    </section>
+    {% endif %}
     {% for field in form.note_fields %}{% if field.name == 'photos' %}{% include 'components/photo_picker.html' with existing_photos=record.photos.count %}{% else %}{% include 'garden/field.html' %}{% endif %}{% endfor %}
     <p class="field-help">{% translate 'Evaluation is cumulative. Area changes and reparenting also change past-year views; movement history is not recorded.' %}</p>
   </div>

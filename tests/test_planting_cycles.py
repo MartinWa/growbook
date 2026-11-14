@@ -74,6 +74,32 @@ def change(user, cycle, **values):
     )
 
 
+@pytest.mark.parametrize("scope", ["status", "custom", "history"])
+@pytest.mark.parametrize("all_years", [False, True])
+@pytest.mark.parametrize("partial", [False, True])
+def test_list_context_is_retained_only_when_the_view_needs_it(
+    client, user, batch, scope, all_years, partial
+):
+    first, _ = batch
+    category = create_planting_category(actor=user, name="Synthetic category").record
+    change(user, first.cycle, category_ids=[category.pk])
+    paths = {
+        "status": reverse("garden:planting-status", args=["planned"]),
+        "custom": category.get_absolute_url(),
+        "history": reverse("garden:crop-history", args=[first.crop_id]),
+    }
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    headers = {"HTTP_HX_REQUEST": "true"} if partial else {}
+    response = client.get(
+        paths[scope], {"all_years": "1"} if all_years else {"year": 2026}, **headers
+    )
+    assert len(response.context["cycle_groups"]) == 1
+    metadata = next((line for line in response.text.splitlines() if "cycle-context" in line), "")
+    assert ("Planned" in metadata) == (scope != "status")
+    assert ("2025 onwards" in metadata) == (all_years or scope == "history")
+
+
 def test_shared_status_categories_distinct_filtered_counts_and_zero_cards(client, user, batch):
     one, two = batch
     sale = create_planting_category(actor=user, name="For Sale").record
@@ -379,6 +405,7 @@ def test_forms_current_status_in_past_year_and_safe_returns(client, user, batch)
     one, two = batch
     completed = change(user, one.cycle, status="completed", completed_on=date(2027, 9, 1)).record
     client.force_login(user)
+    client.cookies["django_language"] = "en"
     path = reverse("garden:planting-status", args=["completed"])
     response = client.get(path, {"year": 2026})
     assert len(response.context["cycle_groups"]) == 1
@@ -386,7 +413,9 @@ def test_forms_current_status_in_past_year_and_safe_returns(client, user, batch)
     detail = client.get(
         completed.get_absolute_url(), {"next": path + "?year=2026"}, HTTP_HX_REQUEST="true"
     )
-    assert detail.status_code == 200 and "2025–2027" in detail.text
+    assert detail.status_code == 200
+    assert "<dt>Start year</dt><dd>2025</dd>" in detail.text
+    assert "<dt>End year</dt><dd>2027 (Inclusive)</dd>" in detail.text
     assert len(detail.context["members"]) == 2 and "<html" not in detail.text
     edit = client.get(
         reverse("garden:cycle-edit", args=[completed.pk]), {"next": "https://example.invalid/"}

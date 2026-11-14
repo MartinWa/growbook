@@ -248,6 +248,8 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             "form": form,
             "records": records,
             "cycle_groups": groups,
+            "show_cycle_status": scope is not None or status is None,
+            "show_cycle_years": scope is not None or year is None,
             "category_cards": cards,
             "category_overview": category_overview,
             "category": category,
@@ -280,26 +282,35 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
 
 def _planting_context(pk):
     record = get_object_or_404(
-        Planting.objects.select_related("crop", "variety", "area").prefetch_related("photos"), pk=pk
+        Planting.objects.select_related("crop", "variety", "area", "cycle").prefetch_related(
+            "photos", "cycle__categories"
+        ),
+        pk=pk,
     )
     paths = area_paths(list(GrowingArea.objects.all()))
     record.area_path = paths.get(record.area_id, "")
     record.display_label = record.label or _("Planting %(number)s") % {"number": record.pk}
-    events = record.events.annotate(event_date=Coalesce("actual_date", "planned_date")).order_by(
-        "event_date", "id"
+    events = list(
+        record.events.annotate(event_date=Coalesce("actual_date", "planned_date")).order_by(
+            "event_date", "id"
+        )
+    )
+    members = planting_rows(
+        Planting.objects.filter(batch_key=record.batch_key).select_related(
+            "crop", "variety", "area"
+        ),
     )
     return {
         "kind": "planting",
         "record": record,
+        "cycle": record.cycle,
+        "members": members,
         "events": events,
+        "event_count": len(events),
         "observations": observations_for("planting", record),
         "observation_count": observation_count("planting", record),
         "observations_url": reverse("diary:list") + "?" + urlencode({"planting": record.pk}),
-        "batch_members": planting_rows(
-            Planting.objects.filter(batch_key=record.batch_key).select_related(
-                "crop", "variety", "area"
-            ),
-        ),
+        "batch_members": members,
         "can_add_variety": not record.crop.is_archived,
         "add_variety_url": reverse("garden:planting-create")
         + "?"
@@ -325,7 +336,11 @@ def planting_detail(request, pk):
 
 @require_http_methods(["GET", "POST"])
 def planting_form(request, pk=None):
-    record = get_object_or_404(Planting, pk=pk) if pk is not None else None
+    record = (
+        get_object_or_404(Planting.objects.prefetch_related("photos"), pk=pk)
+        if pk is not None
+        else None
+    )
     destination = return_url(request)
     batch_member = None
     initial = {}
@@ -396,6 +411,13 @@ def planting_form(request, pk=None):
         "cancel_url": destination,
         "return_url": destination,
         "batch_member": batch_member,
+        "photo_destination": reverse(
+            "garden:planting-edit",
+            args=[record.pk],
+            query={"next": destination} if destination else None,
+        )
+        if record
+        else "",
     }
     if request.method == "POST":
         if request.POST.get("choose_crop") == "1":

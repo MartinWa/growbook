@@ -94,14 +94,49 @@
           }
         }
       });
-      details.addEventListener("htmx:afterSwap", () => {
+      function memberRequest(event) {
+        return event.detail.requestConfig?.elt?.closest("[data-planting-member]");
+      }
+      function memberError(member) {
+        const status = details.querySelector("[data-member-status]");
+        if (status) {
+          status.hidden = false;
+          status.textContent = member.dataset.loadError;
+        }
+      }
+      details.addEventListener("htmx:beforeRequest", event => {
+        if (!memberRequest(event)) return;
+        details.setAttribute("aria-busy", "true");
+        const status = details.querySelector("[data-member-status]");
+        if (status) status.hidden = true;
+      });
+      details.addEventListener("htmx:afterRequest", event => {
+        const member = memberRequest(event);
+        if (!member) return;
+        details.removeAttribute("aria-busy");
+        if (event.detail.failed) memberError(member);
+      });
+      for (const name of ["htmx:sendError", "htmx:timeout"]) {
+        details.addEventListener(name, event => {
+          const member = memberRequest(event);
+          if (!member) return;
+          details.removeAttribute("aria-busy");
+          memberError(member);
+        });
+      }
+      details.addEventListener("htmx:afterSwap", event => {
         loaded = true;
         finishLoad?.();
+        if (memberRequest(event) && !row.hidden) {
+          details.querySelector('[data-planting-member][aria-current="true"]')?.focus({ preventScroll: true });
+        }
       });
       details.addEventListener("htmx:beforeSwap", event => {
         if (event.detail.xhr.status >= 400) {
           event.detail.shouldSwap = false;
-          details.textContent = link.dataset.loadError;
+          const member = memberRequest(event);
+          if (member) memberError(member);
+          else details.textContent = link.dataset.loadError;
           finishLoad?.();
         }
       });

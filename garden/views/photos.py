@@ -1,9 +1,12 @@
 """Maintenance forms for variety, growing-area and planting photos."""
 
+from urllib.parse import urlsplit
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import OperationalError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
@@ -29,6 +32,16 @@ def _register_photo(pk):
 
 
 def _photo_destination(request, photo):
+    if photo.planting_id is not None:
+        destination = return_url(request, planting_edit=photo.planting_id)
+        edit_path = reverse("garden:planting-edit", args=[photo.planting_id])
+        if destination and urlsplit(destination).path == edit_path:
+            return destination
+        return reverse(
+            "garden:planting-edit",
+            args=[photo.planting_id],
+            query={"next": destination} if destination else None,
+        )
     if photo.area_id is not None:
         return management_url(request, "garden:area-manage", selected=photo.area_id)
     if photo.category_id is not None:
