@@ -88,6 +88,8 @@ def open_cycle(page, live_server, first):
     expect(page.locator(".planting-detail")).to_have_attribute(
         "data-selected-planting", str(first.pk)
     )
+    # HTMX binds newly inserted member links during settling, after the panel is visible.
+    expect(page.locator(".register-details.htmx-settling")).to_have_count(0)
     return path
 
 
@@ -217,6 +219,53 @@ def test_failed_member_load_keeps_the_selection_and_can_be_retried(
         switch.click()
         expect(panel).to_have_attribute("data-selected-planting", str(second.pk))
         expect(panel.locator("[data-member-status]")).to_be_hidden()
+
+
+@pytest.mark.parametrize("modifier", ["Control", "Shift"])
+def test_member_modified_click_opens_a_new_page_without_switching_the_panel(
+    live_server, user, browser_endpoint, detail_batch, modifier
+):
+    first, second, _ = detail_batch
+    with browser_page(browser_endpoint) as page:
+        login(page, live_server, user, "en")
+        open_cycle(page, live_server, first)
+        panel = page.locator(".planting-detail")
+        member = panel.locator(f'[data-planting-member="{second.pk}"]')
+        destination = member.get_attribute("href")
+        with page.context.expect_page(timeout=8000) as opened:
+            member.click(modifiers=[modifier])
+        expect(opened.value).to_have_url(live_server.url + destination)
+        expect(opened.value.locator(".planting-detail")).to_have_attribute(
+            "data-selected-planting", str(second.pk)
+        )
+        expect(panel).to_have_attribute("data-selected-planting", str(first.pk))
+        expect(panel.locator(".record-fields")).to_contain_text("Amber notes")
+
+
+@pytest.mark.parametrize("width", [320, 1280])
+def test_delayed_member_response_keeps_focus_after_back_to_list(
+    live_server, user, browser_endpoint, detail_batch, width
+):
+    first, second, _ = detail_batch
+    with browser_page(browser_endpoint, viewport={"width": width, "height": 844}) as page:
+        login(page, live_server, user, "en")
+        open_cycle(page, live_server, first)
+        panel = page.locator(".planting-detail")
+        pending = []
+        page.route(
+            f"**/cycles/{first.cycle_id}/?member={second.pk}&**",
+            lambda route: pending.append(route),
+            times=1,
+        )
+        panel.locator(f'[data-planting-member="{second.pk}"]').press("Enter")
+        expect(page.locator(".register-details")).to_have_attribute("aria-busy", "true")
+        page.locator("[data-record-return]").click()
+        selected_name = page.locator(".planting-list .record-name")
+        expect(selected_name).to_be_focused()
+        route = pending.pop()
+        route.fulfill(response=route.fetch())
+        expect(panel).to_have_attribute("data-selected-planting", str(second.pk))
+        expect(selected_name).to_be_focused()
 
 
 def test_unknown_single_variety_has_no_switcher_and_keeps_start_available(
