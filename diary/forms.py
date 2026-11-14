@@ -88,6 +88,7 @@ class TaggedForm(forms.Form):
             options = []
             for record in queryset:
                 context, derived = "", ""
+                group_key, group_label = "", ""
                 in_year = True
                 if model is Planting:
                     variety = record.variety.name if record.variety_id else _("Unknown variety")
@@ -96,6 +97,7 @@ class TaggedForm(forms.Form):
                     if record.lifespan == Planting.Lifespan.PERSISTENT:
                         span += f"–{record.end_year or _('Ongoing')}"
                     place = paths.get(record.area_id, str(_("Unassigned area")))
+                    group_key, group_label = str(record.area_id or "unassigned"), place
                     planting_label = record.label or _("Planting %(number)s") % {
                         "number": record.pk
                     }
@@ -116,11 +118,14 @@ class TaggedForm(forms.Form):
                     if model is Variety:
                         context = record.crop.name
                         derived = record.crop.name
+                        group_key, group_label = str(record.crop_id), record.crop.name
                     if record.is_archived:
                         context = " · ".join(filter(None, [context, str(_("Archived"))]))
                 options.append(
                     {
                         "pk": record.pk,
+                        "group_key": group_key,
+                        "group_label": group_label,
                         "title": title,
                         "context": context,
                         "selected": str(record.pk) in selected,
@@ -142,7 +147,31 @@ class TaggedForm(forms.Form):
                             "context": label,
                             "selected": True,
                             "in_year": False,
+                            "group_key": "unavailable",
+                            "group_label": _("Unavailable records"),
                         }
+                    )
+            subgroups = {}
+            for option in options:
+                if kind in ("planting", "variety"):
+                    subgroup = subgroups.setdefault(
+                        option["group_key"],
+                        {
+                            "key": option["group_key"],
+                            "label": option["group_label"],
+                            "options": [],
+                            "current_options": [],
+                            "other_options": [],
+                        },
+                    )
+                    subgroup["options"].append(option)
+                    subgroup["current_options" if option["in_year"] else "other_options"].append(
+                        option
+                    )
+            for subgroup in subgroups.values():
+                for period in ("options", "current_options", "other_options"):
+                    subgroup[period + "_selected"] = sum(
+                        option["selected"] for option in subgroup[period]
                     )
             groups.append(
                 {
@@ -150,6 +179,10 @@ class TaggedForm(forms.Form):
                     "kind": kind,
                     "label": label,
                     "options": sorted(options, key=lambda option: not option["in_year"]),
+                    "subgroups": sorted(
+                        subgroups.values(), key=lambda group: str(group["label"]).casefold()
+                    ),
+                    "selected_count": sum(option["selected"] for option in options),
                 }
             )
         return groups

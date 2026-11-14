@@ -211,7 +211,9 @@ def test_raised_bed_suggestion_and_custom_types_use_existing_retry_safe_forms(
     form_page = client.get(path)
     assert form_page.context["form"]["area_type"].value() == "Synthetic custom type"
     assert f'<option value="{raised_bed}">' in form_page.text
-    assert form_page.context["cancel_url"] == area.get_absolute_url() + "?archived=1"
+    assert form_page.context["cancel_url"] == reverse(
+        "garden:area-manage", query={"archived": "1", "selected": area.pk}
+    )
     payload = {
         "submission_key": str(uuid4()),
         "expected_updated_at": area.updated_at.isoformat(),
@@ -226,7 +228,9 @@ def test_raised_bed_suggestion_and_custom_types_use_existing_retry_safe_forms(
     for _attempt in range(2):
         saved = client.post(path, payload)
         assert saved.status_code == 302
-        assert saved.url == area.get_absolute_url() + "?archived=1"
+        assert saved.url == reverse(
+            "garden:area-manage", query={"archived": "1", "selected": area.pk}
+        )
     area.refresh_from_db()
     assert area.area_type == raised_bed
     assert area.parent_id == parent.pk

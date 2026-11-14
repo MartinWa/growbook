@@ -1419,8 +1419,8 @@ msgstr "Hela odlingsomgången visas. Kategorilistan behåller sitt år och sina 
 msgid "This action applies to every variety in the cycle. Choose the actual date; the viewed growing year does not set it."
 msgstr "Åtgärden gäller alla sorter i odlingsomgången. Välj det faktiska datumet; det visade odlingsåret bestämmer inte datumet."
 
-msgid "Deletion removes this category and its links. Planting cycles, varieties, history and photos are kept."
-msgstr "Borttagning tar bort kategorin och dess kopplingar. Odlingsomgångar, sorter, historik och bilder behålls."
+msgid "Deletion removes this category, its image and its links. Planting cycles, varieties, history and planting photos are kept."
+msgstr "Borttagning tar bort kategorin, dess bild och dess kopplingar. Odlingsomgångar, sorter, historik och odlingarnas bilder behålls."
 
 msgid "%(count)s planting cycle"
 msgid_plural "%(count)s planting cycles"
@@ -1526,3 +1526,36 @@ msgstr ""
 "Välj en åtgärd och odling och hämta sedan uppgifterna innan du ändrar "
 "odlingsomgångens fält. Använd Nuvarande status för att starta, avsluta, "
 "återöppna eller återgå till Planerad."
+
+msgid "Manage growing areas"
+msgstr "Hantera odlingsplatser"
+
+msgid "Manage categories"
+msgstr "Hantera kategorier"
+
+msgid "No records yet."
+msgstr "Inga poster ännu."
+
+msgid "Completed planting evaluations"
+msgstr "Utvärderingar från avslutade odlingar"
+
+msgid "Planting category"
+msgstr "Odlingskategori"
+
+msgid "Record type"
+msgstr "Posttyp"
+
+msgid "All"
+msgstr "Alla"
+
+msgid "Expand a group to choose records. Search all types or select a record type."
+msgstr "Öppna en grupp för att välja poster. Sök bland alla typer eller välj en posttyp."
+
+msgid "Observation year"
+msgstr "Observationens år"
+
+msgid "Unavailable records"
+msgstr "Otillgängliga poster"
+
+msgid "Choose whether to remove the image."
+msgstr "Välj om bilden ska tas bort."

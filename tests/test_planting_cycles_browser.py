@@ -153,10 +153,19 @@ def test_categories_batch_actions_edit_correction_and_safe_deletion(
     expect(page).to_have_url(category_url)
     expect(page.locator(".planting-list > li")).to_have_count(1)
     page.goto(root)
-    card = page.locator(".category-card").filter(has_text="For Sale")
-    card.locator('a[href*="/delete/"]').click()
+    page.get_by_role(
+        "link", name="Manage categories" if language == "en" else "Hantera kategorier", exact=True
+    ).click()
+    page.get_by_role(
+        "link", name="Delete: For Sale" if language == "en" else "Radera: For Sale", exact=True
+    ).click()
     page.locator("#id_confirm").check()
     page.locator('.register-form-panel button[type="submit"]').click()
+    expect(page.locator('li[id^="managed-"]')).to_have_count(0)
+    page.get_by_role(
+        "link", name="Back to list" if language == "en" else "Tillbaka till listan", exact=True
+    ).click()
+    expect(page).to_have_url(root)
     expect(page.locator(".category-card")).to_have_count(3)
     shared = stored_cycle(cycle)
     assert shared["status"] == "ongoing" and shared["end_years"] == [None, None]

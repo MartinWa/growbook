@@ -2,7 +2,8 @@
 
 from urllib.parse import urlsplit
 
-from django.urls import Resolver404, resolve
+from django.http import QueryDict
+from django.urls import Resolver404, resolve, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 
@@ -41,6 +42,10 @@ def return_url(request):
         return ""
     allowed = {
         "garden:area-detail",
+        "garden:area-list",
+        "garden:area-manage",
+        "garden:category-manage",
+        "garden:planting-category-manage",
         "garden:category-detail",
         "garden:uncategorized",
         "garden:all-crops",
@@ -56,3 +61,59 @@ def return_url(request):
         "garden:area-history",
     }
     return value if match.view_name in allowed else ""
+
+
+def management_url(request, route, *, selected=None, deleted_path=None):
+    """Keep management context, or wrap a safe browsing origin for the return link."""
+    destination = return_url(request)
+    if destination and urlsplit(destination).path == deleted_path:
+        destination = ""
+    if destination and resolve(urlsplit(destination).path).view_name == route:
+        if deleted_path:
+            query = QueryDict(urlsplit(destination).query, mutable=True)
+            if urlsplit(query.get("next", "")).path == deleted_path:
+                query.pop("next", None)
+                return reverse(route, query=query)
+        return destination
+    query = {}
+    if route == "garden:area-manage":
+        if request.GET.get("archived") == "1":
+            query["archived"] = "1"
+        if selected is not None:
+            query["selected"] = selected
+    elif destination:
+        query["next"] = destination
+    return reverse(route, query=query)
+
+
+def deletion_return_url(request, kind, pk):
+    """Only surviving lists/histories can be record deletion destinations."""
+    destination = return_url(request)
+    if not destination:
+        return ""
+    match = resolve(urlsplit(destination).path)
+    allowed = {
+        "garden:category-detail",
+        "garden:uncategorized",
+        "garden:all-crops",
+        "garden:variety-list",
+        "garden:planting-list",
+        "garden:planting-history",
+        "garden:planting-status",
+        "garden:planting-category-detail",
+        "garden:crop-history",
+        "garden:variety-history",
+        "garden:area-history",
+    }
+    if kind in ("crop", "variety"):
+        allowed -= {
+            "garden:planting-list",
+            "garden:planting-history",
+            "garden:planting-status",
+            "garden:planting-category-detail",
+        }
+    if match.view_name not in allowed:
+        return ""
+    if match.view_name == f"garden:{kind}-history" and match.kwargs.get("pk") == pk:
+        return ""
+    return destination

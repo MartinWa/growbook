@@ -4,7 +4,7 @@
 {% block content %}
 <section class="panel register-form-panel">
   <h1>{% translate 'Delete category' %}: {{ record.name }}</h1>
-  <p>{% translate 'Deletion removes this category and its links. Planting cycles, varieties, history and photos are kept.' %}</p>
+  <p>{% translate 'Deletion removes this category, its image and its links. Planting cycles, varieties, history and planting photos are kept.' %}</p>
   <form method="post">
     {% csrf_token %}<input type="hidden" name="next" value="{{ destination }}">
     <div role="alert">{% include 'garden/form_errors.html' %}</div>

@@ -107,8 +107,8 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
             "newcrop": "Ny gröda",
             "save": "Spara",
             "uncategorized": "Utan kategori",
-            "edit": "Redigera kategori: Vegetables",
-            "delete": "Ta bort kategori: Summer",
+            "edit": "Redigera: Vegetables",
+            "delete": "Radera: Summer",
             "confirm": "Radera post",
         },
         "en": {
@@ -116,8 +116,8 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
             "newcrop": "New crop",
             "save": "Save",
             "uncategorized": "Uncategorized",
-            "edit": "Edit category: Vegetables",
-            "delete": "Delete category: Summer",
+            "edit": "Edit: Vegetables",
+            "delete": "Delete: Summer",
             "confirm": "Delete record",
         },
     }[language]
@@ -185,11 +185,17 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         )
         expect(page.get_by_role("link", name=labels["new"], exact=True)).to_have_count(0)
         page.goto(live_server.url + "/garden/varieties/")
+        page.get_by_role(
+            "link",
+            name="Hantera kategorier" if language == "sv" else "Manage categories",
+            exact=True,
+        ).click()
         page.get_by_role("link", name=labels["edit"], exact=True).click()
         page.locator("#id_name").fill("Summer")
         page.locator("#id_remove_image").check()
         page.get_by_role("button", name=labels["save"], exact=True).click()
-        expect(page).to_have_url(re.compile(r"/garden/categories/\d+/$"))
+        expect(page).to_have_url(live_server.url + "/garden/categories/manage/")
+        page.get_by_role("link", name="Summer", exact=True).click()
         expect(page.locator("[data-crop-id]")).to_have_count(2)
         expect(page.locator(".register-illustration")).to_have_attribute(
             "src", "/static/images/registers/crops-and-varieties.webp"
@@ -212,10 +218,19 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         ).to_have_count(0)
         if javascript:
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        page.get_by_role(
+            "link",
+            name="Hantera kategorier" if language == "sv" else "Manage categories",
+            exact=True,
+        ).click()
         page.get_by_role("link", name=labels["delete"], exact=True).click()
         page.locator("#id_confirm").check()
         page.get_by_role("button", name=labels["confirm"], exact=True).click()
-        expect(page).to_have_url(live_server.url + "/garden/varieties/")
+        expect(page).to_have_url(live_server.url + "/garden/categories/manage/")
+        expect(page.locator('li[id^="managed-"]')).to_have_count(0)
+        page.get_by_role(
+            "link", name="Tillbaka till listan" if language == "sv" else "Back to list", exact=True
+        ).click()
         expect(page.locator(".category-card")).to_have_count(1)
         page.get_by_role("link", name=labels["uncategorized"], exact=True).click()
         expect(page.locator("[data-crop-id]")).to_have_count(3)

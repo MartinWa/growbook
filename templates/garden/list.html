@@ -8,7 +8,7 @@
 {% else %}
 {% include 'components/register_heading.html' with illustration='images/registers/crops-and-varieties.webp' illustration_photo=category_image %}
 {% endif %}
-{% if kind == 'variety' %}<nav class="related-actions mb-3" aria-label="{% translate 'Category navigation' %}"><a href="{% url 'garden:variety-list' %}">← {% translate 'Categories' %}</a>{% if category %}<a href="{% url 'garden:category-edit' category.pk %}">{% translate 'Edit category' %}</a>{% endif %}</nav>{% endif %}
+{% if kind == 'variety' %}<nav class="related-actions mb-3" aria-label="{% translate 'Category navigation' %}"><a href="{% url 'garden:variety-list' %}">← {% translate 'Categories' %}</a></nav>{% endif %}
 {% if kind == 'variety' %}
 <div class="compact-filters" data-filter-page data-results-id="register-results"
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"

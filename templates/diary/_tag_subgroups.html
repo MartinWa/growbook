@@ -1,0 +1,15 @@
+{% load i18n %}
+{% for subgroup in group.subgroups %}
+<details class="tag-secondary tag-subgroup" data-tag-subgroup data-group-key="{{ subgroup.key }}"{% if period == 'current' and not subgroup.current_options or period == 'other' and not subgroup.other_options %} hidden{% endif %}>
+  <summary>{{ subgroup.label }}
+    {% if period == 'current' %}<span data-tag-group-count>({{ subgroup.current_options|length }})</span> <span data-tag-selected-count>{% if subgroup.current_options_selected %}· {% translate 'Selected:' %} {{ subgroup.current_options_selected }}{% endif %}</span>
+    {% elif period == 'other' %}<span data-tag-group-count>({{ subgroup.other_options|length }})</span> <span data-tag-selected-count>{% if subgroup.other_options_selected %}· {% translate 'Selected:' %} {{ subgroup.other_options_selected }}{% endif %}</span>
+    {% else %}<span data-tag-group-count>({{ subgroup.options|length }})</span> <span data-tag-selected-count>{% if subgroup.options_selected %}· {% translate 'Selected:' %} {{ subgroup.options_selected }}{% endif %}</span>{% endif %}
+  </summary>
+  <div data-tag-bucket>
+  {% if period == 'current' %}{% for option in subgroup.current_options %}{% include 'diary/_tag_option.html' %}{% endfor %}
+  {% elif period == 'other' %}{% for option in subgroup.other_options %}{% include 'diary/_tag_option.html' %}{% endfor %}
+  {% else %}{% for option in subgroup.options %}{% include 'diary/_tag_option.html' %}{% endfor %}{% endif %}
+  </div>
+</details>
+{% endfor %}

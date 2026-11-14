@@ -1,0 +1,6 @@
+{% load i18n %}
+<label class="tag-option" data-tag-option data-kind="{{ group.kind }}" data-derived="{{ option.derived }}" data-group-key="{{ option.group_key }}"
+       data-start="{{ option.start_year }}" data-end="{{ option.end_year }}" data-persistent="{{ option.persistent|yesno:'true,false' }}">
+  <input type="checkbox" name="{{ group.name }}" value="{{ option.pk }}" id="id_{{ group.name }}_{{ option.pk }}" aria-describedby="id_{{ group.name }}_errors"{% if option.selected %} checked{% endif %}>
+  <span><span class="tag-title">{{ option.title }}</span>{% if option.context %}<span class="tag-meta">{{ option.context }}</span>{% endif %}</span>
+</label>

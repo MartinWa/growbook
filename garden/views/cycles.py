@@ -13,13 +13,14 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods
 
 from core.forms import DeleteForm, form_error, valid_post
+from core.media import MediaBusy
 
 from ..forms import CycleEditForm, CycleTransitionForm, PlantingCategoryForm
 from ..models import PlantingCategory, PlantingCycle
 from ..queries import cycle_years, planting_rows
 from ..services import RegisterConflict
 from ..services import cycles as services
-from ._shared import return_url
+from ._shared import management_url, return_url
 
 logger = logging.getLogger(__name__)
 
@@ -158,9 +159,18 @@ def cycle_form(request, pk, action=None):
 @require_http_methods(["GET", "POST"])
 def category_form(request, pk=None):
     record = get_object_or_404(PlantingCategory, pk=pk) if pk else None
-    destination = return_url(request)
+    destination = (
+        management_url(request, "garden:planting-category-manage")
+        if record
+        else return_url(request)
+    )
     initial = {"name": record.name, "expected_updated_at": record.updated_at} if record else {}
-    form = PlantingCategoryForm(request.POST if request.method == "POST" else None, initial=initial)
+    form = PlantingCategoryForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        record=record,
+        initial=initial,
+    )
     form.fields["expected_updated_at"].required = record is not None
     context = {
         "kind": "planting-category",
@@ -171,15 +181,20 @@ def category_form(request, pk=None):
         "return_url": destination,
         "cancel_url": destination or reverse("garden:planting-list"),
         "list_url": reverse("garden:planting-list"),
+        "has_photos": True,
+        "photo_max_count": 1,
+        "replace_image": True,
     }
     if request.method == "POST":
         status = 422
-        if valid_post(request, form):
+        if valid_post(request, form, photo_fields={"photos"}):
             values = {**form.cleaned_data, "actor": request.user}
+            values["uploads"] = values.pop("photos")
             if record is not None:
                 values["pk"] = pk
             else:
                 values.pop("expected_updated_at")
+                values.pop("remove_image")
             writer = (
                 services.edit_planting_category if record else services.create_planting_category
             )
@@ -190,7 +205,7 @@ def category_form(request, pk=None):
                 status = 409
             except ValidationError as exc:
                 form_error(form, exc)
-            except OperationalError:
+            except MediaBusy, OperationalError, OSError:
                 logger.exception("Category save failed; preserve the original form and save key.")
                 form.add_error(
                     None,
@@ -204,6 +219,7 @@ def category_form(request, pk=None):
                 return _saved(request, result, destination)
         if request.headers.get("HX-Request") == "true":
             return render(request, "garden/form_errors.html", {"form": form}, status=status)
+        context["failed"] = True
         return render(request, "garden/form.html", context, status=status)
     return render(request, "garden/form.html", context)
 
@@ -211,7 +227,9 @@ def category_form(request, pk=None):
 @require_http_methods(["GET", "POST"])
 def category_delete(request, pk):
     record = get_object_or_404(PlantingCategory, pk=pk)
-    destination = return_url(request) or reverse("garden:planting-list")
+    destination = management_url(
+        request, "garden:planting-category-manage", deleted_path=record.get_absolute_url()
+    )
     form = DeleteForm(
         request.POST if request.method == "POST" else None,
         initial={"expected_updated_at": record.updated_at},
@@ -231,7 +249,7 @@ def category_delete(request, pk):
                 status = 409
             except ValidationError as exc:
                 form_error(form, exc)
-            except OperationalError:
+            except MediaBusy, OperationalError, OSError:
                 form.add_error(
                     None, _("Deletion could not be confirmed. Reload the register before retrying.")
                 )
@@ -241,3 +259,22 @@ def category_delete(request, pk):
                 return redirect(destination)
         return render(request, "garden/planting_category_delete.html", context, status=status)
     return render(request, "garden/planting_category_delete.html", context)
+
+
+@require_GET
+def category_management(request):
+    return render(
+        request,
+        "garden/management.html",
+        {
+            "kind": "planting-category",
+            "heading": _("Manage categories"),
+            "records": PlantingCategory.objects.prefetch_related("photos"),
+            "destination": request.get_full_path(),
+            "browsing_url": return_url(request) or reverse("garden:planting-list"),
+            "create_url": reverse("garden:planting-category-create"),
+            "create_label": _("New category"),
+            "edit_route": "garden:planting-category-edit",
+            "delete_route": "garden:planting-category-delete",
+        },
+    )

@@ -8,6 +8,14 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils.translation import gettext as _
 
+from core.media import media_operation
+from core.models import Photo
+from core.photo_storage import (
+    discard_unreferenced_bundles,
+    photo_bundles,
+    published_uploads,
+    staged_uploads,
+)
 from core.writes import validated_write
 
 from ..models import (
@@ -307,11 +315,15 @@ def write_cycle_transition(pk, version, action, date, *, evaluations=None, versi
     )
 
 
-def create_planting_category(*, actor, name, submission_key=None):
-    return _save_planting_category(actor=actor, name=name, submission_key=submission_key)
+def create_planting_category(*, actor, name, uploads=(), submission_key=None):
+    return _save_planting_category(
+        actor=actor, name=name, uploads=uploads, submission_key=submission_key
+    )
 
 
-def edit_planting_category(*, actor, pk, name, expected_updated_at, submission_key=None):
+def edit_planting_category(
+    *, actor, pk, name, expected_updated_at, uploads=(), remove_image=False, submission_key=None
+):
     _outside_transaction(actor)
     pk = _identifier(pk, "id")
     _version(expected_updated_at)
@@ -321,27 +333,84 @@ def edit_planting_category(*, actor, pk, name, expected_updated_at, submission_k
         name=name,
         expected_updated_at=expected_updated_at,
         submission_key=submission_key,
+        uploads=uploads,
+        remove_image=remove_image,
     )
 
 
-def _save_planting_category(*, actor, name, pk=None, expected_updated_at=None, submission_key=None):
+def _save_planting_category(
+    *,
+    actor,
+    name,
+    pk=None,
+    expected_updated_at=None,
+    submission_key=None,
+    uploads=(),
+    remove_image=False,
+):
     _outside_transaction(actor)
     if pk is not None:
         pk = _identifier(pk, "id")
         _version(expected_updated_at)
     key = _key(submission_key)
-    fingerprint = _planting_fingerprint("category", pk, expected_updated_at, {"name": name})
+    if type(remove_image) is not bool:
+        raise ValidationError({"remove_image": _("Choose whether to remove the image.")})
+    uploads = list(uploads)
+    if len(uploads) > 1:
+        raise ValidationError({"photos": _("A category can have only one image.")})
+    # Keep the immutable fingerprint of earlier name-only receipts unchanged.
+    values = {"name": name, **({"remove_image": True} if remove_image else {})}
+    if not uploads and not remove_image:
+        fingerprint = _planting_fingerprint("category", pk, expected_updated_at, values)
+        return _write_planting_category(
+            actor, name, pk, expected_updated_at, key, fingerprint, [], False, []
+        )
+    with media_operation():
+        folders = []
+        try:
+            with staged_uploads(uploads) as photos:
+                fingerprint = _planting_fingerprint(
+                    "category", pk, expected_updated_at, values, photos
+                )
+                with transaction.atomic():
+                    _active_actor(actor)
+                    if retry := _receipt(key, actor, "category", fingerprint):
+                        return retry
+                with published_uploads(photos) as rows:
+                    return _write_planting_category(
+                        actor,
+                        name,
+                        pk,
+                        expected_updated_at,
+                        key,
+                        fingerprint,
+                        rows,
+                        remove_image,
+                        folders,
+                    )
+        finally:
+            discard_unreferenced_bundles(folders)
+
+
+def _write_planting_category(
+    actor, name, pk, version, key, fingerprint, rows, remove_image, folders
+):
     try:
         with transaction.atomic(), validated_write():
             _active_actor(actor)
             if retry := _receipt(key, actor, "category", fingerprint):
                 return retry
-            category = (
-                _current(PlantingCategory, pk, expected_updated_at) if pk else PlantingCategory()
-            )
+            category = _current(PlantingCategory, pk, version) if pk else PlantingCategory()
             category.name = name
             category.full_clean()
             category.save()
+            if pk and (rows or remove_image):
+                folders.extend(photo_bundles(category.photos.all()))
+                category.photos.all().delete()
+            for values in rows:
+                photo = Photo(planting_category=category, **values)
+                photo.full_clean()
+                photo.save()
             _remember(key, actor, "category", fingerprint, category)
             return CycleResult(category)
     except IntegrityError as exc:
@@ -354,9 +423,15 @@ def delete_planting_category(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
     _version(expected_updated_at)
     pk = _identifier(pk, "id")
-    with transaction.atomic(), validated_write():
-        _active_actor(actor)
-        category = _current(PlantingCategory, pk, expected_updated_at)
-        for cycle in category.cycles.all():
-            cycle.save()
-        category.delete()
+    with media_operation():
+        folders = []
+        try:
+            with transaction.atomic(), validated_write():
+                _active_actor(actor)
+                category = _current(PlantingCategory, pk, expected_updated_at)
+                for cycle in category.cycles.all():
+                    cycle.save()
+                folders.extend(photo_bundles(category.photos.all()))
+                category.delete()
+        finally:
+            discard_unreferenced_bundles(folders)

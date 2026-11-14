@@ -212,27 +212,31 @@ def test_new_search_supersedes_failed_archive_toggle(page, live_server, user, ux
 
 
 @pytest.mark.parametrize("kind", ["area", "variety"])
-def test_cancel_from_new_edit_tab_opens_record(page, live_server, user, ux, kind):
+def test_cancel_from_new_edit_tab_opens_maintenance_destination(page, live_server, user, ux, kind):
     login(page, live_server, user, "en")
     if kind == "area":
         record = ux["child"]
-        page.goto(live_server.url + record.get_absolute_url())
-        details = page.locator(".area-details")
+        page.goto(live_server.url + f"/garden/areas/manage/?archived=1&selected={record.pk}")
+        details = page.locator(f"#managed-{record.pk}")
+        edit = details.get_by_role("link", name="Edit: North / Bed", exact=True)
     else:
         record = ux["green"]
         page.goto(live_server.url + "/garden/categories/all/")
         page.locator(f'[data-crop-id="{record.crop_id}"] > summary').click()
         page.locator(f'[aria-controls="details-{kind}-{record.pk}"]').click()
         details = page.locator(f"#details-{kind}-{record.pk}")
+        edit = details.get_by_role("link", name="Edit", exact=True)
     list_url = page.url
     with page.context.expect_page() as opened:
-        details.get_by_role("link", name="Edit", exact=True).click(button="middle")
+        edit.click(button="middle")
     edit_tab = opened.value
     try:
         expect(edit_tab.locator("#register-form")).to_be_visible()
         assert edit_tab.evaluate("document.referrer") == list_url
         edit_tab.get_by_role("link", name="Cancel", exact=True).click()
-        expect(edit_tab).to_have_url(live_server.url + record.get_absolute_url())
+        expect(edit_tab).to_have_url(
+            list_url if kind == "area" else live_server.url + record.get_absolute_url()
+        )
         expect(page).to_have_url(list_url)
     finally:
         edit_tab.close()
@@ -334,16 +338,23 @@ def test_variety_search_clear_back_retry_and_direct_links(
     )
     expect(observations.locator(":scope > summary")).to_be_focused()
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-    page.locator(
-        f'#details-variety-{ux["green"].pk} a[href="{ux["green"].get_absolute_url()}"]'
-    ).click()
-    expect(page).to_have_url(live_server.url + ux["green"].get_absolute_url())
+    origin = page.url.removeprefix(live_server.url)
+    record_link = page.locator(
+        f'#details-variety-{ux["green"].pk} a[href^="{ux["green"].get_absolute_url()}?"]'
+    )
+    destination = record_link.get_attribute("href")
+    assert parse_qs(urlsplit(destination).query)["next"] == [origin]
+    record_link.click()
+    expect(page).to_have_url(live_server.url + destination)
     page.goto(live_server.url + "/garden/crops/?archived=1")
     expect(page).to_have_url(live_server.url + "/garden/categories/all/?archived=1")
     page.locator(".crop-maintenance > summary").click()
-    page.locator(f'.crop-maintenance a[href="{ux["pea"].get_absolute_url()}"]').click()
-    page.locator(".crop-varieties").get_by_role("link", name="Åsa Grön", exact=True).click()
-    expect(page).to_have_url(live_server.url + ux["green"].get_absolute_url())
+    page.locator(f'.crop-maintenance a[href^="{ux["pea"].get_absolute_url()}?"]').click()
+    variety_link = page.locator(".crop-varieties").get_by_role("link", name="Åsa Grön", exact=True)
+    destination = variety_link.get_attribute("href")
+    assert parse_qs(urlsplit(destination).query)["next"] == ["/garden/categories/all/?archived=1"]
+    variety_link.click()
+    expect(page).to_have_url(live_server.url + destination)
     assert errors == []
 
 
@@ -504,17 +515,19 @@ def test_debounced_search_discards_a_response_after_the_draft_changes(page, live
 @pytest.mark.parametrize("language", ["sv", "en"])
 @pytest.mark.parametrize("width", [390, 1280])
 @pytest.mark.parametrize("action", ["back", "cancel"])
-def test_edit_return_to_area_page_preserves_archive_choice(
+def test_edit_return_to_area_management_preserves_archive_choice(
     page, live_server, user, ux, language, width, action
 ):
     page.set_viewport_size({"width": width, "height": 400})
     login(page, live_server, user, language)
-    page.goto(live_server.url + "/garden/areas/?archived=1")
-    page.get_by_role("link", name=ux["root"].name, exact=True).press("Enter")
-    page.get_by_role("link", name=ux["child"].name, exact=True).press("Enter")
-    area_url = page.url
-    details = page.locator(".area-details")
-    edit = details.get_by_role("link", name="Redigera" if language == "sv" else "Edit", exact=True)
+    area_url = live_server.url + f"/garden/areas/manage/?archived=1&selected={ux['child'].pk}"
+    page.goto(area_url)
+    details = page.locator(f"#managed-{ux['child'].pk}")
+    edit = details.get_by_role(
+        "link",
+        name=("Redigera" if language == "sv" else "Edit") + ": North / Bed",
+        exact=True,
+    )
     edit.scroll_into_view_if_needed()
     edit.click()
     expect(page.locator("#register-form")).to_be_visible()
@@ -525,9 +538,9 @@ def test_edit_return_to_area_page_preserves_archive_choice(
             "link", name="Avbryt" if language == "sv" else "Cancel", exact=True
         ).click()
     expect(page).to_have_url(area_url)
-    expect(details).to_contain_text("Child notes")
+    expect(details).to_contain_text("North / Bed")
     expect(page.locator("[data-archive-toggle]")).to_have_attribute("aria-pressed", "true")
-    expect(page.locator(".area-card")).to_contain_text(ux["grandchild"].name)
+    expect(page.locator(f"#managed-{ux['grandchild'].pk}")).to_contain_text(ux["grandchild"].name)
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
 
 

@@ -7,10 +7,11 @@
   {% if kind == 'category' %}<p>{% translate 'Deletion removes this category, its image and its crop links. Crops, varieties, plantings and diary records are kept.' %}</p>{% else %}<p>{% translate 'Deletion is permanent and removes this record’s photos. Records with children or other protected references cannot be deleted; archive them instead.' %}</p>{% endif %}
   <form method="post">
     {% csrf_token %}
+    <input type="hidden" name="next" value="{{ destination }}">
     <div role="alert">{% include 'garden/form_errors.html' %}</div>
     {{ form.expected_updated_at }}
     <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
-    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete record' %}</button><a href="{{ record.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete record' %}</button><a href="{{ destination }}">{% translate 'Cancel' %}</a></div>
   </form>
 </section>
 {% endblock %}

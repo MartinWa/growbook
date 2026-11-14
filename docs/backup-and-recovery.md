@@ -98,8 +98,11 @@ For each deployment, verify that:
   preserved, including batch membership and each variety's independent tracking;
   year/history views still include archived associations.
 - Cycle statuses, actual start/completion dates, custom-category names and multiple
-  memberships are preserved. Category counts count each matching batch once, and
-  Start/Complete and Edit cycle work without losing member history.
+  memberships and optional planting-category images are preserved. Compare the category
+  image original checksum and verify retained PNG/WebP transparency in regenerated
+  WebP derivatives; its browsing card and heading use the same protected image.
+  Category counts count each matching batch once, and Start/Complete and Edit cycle
+  work without losing member history.
 - Referenced originals for diary entries, areas, varieties, plantings and categories match
   checksums; regenerated derivatives display and photo captions/order remain intact.
 - Anonymous clients cannot read entries, registers, planting/history pages, media

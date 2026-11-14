@@ -9,7 +9,7 @@ from core.models import Photo
 from core.photo_storage import discard_unreferenced_bundles, photo_bundles
 from core.writes import validated_write
 
-from ..models import CropCategory, GrowingArea, Planting, Variety
+from ..models import CropCategory, GrowingArea, Planting, PlantingCategory, Variety
 from ._shared import _active_actor, _current, _identifier, _outside_transaction, _version
 
 
@@ -22,6 +22,8 @@ def _garden_photo_owner(photo, expected_updated_at):
         model, owner_id = Variety, photo.variety_id
     elif photo.category_id is not None:
         model, owner_id = CropCategory, photo.category_id
+    elif photo.planting_category_id is not None:
+        model, owner_id = PlantingCategory, photo.planting_category_id
     else:
         model, owner_id = Planting, photo.planting_id
     return _current(model, owner_id, expected_updated_at)

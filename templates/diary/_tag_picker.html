@@ -10,21 +10,35 @@
     <div data-tag-search-panel class="tag-search" hidden>
       <label for="tag-search" class="visually-hidden">{% translate 'Search tags' %}</label>
       <input id="tag-search" data-tag-search type="search" autocomplete="off" placeholder="{% translate 'Search tags' %}" aria-describedby="tag-help" aria-controls="tag-groups">
-      <p id="tag-help" class="field-help">{% translate 'Choose a planting or growing area. You can add several.' %}</p>
+      <label for="tag-type" class="visually-hidden">{% translate 'Record type' %}</label>
+      <select id="tag-type" data-tag-type aria-controls="tag-groups">
+        <option value="all">{% translate 'All' %}</option><option value="planting">{% translate 'Plantings' %}</option><option value="area">{% translate 'Growing areas' %}</option><option value="crop">{% translate 'Crops' %}</option><option value="variety">{% translate 'Varieties' %}</option>
+      </select>
+      <p id="tag-help" class="field-help">{% translate 'Expand a group to choose records. Search all types or select a record type.' %}</p>
     </div>
     <div class="tag-options">
       <div id="tag-groups" data-tag-groups>
       {% for group in form.tag_groups %}
-        <fieldset data-tag-group="{{ group.kind }}" id="id_{{ group.name }}">
-          <legend>{{ group.label }}</legend>
-          {% for option in group.options %}
-          <label class="tag-option" data-tag-option data-kind="{{ group.kind }}" data-derived="{{ option.derived }}"
-                 data-start="{{ option.start_year }}" data-end="{{ option.end_year }}" data-persistent="{{ option.persistent|yesno:'true,false' }}">
-            <input type="checkbox" name="{{ group.name }}" value="{{ option.pk }}" id="id_{{ group.name }}_{{ option.pk }}" aria-describedby="id_{{ group.name }}_errors"{% if option.selected %} checked{% endif %}>
-            <span><span class="tag-title">{{ option.title }}</span>{% if option.context %}<span class="tag-meta">{{ option.context }}</span>{% endif %}</span>
-          </label>
-          {% empty %}<p class="field-help" data-tag-empty>{% translate 'No records available.' %}</p>{% endfor %}
+        <details class="tag-secondary" data-tag-root="{{ group.kind }}">
+          <summary>{{ group.label }} <span data-tag-group-count>({{ group.options|length }})</span> <span data-tag-selected-count>{% if group.selected_count %}· {% translate 'Selected:' %} {{ group.selected_count }}{% endif %}</span></summary>
+          <fieldset id="id_{{ group.name }}">
+          <legend class="visually-hidden">{{ group.label }}</legend>
+          {% if group.kind == 'planting' %}
+            <div data-tag-period="current" data-tag-group="planting">
+              <p class="field-help">{% translate 'Observation year' %}</p>
+              {% include 'diary/_tag_subgroups.html' with period='current' %}
+            </div>
+            <details class="tag-secondary" data-tag-period="other" data-tag-group="other">
+              <summary>{% translate 'Other years' %} <span data-tag-group-count></span> <span data-tag-selected-count></span></summary>
+              {% include 'diary/_tag_subgroups.html' with period='other' %}
+            </details>
+          {% elif group.kind == 'variety' %}
+            <div data-tag-group="variety">{% include 'diary/_tag_subgroups.html' with period='variety' %}</div>
+          {% else %}
+            <div data-tag-group="{{ group.kind }}">{% for option in group.options %}{% include 'diary/_tag_option.html' %}{% empty %}<p class="field-help" data-tag-empty>{% translate 'No records available.' %}</p>{% endfor %}</div>
+          {% endif %}
         </fieldset>
+        </details>
       {% endfor %}
       </div>
       <p data-tag-no-results class="field-help" hidden>{% translate 'No matches. Try a crop, place, batch or year.' %}</p>
@@ -40,6 +54,4 @@
     <div id="id_link_varieties_errors" class="field-errors" data-register-field-errors="link_varieties">{{ form.link_varieties.errors }}</div>
   </div>
   <span data-tag-status class="visually-hidden" role="status"></span>
-  <template data-tag-other-years><details class="tag-secondary"><summary>{% translate 'Other years' %}</summary><fieldset data-tag-group="other"><legend>{% translate 'Plantings' %}</legend></fieldset></details></template>
-  <template data-tag-taxonomy><details class="tag-secondary"><summary>{% translate 'Crops and varieties' %}</summary></details></template>
 </div>

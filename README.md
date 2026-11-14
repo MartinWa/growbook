@@ -20,10 +20,11 @@ interface defaults to Swedish, with English available.
 - Discreet footer links to GitHub and releases, the deployed release version, and an
   orange indicator when a newer stable release is available.
 - A combined crop and variety register with searchable crop groups, and a growing-area
-  card overview with child-area detail pages, editing and non-cascading archive.
+  card overview with child-area detail pages, central area management and non-cascading archive.
 - A permanent crop-category overview with an uncategorized view and shared,
   user-defined categories; crops can belong to multiple categories. An optional
   private category image, including transparency, is reused on its card and heading.
+  Crop and planting categories have separate central management lists.
 - Unicode-aware scoped name uniqueness, cycle-safe area organization and confirmed
   deletion of records without protected references.
 - Multiple private photos on varieties, areas and plantings, with editable captions and
@@ -31,19 +32,20 @@ interface defaults to Swedish, with English available.
 - Early planting plans with crop and start year, optional variety or area, automatic
   editable labels, and batches containing separately tracked varieties. Each variety's
   quantity distinguishes unknown from zero.
-- Planting-cycle cards with status illustrations for Ongoing, Planned and Completed,
-  plus shared custom categories.
+- Planting-cycle cards ordered Planned, Ongoing and Completed with status illustrations,
+  followed by shared custom categories with optional private images.
   Each batch has one status and can belong to several custom categories; Start and
   Complete record dates, and Edit allows corrections without losing history.
 - Annual and persistent growing-year views with inclusive end years, distinct cycle
   counts and crop/variety/descendant-area histories that include archived associations.
 - Repeated planting events with independent planned and actual dates, plus cumulative
-  evaluation text and private photos.
+  evaluation text and private photos. Completed evaluations also appear as linked results
+  under the associated variety's Experiences notes.
 - Dated text-only, photo-only and text-plus-photo entries with optional titles,
   chronological paging, title and note search, and combined year, area, crop, variety
   and planting filters.
 - Optional tags during capture and editing, with one searchable picker for plantings,
-  growing areas, crops and varieties; linked records
+  growing areas, crops and varieties, with type filters and expandable groups; linked records
   show their observations, and derived filters follow plantings and area descendants.
 - Authors edit and delete their own entries; active staff administrators can change any
   entry. Photo captions, ordering, addition and removal are editable.
@@ -87,7 +89,8 @@ interface defaults to Swedish, with English available.
   photo, 80 MiB per upload and 50 million decoded pixels per photo. Apple HDR JPEGs with
   one auxiliary grayscale gain map use the primary photo; both images count toward the
   pixel limit. Other multi-image and animated files are rejected.
-  A crop category has at most one image, with the same file and decoded-pixel limits.
+  Each crop or custom planting category has at most one image, with the same file and
+  decoded-pixel limits.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public Internet
   exposure. Verify backup and clean-instance recovery before recording real data.
 
@@ -128,7 +131,9 @@ Docker volumes. Do not expose the development server or point it at production d
 
 - **Growing areas** and **Crops and varieties** open directly from the main menu.
   Browse top-level areas and their child cards, choose a crop category, expand crop
-  groups, read information and photos, search crop and variety names, and maintain records.
+  groups, read information and photos, and search crop and variety names. **Manage growing
+  areas** maintains areas; **Manage categories** maintains crop categories. Crop and variety
+  records retain their editing controls in their details.
 - **Plantings** opens status and custom-category cards with growing-year counts.
   Choose a category, then a cycle to open its details. Create annual or persistent
   cycles, start or complete a batch, record member events, and open register histories.

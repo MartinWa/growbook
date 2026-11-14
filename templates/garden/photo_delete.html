@@ -4,14 +4,14 @@
 {% block content %}
 <section class="panel register-form-panel">
   <h1>{% translate 'Delete photo' %}</h1>
-  <a href="{{ photo.get_absolute_url }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% if photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}"></a>
+  <a href="{{ photo.get_absolute_url }}?next={{ destination|urlencode }}"><img class="photo-edit-preview" src="{{ photo.thumbnail_url }}" alt="{% if photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}"></a>
   <p>{% if photo.planting_id %}{% translate 'This permanently removes this photo and its private original. The planting is kept.' %}{% else %}{% translate 'This permanently removes this photo and its private original. The register record is kept.' %}{% endif %}</p>
   <form method="post">
-    {% csrf_token %}
+    {% csrf_token %}<input type="hidden" name="next" value="{{ destination }}">
     <div role="alert">{% include 'garden/form_errors.html' %}</div>
     {{ form.expected_updated_at }}
     <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
-    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete photo' %}</button><a href="{{ photo.owner.get_absolute_url }}">{% translate 'Cancel' %}</a></div>
+    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete photo' %}</button><a href="{{ destination }}">{% translate 'Cancel' %}</a></div>
   </form>
 </section>
 {% endblock %}

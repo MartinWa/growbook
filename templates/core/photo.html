@@ -3,7 +3,7 @@
 {% block title %}{% if photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %} · GrowBook{% endblock %}
 {% block page_class %}page photo-page{% endblock %}
 {% block content %}
-<a href="{{ photo.owner.get_absolute_url }}">← {% if photo.entry_id %}{% translate 'Back to observation' %}{% else %}{% translate 'Back to record' %}{% endif %}</a>
+<a href="{{ destination|default:photo.owner.get_absolute_url }}">← {% if photo.entry_id %}{% translate 'Back to observation' %}{% else %}{% translate 'Back to record' %}{% endif %}</a>
 <section aria-labelledby="photo-heading">
   <div class="page-heading">
     <h1 id="photo-heading">{% if photo.caption %}{{ photo.caption }}{% elif photo.entry_id %}{% translate 'Observation photo' %}{% elif photo.planting_id %}{% translate 'Planting photo' %}{% else %}{% translate 'Register photo' %}{% endif %}</h1>

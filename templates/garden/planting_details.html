@@ -6,7 +6,7 @@
   <section class="batch-varieties" aria-labelledby="batch-varieties-{{ record.pk }}">
     <h3 id="batch-varieties-{{ record.pk }}">{% translate 'Varieties in this batch' %}</h3>
     <ul class="record-list">
-      {% for member in batch_members %}<li>{% if member.pk == record.pk %}<span aria-current="true">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</span>{% else %}<a href="{{ member.get_absolute_url }}">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a>{% endif %} <span class="field-help">{{ member.quantity|default_if_none:'—' }}</span></li>{% endfor %}
+      {% for member in batch_members %}<li>{% if member.pk == record.pk %}<span aria-current="true">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</span>{% else %}<a href="{{ member.get_absolute_url }}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a>{% endif %} <span class="field-help">{{ member.quantity|default_if_none:'—' }}</span></li>{% endfor %}
     </ul>
     {% if can_add_variety %}<a class="btn btn-outline" href="{{ add_variety_url }}">{% translate 'Add variety to batch' %}</a>{% endif %}
   </section>
@@ -48,8 +48,8 @@
   <div class="form-actions">
     <a class="btn btn-primary" href="{% url 'garden:planting-edit' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Edit planting' %}</a>
     <a href="{% url 'garden:event-create' record.pk %}">{% translate 'New planting event' %}</a>
-    <a href="{% url 'garden:planting-delete' record.pk %}">{% translate 'Delete planting' %}</a>
-    {% if inline %}<a href="{{ record.get_absolute_url }}{% if year %}?year={{ year }}{% endif %}" aria-label="{% translate 'Open record' %}: {{ record.display_label }}">{% translate 'Open record' %}</a>{% endif %}
+    <a href="{% url 'garden:planting-delete' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Delete planting' %}</a>
+    {% if inline %}<a href="{{ record.get_absolute_url }}?{% if destination %}next={{ destination|urlencode }}&amp;{% endif %}{% if year %}year={{ year }}{% endif %}" aria-label="{% translate 'Open record' %}: {{ record.display_label }}">{% translate 'Open record' %}</a>{% endif %}
   </div>
   <section class="diary-observations" aria-labelledby="diary-observations-planting-{{ record.pk }}">
     <h2 id="diary-observations-planting-{{ record.pk }}">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>

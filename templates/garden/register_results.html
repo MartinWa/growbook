@@ -21,7 +21,7 @@
       <details class="crop-maintenance" id="crop-maintenance">
         <summary>{% translate 'Manage crops' %}</summary>
         <ul class="record-list">
-          {% for group in variety_groups %}<li><a class="record-name" href="{{ group.crop.get_absolute_url }}">{{ group.crop.name }}</a>{% if group.crop.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</li>{% endfor %}
+          {% for group in variety_groups %}<li><a class="record-name" href="{{ group.crop.get_absolute_url }}?next={{ request.get_full_path|urlencode }}">{{ group.crop.name }}</a>{% if group.crop.is_archived %} <span class="archive-label">{% translate 'Archived' %}</span>{% endif %}</li>{% endfor %}
         </ul>
       </details>
     {% else %}

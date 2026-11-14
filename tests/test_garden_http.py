@@ -203,7 +203,7 @@ def test_register_compact_list_and_inline_fragment_use_private_templates(
     elif kind == "area":
         assert "data-register-toggle" not in response.text
         assert "data-record-workspace" not in response.text
-    assert f'href="{record.get_absolute_url()}"' in response.text
+    assert f'href="{record.get_absolute_url()}{"" if kind == "area" else "?next="}' in response.text
     assert "record-details" not in response.text
     fragment = client.get(record.get_absolute_url(), HTTP_HX_REQUEST="true")
     assert fragment.status_code == 200 and "record-details" in fragment.text
@@ -281,7 +281,11 @@ def test_archive_errors_offer_a_working_register_return(
             archive_path, {"archived": "nonsense" if failure == "invalid" else "true"}
         )
     assert response.status_code == status
-    list_path = reverse("garden:area-list" if kind == "area" else "garden:variety-list")
+    list_path = (
+        reverse("garden:area-manage", query={"selected": record.pk})
+        if kind == "area"
+        else reverse("garden:variety-list")
+    )
     heading = "Growing areas" if kind == "area" else "Crops and varieties"
     assert f'<a href="{list_path}">{heading}</a>' in response.text
     assert client.get(list_path).status_code == 200
@@ -663,7 +667,11 @@ def test_register_edit_retry_after_later_association_change_keeps_latest_record(
 
     response = client.post(path, {**data, "photos": image_upload()}, **headers)
     assert response.status_code == (204 if hx else 302)
-    assert response["HX-Redirect" if hx else "Location"] == record.get_absolute_url()
+    assert response["HX-Redirect" if hx else "Location"] == (
+        reverse("garden:area-manage", query={"selected": record.pk})
+        if kind == "area"
+        else record.get_absolute_url()
+    )
     assert (
         client.post(
             path, {**data, "name": "Changed payload", "photos": image_upload()}, **headers

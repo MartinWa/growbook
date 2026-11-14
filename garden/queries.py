@@ -3,10 +3,10 @@
 from dataclasses import dataclass, field
 
 from django.db import transaction
-from django.db.models import Q, prefetch_related_objects
+from django.db.models import F, Q, prefetch_related_objects
 from django.utils.translation import gettext as _
 
-from .models import GrowingArea, Planting
+from .models import GrowingArea, Planting, PlantingCycle
 
 
 @dataclass
@@ -201,6 +201,22 @@ def cycle_years(records):
         if label not in years:
             years.append(label)
     return "; ".join(years)
+
+
+def variety_evaluations(variety):
+    """Current completed results, once per member, including archived associations."""
+    records = planting_rows(
+        Planting.objects.filter(variety=variety, cycle__status=PlantingCycle.Status.COMPLETED)
+        .exclude(evaluation="")
+        .select_related("cycle", "crop", "variety", "area")
+        .order_by(F("cycle__completed_on").desc(nulls_last=True), "-start_year", "-id")
+    )
+    results = []
+    for record in records:
+        if record.evaluation.strip():
+            record.growing_years = cycle_years([record])
+            results.append(record)
+    return results
 
 
 def cycle_groups(records):

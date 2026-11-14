@@ -89,7 +89,7 @@ def test_shared_status_categories_distinct_filtered_counts_and_zero_cards(client
     client.force_login(user)
     response = client.get(reverse("garden:planting-list"), {"year": 2026})
     assert len(response.context["cycle_groups"]) == 1
-    assert [card["count"] for card in response.context["category_cards"]] == [1, 0, 0, 0, 1]
+    assert [card["count"] for card in response.context["category_cards"]] == [0, 1, 0, 0, 1]
     assert 'class="category-grid"' in response.text
     assert "data-area-id=" not in response.text
     assert response.context["planting_illustration"] == "images/registers/plantings.webp"

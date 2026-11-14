@@ -25,16 +25,7 @@
       {% if record.description %}<dt>{% translate 'Description' %}</dt><dd>{{ record.description|linebreaksbr }}</dd>{% endif %}
       {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
     </dl>
-    {% include 'garden/register_photos.html' %}
-    <div class="form-actions">
-      <a class="btn btn-primary" href="{{ edit_url }}">{% translate 'Edit' %}</a>
-      <form method="post" action="{{ archive_url }}">
-        {% csrf_token %}
-        {% if record.is_archived %}<input type="hidden" name="archived" value="false"><button type="submit" class="btn btn-outline">{% translate 'Restore to active selections' %}</button>
-        {% else %}<input type="hidden" name="archived" value="true"><button type="submit" class="btn btn-outline">{% translate 'Archive' %}</button>{% endif %}
-      </form>
-      <a href="{{ delete_url }}">{% translate 'Delete' %}</a>
-    </div>
+    {% include 'garden/register_photos.html' with readonly=True %}
   </section>
   <section class="area-section" aria-labelledby="area-plantings-{{ record.pk }}">
     <div class="page-heading">

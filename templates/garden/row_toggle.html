@@ -1,5 +1,5 @@
 {% load i18n %}
 {% firstof record.display_label record.name as display_name %}
-<a class="record-name" href="{{ record.get_absolute_url }}{% if kind == 'planting' and year %}?year={{ year }}{% endif %}" aria-controls="details-{{ kind }}-{{ record.pk }}" aria-expanded="false"
-  data-register-toggle data-details-url="{{ record.get_absolute_url }}{% if kind == 'planting' and year %}?year={{ year }}{% endif %}"
+<a class="record-name" href="{{ record.get_absolute_url }}?next={{ request.get_full_path|urlencode }}{% if kind == 'planting' and year %}&amp;year={{ year }}{% endif %}" aria-controls="details-{{ kind }}-{{ record.pk }}" aria-expanded="false"
+  data-register-toggle data-details-url="{{ record.get_absolute_url }}?next={{ request.get_full_path|urlencode }}{% if kind == 'planting' and year %}&amp;year={{ year }}{% endif %}"
   data-loading="{% translate 'Loading details…' %}" data-load-error="{% translate 'Details could not be loaded. Close and reopen to retry, or open the record in a new tab.' %}">{% if thumbnail %}<img class="variety-thumbnail" src="{{ thumbnail.thumbnail_url }}" width="64" height="64" loading="lazy" alt="">{% endif %}<span>{{ display_name }}</span></a>
