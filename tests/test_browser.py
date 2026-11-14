@@ -8,9 +8,11 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 import pytest
+from browser_helpers import browser_page, wait_for_image
+from browser_helpers import login as login_through_form
 from django.db import close_old_connections, connection
 from PIL import Image
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from diary.services import create_entry
 from garden.models import Crop
@@ -20,15 +22,8 @@ pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
 
 @pytest.fixture
-def page(live_server, settings, user, browser_endpoint):
-    settings.WHITENOISE_USE_FINDERS = True
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 390, "height": 844}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+def page(live_server, user, browser_endpoint):
+    with browser_page(browser_endpoint, viewport={"width": 390, "height": 844}) as page:
         yield page
 
 
@@ -40,14 +35,9 @@ def open_filters(page):
     summary.press("Tab")
 
 
-def login(page, live_server, user):
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('button[type="submit"]').filter(has_text="Logga in").click()
-    expect(page).to_have_url(live_server.url + "/")
-    page.goto(live_server.url + "/")
-    page.wait_for_function("window.htmx !== undefined")
+def login(page, live_server, user, language=None):
+    login_through_form(page, live_server, user, language)
+    page.wait_for_function("() => window.htmx !== undefined")
 
 
 def upload(file, name="synthetic.jpg"):
@@ -266,7 +256,7 @@ def test_apple_hdr_library_photo_saves_from_the_edit_form(
     page.locator('#entry-form button[type="submit"]').click()
     expect(page).to_have_url(entry_url)
     image = page.locator(".entry-photos figure img")
-    image.evaluate("image => image.decode()")
+    wait_for_image(image)
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [80, 60]
 
 
@@ -285,11 +275,14 @@ def test_favicon_is_available_without_login(page, live_server):
         lambda response: response.url.endswith("/static/icons/favicon.svg")
     ) as fetched:
         page.evaluate(
-            """async () => {
-                const image = new Image();
-                image.src = document.querySelector('link[rel="icon"]').href;
-                await image.decode();
+            """() => {
+                window.faviconImage = new Image();
+                window.faviconImage.src = document.querySelector('link[rel="icon"]').href;
             }"""
+        )
+        page.wait_for_function(
+            "() => window.faviconImage.complete && window.faviconImage.naturalWidth > 0",
+            timeout=8000,
         )
     assert fetched.value.status == 200
     assert fetched.value.headers["content-type"] == "image/svg+xml"
@@ -331,7 +324,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     viewer_path = photo_link.get_attribute("href")
     expect(photo_link).to_have_attribute("href", re.compile(r"/photos/\d+/$"))
     preview = photo_link.locator("img")
-    preview.evaluate("image => image.decode()")
+    wait_for_image(preview)
     assert preview.bounding_box()["width"] <= 240
     photo_link.click()
     expect(page).to_have_url(live_server.url + viewer_path)
@@ -347,7 +340,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
     page.keyboard.press("Tab")
     expect(delete).to_be_focused()
     image = page.locator(".photo-viewer img")
-    image.evaluate("image => image.decode()")
+    wait_for_image(image)
     assert image.evaluate("image => [image.naturalWidth, image.naturalHeight]") == [1600, 1200]
     expect(page.get_by_role("link", name="Tillbaka till observationen")).to_have_attribute(
         "href", urlsplit(entry_url).path
@@ -359,7 +352,7 @@ def test_photo_links_and_direct_navigation_use_csp_safe_viewer(
         assert response.headers["content-type"].startswith("text/html")
         assert "style-src 'self'" in response.headers["content-security-policy"]
         assert "unsafe-inline" not in response.headers["content-security-policy"]
-        image.evaluate("image => image.decode()")
+        wait_for_image(image)
     for width in (320, 1280):
         page.set_viewport_size({"width": width, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -548,7 +541,7 @@ def test_preview_treats_hostile_filenames_and_content_as_data(page, live_server,
     if mime_type == "image/svg+xml":
         expect(preview.locator("img")).to_have_attribute("src", re.compile(r"^blob:"))
         expect(preview.locator("img")).to_have_attribute("alt", filename)
-        preview.locator("img").evaluate("image => image.decode()")
+        wait_for_image(preview.locator("img"))
         assert preview.locator("img").count() == 1
     else:
         expect(preview.locator("img")).to_have_count(0)
@@ -637,11 +630,7 @@ def test_capture_foundation_reflows_and_supports_keyboard(
 ):
     # Enable interception before keyboard activation; a last-moment subscription can race.
     page.on("filechooser", lambda chooser: None)
-    login(page, live_server, user)
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.reload()
+    login(page, live_server, user, language)
     expect(page.locator("html")).to_have_attribute("lang", language)
     for width in (320, 390, 1280):
         page.set_viewport_size({"width": width, "height": 844})

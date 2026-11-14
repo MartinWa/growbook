@@ -10,6 +10,8 @@ SECRET_KEY = "synthetic-test-secret-not-for-real-installations-" * 2
 DEBUG = False
 ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
 TEST_DATA_DIR = Path(os.environ.get("GROWBOOK_STATE_DIR", "/state")) / "test-state"
+if worker := os.environ.get("PYTEST_XDIST_WORKER"):
+    TEST_DATA_DIR /= worker
 TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASES["default"]["NAME"] = TEST_DATA_DIR / "db.sqlite3"
 DATABASES["default"]["TEST"] = {"NAME": TEST_DATA_DIR / "test.sqlite3"}

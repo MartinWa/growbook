@@ -4,7 +4,8 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from browser_helpers import browser_page, login, wait_for_image
+from playwright.sync_api import expect
 
 from core.appearance import SEASON_COOKIE
 from diary.services import create_entry, update_entry_photo
@@ -36,33 +37,17 @@ def sample_entries(user, image_upload):
 
 @pytest.fixture
 def page(live_server, sample_entries, browser_endpoint):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 390, "height": 844}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(browser_endpoint, viewport={"width": 390, "height": 844}) as page:
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.add_init_script("""window.cspViolations = [];
+        csp_monitor = """window.cspViolations = [];
             document.addEventListener('securitypolicyviolation', event =>
-                window.cspViolations.push(event.violatedDirective));""")
-        page.goto(live_server.url + "/accounts/login/")
+                window.cspViolations.push(event.violatedDirective));"""
+        page.add_init_script(csp_monitor)
+        page.evaluate(csp_monitor)
         yield page
         assert errors == []
         assert page.evaluate("window.cspViolations") == []
-
-
-def login(page, live_server, user, language="sv"):
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('.login-panel button[type="submit"]').click()
-    expect(page).to_have_url(live_server.url + "/")
 
 
 def choose(page, season):
@@ -119,7 +104,7 @@ def test_seasonal_colours_and_diary_layout(page, live_server, user, sample_entri
             .evaluate("element => getComputedStyle(element, '::before').backgroundImage")
             .endswith(f'/images/seasons/{season}.webp")')
         )
-        page.evaluate("document.fonts.ready")
+        page.wait_for_function("() => document.fonts.status === 'loaded'", timeout=8000)
         assert page.evaluate("document.fonts.check('32px \"Barlow Condensed\"')")
         note_card = page.locator(f"#entry-{sample_entries[0].pk}")
         expect(note_card.locator(".entry-body")).to_have_text(sample_entries[0].body)
@@ -171,12 +156,7 @@ def test_diary_photo_captions_and_aspect_ratios(
     captioned_entries, live_server, user, browser_endpoint, javascript
 ):
     observations, caption = captioned_entries
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        view = context.new_page()
+    with browser_page(browser_endpoint, timeout=30000, java_script_enabled=javascript) as view:
         login(view, live_server, user)
         for width in (320, 390, 1280):
             view.set_viewport_size({"width": width, "height": 1000})
@@ -184,7 +164,7 @@ def test_diary_photo_captions_and_aspect_ratios(
                 gallery = view.locator(f"#entry-{entry_id} .diary-photos")
                 expect(gallery.locator("figcaption")).to_have_text(caption)
                 for image in gallery.locator("img").all():
-                    image.evaluate("image => image.decode()")
+                    wait_for_image(image)
                     dimensions = image.evaluate("""image => {
                         const box = image.getBoundingClientRect();
                         return {width: box.width, height: box.height,
@@ -240,7 +220,7 @@ def test_register_headings_and_fixed_illustrations_follow_the_season(
         illustration = page.locator(".register-illustration")
         source = f"/static/images/registers/{filename}.webp"
         expect(illustration).to_have_attribute("alt", "")
-        illustration.evaluate("image => image.decode()")
+        wait_for_image(illustration)
         colours = []
         for season in ("spring", "summer", "autumn", "winter"):
             choose(page, season)
@@ -291,7 +271,7 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
         "/garden/plantings/?year=2026",
     ):
         page.goto(live_server.url + path)
-        page.evaluate("document.fonts.ready")
+        page.wait_for_function("() => document.fonts.status === 'loaded'", timeout=8000)
         main = page.locator("#main").bounding_box()
         title = page.locator("h1").bounding_box()
         edges.append((title["x"], title["y"] - main["y"], main["width"]))

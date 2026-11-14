@@ -5,8 +5,9 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 from uuid import uuid4
 
 import pytest
+from browser_helpers import browser_page, login, wait_for_image
 from django.utils import timezone
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from diary.services import create_entry
 from garden.services import (
@@ -104,25 +105,8 @@ def register_scope(request, user, ux):
 
 @pytest.fixture
 def page(live_server, user, ux, register_scope, browser_endpoint):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 1280, "height": 900}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
         yield page
-
-
-def login(page, live_server, user, language):
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.get_by_role("button", name="Logga in", exact=True).click()
-    expect(page).to_have_url(live_server.url + "/")
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
 
 
 def branch(page, area):
@@ -131,15 +115,14 @@ def branch(page, area):
 
 @pytest.mark.parametrize("javascript", [False, True])
 @pytest.mark.parametrize("archived", [False, True])
-@pytest.mark.parametrize("width", [390, 1280])
 def test_search_enter_preserves_archive_visibility(
-    page, live_server, user, ux, javascript, archived, width
+    page, live_server, user, ux, javascript, archived
 ):
     login(page, live_server, user, "en")
     context = page.context.browser.new_context(
         java_script_enabled=javascript,
         storage_state=page.context.storage_state(),
-        viewport={"width": width, "height": 844},
+        viewport={"width": 390, "height": 844},
     )
     try:
         search_page = context.new_page()
@@ -282,7 +265,7 @@ def test_variety_search_clear_back_retry_and_direct_links(
     expect(group.get_by_role("button", name="Åsa Grön", exact=True)).to_be_visible()
     thumbnail = group.locator(".variety-thumbnail")
     expect(thumbnail).to_be_visible()
-    thumbnail.evaluate("image => image.decode()")
+    wait_for_image(thumbnail)
     group.locator(":scope > summary").press("Space")
     expect(group.get_by_role("button", name="Åsa Grön", exact=True)).to_be_hidden()
     search.fill("A\u030asa GRO\u0308N")

@@ -28,6 +28,7 @@ text is included in that installed license file.
 | Barlow Condensed, regular heading font | SIL Open Font License 1.1; pinned source and checksum in [`barlow-condensed/README.md`](barlow-condensed/README.md), original license in [`barlow-condensed/LICENSE`](barlow-condensed/LICENSE). |
 | SQLite | Public domain; source/runtime inputs are checksum-pinned. |
 | PowerShell Core | MIT with bundled .NET/dependency notices under `/opt/powershell`; included only in the development/test image for launcher checks. |
+| pytest-xdist, execnet | MIT; development/test image only, with installed license files retained. |
 
 ## HEIC packaging boundary
 

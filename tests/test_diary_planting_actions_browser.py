@@ -3,8 +3,10 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from browser_helpers import browser_page
+from browser_helpers import login as login_through_form
 from django.db import close_old_connections
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from diary.models import DiaryEntry
 from garden.models import Planting, PlantingCycle, PlantingEvent
@@ -39,26 +41,15 @@ def catalog(user):
 
 @pytest.fixture
 def page(browser_endpoint, live_server, catalog):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context() as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(10000)
+    with browser_page(browser_endpoint, timeout=10000) as page:
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         yield page
         assert errors == []
 
 
-def login(page, live_server, user):
-    page.context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('.login-panel button[type="submit"]').click()
-    expect(page).to_have_url(live_server.url + "/")
+def login(page, live_server, user, language="en"):
+    login_through_form(page, live_server, user, language)
 
 
 def state():
@@ -94,17 +85,8 @@ def open_action(page, action):
 def test_planting_disclosure_supports_keyboard_and_reflows(
     browser_endpoint, live_server, user, catalog, language, javascript
 ):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        page = context.new_page()
-        login(page, live_server, user)
-        context.add_cookies(
-            [{"name": "django_language", "value": language, "url": live_server.url}]
-        )
-        page.reload()
+    with browser_page(browser_endpoint, timeout=30000, java_script_enabled=javascript) as page:
+        login(page, live_server, user, language)
         disclosure = page.locator("[data-planting-action]")
         summary = disclosure.locator(":scope > summary")
         selector = page.locator('[name="planting_action"]')
@@ -144,11 +126,7 @@ def test_planting_disclosure_supports_keyboard_and_reflows(
 def test_new_dates_overrides_errors_photos_and_success_reset(
     page, live_server, user, catalog, image_upload, tmp_path, language
 ):
-    login(page, live_server, user)
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.reload()
+    login(page, live_server, user, language)
     expect(page.locator('[name="event-kind"] option[value="replanting"]')).to_have_text(
         "Omplantering" if language == "sv" else "Replanting"
     )
@@ -369,12 +347,7 @@ def test_native_refresh_keeps_varieties_from_other_crops(
 ):
     crop = create_crop(actor=user, name="Pepper").record
     variety = create_variety(actor=user, crop=crop, name="Amber").record
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context(java_script_enabled=False) as context,
-    ):
-        page = context.new_page()
+    with browser_page(browser_endpoint, timeout=30000, java_script_enabled=False) as page:
         login(page, live_server, user)
         page.locator("#id_body").fill("Synthetic native draft")
         open_action(page, "new")
@@ -409,12 +382,7 @@ def test_native_refresh_keeps_varieties_from_other_crops(
 def test_no_javascript_native_planting_actions(
     browser_endpoint, live_server, user, catalog, action
 ):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint) as browser,
-        browser.new_context(java_script_enabled=False) as context,
-    ):
-        page = context.new_page()
+    with browser_page(browser_endpoint, timeout=30000, java_script_enabled=False) as page:
         login(page, live_server, user)
         page.locator("#id_body").fill("Native completion")
         open_action(page, action)

@@ -5,8 +5,9 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
+from browser_helpers import browser_page, login
 from django.db import close_old_connections, connection
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from diary.models import DiaryEntry
 from garden.services import archive_crop, create_area, create_crop, create_planting, create_variety
@@ -55,28 +56,11 @@ def browser_tags(user):
 
 @pytest.fixture
 def page(live_server, browser_tags, browser_endpoint):
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": 390, "height": 844}) as context,
-    ):
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(browser_endpoint, viewport={"width": 390, "height": 844}) as page:
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         yield page
         assert errors == []
-
-
-def login(page, live_server, user, language="sv"):
-    page.context.add_cookies(
-        [{"name": "django_language", "value": language, "url": live_server.url}]
-    )
-    page.goto(live_server.url + "/accounts/login/")
-    page.locator("#id_username").fill(user.username)
-    page.locator("#id_password").fill("Synthetic-password-42")
-    page.locator('.login-panel button[type="submit"]').click()
-    expect(page).to_have_url(live_server.url + "/")
 
 
 def row(page, name, pk):
@@ -123,16 +107,22 @@ def test_shared_picker_whole_rows_focus_stationary_selection_and_save(
     expect(trigger).to_have_accessible_name(
         re.compile("Lägg till taggar" if language == "sv" else "Add tags")
     )
-    actions = page.locator(".capture-actions")
+    actions = page.locator("[data-capture-tools]" if mode == "quick" else ".capture-actions")
     expect(actions.locator("[data-tag-trigger]")).to_be_visible()
     expect(actions.locator("[data-photo-chooser]")).to_be_visible()
     page.set_viewport_size({"width": 1280, "height": 844})
     tag_box = trigger.bounding_box()
     photo_box = actions.locator("[data-photo-chooser]").bounding_box()
     save_box = save.bounding_box()
-    assert tag_box["x"] < photo_box["x"] < save_box["x"]
-    assert tag_box["y"] == photo_box["y"] == save_box["y"]
-    action_box = actions.bounding_box()
+    assert tag_box["x"] < photo_box["x"]
+    assert tag_box["y"] == photo_box["y"]
+    if mode == "quick":
+        planting_box = page.locator("[data-planting-action] > summary").bounding_box()
+        assert photo_box["y"] + photo_box["height"] < planting_box["y"] < save_box["y"]
+    else:
+        assert photo_box["x"] < save_box["x"]
+        assert photo_box["y"] == save_box["y"]
+    action_box = page.locator(".capture-actions").bounding_box()
     assert abs(save_box["x"] + save_box["width"] - action_box["x"] - action_box["width"]) < 1
     page.set_viewport_size({"width": 390, "height": 844})
     expect(popover).to_be_hidden()

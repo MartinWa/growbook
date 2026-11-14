@@ -4,11 +4,12 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from browser_helpers import browser_page, login, wait_for_image
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connection
 from PIL import Image
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from garden.models import Crop, CropCategory, Variety
 from garden.services import archive_crop, create_category, create_crop, create_variety
@@ -31,18 +32,8 @@ def test_archived_crop_error_link_focuses_category_crops(
         finally:
             connection.close()
 
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
-        page = context.new_page()
-        page.set_default_timeout(8000)
-        page.goto(live_server.url + "/accounts/login/")
-        page.locator("#id_username").fill(user.username)
-        page.locator("#id_password").fill("Synthetic-password-42")
-        page.get_by_role("button", name="Log in", exact=True).click()
+    with browser_page(browser_endpoint, java_script_enabled=javascript) as page:
+        login(page, live_server, user, "en")
         path = f"/garden/categories/{category.pk}/edit/" if editing else "/garden/categories/new/"
         page.goto(live_server.url + path)
         page.locator("#id_name").fill("Vegetables")
@@ -70,25 +61,15 @@ def test_default_illustration_upload_retains_transparency_and_heading_size(
         name="Synthetic illustrated category",
         uploads=[SimpleUploadedFile(source.name, source.read_bytes(), "image/webp")],
     ).record
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(viewport={"width": width, "height": 1000}) as context,
-    ):
-        context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
-        page = context.new_page()
-        page.set_default_timeout(8000)
-        page.goto(live_server.url + "/accounts/login/")
-        page.locator("#id_username").fill(user.username)
-        page.locator("#id_password").fill("Synthetic-password-42")
-        page.get_by_role("button", name="Log in", exact=True).click()
+    with browser_page(browser_endpoint, viewport={"width": width, "height": 1000}) as page:
+        login(page, live_server, user, "en")
         page.goto(live_server.url + "/garden/varieties/")
         image = page.locator(".register-illustration")
-        image.evaluate("image => image.decode()")
+        wait_for_image(image)
         overview = image.bounding_box()
         page.goto(live_server.url + category.get_absolute_url())
         expect(image).to_have_attribute("src", re.compile(r"/photos/\d+/display/$"))
-        image.evaluate("image => image.decode()")
+        wait_for_image(image)
         selected = image.bounding_box()
         assert abs(overview["width"] - selected["width"]) < 2
         assert abs(overview["height"] - selected["height"]) < 2
@@ -122,7 +103,6 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
     upload = {"name": "synthetic.png", "mimeType": "image/png", "buffer": buffer.getvalue()}
     labels = {
         "sv": {
-            "login": "Logga in",
             "new": "Ny kategori",
             "newcrop": "Ny gröda",
             "save": "Spara",
@@ -132,7 +112,6 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
             "confirm": "Radera post",
         },
         "en": {
-            "login": "Log in",
             "new": "New category",
             "newcrop": "New crop",
             "save": "Save",
@@ -143,23 +122,11 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         },
     }[language]
     errors = []
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(
-            java_script_enabled=javascript, viewport={"width": width, "height": 844}
-        ) as context,
-    ):
-        context.add_cookies(
-            [{"name": "django_language", "value": language, "url": live_server.url}]
-        )
-        page = context.new_page()
-        page.set_default_timeout(8000)
+    with browser_page(
+        browser_endpoint, java_script_enabled=javascript, viewport={"width": width, "height": 844}
+    ) as page:
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.goto(live_server.url + "/accounts/login/")
-        page.locator("#id_username").fill(user.username)
-        page.locator("#id_password").fill("Synthetic-password-42")
-        page.get_by_role("button", name=labels["login"], exact=True).click()
+        login(page, live_server, user, language)
         page.goto(live_server.url + "/garden/varieties/")
         expect(page.locator(".category-card")).to_have_count(1)
         expect(page.locator(".category-card img")).to_have_attribute(
@@ -187,9 +154,9 @@ def test_category_workflow_with_image_retry_and_last_category_deletion(
         expect(heading_image).to_have_attribute("src", re.compile(r"/photos/\d+/display/$"))
         category_image_url = heading_image.get_attribute("src")
         if javascript:
+            wait_for_image(heading_image)
             assert (
-                heading_image.evaluate("""async image => {
-                await image.decode();
+                heading_image.evaluate("""image => {
                 const canvas = document.createElement('canvas');
                 canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
                 const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
@@ -265,18 +232,8 @@ def test_category_variety_save_and_cancel_return_to_filtered_category(
     crop = create_crop(actor=user, name="Tomato").record
     category = create_category(actor=user, name="Vegetables", crops=[crop]).record
     destination = category.get_absolute_url() + "?q=tom&archived=1"
-    with (
-        sync_playwright() as playwright,
-        playwright.chromium.connect(browser_endpoint, timeout=20000) as browser,
-        browser.new_context(java_script_enabled=javascript) as context,
-    ):
-        page = context.new_page()
-        context.add_cookies([{"name": "django_language", "value": "en", "url": live_server.url}])
-        page.goto(live_server.url + "/accounts/login/")
-        page.locator("#id_username").fill(user.username)
-        page.locator("#id_password").fill("Synthetic-password-42")
-        page.get_by_role("button", name="Log in", exact=True).click()
-        expect(page).to_have_url(live_server.url + "/")
+    with browser_page(browser_endpoint, timeout=30000, java_script_enabled=javascript) as page:
+        login(page, live_server, user, "en")
         page.goto(live_server.url + category.get_absolute_url())
         page.locator("#id_q").fill("tom")
         if not javascript:
