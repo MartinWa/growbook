@@ -231,9 +231,27 @@ Without JavaScript, use **Apply**. Enter a year or use **Previous year** and
 **Next year**; **All years** shows each matching cycle once across its full history.
 Crop, variety and area histories default to all years. Choose a category to see one
 row per matching cycle, then select its name to open the shared details panel.
-The row shows its current status and exact growing-year ranges. Batch members expand
-independently; the panel includes status, categories, dates and all members, plus the
-selected member's quantity, events, notes, evaluation, photos and diary observations.
+Rows show status only when the category does not supply it, and exact growing-year
+ranges in All years. Crop, variety and area history lists retain both. Matching
+batch members expand independently in the list. The compact panel shows the name,
+status and selected member's area and years, followed by **Planting details**.
+For a batch with several varieties, use the compact **Selected variety** switcher;
+it changes the member's quantity, notes, evaluation, photos, events, observations
+and editing actions together. Cycle status, actual dates and custom categories
+remain shared. Failed switches keep the selected member visible and allow retry.
+**Complete planting cycle** is primary for Ongoing, and **Start cycle** for Planned.
+**Edit planting** and **Add variety** remain secondary; **Edit cycle** corrects
+shared status, dates and categories. **Cultivation events (count)** keeps **Add
+event** available and expands through **View events** when populated. **Diary
+observations (count)** expands its latest five entries and links to older entries
+when present. Empty sections stay brief. Photos remain viewable on the planting
+details; their Edit photo details and Delete photo actions appear under **Saved
+photos** in **Edit planting**, inside **Notes and photos**. Photo Save, Cancel and
+confirmed deletion return to that edit form with its category/year context kept.
+Save pending planting changes before opening photo maintenance. The photo viewer
+also returns there when opened from editing. The form reloads
+with the current planting version after photo maintenance. Existing history links
+remain available.
 Ordinary links open full detail pages without JavaScript. **Planting categories**
 returns to the overview with the year and filters preserved.
 

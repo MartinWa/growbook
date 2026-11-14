@@ -211,9 +211,14 @@ and cut legacy cycles defensively. They retain archived ancestors of active chil
 Plantings reuses `.category-grid`, `.category-card` and the seasonal botanical
 placeholder for Ongoing, Planned, Completed and custom categories. Cards always show
 the matching cycle count and selected year, including zero counts. Quiet footer actions
-manage custom categories. Category lists show one batch per row, with current status
-and exact member year ranges. Native disclosures expose matching members; cycle names
-select shared information and existing member details through the register module.
+manage custom categories. Category lists show one batch per row; status appears when
+the category does not supply it, and growing-year ranges appear in All years.
+Crop, variety and area history lists retain status and ranges. Native disclosures
+expose matching members; cycle names select shared information and member details
+through the register module. A compact variety switcher updates one member's
+information and action targets together, keeping shared cycle fields intact.
+Its authenticated HTMX requests preserve the previous selection on failure and
+support retry; ordinary links remain available without JavaScript.
 Names wrap and controls retain their touch targets and focus outlines.
 Browser history restores crop-register disclosure
 states, the selected details and scroll after returning from editing. Stored state contains
@@ -231,8 +236,16 @@ variety failures open their group and expose a retry action.
 
 Planting filters share the diary disclosure and URL history behavior. Returned
 lists initialize the shared details panel after each filter update. Planting
-lists show cycle names, status and years at every width; member fields and history
-links are in opened information. Nested event tables retain their own horizontal scrolling.
+lists show clear cycle names at every width, with status/year context only when
+needed. Selected details show one heading, a text status badge and an area/year
+summary. Member fields, shared dates/categories, photos and planting maintenance
+links stay in one compact information section. Events and observations use counted native
+disclosures and brief empty states; Add event remains outside the disclosure.
+Saved planting photos appear in the edit form's Notes and photos section, where
+caption/order editing and confirmed deletion belong. The detail view keeps images
+and viewer links. Photo maintenance returns to the same planting edit form with
+its browsing destination retained.
+Nested event tables retain their own horizontal scrolling.
 The filter toggle and creation action share one row when space allows; expanded
 filters still span the content width. Result counts, growing-year navigation and
 active filter chips share a bordered seasonal toolbar, with the chips underneath

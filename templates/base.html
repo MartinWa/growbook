@@ -34,7 +34,7 @@
         {% if request.resolver_match.namespace == 'diary' %}
           {% include 'components/main_navigation.html' with active='diary' %}
         {% elif request.resolver_match.namespace == 'garden' %}
-          {% if 'planting' in route or 'event' in route or 'history' in route or photo.planting_id %}
+          {% if 'planting' in route or 'cycle' in route or 'event' in route or 'history' in route or photo.planting_id %}
             {% include 'components/main_navigation.html' with active='plantings' %}
           {% elif kind == 'area' or 'area' in route or photo.area_id %}
             {% include 'components/main_navigation.html' with active='areas' %}

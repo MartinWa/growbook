@@ -1,58 +1,94 @@
 {% load i18n %}
-<section class="record-details" aria-labelledby="record-planting-{{ record.pk }}">
-  {% if cycle_panel %}<h3 id="record-planting-{{ record.pk }}">{{ record.display_label }}</h3>{% else %}<h2 id="record-planting-{{ record.pk }}">{{ record.display_label }}</h2>{% endif %}
-  {% if not cycle_panel %}
-  <p class="related-actions">{% translate 'Current status' %}: {{ record.cycle.get_status_display }} · <a href="{{ record.cycle.get_absolute_url }}?member={{ record.pk }}{% if destination %}&amp;next={{ destination|urlencode }}{% endif %}{% if year %}&amp;year={{ year }}{% endif %}">{% translate 'Open cycle' %}</a></p>
-  <section class="batch-varieties" aria-labelledby="batch-varieties-{{ record.pk }}">
-    <h3 id="batch-varieties-{{ record.pk }}">{% translate 'Varieties in this batch' %}</h3>
-    <ul class="record-list">
-      {% for member in batch_members %}<li>{% if member.pk == record.pk %}<span aria-current="true">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</span>{% else %}<a href="{{ member.get_absolute_url }}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a>{% endif %} <span class="field-help">{{ member.quantity|default_if_none:'—' }}</span></li>{% endfor %}
-    </ul>
-    {% if can_add_variety %}<a class="btn btn-outline" href="{{ add_variety_url }}">{% translate 'Add variety to batch' %}</a>{% endif %}
+{% firstof heading record.display_label as detail_heading %}
+<section class="record-details planting-detail" aria-labelledby="planting-heading-{{ record.pk }}" data-selected-planting="{{ record.pk }}">
+  <header class="planting-detail-heading">
+    {% if inline %}<h2 id="planting-heading-{{ record.pk }}">{{ detail_heading }}</h2>{% else %}<h1 id="planting-heading-{{ record.pk }}">{{ detail_heading }}</h1>{% endif %}
+    <span class="planting-status planting-status-{{ cycle.status }}"><span class="visually-hidden">{% translate 'Current status' %}: </span>{{ cycle.get_status_display }}</span>
+  </header>
+  <section class="planting-information" aria-labelledby="planting-information-{{ record.pk }}">
+    <dl class="planting-summary">
+      <div><dt>{% translate 'Growing area' %}</dt><dd>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.area_path }}</a>{% if record.area.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</dd></div>
+      <div><dt>{% translate 'Start year' %}</dt><dd>{{ record.start_year }}</dd></div>
+      {% if record.lifespan == 'persistent' %}<div><dt>{% translate 'End year' %}</dt><dd>{% if record.end_year %}{{ record.end_year }} ({% translate 'Inclusive' %}){% else %}{% translate 'No end year' %}{% endif %}</dd></div>{% endif %}
+    </dl>
+    <div class="form-actions planting-actions">
+      {% if cycle.status == 'planned' %}<a class="btn btn-primary" href="{% url 'garden:cycle-start' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Start cycle' %}</a>{% elif cycle.status == 'ongoing' %}<a class="btn btn-primary" href="{% url 'garden:cycle-complete' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Complete planting cycle' %}</a>{% endif %}
+      <a class="btn btn-outline" href="{% url 'garden:planting-edit' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Edit planting' %}</a>
+      {% if can_add_variety %}<a class="btn btn-outline" href="{{ add_variety_url }}">{% translate 'Add variety' %}</a>{% endif %}
+    </div>
+    {% if members|length > 1 %}
+    <nav class="batch-varieties planting-switcher" aria-label="{% translate 'Varieties in this batch' %}">
+      <span class="field-help">{% translate 'Selected variety' %}</span>
+      <ul>
+        {% for member in members %}<li><a class="btn {% if member.pk == record.pk %}btn-primary{% else %}btn-outline{% endif %}" href="{% if cycle_panel %}{{ cycle.get_absolute_url }}?member={{ member.pk }}{% else %}{{ member.get_absolute_url }}{% endif %}{% if destination %}{% if cycle_panel %}&amp;{% else %}?{% endif %}next={{ destination|urlencode }}{% endif %}{% if year %}{% if cycle_panel or destination %}&amp;{% else %}?{% endif %}year={{ year }}{% endif %}" title="{{ member.display_label }}" data-planting-member="{{ member.pk }}"{% if member.pk == record.pk %} aria-current="true"{% endif %}{% if inline %} hx-get="{{ cycle.get_absolute_url }}?member={{ member.pk }}{% if destination %}&amp;next={{ destination|urlencode }}{% endif %}{% if year %}&amp;year={{ year }}{% endif %}" hx-target="closest .register-details" hx-swap="innerHTML" hx-sync="closest .register-details:replace" data-load-error="{% translate 'This variety could not be loaded. Try again.' %}"{% endif %}>{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}</a></li>{% endfor %}
+      </ul>
+      <p data-member-status role="status" aria-live="polite" hidden></p>
+    </nav>
+    {% endif %}
+    <h3 id="planting-information-{{ record.pk }}">{% translate 'Planting details' %}</h3>
+    <dl class="record-fields">
+      {% if cycle_panel and detail_heading != record.display_label %}<dt>{% translate 'Planting label' %}</dt><dd>{{ record.display_label }}</dd>{% endif %}
+      <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
+      <dt>{% translate 'Variety' %}</dt><dd>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</dd>
+      <dt>{% translate 'Lifespan' %}</dt><dd>{{ record.get_lifespan_display }}</dd>
+      <dt>{% translate 'Quantity' %}</dt><dd>{{ record.quantity|default_if_none:'—' }}</dd>
+      {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
+      {% if record.evaluation %}<dt>{% translate 'Evaluation' %}</dt><dd>{{ record.evaluation|linebreaksbr }}</dd>{% endif %}
+      <dt>{% translate 'Actual start date' %}</dt><dd>{{ cycle.started_on|date:'Y-m-d'|default:'—' }}</dd>
+      <dt>{% translate 'Completion date' %}</dt><dd>{{ cycle.completed_on|date:'Y-m-d'|default:'—' }}</dd>
+      <dt>{% translate 'Custom categories' %}</dt><dd>{% for category in cycle.categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
+    </dl>
+    <div class="related-actions planting-maintenance">
+      <a href="{% url 'garden:cycle-edit' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Edit cycle' %}</a>
+      {% if not cycle_panel %}<a href="{{ cycle.get_absolute_url }}?member={{ record.pk }}{% if destination %}&amp;next={{ destination|urlencode }}{% endif %}{% if year %}&amp;year={{ year }}{% endif %}">{% translate 'Open cycle' %}</a>{% endif %}
+      <a href="{% url 'garden:planting-delete' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Delete planting' %}</a>
+      {% if inline %}<a href="{% if cycle_panel %}{{ cycle.get_absolute_url }}?member={{ record.pk }}{% else %}{{ record.get_absolute_url }}{% endif %}{% if destination %}{% if cycle_panel %}&amp;{% else %}?{% endif %}next={{ destination|urlencode }}{% endif %}{% if year %}{% if cycle_panel or destination %}&amp;{% else %}?{% endif %}year={{ year }}{% endif %}">{% translate 'Open record' %}</a>{% endif %}
+    </div>
+    <details class="planting-history-help">
+      <summary>{% translate 'About planting history' %}</summary>
+      {% if members|length > 1 %}<p class="field-help">{% translate 'Status, dates and custom categories apply to every variety in this cycle.' %}</p>{% endif %}
+      <p class="field-help">{% translate 'Evaluation is cumulative. Area changes and reparenting also change past-year views; movement history is not recorded.' %}</p>
+    </details>
+    {% if record.photos.all %}
+    <div class="photo-grid register-photos">
+      {% for photo in record.photos.all %}<figure>
+        <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Planting photo' %} {{ forloop.counter }}{% endif %}"></a>
+        {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
+      </figure>{% endfor %}
+    </div>
+    {% endif %}
   </section>
-  {% endif %}
-  <dl class="record-fields">
-    <dt>{% translate 'Crop' %}</dt><dd><a href="{% url 'garden:crop-history' record.crop_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.crop.name }}</a>{% if record.crop.is_archived %} ({% translate 'Archived' %}){% endif %}</dd>
-    <dt>{% translate 'Variety' %}</dt><dd>{% if record.variety %}<a href="{% url 'garden:variety-history' record.variety_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.variety.name }}</a>{% if record.variety.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unknown variety' %}{% endif %}</dd>
-    <dt>{% translate 'Growing area' %}</dt><dd>{% if record.area %}<a href="{% url 'garden:area-history' record.area_id %}{% if year %}?year={{ year }}{% endif %}">{{ record.area_path }}</a>{% if record.area.is_archived %} ({% translate 'Archived' %}){% endif %}{% else %}{% translate 'Unassigned area' %}{% endif %}</dd>
-    <dt>{% translate 'Start year' %}</dt><dd>{{ record.start_year }}</dd>
-    <dt>{% translate 'Lifespan' %}</dt><dd>{{ record.get_lifespan_display }}</dd>
-    {% if record.lifespan == 'persistent' %}<dt>{% translate 'End year' %}</dt><dd>{% if record.end_year %}{{ record.end_year }} ({% translate 'Inclusive' %}){% else %}{% translate 'No end year' %}{% endif %}</dd>{% endif %}
-    <dt>{% translate 'Quantity' %}</dt><dd>{{ record.quantity|default_if_none:'—' }}</dd>
-    {% if record.notes %}<dt>{% translate 'Notes' %}</dt><dd>{{ record.notes|linebreaksbr }}</dd>{% endif %}
-    {% if record.evaluation %}<dt>{% translate 'Evaluation' %}</dt><dd>{{ record.evaluation|linebreaksbr }}</dd>{% endif %}
-  </dl>
-  <p class="muted">{% translate 'Evaluation is cumulative. Area changes and reparenting also change past-year views; movement history is not recorded.' %}</p>
-  {% if record.photos.all %}
-  <div class="photo-grid register-photos">
-    {% for photo in record.photos.all %}<figure>
-      <a href="{{ photo.get_absolute_url }}"><img src="{{ photo.thumbnail_url }}" loading="lazy" alt="{% if photo.caption %}{{ photo.caption }}{% else %}{% translate 'Planting photo' %} {{ forloop.counter }}{% endif %}"></a>
-      {% if photo.caption %}<figcaption>{{ photo.caption }}</figcaption>{% endif %}
-      <a href="{% url 'garden:photo-edit' photo.pk %}">{% translate 'Edit photo details' %}</a>
-      <a href="{% url 'garden:photo-delete' photo.pk %}">{% translate 'Delete photo' %}</a>
-    </figure>{% endfor %}
-  </div>
-  {% endif %}
-  <h3>{% translate 'Planting events' %}</h3>
-  <div class="table-scroll">
-  <table class="register-table event-table table table-sm">
-    <caption class="visually-hidden">{% translate 'Planting events' %}: {{ record.display_label }}</caption>
-    <thead><tr><th scope="col">{% translate 'Event type' %}</th><th scope="col">{% translate 'Planned date' %}</th><th scope="col">{% translate 'Actual date' %}</th><th scope="col">{% translate 'Note' %}</th><th scope="col">{% translate 'Actions' %}</th></tr></thead>
-    <tbody>{% for event in events %}<tr id="event-{{ event.pk }}">
-      <th scope="row">{{ event.get_kind_display }}</th>
-      <td>{{ event.planned_date|date:'Y-m-d'|default:'—' }}</td><td>{{ event.actual_date|date:'Y-m-d'|default:'—' }}</td><td>{{ event.note|linebreaksbr }}</td>
-      <td><a href="{% url 'garden:event-edit' record.pk event.pk %}" aria-label="{% translate 'Edit' %}: {{ event.get_kind_display }} {{ event.actual_date|default:event.planned_date }}">{% translate 'Edit' %}</a> <a href="{% url 'garden:event-delete' record.pk event.pk %}" aria-label="{% translate 'Delete' %}: {{ event.get_kind_display }} {{ event.actual_date|default:event.planned_date }}">{% translate 'Delete' %}</a></td>
-    </tr>{% empty %}<tr><td colspan="5">{% translate 'No events yet.' %}</td></tr>{% endfor %}</tbody>
-  </table>
-  </div>
-  <div class="form-actions">
-    <a class="btn btn-primary" href="{% url 'garden:planting-edit' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Edit planting' %}</a>
-    <a href="{% url 'garden:event-create' record.pk %}">{% translate 'New planting event' %}</a>
-    <a href="{% url 'garden:planting-delete' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Delete planting' %}</a>
-    {% if inline %}<a href="{{ record.get_absolute_url }}?{% if destination %}next={{ destination|urlencode }}&amp;{% endif %}{% if year %}year={{ year }}{% endif %}" aria-label="{% translate 'Open record' %}: {{ record.display_label }}">{% translate 'Open record' %}</a>{% endif %}
-  </div>
-  <section class="diary-observations" aria-labelledby="diary-observations-planting-{{ record.pk }}">
-    <h2 id="diary-observations-planting-{{ record.pk }}">{% translate 'Diary observations' %}{% if observation_count %} ({{ observation_count }}){% endif %}</h2>
+  <section class="planting-activity" aria-labelledby="planting-events-{{ record.pk }}">
+    <div class="planting-section-heading">
+      <h3 id="planting-events-{{ record.pk }}">{% translate 'Cultivation events' %} ({{ event_count }})</h3>
+      <a class="btn btn-outline" href="{% url 'garden:event-create' record.pk %}">{% translate 'Add event' %}</a>
+    </div>
+    {% if events %}
+    <details class="event-disclosure">
+      <summary>{% translate 'View events' %}</summary>
+      <div class="table-scroll">
+        <table class="register-table event-table table table-sm">
+          <caption class="visually-hidden">{% translate 'Cultivation events' %}: {{ record.display_label }}</caption>
+          <thead><tr><th scope="col">{% translate 'Event type' %}</th><th scope="col">{% translate 'Planned date' %}</th><th scope="col">{% translate 'Actual date' %}</th><th scope="col">{% translate 'Note' %}</th><th scope="col">{% translate 'Actions' %}</th></tr></thead>
+          <tbody>{% for event in events %}<tr id="event-{{ event.pk }}">
+            <th scope="row">{{ event.get_kind_display }}</th>
+            <td>{{ event.planned_date|date:'Y-m-d'|default:'—' }}</td><td>{{ event.actual_date|date:'Y-m-d'|default:'—' }}</td><td>{{ event.note|linebreaksbr }}</td>
+            <td><a href="{% url 'garden:event-edit' record.pk event.pk %}" aria-label="{% translate 'Edit' %}: {{ event.get_kind_display }} {{ event.actual_date|default:event.planned_date }}">{% translate 'Edit' %}</a> <a href="{% url 'garden:event-delete' record.pk event.pk %}" aria-label="{% translate 'Delete' %}: {{ event.get_kind_display }} {{ event.actual_date|default:event.planned_date }}">{% translate 'Delete' %}</a></td>
+          </tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </details>
+    {% else %}<p class="field-help">{% translate 'No events yet.' %}</p>{% endif %}
+  </section>
+  {% if observation_count %}
+  <details class="diary-observations observation-disclosure planting-activity">
+    <summary>{% translate 'Diary observations' %} ({{ observation_count }})</summary>
+    {% include 'diary/_observations.html' with limited_link=True %}
+  </details>
+  {% else %}
+  <section class="diary-observations planting-activity" aria-labelledby="planting-observations-{{ record.pk }}">
+    <h3 id="planting-observations-{{ record.pk }}">{% translate 'Diary observations' %} (0)</h3>
     {% include 'diary/_observations.html' %}
   </section>
+  {% endif %}
 </section>

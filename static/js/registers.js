@@ -38,6 +38,7 @@
       let loaded = false;
       let loading;
       let finishLoad;
+      let focusMemberAfterSwap = false;
       link.setAttribute("role", "button");
       link.addEventListener("keydown", event => {
         if (event.key === " ") {
@@ -94,14 +95,58 @@
           }
         }
       });
-      details.addEventListener("htmx:afterSwap", () => {
+      function memberRequest(event) {
+        return event.detail.requestConfig?.elt?.closest("[data-planting-member]");
+      }
+      function memberError(member) {
+        const status = details.querySelector("[data-member-status]");
+        if (status) {
+          status.hidden = false;
+          status.textContent = member.dataset.loadError;
+        }
+      }
+      details.addEventListener("click", event => {
+        if (!event.target.closest("[data-planting-member]")) return;
+        // Keep modified clicks native before HTMX's target listener cancels navigation.
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) event.stopPropagation();
+      }, true);
+      details.addEventListener("htmx:beforeRequest", event => {
+        if (!memberRequest(event)) return;
+        details.setAttribute("aria-busy", "true");
+        const status = details.querySelector("[data-member-status]");
+        if (status) status.hidden = true;
+      });
+      details.addEventListener("htmx:afterRequest", event => {
+        const member = memberRequest(event);
+        if (!member) return;
+        details.removeAttribute("aria-busy");
+        if (event.detail.failed) memberError(member);
+      });
+      for (const name of ["htmx:sendError", "htmx:timeout"]) {
+        details.addEventListener(name, event => {
+          const member = memberRequest(event);
+          if (!member) return;
+          details.removeAttribute("aria-busy");
+          memberError(member);
+        });
+      }
+      details.addEventListener("htmx:afterSwap", event => {
         loaded = true;
         finishLoad?.();
+        if (memberRequest(event) && focusMemberAfterSwap && !row.hidden) {
+          details.querySelector('[data-planting-member][aria-current="true"]')?.focus({ preventScroll: true });
+        }
+        focusMemberAfterSwap = false;
       });
       details.addEventListener("htmx:beforeSwap", event => {
+        const member = memberRequest(event);
+        // Read focus before the member link is replaced; users may have moved away while loading.
+        focusMemberAfterSwap = !!member && document.activeElement === member;
         if (event.detail.xhr.status >= 400) {
           event.detail.shouldSwap = false;
-          details.textContent = link.dataset.loadError;
+          focusMemberAfterSwap = false;
+          if (member) memberError(member);
+          else details.textContent = link.dataset.loadError;
           finishLoad?.();
         }
       });

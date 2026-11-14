@@ -31,8 +31,8 @@ REGISTERS = {
 }
 
 
-def return_url(request):
-    """Accept only local garden list/detail destinations, including their filters."""
+def return_url(request, *, planting_edit=None):
+    """Accept garden browsing destinations and an explicitly selected photo owner's edit form."""
     value = request.POST.get("next", request.GET.get("next", ""))
     if not value.startswith("/") or not url_has_allowed_host_and_scheme(value, allowed_hosts=set()):
         return ""
@@ -40,6 +40,12 @@ def return_url(request):
         match = resolve(urlsplit(value).path)
     except Resolver404:
         return ""
+    if (
+        planting_edit is not None
+        and match.view_name == "garden:planting-edit"
+        and match.kwargs.get("pk") == planting_edit
+    ):
+        return value
     allowed = {
         "garden:area-detail",
         "garden:area-list",

@@ -1559,3 +1559,36 @@ msgstr "Otillgängliga poster"
 
 msgid "Choose whether to remove the image."
 msgstr "Välj om bilden ska tas bort."
+
+msgid "Complete planting cycle"
+msgstr "Avsluta odlingsomgång"
+
+msgid "Add variety"
+msgstr "Lägg till sort"
+
+msgid "Selected variety"
+msgstr "Vald sort"
+
+msgid "This variety could not be loaded. Try again."
+msgstr "Sorten kunde inte laddas. Försök igen."
+
+msgid "Planting details"
+msgstr "Odlingsinformation"
+
+msgid "About planting history"
+msgstr "Om odlingshistorik"
+
+msgid "Cultivation events"
+msgstr "Odlingshändelser"
+
+msgid "Add event"
+msgstr "Lägg till händelse"
+
+msgid "View events"
+msgstr "Visa händelser"
+
+msgid "Saved photos"
+msgstr "Sparade bilder"
+
+msgid "Save planting changes before editing or deleting saved photos."
+msgstr "Spara ändringarna i odlingen innan du redigerar eller raderar sparade bilder."

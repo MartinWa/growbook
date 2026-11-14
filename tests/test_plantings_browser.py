@@ -116,7 +116,7 @@ def test_minimal_planting_and_optional_error_reveal(page, live_server, user, cat
     page.locator("#id_start_year").fill("2027")
     save(page)
     expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
-    expect(page.locator(".record-fields")).to_contain_text("2027")
+    expect(page.locator(".planting-summary")).to_contain_text("2027")
     page.goto(live_server.url + "/garden/plantings/new/")
     page.locator("#id_crop").select_option(str(catalog["crop"].pk))
     page.locator("#planting-more-details > summary").click()
@@ -309,7 +309,7 @@ def test_year_area_history_selects_shared_details_with_keyboard(page, live_serve
     first_toggle.press("Enter")
     expect(first_details).to_contain_text("Synthetic overwintered sowing")
     expect(first_details).to_contain_text("2025-12-20")
-    expect(first_details.locator(".record-fields").last).to_contain_text("Greenhouse / Bed")
+    expect(first_details.locator(".planting-summary")).to_contain_text("Greenhouse / Bed")
     expect(first_toggle).to_be_focused()
     second_toggle.focus()
     second_toggle.press("Space")
@@ -475,7 +475,7 @@ def test_invalid_planting_retains_zero_text_photos_key_focus_and_can_retry(
     page.locator("#id_end_year").fill("2027")
     save(page)
     expect(page).to_have_url(re.compile(r"/garden/plantings/\d+/$"))
-    expect(page.locator(".record-fields")).to_contain_text("2027")
+    expect(page.locator(".planting-summary")).to_contain_text("2027")
     expect(page.locator(".register-photos figure")).to_have_count(2)
 
 
@@ -559,7 +559,7 @@ def test_repeated_event_form_dates_edit_and_confirmed_delete(page, live_server, 
     login(page, live_server, user)
     record = catalog["first"]
     page.goto(live_server.url + record.get_absolute_url())
-    page.get_by_role("link", name="Ny odlingshändelse", exact=True).click()
+    page.get_by_role("link", name="Lägg till händelse", exact=True).click()
     page.locator("#register-form").evaluate("form => form.noValidate = true")
     save(page)
     expect(page.locator("#register-errors")).to_contain_text("Ange ett planerat datum")
@@ -597,7 +597,7 @@ PLANTING_COPY = {
         "required_variety": "Variety (required)",
         "new_required": "Only crop and start year are required.",
         "variety_hint": "Choose a crop first. Variety may be left unknown.",
-        "add_variety": "Add variety to batch",
+        "add_variety": "Add variety",
         "batch_required": "Crop, start year and variety are required.",
         "batch_hint": "Choose a variety to add to this batch.",
     },
@@ -612,7 +612,7 @@ PLANTING_COPY = {
         "required_variety": "Sort (obligatoriskt)",
         "new_required": "Bara gröda och startår behöver anges.",
         "variety_hint": "Välj en gröda först. Sorten kan lämnas okänd.",
-        "add_variety": "Lägg till sort i odlingsomgången",
+        "add_variety": "Lägg till sort",
         "batch_required": "Gröda, startår och sort är obligatoriska.",
         "batch_hint": "Välj en sort att lägga till i den här odlingsomgången.",
     },
@@ -783,7 +783,7 @@ def test_add_variety_to_batch_preserves_independent_photos_and_retries(
     ) as page:
         login(page, live_server, user, "en")
         page.goto(live_server.url + original.get_absolute_url())
-        page.get_by_role("link", name="Add variety to batch", exact=True).click()
+        page.get_by_role("link", name="Add variety", exact=True).click()
         page.wait_for_load_state("load")
         expect(page.locator("#id_variety")).to_be_visible()
         expect(page.locator("#id_crop")).to_have_value(str(crop.pk))

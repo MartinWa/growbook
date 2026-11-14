@@ -137,12 +137,16 @@ def test_categories_batch_actions_edit_correction_and_safe_deletion(
     toggle = page.get_by_role("button", name="Category trial", exact=True)
     toggle.click()
     pane.get_by_role(
-        "link", name="Complete cycle" if language == "en" else "Avsluta odlingsomgång", exact=True
+        "link",
+        name="Complete planting cycle" if language == "en" else "Avsluta odlingsomgång",
+        exact=True,
     ).click()
     page.locator("#id_date").fill("2027-09-01")
     save(page)
     expect(page.locator(".planting-list > li")).to_have_count(1)
-    expect(page.locator(".planting-list")).to_contain_text("2025–2027")
+    expect(page.locator(".planting-list .cycle-context")).to_have_text(
+        "Completed" if language == "en" else "Avslutad"
+    )
     toggle.click()
     pane.get_by_role(
         "link", name="Edit cycle" if language == "en" else "Redigera odlingsomgång", exact=True

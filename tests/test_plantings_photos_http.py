@@ -154,3 +154,61 @@ def test_planting_photo_authorization_for_files_viewer_and_mutations(
     user.save(update_fields=["is_active"])
     for path in paths:
         assert client.get(path, **headers).status_code == (401 if hx else 302)
+
+
+@pytest.mark.parametrize("origin", ["direct", "category", "edit", "other-edit", "external"])
+def test_planting_photo_maintenance_returns_to_its_own_edit_form(
+    client, user, image_upload, origin
+):
+    crop = create_crop(actor=user, name="Synthetic crop").record
+    record = create_planting(
+        actor=user, crop=crop, start_year=2026, uploads=[image_upload()]
+    ).record
+    other = create_planting(actor=user, crop=crop, start_year=2026).record
+    photo = record.photos.get()
+    edit_path = reverse("garden:planting-edit", args=[record.pk])
+    category = reverse("garden:planting-status", args=["planned"], query={"year": 2026})
+    edit_origin = reverse("garden:planting-edit", args=[record.pk], query={"next": category})
+    origins = {
+        "direct": "",
+        "category": category,
+        "edit": edit_origin,
+        "other-edit": reverse("garden:planting-edit", args=[other.pk]),
+        "external": "https://example.invalid/",
+    }
+    expected = edit_origin if origin in ("category", "edit") else edit_path
+    client.force_login(user)
+    for action in ("photo-edit", "photo-delete"):
+        response = client.get(
+            reverse("garden:" + action, args=[photo.pk]), {"next": origins[origin]}
+        )
+        assert response.context["destination"] == expected
+    viewer = client.get(photo.get_absolute_url(), {"next": edit_origin})
+    assert viewer.context["destination"] == edit_origin
+    foreign_viewer = client.get(photo.get_absolute_url(), {"next": origins["other-edit"]})
+    assert foreign_viewer.context["destination"] == ""
+    # The exception applies to this photo's owner, not ordinary form return URLs.
+    assert client.get(edit_path, {"next": edit_origin}).context["return_url"] == ""
+
+
+def test_saved_planting_photos_are_visible_on_editing_but_have_no_browsing_actions(
+    client, user, image_upload
+):
+    crop = create_crop(actor=user, name="Synthetic crop").record
+    record = create_planting(
+        actor=user, crop=crop, start_year=2026, uploads=[image_upload()]
+    ).record
+    photo = record.photos.get()
+    client.force_login(user)
+    for path in (record.get_absolute_url(), record.cycle.get_absolute_url()):
+        for headers in ({}, {"HTTP_HX_REQUEST": "true"}):
+            detail = client.get(path, **headers)
+            assert photo.thumbnail_url in detail.text
+            for action in ("photo-edit", "photo-delete"):
+                assert reverse("garden:" + action, args=[photo.pk]) not in detail.text
+    edit_path = reverse("garden:planting-edit", args=[record.pk])
+    form = client.get(edit_path)
+    assert form.context["form"].notes_open
+    assert photo.thumbnail_url in form.text
+    for action in ("photo-edit", "photo-delete"):
+        assert reverse("garden:" + action, args=[photo.pk]) in form.text

@@ -77,7 +77,9 @@ def photo_detail(request, pk):
         {
             "photo": photo,
             "can_edit": bool(photo.entry_id and can_edit_entry(request.user, photo.entry)),
-            "destination": return_url(request) if photo.entry_id is None else "",
+            "destination": return_url(request, planting_edit=photo.planting_id)
+            if photo.entry_id is None
+            else "",
         },
     )
 

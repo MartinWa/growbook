@@ -1743,6 +1743,8 @@ def test_optional_titles_are_editable_searchable_and_wrap(page, live_server, use
     entry_url = page.url
     expect(page.locator("h1 .entry-title")).to_have_text(title)
     expect(page).to_have_title(title + " · GrowBook")
+    page.wait_for_load_state("load")
+    page.wait_for_function("document.fonts.status === 'loaded'")
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     page.locator(".entry-actions .btn-primary").click()
     expect(page.locator("#id_title")).to_have_value(title)
