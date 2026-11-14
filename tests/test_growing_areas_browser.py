@@ -207,24 +207,37 @@ def test_area_type_suggestions_and_custom_text_survive_editing(
             [{"name": "django_language", "value": language, "url": live_server.url}]
         )
         login(page, live_server, user)
-        page.goto(live_server.url + areas["child"].get_absolute_url() + "?archived=1")
-        page.get_by_role(
-            "link", name="Redigera" if language == "sv" else "Edit", exact=True
+        management = live_server.url + reverse(
+            "garden:area-manage", query={"archived": "1", "selected": areas["child"].pk}
+        )
+        page.goto(management)
+        page.locator(f"#managed-{areas['child'].pk}").get_by_role(
+            "link",
+            name="Redigera: Main garden / Child bed"
+            if language == "sv"
+            else "Edit: Main garden / Child bed",
+            exact=True,
         ).click()
         expect(page.locator("#id_area_type")).to_have_value("Synthetic custom type")
         expect(page.locator(f'#area-types option[value="{raised_bed}"]')).to_have_count(1)
         page.locator("#id_area_type").fill(raised_bed)
         page.locator("#register-form button[type=submit]").click()
-        expect(page).to_have_url(
-            live_server.url + areas["child"].get_absolute_url() + "?archived=1"
-        )
+        expect(page).to_have_url(management)
+        page.locator(f"#managed-{areas['child'].pk} > .page-heading > a").click()
         expect(page.locator(".record-fields")).to_contain_text(raised_bed)
         expect(page.locator(".register-photos figure")).to_have_count(2)
-        page.get_by_role(
-            "link", name="Redigera" if language == "sv" else "Edit", exact=True
+        page.goto(management)
+        page.locator(f"#managed-{areas['child'].pk}").get_by_role(
+            "link",
+            name="Redigera: Main garden / Child bed"
+            if language == "sv"
+            else "Edit: Main garden / Child bed",
+            exact=True,
         ).click()
         page.locator("#id_area_type").fill("Another synthetic custom type")
         page.locator("#register-form button[type=submit]").click()
+        expect(page).to_have_url(management)
+        page.locator(f"#managed-{areas['child'].pk} > .page-heading > a").click()
         expect(page.locator(".record-fields")).to_contain_text("Another synthetic custom type")
         expect(page.locator(".area-card")).to_contain_text(areas["grandchild"].name)
 

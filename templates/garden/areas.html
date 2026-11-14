@@ -7,6 +7,7 @@
   <h1>{{ heading }}</h1>
   <div class="category-overview-actions">
     {% include 'garden/archive_toggle.html' %}
+    <a class="btn btn-outline" href="{% url 'garden:area-manage' %}{% if show_archived %}?archived=1{% endif %}">{% translate 'Manage growing areas' %}</a>
     <a class="btn btn-primary" href="{{ create_url }}">{{ create_label }}</a>
   </div>
   <img class="register-illustration" src="{% static 'images/registers/growing-areas.webp' %}" width="1000" height="500" alt="">

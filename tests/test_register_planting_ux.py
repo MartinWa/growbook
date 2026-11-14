@@ -1,7 +1,7 @@
 """Grouping preserves normalized names, archive context and independent batches."""
 
 from datetime import date
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 from uuid import uuid4
 
 import pytest
@@ -129,7 +129,8 @@ def test_combined_register_keeps_empty_crops_and_crop_maintenance(client, user):
     assert groups[other.pk] == [unrelated]
     assert groups[empty.pk] == []
     assert 'class="crop-maintenance"' in response.text
-    assert f'href="{crop.get_absolute_url()}"' in response.text
+    crop_link = crop.get_absolute_url() + "?next=" + quote(path, safe="/")
+    assert f'href="{crop_link}"' in response.text
     searched = client.get(path, {"q": "Empty"})
     assert searched.context["has_records"]
     assert len(searched.context["variety_groups"]) == 1

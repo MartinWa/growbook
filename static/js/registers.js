@@ -185,7 +185,7 @@
         !document.referrer || history.length < 2) return;
     const previous = new URL(document.referrer);
     if (previous.origin === location.origin &&
-        (["/garden/areas/", "/garden/varieties/"].includes(previous.pathname) ||
+        (["/garden/varieties/"].includes(previous.pathname) ||
          /^\/garden\/categories\/(?:all|uncategorized|\d+)\/$/.test(previous.pathname))) {
       event.preventDefault();
       history.back();

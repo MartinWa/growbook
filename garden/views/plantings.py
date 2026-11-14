@@ -30,7 +30,7 @@ from ..queries import (
 )
 from ..services import RegisterConflict
 from ..services import plantings as services
-from ._shared import REGISTERS, return_url
+from ._shared import REGISTERS, deletion_return_url, return_url
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,11 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
     history = history or data.get("all_years") == "1"
     if status is not None and status not in PlantingCycle.Status.values:
         raise Http404
-    category = get_object_or_404(PlantingCategory, pk=category_pk) if category_pk else None
+    category = (
+        get_object_or_404(PlantingCategory.objects.prefetch_related("photos"), pk=category_pk)
+        if category_pk
+        else None
+    )
     category_overview = kind is None and status is None and category is None
     if not history and not data.get("year"):
         data["year"] = str(timezone.localdate().year)
@@ -71,16 +75,20 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
     if history:
         navigation_data["all_years"] = "1"
     query = "?" + navigation_data.urlencode() if navigation_data else ""
-    for value, label in PlantingCycle.Status.choices:
+    for value in (
+        PlantingCycle.Status.PLANNED,
+        PlantingCycle.Status.ONGOING,
+        PlantingCycle.Status.COMPLETED,
+    ):
         cards.append(
             {
-                "name": label,
+                "name": value.label,
                 "url": reverse("garden:planting-status", args=[value]) + query,
                 "illustration": f"images/registers/{value}.webp",
                 "count": sum(group["cycle"].status == value for group in all_groups),
             }
         )
-    for custom in PlantingCategory.objects.all():
+    for custom in PlantingCategory.objects.prefetch_related("photos"):
         cards.append(
             {
                 "name": custom.name,
@@ -90,6 +98,8 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
                     for group in all_groups
                 ),
                 "category": custom,
+                "image": custom.photos.first(),
+                "illustration": "images/registers/plantings.webp",
             }
         )
     if status is not None:
@@ -241,6 +251,7 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             "category_cards": cards,
             "category_overview": category_overview,
             "category": category,
+            "category_image": category.photos.first() if category else None,
             "category_overview_url": reverse("garden:planting-list") + query,
             "area_events": tree["events"],
             "unassigned_records": tree["unassigned"],
@@ -479,6 +490,8 @@ def planting_varieties(request):
 def planting_delete(request, pk):
     context = _planting_context(pk)
     record = context["record"]
+    destination = deletion_return_url(request, "planting", pk) or reverse("garden:planting-list")
+    context["destination"] = destination
     form = DeleteForm(
         request.POST if request.method == "POST" else None,
         initial={"expected_updated_at": record.updated_at},
@@ -501,6 +514,6 @@ def planting_delete(request, pk):
                 return render(request, "garden/planting_delete.html", context, status=503)
             else:
                 messages.success(request, _("Record deleted."))
-                return redirect("garden:planting-list")
+                return redirect(destination)
         return render(request, "garden/planting_delete.html", context, status=422)
     return render(request, "garden/planting_delete.html", context)

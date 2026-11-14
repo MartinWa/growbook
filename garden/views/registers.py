@@ -20,10 +20,17 @@ from diary.queries import observation_count, observations_for
 from ..forms import ArchiveForm, VarietyFilterForm
 from ..models import Crop, CropCategory, GrowingArea
 from ..names import normalize_name
-from ..queries import area_tree, planting_groups, planting_history, planting_rows
+from ..queries import (
+    area_paths,
+    area_tree,
+    planting_groups,
+    planting_history,
+    planting_rows,
+    variety_evaluations,
+)
 from ..services import RegisterConflict
 from ..services import registers as services
-from ._shared import REGISTERS, return_url
+from ._shared import REGISTERS, deletion_return_url, management_url, return_url
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +50,45 @@ def _context(kind):
 @require_GET
 def garden_home(request):
     return redirect("garden:area-list")
+
+
+@require_GET
+def register_management(request, kind):
+    model = REGISTERS[kind][0]
+    records = list(model.objects.prefetch_related("photos"))
+    show_archived = request.GET.get("archived") == "1"
+    if kind == "area":
+        if "archive_toggle" in request.GET:
+            return _archive_redirect(request, "garden:area-manage")
+        paths = area_paths(records)
+        for record in records:
+            record.area_path = paths[record.pk]
+            query = request.GET.copy()
+            query["selected"] = str(record.pk)
+            record.management_destination = reverse("garden:area-manage", query=query)
+        records.sort(key=lambda record: (normalize_name(record.area_path)[1], record.pk))
+        if not show_archived:
+            records = [record for record in records if not record.is_archived]
+    context = _context(kind)
+    context.update(
+        heading=_("Manage growing areas") if kind == "area" else _("Manage categories"),
+        records=records,
+        show_archived=show_archived,
+        selected=request.GET.get("selected", ""),
+        destination=request.get_full_path(),
+        list_url=request.path,
+        edit_route=f"garden:{kind}-edit",
+        delete_route=f"garden:{kind}-delete",
+        hide_archived_url=reverse(
+            "garden:area-manage", query={"selected": request.GET.get("selected", "")}
+        ),
+        browsing_url=return_url(request)
+        or reverse(
+            "garden:area-list" if kind == "area" else "garden:variety-list",
+            query={"archived": "1"} if kind == "area" and show_archived else {},
+        ),
+    )
+    return render(request, "garden/management.html", context)
 
 
 def _area_list(request):
@@ -249,8 +295,10 @@ def register_list(request, kind, category_pk=None, uncategorized=False, all_crop
             context.update(
                 empty_heading=_("No crops in this category"),
                 empty_description=_("Link existing crops or create a crop in this category."),
-                empty_action_url=reverse("garden:category-edit", args=[category.pk]),
-                empty_action_label=_("Edit category"),
+                empty_action_url=reverse(
+                    "garden:category-manage", query={"next": request.get_full_path()}
+                ),
+                empty_action_label=_("Manage categories"),
             )
     return render(
         request,
@@ -283,6 +331,8 @@ def _detail_context(kind, pk, *, show_archived=False):
         observation_count=observation_count(kind, record),
         observations_url=reverse("diary:list") + "?" + urlencode({kind: record.pk}),
     )
+    if kind == "variety":
+        context["completed_evaluations"] = variety_evaluations(record)
     if kind == "area":
         areas = list(GrowingArea.objects.all())
         by_id = {area.pk: area for area in areas}
@@ -351,6 +401,10 @@ def register_detail(request, kind, pk):
         return _archive_redirect(request, "garden:area-detail", args=[pk])
     context = _detail_context(kind, pk, show_archived=request.GET.get("archived") == "1")
     context["inline"] = request.headers.get("HX-Request") == "true"
+    destination = return_url(request)
+    context["destination"] = destination
+    if destination and kind != "area":
+        context["delete_url"] += "?" + urlencode({"next": destination})
     if kind == "area":
         template = "garden/area_content.html" if context["inline"] else "garden/area_detail.html"
     else:
@@ -403,6 +457,8 @@ def register_form(request, kind, pk=None):
     model, form_class, heading, create_label, edit_label = REGISTERS[kind]
     record = get_object_or_404(model, pk=pk) if pk is not None else None
     destination = return_url(request)
+    if pk is not None and kind in ("area", "category"):
+        destination = management_url(request, f"garden:{kind}-manage", selected=pk)
     initial = {}
     if record is not None:
         model_fields = {field.name for field in model._meta.fields}
@@ -448,11 +504,8 @@ def register_form(request, kind, pk=None):
         cancel_url=destination,
     )
     if kind == "area":
-        context["action"] = request.get_full_path()
-        if record is not None:
-            context["cancel_url"] = record.get_absolute_url() + (
-                "?archived=1" if request.GET.get("archived") == "1" else ""
-            )
+        context["management"] = record is not None
+        context["destination"] = destination
     if kind == "category":
         context.update(photo_max_count=1, replace_image=True)
     if request.method == "POST":
@@ -484,7 +537,7 @@ def register_form(request, kind, pk=None):
                     request, _("Record already saved.") if result.replayed else _("Record saved.")
                 )
                 target = destination or result.record.get_absolute_url()
-                if kind == "area" and request.GET.get("archived") == "1":
+                if kind == "area" and not destination and request.GET.get("archived") == "1":
                     target += "?archived=1"
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
@@ -502,7 +555,16 @@ def register_form(request, kind, pk=None):
 def register_archive(request, kind, pk):
     get_object_or_404(REGISTERS[kind][0], pk=pk)
     form = ArchiveForm(request.POST)
-    context = {**_context(kind), "form": form}
+    destination = (
+        management_url(request, "garden:area-manage", selected=pk)
+        if kind == "area"
+        else return_url(request)
+    )
+    context = {
+        **_context(kind),
+        "form": form,
+        "list_url": destination or _context(kind)["list_url"],
+    }
     if not valid_post(request, form):
         return render(request, "garden/action_error.html", context, status=422)
     writer = {
@@ -524,13 +586,21 @@ def register_archive(request, kind, pk):
         request,
         _("Record archived.") if record.is_archived else _("Record restored to active selections."),
     )
-    return redirect(record)
+    return redirect(destination or record.get_absolute_url())
 
 
 @require_http_methods(["GET", "POST"])
 def register_delete(request, kind, pk):
     context = _detail_context(kind, pk)
     record = context["record"]
+    destination = (
+        management_url(
+            request, f"garden:{kind}-manage", selected=pk, deleted_path=record.get_absolute_url()
+        )
+        if kind in ("category", "area")
+        else deletion_return_url(request, kind, pk)
+    ) or context["list_url"]
+    context["destination"] = destination
     form = DeleteForm(
         request.POST if request.method == "POST" else None,
         initial={"expected_updated_at": record.updated_at},
@@ -559,6 +629,6 @@ def register_delete(request, kind, pk):
                 return render(request, "garden/delete.html", context, status=503)
             else:
                 messages.success(request, _("Record deleted."))
-                return redirect(context["list_url"])
+                return redirect(destination)
         return render(request, "garden/delete.html", context, status=422)
     return render(request, "garden/delete.html", context)

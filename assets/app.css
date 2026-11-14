@@ -1319,6 +1319,11 @@
   }
   .tags-enhanced [data-tag-popover]:not(:popover-open) { display: none; }
   .tag-search { @apply shrink-0 border-b border-base-300 p-3; }
+  .tag-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+  .tag-search input, .tag-search select { min-width: 0; width: 100%; }
+  .tag-search .field-help { grid-column: 1 / -1; }
+  .tag-subgroup { margin-left: 0.75rem; border-left: 1px solid var(--color-base-300); }
+  [data-tag-selected-count] { font-size: 0.875rem; }
   .tag-search .field-help { @apply mb-0 text-sm; }
   .tag-options { @apply min-h-0 overflow-y-auto p-2; overscroll-behavior: contain; }
   .tag-options fieldset { @apply m-0 min-w-0 border-0 p-0; }

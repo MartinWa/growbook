@@ -1,5 +1,5 @@
 {% load i18n static %}
-<div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-category-create-url="{% url 'garden:planting-category-create' %}?next={{ request.get_full_path|urlencode }}" data-has-records="{{ records|yesno:'true,false' }}">
+<div id="planting-results" data-year="{{ form.year.value|default_if_none:'' }}" data-heading="{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %}" data-create-url="{{ create_url }}" data-category-create-url="{% url 'garden:planting-category-create' %}?next={{ request.get_full_path|urlencode }}" data-category-manage-url="{% url 'garden:planting-category-manage' %}?next={{ request.get_full_path|urlencode }}" data-has-records="{{ records|yesno:'true,false' }}">
 {% if not category_overview %}<nav class="related-actions" aria-label="{% translate 'Planting navigation' %}"><a href="{{ category_overview_url }}">{% translate 'Planting categories' %}</a></nav>{% endif %}
   <div role="alert">{% include 'garden/form_errors.html' %}</div>
   <div class="planting-toolbar">
@@ -20,8 +20,7 @@
 <div class="category-grid">
 {% for card in category_cards %}
   <article class="category-card">
-    <a class="category-card-link" href="{{ card.url }}">{% if card.illustration %}<img src="{% static card.illustration %}" alt="" loading="lazy" width="1000" height="500">{% else %}<span class="card-botanical-placeholder" aria-hidden="true">{% include 'components/botanical_sprig.html' %}</span>{% endif %}<h2>{{ card.name }}</h2><p class="category-card-count">{{ card.count }} · {% if year %}{{ year }}{% else %}{% translate 'All years' %}{% endif %}</p></a>
-    {% if card.category %}<div class="related-actions"><a class="btn btn-outline" href="{% url 'garden:planting-category-edit' card.category.pk %}?next={{ request.get_full_path|urlencode }}" aria-label="{% translate 'Edit category' %}: {{ card.name }}">{% translate 'Edit' %}</a><a class="btn btn-outline" href="{% url 'garden:planting-category-delete' card.category.pk %}?next={{ request.get_full_path|urlencode }}" aria-label="{% translate 'Delete category' %}: {{ card.name }}">{% translate 'Delete' %}</a></div>{% endif %}
+    <a class="category-card-link" href="{{ card.url }}">{% if card.image %}<img src="{{ card.image.display_url }}" alt="" loading="lazy" width="{{ card.image.width }}" height="{{ card.image.height }}">{% elif card.illustration %}<img src="{% static card.illustration %}" alt="" loading="lazy" width="1000" height="500">{% else %}<span class="card-botanical-placeholder" aria-hidden="true">{% include 'components/botanical_sprig.html' %}</span>{% endif %}<h2>{{ card.name }}</h2><p class="category-card-count">{{ card.count }} · {% if year %}{{ year }}{% else %}{% translate 'All years' %}{% endif %}</p></a>
   </article>
 {% endfor %}
 </div>

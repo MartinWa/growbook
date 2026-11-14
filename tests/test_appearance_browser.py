@@ -294,8 +294,16 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
             )
             expect(show_all).to_be_visible()
             expect(new_category).to_be_visible()
+            manage_categories = page.get_by_role(
+                "link",
+                name="Hantera kategorier" if language == "sv" else "Manage categories",
+                exact=True,
+            )
+            expect(manage_categories).to_be_visible()
             show_all.focus()
             show_all.press("Tab")
+            expect(manage_categories).to_be_focused()
+            manage_categories.press("Tab")
             expect(new_category).to_be_focused()
             if width >= 1024:
                 show_box = show_all.bounding_box()
@@ -334,6 +342,9 @@ def test_main_pages_align_and_keep_compact_controls_accessible(
                 assert abs(action.bounding_box()["y"] - summary.bounding_box()["y"]) < 2
             action.focus()
             action.press("Tab")
+            category_management = page.locator("[data-filter-category-manage]")
+            expect(category_management).to_be_focused()
+            category_management.press("Tab")
             category_action = page.locator("[data-filter-category-create]")
             expect(category_action).to_be_focused()
             category_action.press("Tab")

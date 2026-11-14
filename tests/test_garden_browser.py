@@ -316,20 +316,23 @@ def test_inline_details_retry_after_failed_request_and_links_navigate_normally(
     page.locator(f'[data-crop-id="{variety.crop_id}"] > summary').press("Enter")
     details = page.locator(f"#details-variety-{variety.pk}")
     toggle = page.get_by_role("button", name=variety.name, exact=True)
+    detail_pattern = re.compile(re.escape(variety.get_absolute_url()) + r"(?:\?.*)?$")
     page.route(
-        f"**{variety.get_absolute_url()}",
+        detail_pattern,
         lambda route: route.fulfill(status=503, body="Synthetic failure"),
     )
     toggle.click()
     expect(details).to_contain_text("Detaljerna kunde inte laddas")
     toggle.click()
     expect(details).to_be_hidden()
-    page.unroute(f"**{variety.get_absolute_url()}")
+    page.unroute(detail_pattern)
     toggle.click()
     expect(details).to_contain_text("Full first variety note")
     expect(details.locator(".register-photos figure")).to_have_count(2)
-    page.get_by_role("link", name="Öppna post: Green trial", exact=True).click()
-    expect(page).to_have_url(live_server.url + variety.get_absolute_url())
+    record_link = page.get_by_role("link", name="Öppna post: Green trial", exact=True)
+    destination = record_link.get_attribute("href")
+    record_link.click()
+    expect(page).to_have_url(live_server.url + destination)
     expect(page.locator("h1")).to_have_text("Green trial")
 
 
@@ -478,12 +481,16 @@ def test_register_detail_without_javascript_keeps_links_forms_and_drafts(
     plain.get_by_role("link", name=area.name, exact=True).click()
     expect(plain).to_have_url(live_server.url + area.get_absolute_url())
     expect(plain.locator(".record-fields")).to_contain_text("Full notes")
-    plain.get_by_role("link", name="Redigera", exact=True).click()
+    plain.goto(live_server.url + f"/garden/areas/manage/?selected={area.pk}")
+    plain.locator(f"#managed-{area.pk}").get_by_role(
+        "link", name="Redigera: Parent / Child", exact=True
+    ).click()
     plain.locator("#id_name").fill("Draft bed")
     plain.locator("#id_notes").fill("Keep notes")
     # A valid ordinary POST has no dependency on HTMX.
     plain.locator("#register-form").get_by_role("button", name="Spara", exact=True).click()
-    expect(plain).to_have_url(live_server.url + area.get_absolute_url())
+    expect(plain).to_have_url(live_server.url + f"/garden/areas/manage/?selected={area.pk}")
+    plain.locator(f"#managed-{area.pk} > .page-heading > a").click()
     expect(plain.locator("h1")).to_have_text("Draft bed")
     plain.goto(live_server.url + "/garden/crops/new/")
     plain.locator("#id_name").fill("A\u0308RTOR")
@@ -508,18 +515,21 @@ def test_area_parent_options_and_photo_caption_order_delete_controls(
         and str(child.pk) not in options
         and str(grandchild.pk) not in options
     )
-    page.goto(live_server.url + child.get_absolute_url())
-    first_photo = page.locator(".register-photos figure").first
+    management = live_server.url + f"/garden/areas/manage/?selected={child.pk}"
+    page.goto(management)
+    first_photo = page.locator(f"#managed-{child.pk} .register-photos figure").first
     first_photo.get_by_role("link", name="Redigera bilduppgifter").click()
     page.locator("#id_caption").fill("Synthetic caption")
     page.locator("#id_position").fill("5")
     page.locator("main").get_by_role("button", name="Spara", exact=True).click()
-    expect(page).to_have_url(live_server.url + child.get_absolute_url())
-    expect(page.locator(".register-photos figure").last.locator("figcaption")).to_have_text(
-        "Synthetic caption"
-    )
-    page.locator(".register-photos figure").last.get_by_role("link", name="Radera bild").click()
+    expect(page).to_have_url(management)
+    expect(
+        page.locator(f"#managed-{child.pk} .register-photos figure").last.locator("figcaption")
+    ).to_have_text("Synthetic caption")
+    page.locator(f"#managed-{child.pk} .register-photos figure").last.get_by_role(
+        "link", name="Radera bild"
+    ).click()
     page.get_by_role("checkbox", name="Jag bekräftar raderingen.").check()
     page.locator("main").get_by_role("button", name="Radera bild", exact=True).click()
-    expect(page).to_have_url(live_server.url + child.get_absolute_url())
-    expect(page.locator(".register-photos figure")).to_have_count(1)
+    expect(page).to_have_url(management)
+    expect(page.locator(f"#managed-{child.pk} .register-photos figure")).to_have_count(1)

@@ -67,6 +67,96 @@ def row(page, name, pk):
     return page.locator(f'[data-tag-option]:has(input[name="{name}"][value="{pk}"])')
 
 
+def reveal_row(page, name, pk):
+    choice = row(page, name, pk)
+    for disclosure in choice.locator("xpath=ancestor::details").all():
+        if disclosure.get_attribute("open") is None:
+            disclosure.locator(":scope > summary").click()
+    return choice
+
+
+@pytest.fixture
+def large_tags(user, browser_tags):
+    """A synthetic register large enough to require browsing beyond the viewport."""
+    for index in range(12):
+        crop = create_crop(actor=user, name=f"Register crop {index:02}").record
+        varieties = [
+            create_variety(actor=user, crop=crop, name=f"Variety {number}").record
+            for number in range(4)
+        ]
+        area = create_area(actor=user, name=f"Register area {index:02}").record
+        for number in range(6):
+            create_planting(
+                actor=user,
+                crop=crop,
+                variety=varieties[number % 4],
+                area=area,
+                start_year=2024 + number % 3,
+                label=f"Register batch {index:02}-{number}",
+            )
+    return browser_tags
+
+
+@pytest.mark.parametrize("javascript", [True, False])
+def test_large_register_type_filters_compact_groups_and_preserved_selections(
+    live_server, user, large_tags, browser_endpoint, javascript, tmp_path
+):
+    with browser_page(
+        browser_endpoint, java_script_enabled=javascript, viewport={"width": 390, "height": 400}
+    ) as page:
+        errors = []
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + "/capture/")
+        page.locator("#id_date").fill("2026-07-14")
+        page.locator("#id_body").fill("Large register selection")
+        if javascript:
+            page.locator("[data-tag-trigger]").press("Enter")
+        roots = page.locator("[data-tag-root]")
+        assert roots.count() == 4
+        assert all(root.get_attribute("open") is None for root in roots.all())
+        planting = reveal_row(page, "link_plantings", large_tags.first.pk)
+        planting.locator("input").check()
+        if javascript:
+            expect(page.locator('[data-tag-root="planting"] > summary')).to_contain_text(
+                "Selected: 1"
+            )
+            filter_type = page.locator("[data-tag-type]")
+            filter_type.select_option("variety")
+            expect(page.locator('[data-tag-root="planting"]')).to_be_hidden()
+            expect(planting.locator("input")).to_be_checked()
+            expect(page.locator("[data-tag-chips] li")).to_have_count(1)
+            search = page.locator("[data-tag-search]")
+            search.fill("Golden")
+            variety = row(page, "link_varieties", large_tags.variety.pk)
+            expect(variety).to_be_visible()
+            expect(page.locator("[data-tag-count]")).to_have_text("1 matches")
+            variety.locator("input").check()
+            filter_type.select_option("crop")
+            expect(page.locator("[data-tag-no-results]")).to_be_visible()
+            filter_type.select_option("all")
+            expect(page.locator('[data-tag-root="planting"]')).to_be_visible()
+            expect(page.locator("[data-tag-count]")).to_have_text("6 matches")
+            search.fill("")
+            assert all(root.get_attribute("open") is None for root in roots.all())
+            expect(page.locator("[data-tag-chips] li")).to_have_count(2)
+            bounds = page.locator("[data-tag-popover]").bounding_box()
+            assert bounds["y"] >= 0 and bounds["y"] + bounds["height"] <= 400
+            assert page.locator(".tag-options").bounding_box()["height"] >= 100
+            page.locator("[data-tag-popover]").screenshot(path=str(tmp_path / "large-tags.png"))
+            page.get_by_role("button", name="Done", exact=True).click()
+        else:
+            reveal_row(page, "link_varieties", large_tags.variety.pk).locator("input").check()
+            page.locator('[data-tag-root="planting"] > summary').click()
+        page.locator("#save-entry").click()
+        expect(page).to_have_url(re.compile(r"/$" if javascript else r"/#entry-\d+$"))
+        page.get_by_role("link", name="Edit", exact=True).click()
+        expect(row(page, "link_plantings", large_tags.first.pk).locator("input")).to_be_checked()
+        expect(row(page, "link_varieties", large_tags.variety.pk).locator("input")).to_be_checked()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        assert not errors
+
+
 def saved_state():
     def read():
         close_old_connections()
@@ -136,6 +226,7 @@ def test_shared_picker_whole_rows_focus_stationary_selection_and_save(
     expect(popover).to_be_visible()
     expect(trigger).to_be_focused()
     assert save.bounding_box() == before_save
+    reveal_row(page, "link_plantings", browser_tags.first.pk)
     bounds = popover.bounding_box()
     assert bounds["x"] >= 0 and bounds["y"] >= 0
     assert bounds["x"] + bounds["width"] <= 390
@@ -213,6 +304,7 @@ def test_tag_search_enter_focuses_first_visible_choice_after_year_change(
         page.get_by_role("link", name="Edit", exact=True).click()
     page.locator("#id_date").fill(f"{year}-07-14")
     trigger = page.locator("[data-tag-trigger]")
+    expect(trigger).to_be_visible()
     trigger.press("Enter")
     search = page.locator("[data-tag-search]")
     expect(search).to_be_focused()
@@ -229,9 +321,15 @@ def test_tag_search_enter_focuses_first_visible_choice_after_year_change(
     expect(page.locator("[data-tag-chips] li")).to_have_count(1)
     # Search exposes other years, but the current year's choices still come first.
     search.fill("Tomato")
+    first_visible = page.locator("[data-tag-option] input:visible").first
+    expected_id = first_visible.get_attribute("id")
+    if year == 2024:
+        assert (
+            first_visible.evaluate("input => input.closest('[data-tag-period]').dataset.tagPeriod")
+            == "current"
+        )
     search.press("Enter")
-    first_planting = browser_tags.ongoing if year == 2024 else browser_tags.unknown
-    expect(row(page, "link_plantings", first_planting.pk).locator("input")).to_be_focused()
+    expect(page.locator(f"#{expected_id}")).to_be_focused()
     search.fill("No matching synthetic tag")
     search.press("Enter")
     expect(search).to_be_focused()
@@ -282,7 +380,7 @@ def test_failed_tagged_capture_preserves_files_tags_key_and_unlocks(
     )
     key = page.locator("#id_submission_key").input_value()
     page.locator("[data-tag-trigger]").click()
-    selected = row(page, "link_plantings", browser_tags.first.pk).locator("input")
+    selected = reveal_row(page, "link_plantings", browser_tags.first.pk).locator("input")
     selected.check()
     page.get_by_role("button", name="Done", exact=True).click()
     pending = []
@@ -331,17 +429,19 @@ def test_no_javascript_grouped_checkboxes_capture_and_edit(page, live_server, us
         plain = plain_context.new_page()
         plain.goto(live_server.url + "/capture/")
         expect(plain.locator("[data-tag-trigger]")).to_be_hidden()
+        plain.locator('[data-tag-root="planting"] > summary').click()
+        plain.locator('[data-tag-root="area"] > summary').click()
         expect(plain.locator('[data-tag-group="planting"]')).to_be_visible()
         expect(plain.locator('[data-tag-group="area"]')).to_be_visible()
         plain.locator("#id_body").fill("Native tagged note")
-        row(plain, "link_plantings", browser_tags.first.pk).locator("input").check()
+        reveal_row(plain, "link_plantings", browser_tags.first.pk).locator("input").check()
         row(plain, "link_areas", browser_tags.parent.pk).locator("input").check()
         plain.locator("#save-entry").click()
         expect(plain).to_have_url(re.compile(r"/#entry-\d+$"))
         plain.get_by_role("link", name="Edit", exact=True).click()
         expect(row(plain, "link_plantings", browser_tags.first.pk).locator("input")).to_be_checked()
         expect(row(plain, "link_areas", browser_tags.parent.pk).locator("input")).to_be_checked()
-        row(plain, "link_plantings", browser_tags.first.pk).locator("input").uncheck()
+        reveal_row(plain, "link_plantings", browser_tags.first.pk).locator("input").uncheck()
         plain.locator('#entry-form button[type="submit"]').click()
         expect(plain).to_have_url(re.compile(r"/entries/\d+/$"))
         assert saved_state()["links"] == [(None, browser_tags.parent.pk, None, None)]
@@ -416,7 +516,7 @@ def test_picker_fits_viewport_opens_above_and_keeps_choices_on_resize(
         assert bounds["y"] < anchor["y"]
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     popover.screenshot(path=str(tmp_path / f"tag-popover-{width}.png"))
-    row(page, "link_plantings", browser_tags.first.pk).locator("input").check()
+    reveal_row(page, "link_plantings", browser_tags.first.pk).locator("input").check()
     page.set_viewport_size({"width": width, "height": height + 80})
     expect(row(page, "link_plantings", browser_tags.first.pk).locator("input")).to_be_checked()
     expect(popover).to_be_visible()

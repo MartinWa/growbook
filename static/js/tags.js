@@ -9,19 +9,13 @@
     if (actions) actions.prepend(trigger);
     const popover = picker.querySelector("[data-tag-popover]");
     const search = picker.querySelector("[data-tag-search]");
+    const type = picker.querySelector("[data-tag-type]");
     const groups = picker.querySelector("[data-tag-groups]");
     const chips = picker.querySelector("[data-tag-chips]");
     const context = picker.querySelector("[data-tag-context]");
     const options = [...picker.querySelectorAll("[data-tag-option]")];
     const checks = options.map(row => row.querySelector("input"));
-    const plantings = groups.querySelector('[data-tag-group="planting"]');
-    const other = picker.querySelector("[data-tag-other-years]").content.cloneNode(true);
-    const taxonomy = picker.querySelector("[data-tag-taxonomy]").content.cloneNode(true);
-    groups.querySelectorAll('[data-tag-group="crop"], [data-tag-group="variety"]').forEach(group => {
-      taxonomy.querySelector("details").append(group);
-    });
-    groups.append(other, taxonomy);
-    const otherPlantings = groups.querySelector('[data-tag-group="other"]');
+    const periods = [...groups.querySelectorAll("[data-tag-period]")];
     let anchor;
     let busy = false;
 
@@ -47,7 +41,7 @@
       const width = Math.min(Math.max(anchor.width, 360), widthAvailable - 24);
       // Leave room for actual choices below the search/help and above Done, even
       // when the trigger sits near the middle of a short viewport.
-      const height = Math.min(440, Math.max(360, above, below), heightAvailable - 24);
+      const height = Math.min(520, Math.max(400, above, below), heightAvailable - 24);
       const openBelow = below >= Math.min(360, height) || below >= above;
       const top = openBelow ? anchor.bottom + 6 : anchor.top - height - 6;
       popover.style.width = `${width}px`;
@@ -61,7 +55,10 @@
         const start = Number(row.dataset.start);
         const end = Number(row.dataset.end);
         const inYear = start === year || (row.dataset.persistent === "true" && start <= year && (!end || end >= year));
-        (inYear ? plantings : otherPlantings).append(row);
+        const period = periods.find(group => group.dataset.tagPeriod === (inYear ? "current" : "other"));
+        const subgroup = [...period.querySelectorAll("[data-tag-subgroup]")]
+          .find(group => group.dataset.groupKey === row.dataset.groupKey);
+        subgroup.querySelector("[data-tag-bucket]").append(row);
       }
       filter();
     }
@@ -70,18 +67,28 @@
       let count = 0;
       for (const row of options) {
         const text = row.textContent.normalize("NFC").toLocaleLowerCase(document.documentElement.lang);
-        row.hidden = !terms.every(term => text.includes(term));
+        row.hidden = (type.value !== "all" && row.dataset.kind !== type.value) || !terms.every(term => text.includes(term));
         if (!row.hidden) count++;
       }
-      for (const group of groups.querySelectorAll("fieldset")) {
-        group.hidden = ![...group.querySelectorAll("[data-tag-option]")].some(row => !row.hidden);
-      }
       for (const detail of groups.querySelectorAll("details")) {
-        detail.hidden = ![...detail.querySelectorAll("fieldset")].some(group => !group.hidden);
-        detail.open = terms.length > 0;
+        detail.hidden = ![...detail.querySelectorAll("[data-tag-option]")].some(row => !row.hidden);
+        detail.open = terms.length > 0 || (detail.hasAttribute("data-tag-root") && detail.dataset.tagRoot === type.value);
       }
+      for (const period of periods) {
+        period.hidden = ![...period.querySelectorAll("[data-tag-option]")].some(row => !row.hidden);
+      }
+      counts();
       picker.querySelector("[data-tag-no-results]").hidden = count > 0;
       picker.querySelector("[data-tag-count]").textContent = `${count} ${picker.dataset.matches}`;
+    }
+    function counts() {
+      for (const detail of groups.querySelectorAll("details")) {
+        const rows = [...detail.querySelectorAll("[data-tag-option]")];
+        const summary = detail.querySelector(":scope > summary");
+        summary.querySelector("[data-tag-group-count]").textContent = `(${rows.filter(row => !row.hidden).length})`;
+        const selected = rows.filter(row => row.querySelector("input").checked).length;
+        summary.querySelector("[data-tag-selected-count]").textContent = selected ? `· ${picker.dataset.selected} ${selected}` : "";
+      }
     }
     function syncSelection() {
       chips.replaceChildren();
@@ -114,6 +121,7 @@
       context.hidden = !derived.size;
       context.textContent = derived.size ? `${picker.dataset.found} ${[...derived].join("; ")}` : "";
       picker.querySelector("[data-tag-current]").hidden = !hasPlanting;
+      counts();
     }
     function show(keyboard) {
       // Snapshot the anchor once: chip changes must not move an open picker.
@@ -134,13 +142,15 @@
       if (!group) return;
       event.preventDefault();
       search.value = "";
+      type.value = "all";
       filter();
       trigger.scrollIntoView({ block: "nearest" });
       show(true);
       const input = checks.find(input => input.name === group.id.slice(3));
       if (input) {
-        const disclosure = input.closest("details");
-        if (disclosure) disclosure.open = true;
+        for (let parent = input.parentElement; parent && parent !== groups; parent = parent.parentElement) {
+          if (parent.tagName === "DETAILS") parent.open = true;
+        }
         input.focus();
       }
     });
@@ -164,12 +174,25 @@
       picker.querySelector("[data-tag-status]").textContent = `${event.target.checked ? picker.dataset.selected : picker.dataset.removed} ${row.querySelector(".tag-title").textContent}`;
     }));
     search.addEventListener("input", filter);
+    type.addEventListener("change", filter);
     search.addEventListener("keydown", event => {
       if (event.key === "Enter") {
         event.preventDefault();
-        // Follow the current year ranking and skip choices inside closed disclosures.
-        [...groups.querySelectorAll("[data-tag-option] input")]
-          .find(input => input.getClientRects().length > 0)?.focus({ preventScroll: true });
+        // Enter opens the first matching group when compact browsing has no visible choice.
+        const rows = [...groups.querySelectorAll("[data-tag-option]")];
+        const first = rows.find(row => {
+          for (let parent = row; parent && parent !== groups; parent = parent.parentElement) {
+            if (parent.hidden || (parent.tagName === "DETAILS" && !parent.open)) return false;
+          }
+          return true;
+        })
+          || rows.find(row => !row.hidden && (search.value.trim() || !row.closest('[data-tag-period="other"]')));
+        if (first) {
+          for (let parent = first.parentElement; parent && parent !== groups; parent = parent.parentElement) {
+            if (parent.tagName === "DETAILS") parent.open = true;
+          }
+          first.querySelector("input").focus({ preventScroll: true });
+        }
       }
     });
     picker.querySelector("[data-tag-done]").addEventListener("click", () => close(true));
@@ -185,6 +208,7 @@
       trigger.disabled = true;
       picker.querySelectorAll("button, input[type=checkbox]").forEach(input => { input.disabled = true; });
       search.readOnly = true;
+      type.disabled = true;
     });
     form.addEventListener("htmx:afterRequest", event => {
       if (event.detail.elt !== form) return;
@@ -192,12 +216,13 @@
       trigger.disabled = false;
       picker.querySelectorAll("button, input[type=checkbox]").forEach(input => { input.disabled = false; });
       search.readOnly = false;
+      type.disabled = false;
     });
     form.addEventListener("reset", () => {
       // A successful quick save starts a fresh draft, including initially checked tags.
       close();
       checks.forEach(input => { input.defaultChecked = false; });
-      setTimeout(() => { search.value = ""; syncSelection(); rank(); }, 0);
+      setTimeout(() => { search.value = ""; type.value = "all"; syncSelection(); rank(); }, 0);
     });
     popover.setAttribute("popover", "auto");
     picker.classList.add("tags-enhanced");

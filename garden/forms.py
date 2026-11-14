@@ -379,9 +379,18 @@ class PlantingCategoryForm(forms.Form):
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
     name = forms.CharField(label=_("Name"), max_length=150)
+    remove_image = forms.BooleanField(label=_("Remove current image"), required=False)
+    photos = MultipleFileField(
+        label=_("Category image"),
+        required=False,
+        help_text=_("Choose one image. A new image replaces the current image."),
+        widget=MultipleFileInput(attrs={"accept": "image/*"}),
+    )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, record=None, **kwargs):
         super().__init__(*args, **kwargs)
+        if record is None or not record.photos.exists():
+            self.fields["remove_image"].widget = forms.HiddenInput()
         describe_fields(self)
 
 

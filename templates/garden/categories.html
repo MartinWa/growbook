@@ -7,6 +7,7 @@
   <h1>{{ heading }}</h1>
   <div class="category-overview-actions">
     <a href="{% url 'garden:all-crops' %}">{% translate 'Show all crops and varieties' %}</a>
+    <a class="btn btn-outline" href="{% url 'garden:category-manage' %}">{% translate 'Manage categories' %}</a>
     <a class="btn btn-primary" href="{% url 'garden:category-create' %}">{% translate 'New category' %}</a>
   </div>
   <img class="register-illustration" src="{% static 'images/registers/crops-and-varieties.webp' %}" width="1000" height="500" alt="">
@@ -18,7 +19,6 @@
       {% with photo=category.photos.first %}{% if photo %}<img src="{{ photo.display_url }}" alt="" loading="lazy" width="{{ photo.width }}" height="{{ photo.height }}">{% else %}<span class="card-botanical-placeholder" aria-hidden="true">{% include 'components/botanical_sprig.html' %}</span>{% endif %}{% endwith %}
       <h2>{{ category.name }}</h2>
     </a>
-    <div class="related-actions"><a class="btn btn-outline rounded-full px-3 text-sm" href="{% url 'garden:category-edit' category.pk %}" aria-label="{% translate 'Edit category' %}: {{ category.name }}">{% translate 'Edit' %}</a><a class="btn btn-outline rounded-full px-3 text-sm" href="{% url 'garden:category-delete' category.pk %}" aria-label="{% translate 'Delete category' %}: {{ category.name }}">{% translate 'Delete' %}</a></div>
   </article>
   {% endfor %}
   <article class="category-card"><a class="category-card-link" href="{% url 'garden:uncategorized' %}"><img src="{% static 'images/registers/uncategorized.webp' %}" alt="" loading="lazy" width="1000" height="500"><h2>{% translate 'Uncategorized' %}</h2></a></article>
