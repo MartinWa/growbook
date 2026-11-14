@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ heading }} · GrowBook{% endblock %}
+{% block content %}
+<nav class="related-actions"><a href="{{ browsing_url }}"><span aria-hidden="true">← </span>{% translate 'Back to list' %}</a></nav>
+<div class="page-heading">
+  <h1>{{ heading }}</h1>
+  <div class="heading-actions">
+    {% if kind == 'area' %}{% include 'garden/archive_toggle.html' %}{% endif %}
+    <a class="btn btn-primary" href="{{ create_url }}?next={{ destination|urlencode }}">{{ create_label }}</a>
+  </div>
+</div>
+{% if show_archived %}<p class="archive-state">{% translate 'Showing archived records' %} · <a href="{{ hide_archived_url }}">{% translate 'Hide archived records' %}</a></p>{% endif %}
+<ul class="record-list">
+{% for record in records %}
+  {% with destination=record.management_destination|default:destination %}
+  <li id="managed-{{ record.pk }}"{% if selected == record.pk|stringformat:'s' %} aria-current="true"{% endif %}>
+    <div class="page-heading">
+      <a href="{{ record.get_absolute_url }}">{% firstof record.area_path record.name %}</a>
+      {% if record.is_archived %}<span class="archive-label">{% translate 'Archived' %}</span>{% endif %}
+      <div class="related-actions">
+        <a class="btn btn-outline" href="{% url edit_route record.pk %}?next={{ destination|urlencode }}" aria-label="{% translate 'Edit' %}: {% firstof record.area_path record.name %}">{% translate 'Edit' %}</a>
+        <a href="{% url delete_route record.pk %}?next={{ destination|urlencode }}" aria-label="{% translate 'Delete' %}: {% firstof record.area_path record.name %}">{% translate 'Delete' %}</a>
+      </div>
+    </div>
+    {% if kind == 'area' %}
+    <form method="post" action="{% url 'garden:area-archive' record.pk %}">
+      {% csrf_token %}<input type="hidden" name="next" value="{{ destination }}">
+      {% if record.is_archived %}<input type="hidden" name="archived" value="false"><button type="submit" class="btn btn-outline">{% translate 'Restore to active selections' %}</button>{% else %}<input type="hidden" name="archived" value="true"><button type="submit" class="btn btn-outline">{% translate 'Archive' %}</button>{% endif %}
+    </form>
+    {% include 'garden/register_photos.html' %}
+    {% else %}{% with photo=record.photos.first %}{% if photo %}<a href="{{ photo.get_absolute_url }}?next={{ destination|urlencode }}"><img class="category-current-image" src="{{ photo.thumbnail_url }}" alt="{% translate 'Current category image' %}"></a>{% endif %}{% endwith %}{% endif %}
+  </li>
+  {% endwith %}
+{% empty %}<li>{% translate 'No records yet.' %}</li>{% endfor %}
+</ul>
+{% endblock %}

@@ -6,6 +6,12 @@ app_name = "garden"
 
 urlpatterns = [
     path("", registers.garden_home, name="home"),
+    path(
+        "categories/manage/",
+        registers.register_management,
+        {"kind": "category"},
+        name="category-manage",
+    ),
     path("categories/new/", registers.register_form, {"kind": "category"}, name="category-create"),
     path(
         "categories/uncategorized/",
@@ -69,6 +75,7 @@ urlpatterns = [
         name="variety-delete",
     ),
     path("areas/", registers.register_list, {"kind": "area"}, name="area-list"),
+    path("areas/manage/", registers.register_management, {"kind": "area"}, name="area-manage"),
     path("areas/new/", registers.register_form, {"kind": "area"}, name="area-create"),
     path("areas/<int:pk>/", registers.register_detail, {"kind": "area"}, name="area-detail"),
     path("areas/<int:pk>/edit/", registers.register_form, {"kind": "area"}, name="area-edit"),
@@ -79,6 +86,9 @@ urlpatterns = [
     path("plantings/", plantings.planting_list, name="planting-list"),
     path("plantings/status/<str:status>/", plantings.planting_list, name="planting-status"),
     path("plantings/categories/new/", cycles.category_form, name="planting-category-create"),
+    path(
+        "plantings/categories/manage/", cycles.category_management, name="planting-category-manage"
+    ),
     path(
         "plantings/categories/<int:category_pk>/",
         plantings.planting_list,

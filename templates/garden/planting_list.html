@@ -3,7 +3,7 @@
 {% block title %}{{ heading }}{% if scope %}: {{ scope.name }}{% endif %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
 {% block page_class %}page register-page{% endblock %}
 {% block content %}
-{% include 'components/register_heading.html' with illustration=planting_illustration %}
+{% include 'components/register_heading.html' with illustration=planting_illustration illustration_photo=category_image %}
 <div class="filter-layout" data-filter-page data-results-id="planting-results"
   data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
   data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
@@ -11,7 +11,7 @@
   <div class="overview-toolbar">
     <div class="heading-actions">
       <a class="btn btn-primary" data-filter-create data-always-visible href="{{ create_url }}">{% translate 'New planting' %}</a>
-      {% if category_overview %}<a class="btn btn-outline" data-filter-category-create href="{% url 'garden:planting-category-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'New category' %}</a>{% endif %}
+      {% if category_overview %}<a class="btn btn-outline" data-filter-category-manage href="{% url 'garden:planting-category-manage' %}?next={{ request.get_full_path|urlencode }}">{% translate 'Manage categories' %}</a><a class="btn btn-outline" data-filter-category-create href="{% url 'garden:planting-category-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'New category' %}</a>{% endif %}
     </div>
     <details class="filter-disclosure" data-filter-disclosure{% if form.errors %} open{% endif %}>
       {% translate 'Planting filters' as filter_label %}

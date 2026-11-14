@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET, require_POST, require_safe
 from django.views.decorators.vary import vary_on_headers
 
 from diary.permissions import can_edit_entry
+from garden.views._shared import return_url
 
 from .appearance import SEASON_COOKIE, SEASON_COOKIE_AGE, SEASON_MODES
 from .images import FORMATS
@@ -66,7 +67,7 @@ def release_status(request):
 def photo_detail(request, pk):
     photo = get_object_or_404(
         Photo.objects.select_related(
-            "entry", "area", "variety__crop", "planting__crop", "category"
+            "entry", "area", "variety__crop", "planting__crop", "category", "planting_category"
         ),
         pk=pk,
     )
@@ -76,6 +77,7 @@ def photo_detail(request, pk):
         {
             "photo": photo,
             "can_edit": bool(photo.entry_id and can_edit_entry(request.user, photo.entry)),
+            "destination": return_url(request) if photo.entry_id is None else "",
         },
     )
 

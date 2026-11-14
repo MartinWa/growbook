@@ -118,6 +118,8 @@
         create.hidden = !create.hasAttribute("data-always-visible") && results.dataset.hasRecords === "false";
         const categoryCreate = document.querySelector("[data-filter-category-create]");
         if (categoryCreate) categoryCreate.href = results.dataset.categoryCreateUrl;
+        const categoryManage = document.querySelector("[data-filter-category-manage]");
+        if (categoryManage) categoryManage.href = results.dataset.categoryManageUrl;
       }
       document.dispatchEvent(new CustomEvent("growbook:results", {
         detail: { root: results, url: url.pathname + url.search }

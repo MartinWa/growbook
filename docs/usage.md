@@ -64,10 +64,10 @@ names use the same Unicode-aware uniqueness rules as the other registers and are
 not translated.
 
 **Crops and varieties** always opens the category overview, including when there
-are no user-created categories. **New category** is available only on this overview.
-Category cards have **Edit** and **Delete** actions. Open a category to browse and
-search only its crops and varieties. **Uncategorized** opens crops without category
-links; **Show all crops and varieties** opens the full register. Search and archive
+are no user-created categories. **New category** is available on this overview and
+in **Manage categories**, which opens the category maintenance list. Open a category
+card to browse and search only its crops and varieties. **Uncategorized** opens crops
+without category links; **Show all crops and varieties** opens the full register. Search and archive
 controls retain their scope.
 Empty categories remain available. **New crop** from a category page links the
 new crop to that category; from Uncategorized it leaves the crop unlinked.
@@ -78,17 +78,19 @@ PNG and WebP images retain their transparency. Uncategorized uses its own built-
 illustration on its card and in its heading; categories without an image use the
 default crop heading illustration. Older filtered register links open the full register.
 
-Edit a category to change its name or crop links, remove its image, or upload one
-replacement image. Selecting another image replaces the saved image on a successful
-save. Open the current image from the edit form for viewing and private original
+From **Manage categories**, edit a category to change its name or crop links, remove
+its image, or upload one replacement image. Selecting another image replaces the
+saved image on a successful save. Open the current image from the edit form for viewing and private original
 download. Category forms use the same save-key retries and stale-edit protection
-as the registers. A category has at most one image, with the existing file and
-decoded-pixel limits. The overview, forms and category navigation work without
-JavaScript.
+as the registers. Save and Cancel return to category management. Its **Back to list**
+link preserves the originating browsing context. A category has at most one image,
+with the existing file and decoded-pixel limits. The overview, forms and category
+navigation work without JavaScript.
 
 Category deletion requires confirmation and removes its image and crop links.
 Crops, varieties, plantings and diary records remain. A crop with no remaining
 category links appears in Uncategorized; deleting the final category returns to
+category management. **Back to list** retains a surviving browsing origin or opens
 the overview, where Uncategorized remains available.
 
 Varieties use normalized name ordering within each crop. **Search crops and varieties**
@@ -105,7 +107,7 @@ and retain their search and archive choices.
 **Growing areas** opens an overview of top-level area cards. Each card shows its name
 and first photo when available, using the same layout as crop-category cards. Open a
 card for the area's own page. Child-area cards appear before the parent's description,
-dimensions, notes and photo controls. Each child opens its own page with the same
+dimensions, notes and photos. Each child opens its own page with the same
 layout; the navigation above the heading links to the overview and ancestor areas.
 Area pages show only plantings assigned directly to that area, across all years.
 Each child area's plantings appear on its own page. The latest five linked diary
@@ -115,8 +117,13 @@ appears once. Select a planting or observation to open it;
 **Plantings YEAR (count)** opens Plantings with the current year and that area selected;
 its count and results include only plantings assigned directly to that area. This
 selection continues through year changes and **All years**. The Plantings section
-retains its year filters and histories. **Cancel** from area editing returns to the area's page, retaining
-**Include archived** when selected; saved edits retain that choice too.
+retains its year filters and histories. **Manage growing areas** on the overview opens
+one maintenance list for top-level and child areas, identified by their full paths.
+Use **Include archived** there to maintain archived areas. Edit, Archive/Restore,
+confirmed Delete and photo maintenance are available in this management flow.
+Save and Cancel from area editing, as well as archive/delete and photo operations,
+return to management with the selected area and archive choice retained. Direct area
+edit links use the same flow. Area browsing pages retain readable information and photos.
 
 Archived ancestors of active areas remain available as cards leading to their children;
 unrelated archived branches stay hidden until **Include archived** is selected.
@@ -137,7 +144,8 @@ details panel, or opening its name in a new tab, opens the full record.
   **Include archived** beside the creation actions to show or hide archived records
   with one click, including without JavaScript. The selected state stays visible.
   **Hide archived records** restores the default list.
-- Edit an area or variety to add photos; edit photo details to change captions or order.
+- Edit an area through management, or a variety through its details, to add photos;
+  edit photo details to change captions or order.
   Deletion requires confirmation. A crop with varieties or an area with children cannot
   be deleted; archive it or reorganize its dependents first. Deleting an allowed record
   removes its photos with coordinated file cleanup after the database commit. Referenced
@@ -145,6 +153,18 @@ details panel, or opening its name in a new tab, opens the full record.
 - A variety used by any planting cannot change crop through an ordinary edit, even when
   the planting has ended. Reconcile its planting references explicitly first; changing
   the variety does not silently reclassify plantings.
+
+Deleting a crop or variety from a category returns to that category with search and
+archive filters preserved, including when the final visible record is removed.
+Confirmation, Cancel and deletion errors retain that destination. Direct deletion
+links without a valid surviving origin return to the register overview.
+
+Variety **Experiences** displays its editable notes followed by linked evaluations
+from completed plantings of that exact variety. Each planting member appears once,
+with its growing years, assigned area and completion date when known. Older records
+and archived associations are included. Evaluation corrections and clearing appear
+immediately; reopening a cycle hides its result while retaining the planting's
+evaluation. The display works in both the details panel and the full record page.
 
 ## Saving changes and retries
 
@@ -184,14 +204,20 @@ full forms keep their save actions visible at the bottom while scrolling.
 ## Plantings and histories
 
 Open **Plantings** for category cards styled like Growing areas. The built-in
-categories are **Ongoing**, **Planned** and **Completed**, each with its own built-in
-illustration on its card and heading; every batch is one cycle with exactly one
+categories are ordered **Planned**, **Ongoing**, then **Completed**, each with its own
+built-in illustration on its card and heading; every batch is one cycle with exactly one
 status. **New category** creates a shared custom category, such as
 For Sale. Assign a cycle to any number of custom categories through creation or
 **Edit cycle**. An ongoing cycle assigned to For Sale appears in both cards.
 Category names persist across years; each card's count and year describe the view.
-Edit or delete custom categories from their cards. Confirmed category deletion removes
-membership links while preserving cycles, members, history and photos.
+Custom categories follow in normalized name order. **Manage categories** opens their
+maintenance list; Save, Cancel and confirmed deletion return there. **Back to list**
+preserves the overview's year and filters. Each custom category has one optional private
+image, reused on its card and heading. Add, replace or remove it through category editing;
+transparent PNG/WebP images retain transparency, and a default illustration appears
+when no image is selected. Image limits and save retries match crop categories.
+Confirmed category deletion removes its image and membership links while preserving
+cycles, members, history and planting photos.
 
 **Planting filters** starts
 collapsed above the results at every screen width, alongside **New planting** when
@@ -301,7 +327,9 @@ is shown as a dash and zero as zero.
   use version checks; deletion requires confirmation.
 - Edit a planting to add cumulative evaluation text or photos. Photo controls match
   register photos. Planting deletion is permanent and removes its events and photos;
-  completing a cycle is the history-preserving alternative.
+  completing a cycle is the history-preserving alternative. Deletion from a status or
+  custom category returns to the same category with its year/All years and other filters
+  retained, including an empty result. Confirmation, Cancel and errors retain that context.
 
 Each planting has one current area. Correcting that assignment or reparenting an area
 changes past-year results too. For an established plant that moves, prefer ending the
@@ -369,11 +397,17 @@ row; each selection appears as a removable chip. Nothing needs to be selected fo
 general observation. Pointer activation keeps focus on the button; keyboard activation
 focuses search. **Done** or Escape closes the selector and returns focus to **Add tags**.
 
-Plantings for the observation's year, including ongoing persistent plantings, appear
-first, followed by growing areas. **Other years** and **Crops and varieties** reveal
-secondary choices. Search finds these immediately, including planting crop, variety,
-full area path, batch and year. Year ranks suggestions without restricting links.
-Without JavaScript, grouped native checkboxes remain available.
+The picker starts with compact expandable groups and counts for plantings, growing areas,
+crops and varieties. Choose **All**, **Plantings**, **Growing areas**, **Crops** or
+**Varieties** to scope browsing and search. Plantings are grouped by area, with the
+observation's year first and **Other years** expandable; varieties are grouped by crop.
+Growing areas show full parent paths. Search reveals matching groups, including planting
+crop, variety, full area path, label and year. Match counts follow the selected type;
+clearing search restores compact browsing. Group headings show selected counts and chips
+remain visible across filters and collapsed groups. Enter from search opens/focuses the
+first matching choice. Changing the observation date updates the planting ranking without
+restricting links or changing selections. Without JavaScript, native disclosures and
+checkboxes support both capture and editing.
 
 Tags store only the explicit choices. A planting also supplies its current crop,
 known variety, assigned area and ancestor areas for retrieval; a variety supplies its
