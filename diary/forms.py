@@ -286,13 +286,14 @@ class CaptureForm(TaggedForm):
             for identifier in variety_attrs["aria-describedby"].split()
             if identifier != "variety-status"
         )
-        self.planting_form.fields["variety"].queryset = Variety.objects.filter(
+        variety_field = self.planting_form.fields["variety"]
+        variety_field.queryset = Variety.objects.filter(
             is_archived=False, crop__is_archived=False
         ).select_related("crop")
+        # Bound planting forms cache crop-scoped choices; capture needs the full list.
+        variety_field.choices = variety_field.iterator(variety_field)
         if self.is_bound:
-            self.planting_form.fields["variety"].preserve_selection(
-                self.data.get("planting-variety")
-            )
+            variety_field.preserve_selection(self.data.get("planting-variety"))
         self.event_form = PlantingEventForm(
             data, prefix="event", initial={"actual_date": observed}, use_required_attribute=False
         )

@@ -285,6 +285,126 @@ def test_event_independent_dates_and_choice_loading_failure_preserves_draft(
     assert state()["events"][0]["kind"] == "replanting"
 
 
+@pytest.mark.parametrize("next_action", ["", "new", "event", "clear"])
+@pytest.mark.parametrize("late_failure", [False, True])
+def test_cancelled_cycle_load_releases_save_and_ignores_late_responses(
+    page, live_server, user, catalog, image_upload, next_action, late_failure
+):
+    login(page, live_server, user)
+    page.locator("#id_body").fill("Synthetic cancellation observation")
+    page.locator("#id_library").set_input_files(
+        {"name": "synthetic.jpg", "mimeType": "image/jpeg", "buffer": image_upload().read()}
+    )
+    key = page.locator('[name="submission_key"]').input_value()
+    page.evaluate(
+        """lateFailure => {
+            const originalFetch = window.fetch.bind(window);
+            window.pendingCycle = { held: false, aborted: false, completed: false };
+            window.fetch = async (url, options) => {
+                const response = await originalFetch(url, options);
+                if (options?.body instanceof FormData &&
+                    options.body.get("choose_action") === "1") {
+                    const body = await response.text();
+                    response.text = () => new Promise((resolve, reject) => {
+                        options.signal.addEventListener("abort", () => {
+                            window.pendingCycle.aborted = true;
+                        });
+                        // Deliberately finish after cancellation to exercise response races.
+                        window.releaseCycle = () => {
+                            if (lateFailure) reject(new Error("Synthetic late body failure"));
+                            else resolve(body);
+                        };
+                        window.pendingCycle.held = true;
+                    }).finally(() => { window.pendingCycle.completed = true; });
+                }
+                return response;
+            };
+        }""",
+        late_failure,
+    )
+    open_action(page, "cycle")
+    page.locator('[name="action_planting"]').select_option(str(catalog[2]))
+    page.wait_for_function("() => window.pendingCycle.held")
+    expect(page.locator("[data-action-status]")).to_have_attribute("aria-busy", "true")
+    expect(page.locator("#save-entry")).to_be_disabled()
+    if next_action == "clear":
+        page.locator('[name="action_planting"]').select_option("")
+    else:
+        page.locator('[name="planting_action"]').select_option(next_action)
+    expect(page.locator("#save-entry")).to_be_enabled()
+    expect(page.locator("[data-action-status]")).not_to_have_attribute("aria-busy", "true")
+    assert page.evaluate("window.pendingCycle.aborted")
+    expect(page.locator("#id_body")).to_have_value("Synthetic cancellation observation")
+    expect(page.locator('[name="submission_key"]')).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
+    if next_action == "clear":
+        page.locator('[name="planting_action"]').select_option("")
+    elif next_action == "new":
+        page.locator('[name="planting-crop"]').select_option(str(catalog[0]))
+    elif next_action == "event":
+        page.locator('[name="event-kind"]').select_option("sowing")
+    pending_saves = []
+    page.route("**/capture/", lambda route: pending_saves.append(route))
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-form")).to_have_attribute("aria-busy", "true")
+    page.evaluate("window.releaseCycle()")
+    page.wait_for_function("() => window.pendingCycle.completed")
+    expect(page.locator("[data-action-status]")).to_be_empty()
+    expect(page.locator('[name="cycle-expected_updated_at"]')).to_have_value("")
+    expect(page.locator("#capture-form")).to_have_attribute("aria-busy", "true")
+    expect(page.locator("#save-entry")).to_be_disabled()
+    assert len(pending_saves) == 1
+    pending_saves[0].continue_()
+    expect(page.locator("[data-capture-saved]")).to_be_visible()
+    current = state()
+    assert current["entries"] == 1
+    assert len(current["plantings"]) == (3 if next_action == "new" else 2)
+    assert len(current["events"]) == (1 if next_action == "event" else 0)
+    assert sum(bool(photo) for photo in current["diary_photos"]) == 1
+
+
+@pytest.mark.parametrize("refresh", ["failed_save", "load_details"])
+def test_native_refresh_keeps_varieties_from_other_crops(
+    browser_endpoint, live_server, user, catalog, refresh
+):
+    crop = create_crop(actor=user, name="Pepper").record
+    variety = create_variety(actor=user, crop=crop, name="Amber").record
+    with (
+        sync_playwright() as playwright,
+        playwright.chromium.connect(browser_endpoint) as browser,
+        browser.new_context(java_script_enabled=False) as context,
+    ):
+        page = context.new_page()
+        login(page, live_server, user)
+        page.locator("#id_body").fill("Synthetic native draft")
+        open_action(page, "new")
+        page.locator('[name="planting-crop"]').select_option(str(catalog[0]))
+        page.locator('[name="planting-variety"]').select_option(str(catalog[1]))
+        if refresh == "failed_save":
+            page.locator('[name="planting-end_year"]').fill("2026")
+            with page.expect_navigation():
+                page.locator("#save-entry").click()
+            expect(page.locator("#capture-errors")).to_contain_text("annual")
+            page.locator('[name="planting-end_year"]').fill("")
+        else:
+            page.locator('[name="planting_action"]').select_option("cycle")
+            page.locator('[name="action_planting"]').select_option(str(catalog[2]))
+            with page.expect_navigation():
+                page.locator('[name="choose_action"]').click()
+            page.locator('[name="planting_action"]').select_option("new")
+        expect(page.locator("#id_body")).to_have_value("Synthetic native draft")
+        expect(
+            page.locator(f'[name="planting-variety"] option[value="{variety.pk}"]')
+        ).to_have_count(1)
+        page.locator('[name="planting-crop"]').select_option(str(crop.pk))
+        page.locator('[name="planting-variety"]').select_option(str(variety.pk))
+        with page.expect_navigation():
+            page.locator("#save-entry").click()
+        expect(page.locator("#capture-errors")).to_be_empty()
+        expect(page.locator("article[id^='entry-']")).to_contain_text("Pepper-Amber")
+        assert state()["entries"] == 1
+
+
 @pytest.mark.parametrize("action", ["new", "event", "cycle"])
 def test_no_javascript_native_planting_actions(
     browser_endpoint, live_server, user, catalog, action

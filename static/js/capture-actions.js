@@ -60,9 +60,17 @@
     save.disabled = loading || (action.value === "cycle" && loaded !== planting.value);
     document.dispatchEvent(new CustomEvent("capture:action"));
   }
+  function cancelCycleLoad() {
+    const pending = controller;
+    controller = undefined;
+    pending?.abort();
+    loading = false;
+    status.textContent = "";
+    status.removeAttribute("aria-busy");
+  }
   async function loadCycle() {
+    cancelCycleLoad();
     if (action.value !== "cycle" || !planting.value) { update(); return; }
-    controller?.abort();
     controller = new AbortController();
     const current = controller;
     const selected = planting.value;
@@ -90,7 +98,7 @@
       cycleDefaults();
       document.dispatchEvent(new CustomEvent("capture:choices"));
     } catch (error) {
-      if (error.name !== "AbortError") status.textContent = status.dataset.error;
+      if (current === controller && error.name !== "AbortError") status.textContent = status.dataset.error;
     } finally {
       if (current === controller) {
         loading = false;
@@ -102,6 +110,7 @@
   load.addEventListener("click", event => { event.preventDefault(); loadCycle(); });
   planting.addEventListener("change", () => { loaded = ""; loadCycle(); });
   action.addEventListener("change", () => {
+    if (action.value !== "cycle") cancelCycleLoad();
     update();
     if (action.value === "cycle" && loaded !== planting.value) loadCycle();
   });
@@ -151,6 +160,7 @@
     updateVarieties();
   });
   document.addEventListener("diary:saved", () => {
+    cancelCycleLoad();
     action.value = "";
     disclosure.open = false;
     loaded = "";

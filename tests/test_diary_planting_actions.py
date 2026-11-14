@@ -17,7 +17,13 @@ from diary.actions import CycleStatusAction, NewPlantingAction, PlantingEventAct
 from diary.models import DiaryEntry, DiarySubmission
 from diary.services import SubmissionConflict, SubmissionDeleted, create_entry, delete_entry
 from garden.models import Planting, PlantingCycle, PlantingEvent
-from garden.services import RegisterConflict, create_planting, edit_planting
+from garden.services import (
+    RegisterConflict,
+    create_crop,
+    create_planting,
+    create_variety,
+    edit_planting,
+)
 from garden.services.cycles import edit_cycle, transition_cycle
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -357,6 +363,45 @@ def test_http_new_event_cycle_and_native_choice_updates(client, user, members, p
     )
     assert response.status_code == 302
     assert DiaryEntry.objects.count() == 3
+
+
+@pytest.mark.parametrize("refresh", ["failed_save", "load_details"])
+@pytest.mark.parametrize("selection", ["blank", "active", "unavailable"])
+def test_native_refresh_keeps_all_active_varieties_and_submitted_selection(
+    client, user, members, planting_catalog, refresh, selection
+):
+    crop, first, second, _area = planting_catalog
+    other_crop = create_crop(actor=user, name="Pepper").record
+    other_variety = create_variety(actor=user, crop=other_crop, name="Amber").record
+    selected = "" if selection == "blank" else first.pk if selection == "active" else 2**62
+    values = {
+        "submission_key": str(uuid4()),
+        "date": "2026-01-02",
+        "body": "",
+        "capture_mode": "quick",
+        "planting_action": "new",
+        "planting-crop": "" if selection == "blank" else crop.pk,
+        "planting-variety": selected,
+        "planting-start_year": 2026,
+        "planting-status": "ongoing",
+        "planting-started_on": "2026-01-02",
+        "planting-lifespan": "annual",
+    }
+    if refresh == "load_details":
+        values.update(planting_action="cycle", action_planting=members[0].pk, choose_action="1")
+    client.force_login(user)
+    response = client.post(reverse("diary:capture"), values)
+    assert response.status_code == (200 if refresh == "load_details" else 422)
+    form = response.context["capture_form"].planting_form
+    ids = {str(value) for value, _label in form.fields["variety"].choices}
+    assert {str(first.pk), str(second.pk), str(other_variety.pk)} <= ids
+    rendered = str(form["variety"])
+    assert f'data-crop="{other_crop.pk}"' in rendered
+    assert 'data-record-name="Amber"' in rendered
+    if selected:
+        assert f'value="{selected}" selected' in rendered
+    assert not DiaryEntry.objects.exists()
+    assert Planting.objects.count() == len(members)
 
 
 def test_deactivated_actor_and_anonymous_actions_rejected(client, user, planting_catalog):
