@@ -338,6 +338,60 @@ def test_tag_search_enter_focuses_first_visible_choice_after_year_change(
     expect(trigger).to_be_focused()
 
 
+@pytest.mark.parametrize("language", ["sv", "en"])
+@pytest.mark.parametrize("mode", ["quick", "edit"])
+@pytest.mark.parametrize("group", ["other-years", "long-area"])
+def test_tag_search_enter_reveals_matching_planting_in_short_picker(
+    live_server, user, browser_endpoint, language, mode, group
+):
+    crop = create_crop(actor=user, name="Synthetic crop").record
+    area = None
+    if group == "long-area":
+        parent = create_area(actor=user, name="Main garden with a lengthy descriptive name").record
+        area = create_area(
+            actor=user, parent=parent, name="Raised bed with a lengthy descriptive name"
+        ).record
+    planting = create_planting(
+        actor=user, crop=crop, area=area, start_year=2024 if group == "other-years" else 2026
+    ).record
+    with browser_page(browser_endpoint, viewport={"width": 390, "height": 400}) as page:
+        login(page, live_server, user, language)
+        page.locator("#id_date").fill("2026-07-14")
+        if mode == "edit":
+            page.locator("#id_body").fill("Observation with compact planting choices")
+            page.locator("#save-entry").click()
+            page.locator("#quick-receipt a").click()
+            page.get_by_role(
+                "link", name="Redigera" if language == "sv" else "Edit", exact=True
+            ).click()
+        trigger = page.locator("[data-tag-trigger]")
+        trigger.press("Enter")
+        if group == "other-years":
+            page.locator("[data-tag-type]").select_option("planting")
+            expect(page.locator("[data-tag-count]")).to_have_text(
+                "1 träffar" if language == "sv" else "1 matches"
+            )
+        search = page.locator("[data-tag-search]")
+        search.focus()
+        popover = page.locator("[data-tag-popover]")
+        before = popover.bounding_box()
+        scroll = page.evaluate("[scrollX, scrollY]")
+        search.press("Enter")
+        choice = row(page, "link_plantings", planting.pk).locator("input")
+        expect(choice).to_be_focused()
+        bounds = choice.bounding_box()
+        viewport = page.locator(".tag-options").bounding_box()
+        assert bounds["y"] >= viewport["y"]
+        assert bounds["y"] + bounds["height"] <= viewport["y"] + viewport["height"]
+        assert popover.bounding_box() == before
+        assert page.evaluate("[scrollX, scrollY]") == scroll
+        choice.press("Space")
+        expect(choice).to_be_checked()
+        expect(page.locator("[data-tag-chips] li")).to_have_count(1)
+        page.keyboard.press("Escape")
+        expect(trigger).to_be_focused()
+
+
 def test_year_ranking_search_and_honest_unknowns(page, live_server, user, browser_tags):
     login(page, live_server, user, "en")
     page.goto(live_server.url + "/")

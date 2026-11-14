@@ -186,12 +186,22 @@
           }
           return true;
         })
-          || rows.find(row => !row.hidden && (search.value.trim() || !row.closest('[data-tag-period="other"]')));
+          || rows.find(row => !row.hidden && (search.value.trim() || !row.closest('[data-tag-period="other"]')))
+          || rows.find(row => !row.hidden);
         if (first) {
           for (let parent = first.parentElement; parent && parent !== groups; parent = parent.parentElement) {
             if (parent.tagName === "DETAILS") parent.open = true;
           }
           first.querySelector("input").focus({ preventScroll: true });
+          // Scroll only the choices; tall rows align at the top to reveal their checkbox.
+          const scroller = picker.querySelector(".tag-options");
+          const visible = scroller.getBoundingClientRect();
+          const choice = first.getBoundingClientRect();
+          if (choice.top < visible.top || choice.height > visible.height) {
+            scroller.scrollTop += choice.top - visible.top;
+          } else if (choice.bottom > visible.bottom) {
+            scroller.scrollTop += choice.bottom - visible.bottom;
+          }
         }
       }
     });
