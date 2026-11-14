@@ -293,8 +293,8 @@ is shown as a dash and zero as zero.
   cycle counts once and member details show the actual assigned place.
   Archived register items stay visible in existing
   histories and associations.
-- **New planting event** supports sowing, transplanting, harvest start/end and other
-  milestones. Planned and actual dates are separate and at least one is required; dates
+- **New planting event** supports sowing, transplanting, replanting, harvest start/end
+  and other milestones. Planned and actual dates are separate and at least one is required; dates
   do not determine the growing year or change lifecycle status. Repeated event types
   are valid. Each planting
   in a batch has its own events and evaluation. Event edits and deletion
@@ -310,7 +310,9 @@ presence, not exact movement dates, lineage or historical layouts.
 
 ## Diary
 
-Capture's optional **Link to a planting** section starts collapsed. Select one action:
+Capture's optional **Link to a planting** section starts collapsed. Its bordered
+control and chevron open the action selector; the chevron changes direction when
+expanded. Select one action:
 
 - **Start a new planting** requires a crop, or derives it from the selected variety.
   Variety and growing area are optional. It defaults to Ongoing, using the diary date
@@ -331,8 +333,10 @@ Capture's optional **Link to a planting** section starts collapsed. Select one a
 
 The affected planting is linked automatically, with an already selected tag appearing
 once. Its crop, variety and area supply the usual derived diary filters. Planting and
-event notes are optional; the observation can be entered once. Diary photos belong to
-the observation and optional planting photos belong to the new planting. Each owner
+event notes are optional; the observation can be entered once. **Add photos** uploads
+diary photos to the observation. **Add planting photos** appears when starting a new
+planting, stays inside the planting fields, and uploads optional photos to that
+planting. Each owner
 has its own photo-count limit; the total byte limit applies to the whole upload.
 
 One save commits the observation, action, links, evaluations and photos together.

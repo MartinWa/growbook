@@ -71,6 +71,8 @@ def open_entry_edit(page, live_server, user, photos=()):
 def test_diary_has_one_composer_without_more_options(page, live_server, user):
     login(page, live_server, user)
     expect(page.locator("#capture-form")).to_be_visible()
+    expect(page.locator("#capture-form [data-photo-chooser]:visible")).to_have_count(1)
+    expect(page.locator('#capture-form input[type="file"]:visible')).to_have_count(0)
     expect(page.locator("[data-more-options]")).to_have_count(0)
     expect(page.locator(".photo-limits")).to_have_count(0)
     expect(page.locator("[data-photo-limit-warning]:not([data-capture-action] *)")).to_be_hidden()
@@ -658,11 +660,14 @@ def test_capture_foundation_reflows_and_supports_keyboard(
         assert abs(save["x"] + save["width"] - actions["x"] - actions["width"]) < 1
     tag = page.locator("[data-tag-trigger]")
     photos = page.locator("[data-photo-chooser]:not([data-capture-action] *)")
-    assert tag.bounding_box()["y"] == photos.bounding_box()["y"] == save["y"]
+    assert tag.bounding_box()["y"] == photos.bounding_box()["y"]
+    summary = page.locator("[data-planting-action] > summary")
+    assert (
+        photos.bounding_box()["y"] + photos.bounding_box()["height"] < summary.bounding_box()["y"]
+    )
+    assert summary.bounding_box()["y"] < save["y"]
     expect(page.locator(".about-label")).to_have_count(0)
     page.locator("#id_body").focus()
-    page.keyboard.press("Tab")
-    expect(page.locator("[data-planting-action] > summary")).to_be_focused()
     page.keyboard.press("Tab")
     expect(tag).to_be_focused()
     page.keyboard.press("Enter")
@@ -675,6 +680,8 @@ def test_capture_foundation_reflows_and_supports_keyboard(
         page.keyboard.press("Enter")
     assert selection.value.element.get_attribute("id") == "id_library"
     assert selection.value.element.get_attribute("capture") is None
+    page.keyboard.press("Tab")
+    expect(summary).to_be_focused()
     page.keyboard.press("Tab")
     expect(page.locator("#save-entry")).to_be_focused()
     assert page.locator("#capture-form").evaluate(

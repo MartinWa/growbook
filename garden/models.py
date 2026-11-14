@@ -403,6 +403,7 @@ class PlantingEvent(ValidatedModel):
     class Kind(models.TextChoices):
         SOWING = "sowing", _("Sowing")
         TRANSPLANT = "transplant", _("Transplanting")
+        REPLANTING = "replanting", _("Replanting")
         HARVEST_START = "harvest_start", _("Harvest start")
         HARVEST_END = "harvest_end", _("Harvest end")
         OTHER = "other", _("Other")
@@ -422,7 +423,14 @@ class PlantingEvent(ValidatedModel):
         constraints = [
             models.CheckConstraint(
                 condition=Q(
-                    kind__in=["sowing", "transplant", "harvest_start", "harvest_end", "other"]
+                    kind__in=[
+                        "sowing",
+                        "transplant",
+                        "replanting",
+                        "harvest_start",
+                        "harvest_end",
+                        "other",
+                    ]
                 ),
                 name="planting_event_known_kind",
             ),

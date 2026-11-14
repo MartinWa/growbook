@@ -1,9 +1,10 @@
 """Upgrade the register schema with synthetic rows; never touch the live database."""
 
+from datetime import date
 from uuid import uuid4
 
 import pytest
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -86,5 +87,69 @@ def test_planting_migration_preserves_existing_registers_all_old_owners_and_rece
         with connection.cursor() as cursor:
             constraints = connection.introspection.get_constraints(cursor, "core_photo")
             assert constraints["photo_exactly_one_owner"]["check"]
+    finally:
+        MigrationExecutor(connection).migrate(latest)
+
+
+def test_replanting_migration_preserves_existing_events_and_receipts():
+    executor = MigrationExecutor(connection)
+    latest = executor.loader.graph.leaf_nodes()
+    before = [("garden", "0005_plantingcategory_plantingcycle_plantingcategorylink_and_more")]
+    try:
+        executor.migrate(before)
+        apps = executor.loader.project_state(before).apps
+        user = apps.get_model("core", "User").objects.create(username="synthetic-event-upgrade")
+        crop = apps.get_model("garden", "Crop").objects.create(name="Trial", name_key="trial")
+        cycle = apps.get_model("garden", "PlantingCycle").objects.create()
+        planting = apps.get_model("garden", "Planting").objects.create(
+            crop=crop, start_year=2026, cycle=cycle, batch_key=cycle.pk
+        )
+        event_model = apps.get_model("garden", "PlantingEvent")
+        originals = []
+        for kind in ("sowing", "transplant", "harvest_start", "harvest_end", "other"):
+            event = event_model.objects.create(
+                planting=planting,
+                kind=kind,
+                planned_date=date(2026, 3, 1),
+                actual_date=date(2026, 3, 2),
+                note="Synthetic event",
+            )
+            receipt = apps.get_model("garden", "PlantingSubmission").objects.create(
+                key=uuid4(), author=user, kind="event", event=event, payload_sha256="1" * 64
+            )
+            originals.append((event, receipt.pk))
+
+        executor = MigrationExecutor(connection)
+        executor.migrate(latest)
+        apps = executor.loader.project_state(latest).apps
+        event_model = apps.get_model("garden", "PlantingEvent")
+        for old, receipt_key in originals:
+            stored = event_model.objects.get(pk=old.pk)
+            assert (
+                stored.kind,
+                stored.planting_id,
+                stored.planned_date,
+                stored.actual_date,
+                stored.note,
+                stored.created_at,
+                stored.updated_at,
+            ) == (
+                old.kind,
+                old.planting_id,
+                old.planned_date,
+                old.actual_date,
+                old.note,
+                old.created_at,
+                old.updated_at,
+            )
+            receipt = apps.get_model("garden", "PlantingSubmission").objects.get(pk=receipt_key)
+            assert receipt.event_id == old.pk and receipt.payload_sha256 == "1" * 64
+        replanting = event_model.objects.create(
+            planting_id=planting.pk, kind="replanting", actual_date=date(2026, 4, 1)
+        )
+        with pytest.raises(IntegrityError), transaction.atomic():
+            event_model.objects.filter(pk=replanting.pk).update(kind="invalid")
+        with pytest.raises(IntegrityError), transaction.atomic():
+            event_model.objects.filter(pk=replanting.pk).update(actual_date=None)
     finally:
         MigrationExecutor(connection).migrate(latest)

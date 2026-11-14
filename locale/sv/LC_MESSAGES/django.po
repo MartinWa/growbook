@@ -803,6 +803,15 @@ msgstr ""
 msgid "Transplanting"
 msgstr "Utplantering"
 
+msgid "Replanting"
+msgstr "Omplantering"
+
+msgid "Planting photos (optional)"
+msgstr "Bilder till odlingen (valfritt)"
+
+msgid "Add planting photos"
+msgstr "Lägg till bilder till odlingen"
+
 msgid "Unassigned area"
 msgstr "Ej tilldelad yta"
 

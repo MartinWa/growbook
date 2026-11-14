@@ -112,8 +112,9 @@ def test_new_planting_defaults_derivation_and_separate_photos(
 
 
 @pytest.mark.parametrize("status", PlantingCycle.Status.values)
+@pytest.mark.parametrize("kind", ["sowing", "replanting"])
 def test_repeated_events_all_statuses_independent_dates_and_deduplicated_tag(
-    user, planting_catalog, status
+    user, planting_catalog, status, kind
 ):
     crop = planting_catalog[0]
     planting = create_planting(
@@ -124,9 +125,7 @@ def test_repeated_events_all_statuses_independent_dates_and_deduplicated_tag(
         started_on=date(2025, 3, 1) if status == "ongoing" else None,
         completed_on=date(2025, 9, 1) if status == "completed" else None,
     ).record
-    action = PlantingEventAction(
-        planting=planting.pk, kind="sowing", planned_date=date(2025, 12, 31)
-    )
+    action = PlantingEventAction(planting=planting.pk, kind=kind, planned_date=date(2025, 12, 31))
     for _ in range(2):
         entry = capture(user, action, links=[planting]).entry
         assert entry.links.count() == 1
@@ -134,6 +133,7 @@ def test_repeated_events_all_statuses_independent_dates_and_deduplicated_tag(
     assert planting.cycle.status == status
     assert planting.events.count() == 2
     event = planting.events.first()
+    assert event.kind == kind
     assert (event.planned_date, event.actual_date) == (date(2025, 12, 31), date(2026, 1, 2))
 
 

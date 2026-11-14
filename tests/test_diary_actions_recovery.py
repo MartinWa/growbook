@@ -17,8 +17,9 @@ from garden.services import create_crop
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize("kind", ["sowing", "replanting"])
 def test_clean_restore_preserves_combined_actions_photos_and_receipt_replay(
-    user, image_upload, tmp_path
+    user, image_upload, tmp_path, kind
 ):
     crop = create_crop(actor=user, name="Tomato").record
 
@@ -39,7 +40,7 @@ def test_clean_restore_preserves_combined_actions_photos_and_receipt_replay(
         planting_uploads=[image_upload(format="PNG")],
     )
     planting = created.links.get().planting
-    save(PlantingEventAction(planting=planting.pk, kind="sowing"))
+    save(PlantingEventAction(planting=planting.pk, kind=kind))
     planting.refresh_from_db()
     cycle = planting.cycle
     cycle_version, member_version = cycle.updated_at.isoformat(), planting.updated_at.isoformat()
@@ -78,6 +79,7 @@ planting = Planting.objects.get()
 assert planting.cycle.status == 'completed' and planting.end_year == 2026
 assert planting.evaluation == 'Synthetic restored evaluation'
 assert PlantingEvent.objects.get().actual_date == date(2026, 1, 2)
+assert PlantingEvent.objects.get().kind == os.environ['TEST_EVENT_KIND']
 assert DiaryEntry.objects.count() == DiarySubmission.objects.count() == 3
 assert Photo.objects.count() == 2
 entries = list(DiaryEntry.objects.order_by('id'))
@@ -89,7 +91,8 @@ assert not create_entry(**common, submission_key=entries[0].submission_key,
     uploads=[upload(entries[0].photos.get())],
     planting_uploads=[upload(planting.photos.get())]).created
 assert not create_entry(**common, submission_key=entries[1].submission_key,
-    action=PlantingEventAction(planting=planting.pk, kind='sowing'), uploads=[]).created
+    action=PlantingEventAction(planting=planting.pk, kind=os.environ['TEST_EVENT_KIND']),
+    uploads=[]).created
 assert not create_entry(**common, submission_key=entries[2].submission_key, uploads=[],
     action=CycleStatusAction(planting=planting.pk, status='completed',
         expected_updated_at=datetime.fromisoformat(os.environ['TEST_CYCLE_VERSION']),
@@ -107,6 +110,7 @@ with connection.cursor() as cursor:
         GROWBOOK_DATA_DIR=str(restored),
         TEST_CYCLE_VERSION=cycle_version,
         TEST_MEMBER_VERSION=member_version,
+        TEST_EVENT_KIND=kind,
     )
     completed = subprocess.run(
         [sys.executable, "-c", script],

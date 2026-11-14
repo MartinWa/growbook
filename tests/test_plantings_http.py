@@ -792,19 +792,23 @@ def test_no_javascript_crop_choice_refresh_preserves_draft_without_saving(client
 
 
 @pytest.mark.parametrize("hx", [False, True])
-def test_event_create_edit_dates_versions_retry_and_confirmed_deletion(client, user, catalog, hx):
+@pytest.mark.parametrize("kind", ["sowing", "replanting"])
+def test_event_create_edit_dates_versions_retry_and_confirmed_deletion(
+    client, user, catalog, hx, kind
+):
     client.force_login(user)
     record = catalog["planting"]
     headers = {"HTTP_HX_REQUEST": "true"} if hx else {}
     path = reverse("garden:event-create", args=[record.pk])
     invalid = client.post(path, event_payload(planned_date=""), **headers)
     assert invalid.status_code == 422 and "error-summary" in invalid.text
-    data = event_payload(actual_date="2027-01-01")
+    data = event_payload(kind=kind, actual_date="2027-01-01")
     response = client.post(path, data, **headers)
     assert response.status_code == (204 if hx else 302)
     assert client.post(path, data, **headers).status_code == (204 if hx else 302)
     assert record.events.count() == 2
     event = record.events.get(note="Synthetic milestone")
+    assert event.kind == kind
     edit_path = reverse("garden:event-edit", args=[record.pk, event.pk])
     initial = client.get(edit_path).context["form"]
     assert 'value="2025-12-31"' in str(initial["planned_date"])

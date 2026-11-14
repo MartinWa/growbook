@@ -1,6 +1,6 @@
 {% load i18n %}
-<details class="form-disclosure" data-planting-action{% if form.action_open %} open{% endif %}>
-  <summary>{% translate 'Link to a planting' %}</summary>
+<details class="form-disclosure planting-action" data-planting-action{% if form.action_open %} open{% endif %}>
+  <summary><span>{% translate 'Link to a planting' %}</span><span class="filter-arrow" aria-hidden="true"></span></summary>
   <div class="disclosure-fields">
     {% include 'components/field.html' with field=form.planting_action %}
     <div data-existing-planting>{% include 'components/field.html' with field=form.action_planting %}</div>
@@ -16,7 +16,7 @@
         {% include 'garden/cycle_fields.html' with form=planting_form %}
         {% for field in planting_form.detail_fields %}{% include 'components/field.html' %}{% endfor %}
         <p class="field-help">{% translate 'These optional photos belong to the planting. Diary photos stay with the observation.' %}</p>
-        {% for field in planting_form.note_fields %}{% include 'components/field.html' %}{% endfor %}
+        {% for field in planting_form.note_fields %}{% include 'components/field.html' with planting_photos=True %}{% endfor %}
       {% endwith %}
     </section>
     <section data-capture-action="event">

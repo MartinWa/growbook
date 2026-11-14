@@ -43,12 +43,13 @@
       <p id="id_remove_photos_helptext" class="field-help">{{ form.remove_photos.help_text }}</p>
     </fieldset>
 
-    {% include 'components/photo_picker.html' with field=form.photos existing_photos=entry.photos.count quick=True %}
+    {% include 'components/photo_picker.html' with field=form.photos existing_photos=entry.photos.count quick=True chooser_id='entry-photo-chooser' %}
     {% include 'diary/_tag_picker.html' %}
 
     <p data-register-status role="status" aria-live="polite"></p>
     <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Upload progress' %}"></progress>
     <div class="form-actions capture-actions">
+      {% include 'components/photo_chooser.html' with chooser_id='entry-photo-chooser' %}
       <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-check"/></svg> {% translate 'Save observation' %}</button>
     </div>
     <p class="entry-actions"><a href="{{ entry.get_absolute_url }}">{% translate 'Cancel' %}</a></p>

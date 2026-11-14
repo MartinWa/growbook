@@ -878,6 +878,35 @@
     @apply border-t border-base-300;
   }
 
+  .planting-action {
+    @apply my-3 rounded-lg border border-control-border bg-base-100;
+  }
+
+  .planting-action > summary {
+    @apply flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 font-medium text-primary;
+    list-style: none;
+  }
+
+  .planting-action > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .planting-action > summary:hover {
+    @apply bg-control-hover;
+  }
+
+  .planting-action > summary .filter-arrow {
+    @apply mx-2;
+  }
+
+  .planting-action > .disclosure-fields {
+    @apply px-3 pb-3;
+  }
+
+  .capture-tools {
+    @apply my-3 flex flex-wrap items-center gap-3;
+  }
+
   .filter-panel {
     @apply min-w-0 rounded-box border border-base-300 bg-base-100 p-4;
   }
@@ -958,7 +987,8 @@
     transform: translateY(-2px) rotate(45deg);
   }
 
-  .filter-disclosure[open] > summary .filter-arrow {
+  .filter-disclosure[open] > summary .filter-arrow,
+  .planting-action[open] > summary .filter-arrow {
     transform: translateY(2px) rotate(225deg);
   }
 
