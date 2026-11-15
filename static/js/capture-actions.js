@@ -123,7 +123,8 @@
     loaded = "";
     disclosure.open = false;
   });
-  form.addEventListener("draft:restored", () => {
+  form.addEventListener("draft:restored", event => {
+    if (event.detail?.retry && action.value === "cycle") loaded = planting.value;
     disclosure.open = Boolean(action.value);
     overridden.clear();
     overrides.value.split(",").filter(Boolean).forEach(name => overridden.add(name));
@@ -191,6 +192,12 @@
     action.value = "";
     disclosure.open = false;
     loaded = "";
+    // A new observation must not inherit the previous cycle's member snapshot.
+    form.querySelectorAll('[data-capture-action="cycle"] [name^="cycle-evaluation_"], [data-capture-action="cycle"] [name^="cycle-member_version_"]').forEach(input => {
+      (input.closest("[data-field-name]") || input).remove();
+    });
+    const version = form.elements.namedItem("cycle-expected_updated_at");
+    version.value = version.defaultValue = "";
     customLabel = false;
     defaults.clear();
     overridden.clear();

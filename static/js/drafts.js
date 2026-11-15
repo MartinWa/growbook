@@ -62,7 +62,8 @@
   function setup(form) {
     const kind = form.dataset.draftKind;
     if (!Object.hasOwn(fields, kind)) return;
-    const identity = `${kind}:${new URL(form.action).pathname}`;
+    const batch = kind === "planting" ? form.elements.namedItem("batch_planting")?.value || "" : "";
+    const identity = `${kind}:${new URL(form.action).pathname}${batch ? `:batch:${batch}` : ""}`;
     const key = `${prefix}${user}:${identity}`;
     const allowField = name => fields[kind].includes(name) || (["capture", "cycle", "cycle-transition"].includes(kind) && member.test(name) && name.includes("evaluation_"));
     const allowToken = name => name === "submission_key" || name === "expected_updated_at" || kind === "capture" && name === "cycle-expected_updated_at" ||
@@ -133,6 +134,7 @@
     function validate(draft) {
         if (!object(draft) || draft.version !== 1 || draft.identity !== identity || draft.user !== user ||
             !object(draft.fields) || !object(draft.tokens) || !object(draft.uploads) || typeof draft.attempted !== "boolean" || typeof draft.unsaved !== "boolean") throw new Error("format");
+        if (kind === "planting" && !same(draft.fields.batch_planting, [batch])) throw new Error("batch");
         for (const [map, allow] of [[draft.fields, allowField], [draft.tokens, allowToken]]) {
           if (Object.keys(map).length > 256) throw new Error("fields");
           for (const [name, entries] of Object.entries(map)) {
@@ -179,8 +181,14 @@
       update();
       if (!state.dirty && !force && !storage(store => store.getItem(key))) return;
       const counts = uploadCounts(form, kind);
+      const uploads = Object.fromEntries(Object.keys(counts).map(name => [name, Math.max(counts[name], expectedUploads[name] || 0)]));
+      if (kind === "capture") {
+        // Camera and library are interchangeable sources for the same diary uploads.
+        uploads.camera = counts.camera;
+        uploads.library = Math.max(counts.camera + counts.library, (expectedUploads.camera || 0) + (expectedUploads.library || 0)) - counts.camera;
+      }
       const draft = {version: 1, identity, user, fields: values(form, allowField), tokens: values(form, allowToken),
-        uploads: Object.fromEntries(Object.keys(counts).map(name => [name, Math.max(counts[name], expectedUploads[name] || 0)])), attempted, unsaved: state.dirty};
+        uploads, attempted, unsaved: state.dirty};
       // Preserve old writing while also recovering new work on the current server values.
       if (archived.length) draft.previous = archived;
       const serialized = JSON.stringify(draft);
@@ -194,6 +202,16 @@
     function setField(name, entries) {
       if (restoring && editedDuringRestore.has(name)) return;
       const inputs = controls(form, name);
+      if (!inputs.length && attempted && member.test(name)) {
+        // Deleted members still belong to an uncertain submission's receipt payload.
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = entries[0] || "";
+        input.setAttribute("data-draft-retry-member", "");
+        form.append(input);
+        return;
+      }
       if (!inputs.length && !(tags.includes(name) || name.endsWith("category_ids"))) return;
       if (!inputs.length && !form.querySelector(`#id_${name}`)) return;
       const input = inputs[0];
@@ -262,39 +280,73 @@
       const newVersions = Object.fromEntries(Object.entries(current).filter(([name]) => versionName(name)));
       return same(oldVersions, newVersions);
     }
+    function restoreMembers(draft) {
+      const original = {...draft.fields, ...draft.tokens};
+      for (const input of [...form.elements].filter(input => member.test(input.name))) {
+        if (Object.hasOwn(original, input.name)) continue;
+        // A member added later must not change an identical retry's fingerprint.
+        input.dataset.draftMemberName = input.name;
+        input.name = "";
+        const field = input.closest("[data-field-name]");
+        if (field) {
+          field.dataset.draftMemberHidden = String(field.hidden);
+          field.hidden = true;
+        }
+      }
+    }
+    function resetMembers() {
+      form.querySelectorAll("[data-draft-retry-member]").forEach(input => input.remove());
+      for (const input of form.querySelectorAll("[data-draft-member-name]")) {
+        input.name = input.dataset.draftMemberName;
+        delete input.dataset.draftMemberName;
+        const field = input.closest("[data-field-name]");
+        if (field) {
+          field.hidden = field.dataset.draftMemberHidden === "true";
+          delete field.dataset.draftMemberHidden;
+        }
+      }
+    }
+    async function prepare(snapshot) {
+      const detail = {fields: snapshot, restoreField: name => {
+        if (Object.hasOwn(snapshot, name)) setField(name, snapshot[name]);
+      }, ready: Promise.resolve(true)};
+      form.dispatchEvent(new CustomEvent("draft:prepare", {detail}));
+      return await detail.ready;
+    }
     async function restore(draft) {
       restoring = true;
       state.dirty = true;
       updateWarning();
-      // Existing helpers prepare crop-scoped varieties and the selected cycle's members.
-      const detail = {fields: draft.fields, restoreField: name => {
-        if (Object.hasOwn(draft.fields, name)) setField(name, draft.fields[name]);
-      }, ready: Promise.resolve(true)};
       try {
         (draft.previous || []).forEach(showCopy);
         if (!retained && kind === "capture" || !retained && kind === "planting") {
-          form.dispatchEvent(new CustomEvent("draft:prepare", {detail}));
-          if (!await detail.ready) { showCopy(draft); return; }
+          // Choice failures cannot replace an uncertain submission's original save key.
+          if (!await prepare(draft.fields) && !draft.attempted) { showCopy(draft); return; }
         }
         if (retained) {
           // A bound response already contains the authoritative submitted values and tokens.
           if (same(draft.tokens.submission_key, values(form, allowToken).submission_key)) {
+            if (draft.attempted) restoreMembers(draft);
             expectedUploads = draft.uploads;
             recoveringUploads = missingPhotos();
           }
           else showCopy(draft);
           status.textContent = messages.draftRetained;
-        } else if (!compatible(draft)) {
+        } else if (!compatible(draft) && !draft.attempted) {
           showCopy(draft);
         } else {
+          attempted = draft.attempted;
+          if (draft.attempted) {
+            if (!compatible(draft)) showCopy(draft);
+            restoreMembers(draft);
+          }
           for (const [name, entries] of Object.entries(draft.fields)) setField(name, entries);
           for (const [name, entries] of Object.entries(draft.tokens)) setField(name, entries);
           expectedUploads = draft.uploads;
           recoveringUploads = missingPhotos();
-          attempted = draft.attempted;
           retained = draft.unsaved;
-          status.textContent = archived.length ? messages.draftChanged : messages.draftRestored;
-          form.dispatchEvent(new CustomEvent("draft:restored"));
+          status.textContent = draft.attempted ? messages.draftRetained : archived.length ? messages.draftChanged : messages.draftRestored;
+          form.dispatchEvent(new CustomEvent("draft:restored", {detail: {retry: draft.attempted}}));
         }
       } catch (_) {
         showCopy(draft);
@@ -307,38 +359,52 @@
     function clear() {
       confirmed = true;
       retained = false;
+      attempted = false;
       archived = [];
       expectedUploads = {};
       recoveringUploads = false;
+      resetMembers();
+      copy.hidden = true;
+      copy.replaceChildren();
       storage(store => store.removeItem(key));
       state.dirty = false;
       notice.hidden = !storageFailed;
       updateWarning();
     }
-    discard.addEventListener("click", () => {
-      if (form.hasAttribute("aria-busy")) return;
+    discard.addEventListener("click", async () => {
+      if (restoring || form.hasAttribute("aria-busy")) return;
       clear();
       restoring = true;
+      editedDuringRestore.clear();
       form.reset();
       // Restore saved/default state, including initially linked tags and failed POSTs.
       form.querySelectorAll("[data-draft-unavailable]").forEach(node => node.remove());
       for (const [name, entries] of Object.entries(baseline)) setField(name, entries);
       for (const [name, entries] of Object.entries(initialTokens)) setField(name, entries);
       form.dispatchEvent(new CustomEvent("draft:discarded"));
-      setTimeout(() => {
+      try {
+        // Reset helpers finish before dependent choices and their saved selections return.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await prepare(baseline);
         for (const [name, entries] of Object.entries(baseline)) setField(name, entries);
         form.dispatchEvent(new CustomEvent("draft:restored"));
-        copy.hidden = true;
-        copy.replaceChildren();
+      } finally {
         status.textContent = "";
         attempted = false;
         confirmed = false;
         restoring = false;
-        baseline = values(form, allowField);
+        const defaults = values(form, allowField);
+        for (const name of editedDuringRestore) {
+          if (Object.hasOwn(baseline, name)) defaults[name] = baseline[name];
+          else delete defaults[name];
+        }
+        baseline = defaults;
+        editedDuringRestore.clear();
         update();
+        persist();
         const focus = [...form.elements].find(input => allowField(input.name) && input.type !== "hidden" && !input.disabled && input.getClientRects().length);
         focus?.focus();
-      }, 0);
+      }
     });
     omit.addEventListener("click", () => {
       expectedUploads = uploadCounts(form, kind);
@@ -381,6 +447,7 @@
     }, true);
     // HX-Redirect is processed before beforeSwap; only an explicit matching save receipt clears drafts.
     form.addEventListener("draft:saved", clear);
+    if (kind === "capture") document.addEventListener("capture:choices", resetMembers);
     form.addEventListener("htmx:beforeOnLoad", event => {
       if (event.detail.elt !== form) return;
       const xhr = event.detail.xhr;

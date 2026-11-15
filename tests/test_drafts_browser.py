@@ -711,3 +711,330 @@ def test_changed_cycle_membership_offers_old_evaluation_without_restoring_versio
         != old["tokens"]["expected_updated_at"][0]
     )
     assert next(iter(drafts(page).values())) == old
+
+
+def test_batch_member_drafts_stay_with_their_target_batch(page, live_server, user):
+    def seed():
+        crop, first = planting_choices(user)
+        second = create_variety(actor=user, crop=crop, name="Second variety").record
+        third = create_variety(actor=user, crop=crop, name="Third variety").record
+        batch_a = create_planting(actor=user, crop=crop, variety=first, start_year=2026).record
+        batch_b = create_planting(actor=user, crop=crop, variety=second, start_year=2026).record
+        return batch_a, batch_b, third
+
+    batch_a, batch_b, third = database(seed)
+    path_a = live_server.url + f"/garden/plantings/new/?batch_planting={batch_a.pk}"
+    path_b = live_server.url + f"/garden/plantings/new/?batch_planting={batch_b.pk}"
+    page.goto(path_a)
+    page.locator("#id_variety").select_option(str(third.pk))
+    page.locator("#planting-notes-photos > summary").click()
+    page.locator("#id_notes").fill(WRITING)
+    key_a = token(page)
+    page.goto(path_b)
+    expect(page.locator("#id_batch_planting")).to_have_value(str(batch_b.pk))
+    expect(page.locator("#id_notes")).to_have_value("")
+    expect(page.locator("[data-draft-notice]")).to_be_hidden()
+    page.locator("#id_variety").select_option(str(third.pk))
+    page.locator("#planting-notes-photos > summary").click()
+    page.locator("#id_notes").fill("Other batch writing")
+    assert len(drafts(page)) == 2
+    page.locator('#register-form button[type="submit"]:not([name])').click()
+    expect(page.locator("[data-draft-kind]")).to_have_count(0)
+    assert len(drafts(page)) == 1
+    assert database(lambda: Planting.objects.filter(cycle_id=batch_b.cycle_id).count()) == 2
+    page.goto(path_a)
+    expect(page.locator("#id_notes")).to_have_value(WRITING)
+    expect(page.locator("#id_batch_planting")).to_have_value(str(batch_a.pk))
+    assert token(page) == key_a
+    page.locator('#register-form button[type="submit"]:not([name])').click()
+    expect(page.locator("[data-draft-kind]")).to_have_count(0)
+    assert drafts(page) == {}
+    assert database(lambda: Planting.objects.filter(cycle_id=batch_a.cycle_id).count()) == 2
+
+
+def test_partial_photo_reselection_across_sources_keeps_the_original_count(page, image_upload):
+    first = {"name": "first.jpg", "mimeType": "image/jpeg", "buffer": image_upload().read()}
+    second = {"name": "second.jpg", "mimeType": "image/jpeg", "buffer": image_upload().read()}
+    page.locator("#id_body").fill(WRITING)
+    page.locator("#id_library").set_input_files([first, second])
+    page.reload()
+    page.locator("#id_camera").set_input_files(first)
+    snapshot = next(iter(drafts(page).values()))
+    assert snapshot["uploads"]["camera"] + snapshot["uploads"]["library"] == 2
+    page.reload()
+    page.locator("#save-entry").click()
+    expect(page.locator("[data-draft-omit]")).to_be_focused()
+    assert database(lambda: DiaryEntry.objects.count()) == 0
+    page.locator("#id_library").set_input_files([first, second])
+    expect(page.locator("[data-draft-photos]")).to_be_hidden()
+    page.locator("#save-entry").click()
+    expect(page.locator("#quick-receipt")).to_contain_text("Observation saved")
+    assert database(lambda: DiaryEntry.objects.get().photos.count()) == 2
+    assert drafts(page) == {}
+
+
+@pytest.mark.parametrize("action", ["new", "event", "cycle"])
+def test_failed_native_capture_discard_resets_action_writing(page, user, action):
+    def seed():
+        crop, variety = planting_choices(user)
+        return create_planting(
+            actor=user,
+            crop=crop,
+            variety=variety,
+            start_year=2026,
+            status="ongoing",
+            started_on=date(2026, 1, 1),
+            evaluation="Saved evaluation",
+        ).record
+
+    planting = database(seed)
+    page.reload()
+    page.locator("#id_body").fill(WRITING)
+    page.locator("[data-planting-action] > summary").click()
+    page.locator('[name="planting_action"]').select_option(action)
+    if action == "new":
+        field, saved = "planting-notes", ""
+    else:
+        page.locator('[name="action_planting"]').select_option(str(planting.pk))
+        if action == "cycle":
+            field, saved = f"cycle-evaluation_{planting.pk}", "Saved evaluation"
+            expect(page.locator(f'[name="{field}"]')).to_have_count(1)
+            page.locator('[data-cycle-preset="complete"]').click()
+        else:
+            field, saved = "event-note", ""
+    page.locator(f'[name="{field}"]').fill(WRITING)
+    page.locator("#id_date").fill("")
+    key = token(page)
+    with page.expect_navigation():
+        page.evaluate("document.getElementById('capture-form').submit()")
+    expect(page.locator("#capture-form")).to_have_attribute("data-draft-bound", "true")
+    expect(page.locator(f'[name="{field}"]')).to_have_value(WRITING)
+    discard(page)
+    expect(page.locator(f'[name="{field}"]')).to_have_value(saved)
+    expect(page.locator("#id_body")).to_have_value("")
+    expect(page.locator('[name="planting_action"]')).to_have_value("")
+    assert token(page) != key and drafts(page) == {}
+    assert database(lambda: DiaryEntry.objects.count()) == 0
+
+
+def test_discard_reloads_varieties_for_the_original_crop(page, live_server, user):
+    def seed():
+        first, first_variety = planting_choices(user)
+        other_first = create_variety(actor=user, crop=first, name="Other original variety").record
+        second = create_crop(actor=user, name="Second crop").record
+        second_variety = create_variety(actor=user, crop=second, name="Second variety").record
+        return first, first_variety, other_first, second, second_variety
+
+    first, first_variety, other_first, second, second_variety = database(seed)
+    page.goto(
+        live_server.url + f"/garden/plantings/new/?crop={first.pk}&variety={first_variety.pk}"
+    )
+    page.locator("#id_crop").select_option(str(second.pk))
+    expect(page.locator(f'#id_variety option[value="{second_variety.pk}"]')).to_have_count(1)
+    page.locator("#id_variety").select_option(str(second_variety.pk))
+    page.reload()
+    expect(page.locator("#id_variety")).to_have_value(str(second_variety.pk))
+    discard(page)
+    expect(page.locator("#id_crop")).to_have_value(str(first.pk))
+    expect(page.locator(f'#id_variety option[value="{first_variety.pk}"]')).to_contain_text(
+        first_variety.name
+    )
+    expect(page.locator(f'#id_variety option[value="{second_variety.pk}"]')).to_have_count(0)
+    page.locator("#id_variety").select_option(str(other_first.pk))
+    page.locator('#register-form button[type="submit"]:not([name])').click()
+    expect(page.locator("[data-draft-kind]")).to_have_count(0)
+    assert database(
+        lambda: (Planting.objects.get().crop_id, Planting.objects.get().variety_id)
+    ) == (
+        first.pk,
+        other_first.pk,
+    )
+
+
+@pytest.mark.parametrize("members_changed", [False, True])
+@pytest.mark.parametrize("choices_fail", [False, True])
+def test_lost_cycle_capture_response_recovers_an_identical_retry(
+    page, user, members_changed, choices_fail
+):
+    def seed():
+        crop, variety = planting_choices(user)
+        second = create_variety(actor=user, crop=crop, name="Other member").record
+        replacement = create_variety(actor=user, crop=crop, name="Replacement member").record
+        planting = create_planting(
+            actor=user,
+            crop=crop,
+            variety=variety,
+            start_year=2026,
+            status="ongoing",
+            started_on=date(2026, 1, 1),
+        ).record
+        other = create_planting(
+            actor=user,
+            crop=crop,
+            variety=second,
+            start_year=2026,
+            batch_planting=planting,
+        ).record
+        return planting, other, replacement
+
+    planting, other, replacement = database(seed)
+    page.reload()
+    page.locator("#id_body").fill(WRITING)
+    page.locator("[data-planting-action] > summary").click()
+    page.locator('[name="planting_action"]').select_option("cycle")
+    page.locator('[name="action_planting"]').select_option(str(planting.pk))
+    expect(page.locator(f'[name="cycle-evaluation_{other.pk}"]')).to_have_count(1)
+    page.locator('[data-cycle-preset="complete"]').click()
+    page.locator(f'[name="cycle-evaluation_{planting.pk}"]').fill(WRITING)
+    page.locator(f'[name="cycle-evaluation_{other.pk}"]').fill(
+        WRITING + "\nOther original evaluation"
+    )
+    key = token(page)
+
+    def lose_response(route):
+        response = route.fetch()
+        assert response.status == 200
+        route.abort()
+
+    page.route("**/capture/", lose_response)
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-errors")).to_contain_text("connection failed")
+    assert database(lambda: DiaryEntry.objects.count()) == 1
+    page.unroute("**/capture/", lose_response)
+    if members_changed:
+
+        def change_members():
+            current = Planting.objects.get(pk=other.pk)
+            delete_planting(
+                actor=user,
+                pk=current.pk,
+                expected_updated_at=current.updated_at,
+            )
+            create_planting(
+                actor=user,
+                crop=planting.crop_id,
+                variety=replacement.pk,
+                start_year=2026,
+                batch_planting=planting.pk,
+            )
+
+        database(change_members)
+    if choices_fail:
+        page.route(
+            "**/capture/",
+            lambda route: route.fulfill(
+                status=503, content_type="text/html", body="Choices unavailable"
+            ),
+        )
+    page.reload()
+    expect(page.locator("#id_body")).to_have_value(WRITING)
+    expect(page.locator("[data-draft-status]")).to_contain_text("submission was kept")
+    assert token(page) == key
+    if choices_fail:
+        page.unroute("**/capture/")
+    page.locator("#save-entry").click()
+    expect(page.locator("#quick-receipt")).to_contain_text("Observation already saved")
+    assert database(lambda: DiaryEntry.objects.count()) == 1
+    assert drafts(page) == {}
+    if members_changed:
+        assert database(
+            lambda: Planting.objects.filter(
+                cycle_id=planting.cycle_id, variety=replacement
+            ).exists()
+        )
+        assert not database(lambda: Planting.objects.filter(pk=other.pk).exists())
+    page.locator("#id_body").fill("Next independent observation")
+    page.reload()
+    expect(page.locator("#id_body")).to_have_value("Next independent observation")
+    page.locator("#save-entry").click()
+    expect(page.locator("#diary-results .diary-card")).to_have_count(2)
+    assert drafts(page) == {}
+
+
+def test_uncommitted_cycle_retry_still_rejects_a_concurrent_change(page, user):
+    def seed():
+        crop, variety = planting_choices(user)
+        return create_planting(
+            actor=user,
+            crop=crop,
+            variety=variety,
+            start_year=2026,
+            status="ongoing",
+            started_on=date(2026, 1, 1),
+        ).record
+
+    planting = database(seed)
+    page.reload()
+    page.locator("#id_body").fill(WRITING)
+    page.locator("[data-planting-action] > summary").click()
+    page.locator('[name="planting_action"]').select_option("cycle")
+    page.locator('[name="action_planting"]').select_option(str(planting.pk))
+    expect(page.locator(f'[name="cycle-evaluation_{planting.pk}"]')).to_have_count(1)
+    page.locator('[data-cycle-preset="complete"]').click()
+    page.locator(f'[name="cycle-evaluation_{planting.pk}"]').fill(WRITING)
+    key = token(page)
+    page.route(
+        "**/capture/",
+        lambda route: route.fulfill(status=503, content_type="text/html", body="Unconfirmed save"),
+    )
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-errors")).to_contain_text("Unconfirmed save")
+    page.unroute("**/capture/")
+    database(
+        lambda: edit_planting(
+            actor=user,
+            pk=planting.pk,
+            crop=planting.crop_id,
+            variety=planting.variety_id,
+            start_year=2026,
+            notes="Concurrent correction",
+            expected_updated_at=planting.updated_at,
+        )
+    )
+    page.reload()
+    expect(page.locator("#id_body")).to_have_value(WRITING)
+    assert token(page) == key
+    with page.expect_response(lambda response: response.url.endswith("/capture/")) as response:
+        page.locator("#save-entry").click()
+    assert response.value.status == 409
+    assert database(lambda: DiaryEntry.objects.count()) == 0
+    assert database(lambda: Planting.objects.get(pk=planting.pk).notes) == "Concurrent correction"
+    assert database(lambda: Planting.objects.get(pk=planting.pk).cycle.status) == "ongoing"
+    discard(page)
+    expect(page.locator("#id_body")).to_have_value("")
+
+
+def test_lost_entry_edit_response_recovers_the_original_version_and_key(page, live_server, user):
+    entry = database(
+        lambda: (
+            create_entry(
+                author=user,
+                date=date(2026, 1, 1),
+                body="Saved writing",
+                uploads=[],
+                submission_key=uuid4(),
+            ).entry
+        )
+    )
+    edit = live_server.url + entry.get_absolute_url() + "edit/"
+    page.goto(edit)
+    version = page.locator('[name="expected_updated_at"]').input_value()
+    page.locator("#id_body").fill(WRITING)
+    key = token(page)
+
+    def lose_response(route):
+        response = route.fetch()
+        assert response.status == 204
+        route.abort()
+
+    page.route(edit, lose_response)
+    page.locator('#entry-form button[type="submit"]').click()
+    expect(page.locator("#entry-errors")).to_contain_text("connection failed")
+    page.unroute(edit, lose_response)
+    page.reload()
+    expect(page.locator("#id_body")).to_have_value(WRITING)
+    expect(page.locator('[name="expected_updated_at"]')).to_have_value(version)
+    assert token(page) == key
+    page.locator('#entry-form button[type="submit"]').click()
+    expect(page).to_have_url(live_server.url + entry.get_absolute_url())
+    assert drafts(page) == {} and database(lambda: DiaryEntry.objects.count()) == 1
