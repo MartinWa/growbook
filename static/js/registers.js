@@ -238,7 +238,7 @@
   });
 
   document.querySelectorAll("[data-register-form]").forEach(form => {
-    const errors = form.querySelector('[role="alert"]');
+    const errors = form.querySelector(form.getAttribute("hx-target"));
     const status = form.querySelector("[data-register-status]");
     const progress = form.querySelector("[data-register-progress]");
     let busy = false;
@@ -310,7 +310,7 @@
     });
     form.addEventListener("htmx:beforeRequest", event => {
       if (event.detail.elt !== form) return;
-      if (busy) { event.preventDefault(); return; }
+      if (event.defaultPrevented || busy) { event.preventDefault(); return; }
       setBusy(true);
       errors.replaceChildren();
       revealFieldErrors();

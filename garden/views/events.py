@@ -76,6 +76,7 @@ def planting_event_form(request, planting_pk, pk=None):
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
                     response["HX-Redirect"] = result.record.get_absolute_url()
+                    response["X-Growbook-Saved-Key"] = str(form.cleaned_data["submission_key"])
                     return response
                 return redirect(result.record)
         if request.headers.get("HX-Request") == "true":

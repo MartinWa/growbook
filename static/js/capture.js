@@ -1,4 +1,4 @@
-/* Small, page-local state only. No draft/photos are persisted in browser storage. */
+/* Page-local upload state; drafts.js recovers text and save tokens, never photo bytes. */
 (() => {
   "use strict";
   const form = document.getElementById("capture-form");
@@ -9,6 +9,7 @@
   const save = document.getElementById("save-entry");
   const inputs = [document.getElementById("id_camera"), document.getElementById("id_library")];
   let busy = false;
+  let submittedKey;
 
   function syncFieldErrors() {
     for (const name of ["date", "title", "body", "camera", "library"]) {
@@ -67,10 +68,11 @@
     // without discarding the original save key, note or selected files.
     const cookie = document.cookie.split("; ").find(value => value.startsWith("csrftoken="));
     if (cookie) event.detail.parameters.csrfmiddlewaretoken = decodeURIComponent(cookie.split("=")[1]);
+    submittedKey = form.elements.namedItem("submission_key").value;
   });
   form.addEventListener("htmx:beforeRequest", event => {
     if (event.detail.elt !== form) return;
-    if (busy) { event.preventDefault(); return; }
+    if (event.defaultPrevented || busy) { event.preventDefault(); return; }
     setBusy(true);
     errors.replaceChildren();
     syncFieldErrors();
@@ -104,7 +106,12 @@
       errors.focus();
     } else if (event.detail.target?.id === "quick-receipt") {
       const saved = event.detail.target.querySelector("[data-capture-saved]");
-      if (!saved) return;
+      if (!saved || event.detail.xhr?.status !== 200 ||
+          event.detail.xhr.getResponseHeader("X-Growbook-Saved-Key") !== submittedKey ||
+          !/^[1-9]\d*$/.test(saved.dataset.captureSaved) ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saved.dataset.nextKey) ||
+          saved.querySelector("a")?.getAttribute("href") !== `/entries/${saved.dataset.captureSaved}/`) return;
+      form.dispatchEvent(new CustomEvent("draft:saved"));
       form.reset();
       const key = form.elements.namedItem("submission_key");
       key.value = key.defaultValue = saved.dataset.nextKey;

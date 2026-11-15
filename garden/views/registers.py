@@ -542,6 +542,7 @@ def register_form(request, kind, pk=None):
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
                     response["HX-Redirect"] = target
+                    response["X-Growbook-Saved-Key"] = str(form.cleaned_data["submission_key"])
                     return response
                 return redirect(target)
         if request.headers.get("HX-Request") == "true":

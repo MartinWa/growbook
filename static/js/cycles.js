@@ -22,6 +22,7 @@
     }
     status.addEventListener("change", update);
     section.addEventListener("cycle:visibility", update);
+    section.closest("form").addEventListener("draft:restored", update);
     update();
   }); }
   setup();

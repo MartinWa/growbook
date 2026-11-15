@@ -1,5 +1,6 @@
 {% load i18n %}
 <form id="capture-form" method="post" action="{% url 'diary:capture' %}" enctype="multipart/form-data" hx-post="{% url 'diary:capture' %}" hx-encoding="multipart/form-data" hx-target="#capture-errors" hx-swap="innerHTML" hx-sync="this:drop"
+      data-draft-kind="capture" data-draft-bound="{{ form.is_bound|yesno:'true,false' }}"
       data-uploading="{% translate 'Uploading photos…' %}"
       data-processing="{% translate 'Processing photos and saving…' %}"
       data-network-error="{% translate 'The connection failed. Keep this form open and retry; your save key prevents duplicates.' %}"
@@ -9,6 +10,7 @@
   {{ form.submission_key }}
   {{ form.date_overrides }}
   {{ form.default_date }}
+  {% include 'components/draft_notice.html' %}
   {% if quick %}
   <input type="hidden" name="capture_mode" value="quick">
   <input type="hidden" name="filter_query" value="{{ filter_query }}">

@@ -5,6 +5,7 @@
   const status = form?.querySelector("#variety-status");
   if (!form || !status || !window.htmx) return;
   const crop = form.querySelector("[name='crop']");
+  let choicesCrop = crop.value;
   const label = form.querySelector("[name='label']");
   const generated = form.querySelector("[name='generated_label']");
   let generatedLabel = generated.value;
@@ -41,6 +42,36 @@
   lifespan.addEventListener("change", updateEndYear);
   endYear.addEventListener("input", updateEndYear);
   updateEndYear();
+  form.addEventListener("draft:prepare", event => {
+    event.detail.restoreField("crop");
+    if (choicesCrop === crop.value) return;
+    event.detail.ready = new Promise(resolve => {
+      const timeout = setTimeout(() => finish(false), 10000);
+      function finish(success) {
+        clearTimeout(timeout);
+        form.removeEventListener("htmx:afterRequest", done);
+        resolve(success);
+      }
+      function done(response) {
+        if (response.detail.elt === crop) finish(response.detail.successful);
+      }
+      form.addEventListener("htmx:afterRequest", done);
+      crop.dispatchEvent(new Event("change", {bubbles: true}));
+    });
+  });
+  form.addEventListener("draft:discarded", () => {
+    window.htmx.trigger(crop, "htmx:abort");
+  });
+  form.addEventListener("draft:restored", () => {
+    generatedLabel = generated.value;
+    customLabel = label.value !== generatedLabel;
+    markChoices();
+    updateEndYear();
+    for (const detail of form.querySelectorAll("details.form-disclosure")) {
+      if ([...detail.querySelectorAll("input, select, textarea")].some(input =>
+          input.value && input.value !== input.defaultValue || input.selectedOptions?.[0]?.dataset.draftUnavailable)) detail.open = true;
+    }
+  });
   const retry = form.querySelector("[data-variety-retry]");
   retry.addEventListener("click", () => {
     crop.focus();
@@ -49,12 +80,14 @@
 
   // Remember each offered variety's crop so an incompatible selection is cleared immediately.
   function markChoices() {
+    choicesCrop = crop.value;
     form.querySelectorAll("[name='variety'] option[value]:not([value=''])").forEach(option => {
       option.dataset.crop = crop.value;
     });
   }
   markChoices();
   crop.addEventListener("change", () => {
+    choicesCrop = null;
     const variety = form.querySelector("[name='variety']");
     if (variety.selectedOptions[0]?.dataset.crop !== crop.value) variety.value = "";
     variety.querySelectorAll("option[value]:not([value=''])").forEach(option => {
@@ -91,6 +124,7 @@
     markChoices();
     updateLabel();
     status.textContent = status.dataset.choicesReady;
+    form.dispatchEvent(new CustomEvent("draft:changed"));
   });
   form.addEventListener("htmx:afterRequest", event => {
     if (event.detail.elt === crop) {

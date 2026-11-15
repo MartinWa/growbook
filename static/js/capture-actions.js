@@ -46,6 +46,7 @@
     defaults.forEach((state, input) => {
       if (state.automatic) input.value = state.year ? date.value.slice(0, 4) : date.value;
     });
+    form.dispatchEvent(new CustomEvent("draft:changed"));
   }
   date.addEventListener("change", updateDefaults);
   function update() {
@@ -59,6 +60,7 @@
     load.hidden = action.value !== "cycle";
     save.disabled = loading || (action.value === "cycle" && loaded !== planting.value);
     document.dispatchEvent(new CustomEvent("capture:action"));
+    form.dispatchEvent(new CustomEvent("draft:changed"));
   }
   function cancelCycleLoad() {
     const pending = controller;
@@ -70,7 +72,7 @@
   }
   async function loadCycle() {
     cancelCycleLoad();
-    if (action.value !== "cycle" || !planting.value) { update(); return; }
+    if (action.value !== "cycle" || !planting.value) { update(); return false; }
     controller = new AbortController();
     const current = controller;
     const selected = planting.value;
@@ -83,6 +85,7 @@
     if (cookie) data.set("csrfmiddlewaretoken", decodeURIComponent(cookie.split("=")[1]));
     for (const [name, value] of [...data]) if (value instanceof File) data.delete(name);
     data.set("choose_action", "1");
+    let ready = false;
     try {
       const response = await fetch(form.action, {method: "POST", body: data,
         headers: {"HX-Request": "true"}, signal: current.signal});
@@ -97,6 +100,7 @@
       loaded = selected;
       cycleDefaults();
       document.dispatchEvent(new CustomEvent("capture:choices"));
+      ready = true;
     } catch (error) {
       if (current === controller && error.name !== "AbortError") status.textContent = status.dataset.error;
     } finally {
@@ -106,7 +110,31 @@
         update();
       }
     }
+    return ready;
   }
+  form.addEventListener("draft:prepare", event => {
+    event.detail.restoreField("planting_action");
+    event.detail.restoreField("action_planting");
+    update();
+    if (action.value === "cycle") event.detail.ready = loadCycle();
+  });
+  form.addEventListener("draft:discarded", () => {
+    cancelCycleLoad();
+    loaded = "";
+    disclosure.open = false;
+  });
+  form.addEventListener("draft:restored", event => {
+    if (event.detail?.retry && action.value === "cycle") loaded = planting.value;
+    disclosure.open = Boolean(action.value);
+    overridden.clear();
+    overrides.value.split(",").filter(Boolean).forEach(name => overridden.add(name));
+    defaults.clear();
+    newDefaults();
+    cycleDefaults();
+    customLabel = Boolean(label.value && label.value !== generated.value);
+    updateVarieties();
+    update();
+  });
   load.addEventListener("click", event => { event.preventDefault(); loadCycle(); });
   planting.addEventListener("change", () => { loaded = ""; loadCycle(); });
   action.addEventListener("change", () => {
@@ -128,7 +156,7 @@
     const state = form.elements.namedItem("cycle-status");
     state.value = preset === "complete" ? "completed" : preset === "planned" ? "planned" : "ongoing";
     supplyCycleDate(state.value);
-    state.dispatchEvent(new Event("change"));
+    state.dispatchEvent(new Event("change", {bubbles: true}));
   });
   form.addEventListener("change", event => {
     if (event.target.name === "cycle-status") supplyCycleDate(event.target.value);
@@ -164,6 +192,12 @@
     action.value = "";
     disclosure.open = false;
     loaded = "";
+    // A new observation must not inherit the previous cycle's member snapshot.
+    form.querySelectorAll('[data-capture-action="cycle"] [name^="cycle-evaluation_"], [data-capture-action="cycle"] [name^="cycle-member_version_"]').forEach(input => {
+      (input.closest("[data-field-name]") || input).remove();
+    });
+    const version = form.elements.namedItem("cycle-expected_updated_at");
+    version.value = version.defaultValue = "";
     customLabel = false;
     defaults.clear();
     overridden.clear();

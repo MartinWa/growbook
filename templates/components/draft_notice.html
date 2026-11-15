@@ -1,0 +1,12 @@
+{% load i18n drafts %}
+{% draft_defaults form %}
+<section data-draft-notice hidden aria-label="{% translate 'Unsaved writing' %}">
+  <p data-draft-status role="status" aria-live="polite"></p>
+  <p data-draft-storage class="field-help" role="status" hidden>{% translate 'Text recovery is unavailable in this tab. Keep this form open until you have saved or copied your writing.' %}</p>
+  <p data-draft-photos role="alert" hidden>{% translate 'Selected photos could not be restored. Select the same photos again, or explicitly choose to save without them. If the earlier save is uncertain, inspect the saved record before omitting photos.' %}</p>
+  <div data-draft-copy hidden></div>
+  <div class="form-actions">
+    <button type="button" class="btn btn-outline" data-draft-omit hidden>{% translate 'Save without missing photos' %}</button>
+    <button type="button" class="btn btn-ghost" data-draft-discard>{% translate 'Discard unsaved writing' %}</button>
+  </div>
+</section>

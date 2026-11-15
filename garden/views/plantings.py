@@ -469,6 +469,7 @@ def planting_form(request, pk=None):
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
                     response["HX-Redirect"] = destination or result.record.get_absolute_url()
+                    response["X-Growbook-Saved-Key"] = str(form.cleaned_data["submission_key"])
                     return response
                 return redirect(destination or result.record.get_absolute_url())
         if request.headers.get("HX-Request") == "true":
