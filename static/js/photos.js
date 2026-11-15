@@ -104,6 +104,7 @@
         previews.append(clear);
       }
       updateCount();
+      form.dispatchEvent(new CustomEvent("draft:changed"));
     }
     inputs.forEach(input => input.addEventListener("change", () => {
       const chosen = [...input.files];

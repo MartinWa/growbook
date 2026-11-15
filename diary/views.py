@@ -195,6 +195,7 @@ def entry_edit(request, pk):
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
                     response["HX-Redirect"] = entry.get_absolute_url()
+                    response["X-Growbook-Saved-Key"] = str(values["submission_key"])
                     return response
                 return redirect(entry)
         if request.headers.get("HX-Request") == "true":
@@ -410,10 +411,15 @@ def capture(request):
                     response = render(
                         request,
                         "diary/_quick_saved.html",
-                        {"entry": result.entry, "created": result.created, "next_key": uuid4()},
+                        {
+                            "entry": result.entry,
+                            "created": result.created,
+                            "next_key": uuid4(),
+                        },
                     )
                     response["HX-Retarget"] = "#quick-receipt"
                     response["HX-Reswap"] = "innerHTML"
+                    response["X-Growbook-Saved-Key"] = str(form.cleaned_data["submission_key"])
                     return response
                 messages.success(
                     request,
@@ -422,6 +428,7 @@ def capture(request):
                 if request.headers.get("HX-Request") == "true":
                     response = HttpResponse(status=204)
                     response["HX-Redirect"] = result.entry.get_absolute_url()
+                    response["X-Growbook-Saved-Key"] = str(form.cleaned_data["submission_key"])
                     return response
                 if quick:
                     query = _filter_query(request.POST.get("filter_query", ""))

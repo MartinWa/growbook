@@ -13,11 +13,12 @@
     const groups = picker.querySelector("[data-tag-groups]");
     const chips = picker.querySelector("[data-tag-chips]");
     const context = picker.querySelector("[data-tag-context]");
-    const options = [...picker.querySelectorAll("[data-tag-option]")];
-    const checks = options.map(row => row.querySelector("input"));
+    let options = [...picker.querySelectorAll("[data-tag-option]")];
+    let checks = options.map(row => row.querySelector("input"));
     const periods = [...groups.querySelectorAll("[data-tag-period]")];
     let anchor;
     let busy = false;
+    let savedReset = false;
 
     function textNode(tag, text, className) {
       const node = document.createElement(tag);
@@ -51,7 +52,7 @@
     }
     function rank() {
       const year = Number(form.elements.namedItem("date").value.slice(0, 4));
-      for (const row of options.filter(row => row.dataset.kind === "planting")) {
+      for (const row of options.filter(row => row.dataset.kind === "planting" && !row.dataset.draftUnavailable)) {
         const start = Number(row.dataset.start);
         const end = Number(row.dataset.end);
         const inYear = start === year || (row.dataset.persistent === "true" && start <= year && (!end || end >= year));
@@ -173,6 +174,15 @@
       syncSelection();
       picker.querySelector("[data-tag-status]").textContent = `${event.target.checked ? picker.dataset.selected : picker.dataset.removed} ${row.querySelector(".tag-title").textContent}`;
     }));
+    form.addEventListener("draft:restored", () => {
+      options = [...picker.querySelectorAll("[data-tag-option]")];
+      checks = options.map(row => row.querySelector("input"));
+      options.filter(row => row.dataset.draftUnavailable).forEach(row => {
+        row.querySelector("input").addEventListener("change", syncSelection);
+      });
+      syncSelection();
+      rank();
+    });
     search.addEventListener("input", filter);
     type.addEventListener("change", filter);
     search.addEventListener("keydown", event => {
@@ -228,10 +238,12 @@
       search.readOnly = false;
       type.disabled = false;
     });
+    form.addEventListener("draft:saved", () => { savedReset = true; });
     form.addEventListener("reset", () => {
       // A successful quick save starts a fresh draft, including initially checked tags.
       close();
-      checks.forEach(input => { input.defaultChecked = false; });
+      if (savedReset) checks.forEach(input => { input.defaultChecked = false; });
+      savedReset = false;
       setTimeout(() => { search.value = ""; type.value = "all"; syncSelection(); rank(); }, 0);
     });
     popover.setAttribute("popover", "auto");

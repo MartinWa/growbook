@@ -1592,3 +1592,36 @@ msgstr "Sparade bilder"
 
 msgid "Save planting changes before editing or deleting saved photos."
 msgstr "Spara ändringarna i odlingen innan du redigerar eller raderar sparade bilder."
+
+msgid "Unsaved writing"
+msgstr "Osparad text"
+
+msgid "Text recovery is unavailable in this tab. Keep this form open until you have saved or copied your writing."
+msgstr "Textåterställning är inte tillgänglig i den här fliken. Håll formuläret öppet tills du har sparat eller kopierat din text."
+
+msgid "Selected photos could not be restored. Select the same photos again, or explicitly choose to save without them. If the earlier save is uncertain, inspect the saved record before omitting photos."
+msgstr "Valda bilder kunde inte återställas. Välj samma bilder igen eller välj uttryckligen att spara utan dem. Om det är osäkert om det tidigare försöket sparades, kontrollera den sparade posten innan du utelämnar bilder."
+
+msgid "Save without missing photos"
+msgstr "Spara utan saknade bilder"
+
+msgid "Discard unsaved writing"
+msgstr "Kasta osparad text"
+
+msgid "Your unsaved writing was restored in this tab. Review it before saving."
+msgstr "Din osparade text återställdes i den här fliken. Granska den innan du sparar."
+
+msgid "The saved record or its members changed. Current saved values are shown; copy your earlier writing below to recover it. The earlier draft is kept until you discard it or confirm a save."
+msgstr "Den sparade posten eller dess delodlingar har ändrats. Nuvarande sparade värden visas; kopiera din tidigare text nedan för att återställa den. Det tidigare utkastet behålls tills du kastar det eller sparar med bekräftelse."
+
+msgid "Your unsaved submission was kept. Review it before retrying."
+msgstr "Ditt osparade formulär behölls. Granska det innan du försöker igen."
+
+msgid "Unavailable selection"
+msgstr "Otillgängligt val"
+
+msgid "The stored draft could not be restored. Keep or copy any writing in this form before leaving."
+msgstr "Det lagrade utkastet kunde inte återställas. Behåll eller kopiera eventuell text i formuläret innan du lämnar sidan."
+
+msgid "Earlier writing (select and copy)"
+msgstr "Tidigare text (markera och kopiera)"

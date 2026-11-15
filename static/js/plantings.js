@@ -41,6 +41,34 @@
   lifespan.addEventListener("change", updateEndYear);
   endYear.addEventListener("input", updateEndYear);
   updateEndYear();
+  form.addEventListener("draft:prepare", event => {
+    const previous = crop.value;
+    event.detail.restoreField("crop");
+    if (previous === crop.value) return;
+    event.detail.ready = new Promise(resolve => {
+      const timeout = setTimeout(() => finish(false), 10000);
+      function finish(success) {
+        clearTimeout(timeout);
+        form.removeEventListener("htmx:afterRequest", done);
+        resolve(success);
+      }
+      function done(response) {
+        if (response.detail.elt === crop) finish(response.detail.successful);
+      }
+      form.addEventListener("htmx:afterRequest", done);
+      crop.dispatchEvent(new Event("change", {bubbles: true}));
+    });
+  });
+  form.addEventListener("draft:restored", () => {
+    generatedLabel = generated.value;
+    customLabel = label.value !== generatedLabel;
+    markChoices();
+    updateEndYear();
+    for (const detail of form.querySelectorAll("details.form-disclosure")) {
+      if ([...detail.querySelectorAll("input, select, textarea")].some(input =>
+          input.value && input.value !== input.defaultValue || input.selectedOptions?.[0]?.dataset.draftUnavailable)) detail.open = true;
+    }
+  });
   const retry = form.querySelector("[data-variety-retry]");
   retry.addEventListener("click", () => {
     crop.focus();
@@ -91,6 +119,7 @@
     markChoices();
     updateLabel();
     status.textContent = status.dataset.choicesReady;
+    form.dispatchEvent(new CustomEvent("draft:changed"));
   });
   form.addEventListener("htmx:afterRequest", event => {
     if (event.detail.elt === crop) {

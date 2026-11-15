@@ -60,6 +60,8 @@ interface defaults to Swedish, with English available.
   authenticated downloads; there is no public media directory.
 - Retry-safe diary, register, planting, cycle, category and event saves with visible
   errors and no partial photo saves.
+- Recovery of unsaved diary, register, planting, event and evaluation text in the
+  current browser tab, with conditional leave warnings and explicit discard.
 - Operational database/photo backup, verification, clean-instance restore and orphan
   cleanup.
 
@@ -93,6 +95,8 @@ interface defaults to Swedish, with English available.
   decoded-pixel limits.
 - Deployments are intended for private LAN/VPN access over HTTPS, not public Internet
   exposure. Verify backup and clean-instance recovery before recording real data.
+- Draft recovery requires JavaScript and available browser storage. It does not
+  retain selected photos or synchronize writing across tabs or devices.
 
 ## Requirements
 

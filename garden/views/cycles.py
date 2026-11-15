@@ -81,6 +81,7 @@ def _saved(request, result, destination):
     if request.headers.get("HX-Request") == "true":
         response = HttpResponse(status=204)
         response["HX-Redirect"] = destination
+        response["X-Growbook-Saved-Key"] = request.POST["submission_key"]
         return response
     return redirect(destination)
 

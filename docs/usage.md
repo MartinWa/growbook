@@ -178,6 +178,41 @@ form is a new submission; do not reuse a confirmed key for different content.
 With JavaScript, save forms ignore repeated submissions while a save is running.
 Diary filters can still update results without changing the draft or selected photos.
 
+### Unsaved writing
+
+With JavaScript, diary capture/edit and crop, variety, growing-area, planting,
+event and cycle evaluation forms recover unfinished text and related selections
+after reload or returning to the form in the same tab. Drafts use `sessionStorage`,
+separately for each account and form/record. Filters, language and season do not
+create separate drafts. Recovery lasts for the tab's session; closing the tab ends
+it. Drafts are not shared with other tabs or devices. Explicit logout clears these
+drafts, including in other open tabs when the browser supports logout notifications.
+
+A recovery notice asks you to review the writing. **Discard unsaved writing**
+removes the draft and resets the form to saved/default values. Cancel and ordinary
+navigation keep the draft. The browser's native leave/reload warning appears only
+while changes or uploads remain; browsers may omit it, especially on mobile.
+Drafts are written while typing and when the page is hidden, without depending on
+the leave warning. Diary filters and JavaScript season/language changes preserve
+the current form and selected files.
+
+Selected photo bytes and previews are never stored. After recovery, select the
+same photos again, or use **Save without missing photos** before saving. That
+button acknowledges the omission; it does not submit the form. For an uncertain
+photo save, retry with the same original photos and save key or inspect the saved
+record first. Receipt checks still reject changed retry content.
+
+Confirmed saves clear their draft; validation errors, conflicts, expired sessions,
+network failures and uncertain responses keep it and the original save key. If a
+saved record or cycle member changed, the form shows current saved values and
+offers the earlier writing in read-only fields for selection and copying. It does
+not replace stale version tokens with fresh ones to replay an old edit.
+
+Blocked or full browser storage shows a discreet recovery-unavailable message;
+editing and normal submission still work. Search, filters, account, category and
+deletion forms do not store drafts. Without JavaScript, native forms remain usable,
+but unsaved writing has no browser recovery.
+
 Create/edit retries resolve matching immutable receipts before checking current
 association eligibility and edit versions. An identical retry acknowledges the saved
 submission and returns the record's current state, even if associations changed later.
