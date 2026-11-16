@@ -229,7 +229,7 @@ build-only stage using `uv export --locked`. A missing or outdated lockfile fail
 build. The exports are not tracked in the checkout, so Dependabot PRs need no manual
 export commit.
 
-Use uv 0.13.6 for lockfile tooling, matching CI and the digest-pinned Docker export
+Use uv 0.13.8 for lockfile tooling, matching CI and the digest-pinned Docker export
 image. This tooling can run on the editing host without installing or running the
 application there. Update the export-tool image manually together with CI's
 `UV_VERSION`.
