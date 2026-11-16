@@ -4,7 +4,7 @@
   <div role="alert">{% include 'garden/form_errors.html' %}</div>
   <div class="planting-toolbar">
     <div class="result-toolbar">
-      <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=cycle_groups|length %}{{ count }} planting cycle{% plural %}{{ count }} planting cycles{% endblocktranslate %} · {% if year %}{{ year }}{% else %}{% translate 'All years' %}{% endif %}</p>
+      <p data-result-focus tabindex="-1" class="result-count">{% blocktranslate count count=cycle_count %}{{ count }} planting cycle{% plural %}{{ count }} planting cycles{% endblocktranslate %} · {% if year %}{{ year }}{% else %}{% translate 'All years' %}{% endif %}</p>
       <nav class="year-navigation" aria-label="{% translate 'Growing years' %}">
         <a href="{{ overview_url }}">{% translate 'Year overview' %}</a>
         <a href="{{ all_years_url }}">{% translate 'All years' %}</a>

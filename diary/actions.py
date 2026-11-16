@@ -138,7 +138,7 @@ def action_payload(action, photos):
 
 
 def execute_action(action, rows):
-    """Caller owns the transaction, active-actor check, media lock and diary receipt."""
+    """Caller owns the transaction, active-actor check, diary receipt and any media."""
     values = action["values"].copy()
     for field in ("started_on", "completed_on", "planned_date", "actual_date"):
         value = values.get(field)

@@ -9,7 +9,6 @@ from django.urls import reverse
 from django.utils import timezone
 
 from diary.services import create_entry
-from garden import queries
 from garden.models import GrowingArea
 from garden.queries import area_tree
 from garden.services import (
@@ -162,7 +161,7 @@ def test_area_register_keeps_only_needed_archived_ancestors_from_one_read(
         middle.pk,
         leaf.pk,
     ]
-    assert all(not event["node"].open for event in tree["events"])
+    assert tree["roots"][0].children[0].children[0].area == leaf
     client.force_login(user)
     response = client.get(reverse("garden:area-list"))
     assert [record.pk for record in response.context["records"]] == [root.pk]
@@ -250,31 +249,33 @@ def test_grouped_histories_preserve_year_boundaries_and_exact_assignments(
     assert {record.pk for record in response.context["records"]} == {
         record.pk for record in expected
     }
-    nodes = {
-        event["node"].area.pk: event["node"]
-        for event in response.context["area_events"]
-        if not event["closing"]
-    }
+    assert response.context["cycle_count"] == len(expected)
+    assert "area_events" not in response.context
     if expected:
-        assert unused.pk not in nodes
-        assert nodes[root.pk].count == sum(record.area_id is not None for record in expected)
-        assert nodes[root.pk].open == (scope == "variety")
-        assert [record.pk for record in nodes[root.pk].records] == [records[0].pk]
-        assert [record.pk for record in nodes[child.pk].records] == [records[1].pk, records[2].pk]
-        assert nodes[child.pk].open == (scope == "variety")
-        for record in expected:
-            if not response.context["category_overview"]:
+        assert all(record.area_id != unused.pk for record in response.context["records"])
+        if response.context["category_overview"]:
+            assert not response.context["cycle_groups"]
+        else:
+            groups = response.context["cycle_groups"]
+            assert len(groups) == len(expected)
+            assert {member.pk for group in groups for member in group["records"]} == {
+                record.pk for record in expected
+            }
+            for record in response.context["records"]:
                 assert response.text.count(f'id="details-cycle-{record.cycle_id}"') == 1
-        assert len(response.context["cycle_groups"]) == len(expected)
-        if scope != "variety":
-            assert nodes[grandchild.pk].open
+                assert record.area_path == {
+                    root.pk: "Root",
+                    child.pk: "Root / Bed",
+                    grandchild.pk: "Root / Bed / Bed",
+                }.get(record.area_id, "")
+        if any(record.variety_id is None for record in expected):
             fragment = client.get(records[3].get_absolute_url(), HTTP_HX_REQUEST="true")
             assert "Okänd sort" in fragment.text and "—</dd>" in fragment.text
         fragment = client.get(records[1].get_absolute_url(), HTTP_HX_REQUEST="true")
         assert "0</dd>" in fragment.text
 
 
-def test_filtered_overview_opens_same_pair_batches_and_keeps_year_links(client, user, batches):
+def test_filtered_cycles_keep_matching_members_and_year_links(client, user, batches):
     crop, variety, root, child, grandchild, unused, records = batches
     client.force_login(user)
     response = client.get(
@@ -284,17 +285,17 @@ def test_filtered_overview_opens_same_pair_batches_and_keeps_year_links(client, 
         HTTP_HX_TARGET="planting-results",
     )
     assert "<html" not in response.text
-    nodes = [event["node"] for event in response.context["area_events"] if not event["closing"]]
-    assert all(node.open for node in nodes)
-    assert [node.area.pk for node in nodes] == [root.pk, child.pk]
-    assert not response.context["unassigned_records"]
+    assert response.context["records"] == records[:3]
+    assert response.context["cycle_count"] == 3
+    assert all(record.variety_id == variety.pk for record in response.context["records"])
+    assert all(record.area_id in {root.pk, child.pk} for record in response.context["records"])
     assert records[1].cycle.get_absolute_url() in response.text
     assert "&amp;year=2026" in response.text
     details = client.get(records[1].get_absolute_url(), {"year": 2026}, HTTP_HX_REQUEST="true")
     assert f'href="{reverse("garden:area-history", args=[child.pk])}?year=2026"' in details.text
     unknown = client.get(reverse("garden:planting-list"), {"year": 2026, "unknown_variety": "on"})
     assert len(unknown.context["records"]) == 2
-    assert len(unknown.context["unassigned_records"]) == 1
+    assert sum(record.area_id is None for record in unknown.context["records"]) == 1
 
 
 @pytest.mark.parametrize("partial", [False, True])
@@ -302,7 +303,7 @@ def test_filtered_overview_opens_same_pair_batches_and_keeps_year_links(client, 
     "route",
     ["planting-list", "planting-history", "crop-history", "variety-history", "area-history"],
 )
-def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
+def test_planting_histories_use_current_assignments_when_a_former_area_disappears(
     client, user, monkeypatch, partial, route
 ):
     crop = create_crop(actor=user, name="Pea").record
@@ -320,12 +321,14 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
         quantity=0,
     ).record
     create_planting(actor=user, crop=crop, variety=variety, area=new_area, start_year=2025)
-    history = queries.planting_history
+    from garden.views import plantings as views
+
+    history = views.planting_history
     reads = 0
 
     def remove_area_between_reads(**filters):
         nonlocal reads
-        records = list(history(**filters))
+        records = history(**filters)
         reads += 1
         if reads == 1:
             edit_planting(
@@ -348,28 +351,21 @@ def test_planting_pages_reload_batches_when_an_assigned_area_disappears(
     )
     path = reverse(f"garden:{route}", args=[scope] if scope else [])
     # Import the routes before patching so other views retain their real query helper.
-    monkeypatch.setattr(queries, "planting_history", remove_area_between_reads)
+    monkeypatch.setattr(views, "planting_history", remove_area_between_reads)
     headers = {"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}
     response = client.get(path, {"year": 2026}, **headers)
 
     assert response.status_code == 200
-    assert reads == 2
+    assert reads == 1
     records = response.context["records"]
     assert [record.pk for record in records] == [planting.pk]
     assert records[0].area_id == new_area.pk and records[0].quantity == 0
-    assert records[0].area_path == f"{root.name} / {new_area.name}"
-    assert not response.context["unassigned_records"]
-    nodes = {
-        event["node"].area.pk: event["node"]
-        for event in response.context["area_events"]
-        if not event["closing"]
-    }
-    assert set(nodes) == {root.pk, new_area.pk}
-    assert nodes[root.pk].count == 1
-    assert [record.pk for record in nodes[new_area.pk].records] == [planting.pk]
+    assert response.context["cycle_count"] == 1
     if response.context["category_overview"]:
-        assert len(response.context["cycle_groups"]) == 1
+        assert not response.context["cycle_groups"]
     else:
+        assert records[0].area_path == f"{root.name} / {new_area.name}"
+        assert response.context["cycle_groups"][0]["records"] == records
         assert response.text.count(f'id="details-cycle-{planting.cycle_id}"') == 1
 
 

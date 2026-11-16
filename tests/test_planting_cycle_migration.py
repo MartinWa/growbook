@@ -58,7 +58,7 @@ def test_existing_cycle_status_migration_preserves_mixed_batch_and_unknown_dates
         upgraded = apps.get_model("garden", "Planting")
         for old, status in originals:
             member = upgraded.objects.get(pk=old.pk)
-            assert member.cycle_id == old.batch_key == member.batch_key
+            assert member.cycle_id == old.batch_key
             assert (
                 member.start_year,
                 member.end_year,

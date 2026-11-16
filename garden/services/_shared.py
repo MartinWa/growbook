@@ -84,12 +84,8 @@ class PlantingResult:
     replayed: bool = False
 
 
-def _planting_receipt(key, actor, kind, fingerprint):
-    receipt = (
-        PlantingSubmission.objects.select_related("planting__crop", "event__planting__crop")
-        .filter(key=key)
-        .first()
-    )
+def _accept_receipt(receipt, actor, kind, fingerprint):
+    """Accept immutable content before callers validate the target's current state."""
     if receipt is None:
         return None
     if (
@@ -103,7 +99,17 @@ def _planting_receipt(key, actor, kind, fingerprint):
     record = getattr(receipt, kind)
     if record is None:
         raise RegisterConflict(_("This record was deleted. It was not recreated."))
-    return PlantingResult(record, replayed=True)
+    return record
+
+
+def _planting_receipt(key, actor, kind, fingerprint):
+    receipt = (
+        PlantingSubmission.objects.select_related("planting__crop", "event__planting__crop")
+        .filter(key=key)
+        .first()
+    )
+    record = _accept_receipt(receipt, actor, kind, fingerprint)
+    return PlantingResult(record, replayed=True) if record is not None else None
 
 
 def _planting_fingerprint(kind, pk, expected_updated_at, values, photos=()):

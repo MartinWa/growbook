@@ -329,4 +329,4 @@ def test_overlapping_additions_cannot_duplicate_a_variety(user, planting_catalog
         futures = [executor.submit(add) for _ in range(2)]
         results = [future.result(timeout=15) for future in futures]
     assert sum(result is not None for result in results) == 1
-    assert Planting.objects.filter(batch_key=original.batch_key).count() == 2
+    assert Planting.objects.filter(cycle_id=original.cycle_id).count() == 2

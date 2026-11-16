@@ -17,10 +17,10 @@
     </div>
   </div>
   {% if field %}
-  <div id="{{ field.auto_id }}_errors" class="field-errors" data-register-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+  <div id="{{ field.auto_id }}_errors" class="field-errors" data-form-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
   {% else %}
-  <div id="capture-camera-errors" class="field-errors">{{ form.camera.errors }}</div>
-  <div id="capture-library-errors" class="field-errors">{{ form.library.errors }}</div>
+  <div id="capture-camera-errors" class="field-errors" data-form-field-errors="camera">{{ form.camera.errors }}</div>
+  <div id="capture-library-errors" class="field-errors" data-form-field-errors="library">{{ form.library.errors }}</div>
   {% endif %}
   <p data-photo-count{% if not field %} id="photo-count"{% endif %} aria-live="polite"></p>
   <div data-photo-limit-warning role="alert" hidden>

@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import OperationalError
+from django.db.models import prefetch_related_objects
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -23,10 +24,8 @@ from ..models import Crop, GrowingArea, Planting, PlantingCategory, PlantingCycl
 from ..queries import (
     area_paths,
     cycle_groups,
-    planting_groups,
     planting_history,
     planting_rows,
-    planting_tree,
 )
 from ..services import RegisterConflict
 from ..services import plantings as services
@@ -62,55 +61,53 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
         data.pop("area_only", None)
     form = PlantingFilterForm(data)
     records, year = [], None
-    tree = {"events": [], "unassigned": []}
     valid = form.is_valid()
     if valid:
         filters = form.cleaned_data
         year = filters["year"]
-        tree = planting_tree(**filters)
-        records = tree["records"]
-    all_groups = cycle_groups(records)
-    cards = []
+        matching = planting_history(**filters)
+        if status is not None:
+            matching = matching.filter(cycle__status=status)
+        elif category is not None:
+            matching = matching.filter(cycle__categories=category)
+        records = list(matching) if category_overview else planting_rows(matching)
+    cards, groups = [], []
+    cycles = list({record.cycle_id: record.cycle for record in records}.values())
     navigation_data = data.copy()
     if history:
         navigation_data["all_years"] = "1"
     query = "?" + navigation_data.urlencode() if navigation_data else ""
-    for value in (
-        PlantingCycle.Status.PLANNED,
-        PlantingCycle.Status.ONGOING,
-        PlantingCycle.Status.COMPLETED,
-    ):
-        cards.append(
-            {
-                "name": value.label,
-                "url": reverse("garden:planting-status", args=[value]) + query,
-                "illustration": f"images/registers/{value}.webp",
-                "count": sum(group["cycle"].status == value for group in all_groups),
-            }
-        )
-    for custom in PlantingCategory.objects.prefetch_related("photos"):
-        cards.append(
-            {
-                "name": custom.name,
-                "url": custom.get_absolute_url() + query,
-                "count": sum(
-                    any(item.pk == custom.pk for item in group["cycle"].categories.all())
-                    for group in all_groups
-                ),
-                "category": custom,
-                "image": custom.photos.first(),
-                "illustration": "images/registers/plantings.webp",
-            }
-        )
-    if status is not None:
-        records = [record for record in records if record.cycle.status == status]
-    elif category is not None:
-        records = [
-            record
-            for record in records
-            if any(item.pk == category.pk for item in record.cycle.categories.all())
-        ]
-    groups = cycle_groups(records)
+    if category_overview:
+        prefetch_related_objects(cycles, "categories")
+        for value in (
+            PlantingCycle.Status.PLANNED,
+            PlantingCycle.Status.ONGOING,
+            PlantingCycle.Status.COMPLETED,
+        ):
+            cards.append(
+                {
+                    "name": value.label,
+                    "url": reverse("garden:planting-status", args=[value]) + query,
+                    "illustration": f"images/registers/{value}.webp",
+                    "count": sum(cycle.status == value for cycle in cycles),
+                }
+            )
+        for custom in PlantingCategory.objects.prefetch_related("photos"):
+            cards.append(
+                {
+                    "name": custom.name,
+                    "url": custom.get_absolute_url() + query,
+                    "count": sum(
+                        any(item.pk == custom.pk for item in cycle.categories.all())
+                        for cycle in cycles
+                    ),
+                    "category": custom,
+                    "image": custom.photos.first(),
+                    "illustration": "images/registers/plantings.webp",
+                }
+            )
+    elif records:
+        groups = cycle_groups(records)
     active_filters = []
     for name, field in form.fields.items():
         if name == "area_only":
@@ -247,6 +244,7 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             else "images/registers/plantings.webp",
             "form": form,
             "records": records,
+            "cycle_count": len(cycles),
             "cycle_groups": groups,
             "show_cycle_status": scope is not None or status is None,
             "show_cycle_years": scope is not None or year is None,
@@ -255,9 +253,6 @@ def planting_list(request, history=False, kind=None, pk=None, status=None, categ
             "category": category,
             "category_image": category.photos.first() if category else None,
             "category_overview_url": reverse("garden:planting-list") + query,
-            "area_events": tree["events"],
-            "unassigned_records": tree["unassigned"],
-            "unassigned_groups": planting_groups(tree["unassigned"]),
             "year": year,
             "area_only": bool(form.cleaned_data.get("area_only") and form.cleaned_data.get("area")),
             "scope": scope,
@@ -296,9 +291,7 @@ def _planting_context(pk):
         )
     )
     members = planting_rows(
-        Planting.objects.filter(batch_key=record.batch_key).select_related(
-            "crop", "variety", "area"
-        ),
+        Planting.objects.filter(cycle_id=record.cycle_id).select_related("crop", "variety", "area"),
     )
     return {
         "kind": "planting",

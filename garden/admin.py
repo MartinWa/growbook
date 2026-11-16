@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from core.admin import ReadOnlyAdmin
+
 from .models import (
     Crop,
     CropCategory,
@@ -12,24 +14,11 @@ from .models import (
 )
 
 
-class ReadOnlyRegisterAdmin(admin.ModelAdmin):
+class ReadOnlyRegisterAdmin(ReadOnlyAdmin):
     """Operator inspection only. All register mutations use the validated garden UI."""
 
     list_display = ["name", "is_archived", "updated_at"]
     list_filter = ["is_archived"]
-    actions = None
-
-    def get_readonly_fields(self, request, obj=None):
-        return [field.name for field in self.model._meta.fields]
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
 
 
 @admin.register(Crop)

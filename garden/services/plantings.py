@@ -101,7 +101,7 @@ def _validate_planting(record, previous):
             raise ValidationError(
                 {"area": _("Choose an area without child areas for a new association.")}
             )
-    peers = Planting.objects.filter(batch_key=record.batch_key).exclude(pk=record.pk)
+    peers = Planting.objects.filter(cycle_id=record.cycle_id).exclude(pk=record.pk)
     if peers.exclude(crop_id=record.crop_id).exists():
         raise ValidationError({"crop": _("All varieties in a batch must belong to the same crop.")})
     if previous.get("variety_id") is not None and record.variety_id is None and peers.exists():
@@ -119,11 +119,9 @@ def write_planting(pk, values, rows, expected_updated_at=None):
     batch_planting = values.get("batch_planting")
     if batch_planting is not None:
         member = _current(Planting, batch_planting)
-        record.batch_key = member.batch_key
         record.cycle = member.cycle
     elif pk is None:
         record.cycle = PlantingCycle(
-            pk=record.batch_key,
             status=values.get("status", PlantingCycle.Status.PLANNED),
             started_on=values.get("started_on"),
             completed_on=values.get("completed_on"),
@@ -184,8 +182,8 @@ def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_
     except IntegrityError as exc:
         # SQLite reports these partial unique constraints by their columns, not their names.
         if str(exc) in (
-            "UNIQUE constraint failed: garden_planting.batch_key, garden_planting.variety_id",
-            "UNIQUE constraint failed: garden_planting.batch_key",
+            "UNIQUE constraint failed: garden_planting.cycle_id, garden_planting.variety_id",
+            "UNIQUE constraint failed: garden_planting.cycle_id",
         ):
             raise ValidationError({"variety": _("This variety is already in the batch.")}) from exc
         raise

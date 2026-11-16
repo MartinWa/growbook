@@ -273,6 +273,55 @@ def test_same_key_concurrent_capture_executes_action_once(user, planting_catalog
     )
 
 
+@pytest.mark.parametrize("kind", ["none", "new", "event", "cycle"])
+def test_text_capture_and_action_retries_succeed_while_media_is_locked(
+    user,
+    other_user,
+    planting_catalog,
+    settings,
+    kind,
+):
+    from core.media import media_operation
+
+    settings.MEDIA_LOCK_TIMEOUT = 0.01
+    crop = planting_catalog[0]
+    action = None
+    if kind == "new":
+        action = NewPlantingAction(crop=crop.pk)
+    elif kind in {"event", "cycle"}:
+        member = create_planting(actor=user, crop=crop, start_year=2026).record
+        action = (
+            PlantingEventAction(planting=member.pk, kind="sowing")
+            if kind == "event"
+            else CycleStatusAction(
+                planting=member.pk,
+                expected_updated_at=member.cycle.updated_at,
+                status="ongoing",
+                started_on=date(2026, 1, 2),
+            )
+        )
+    key = uuid4()
+    with media_operation():
+        saved = capture(user, action, submission_key=key)
+        retry = capture(user, action, submission_key=key)
+        assert saved.created and not retry.created and retry.entry.pk == saved.entry.pk
+        with pytest.raises(SubmissionConflict):
+            capture(user, action, submission_key=key, body="Changed retry")
+        with pytest.raises(SubmissionConflict):
+            capture(other_user, action, submission_key=key)
+        # A stale in-memory actor must not bypass the fresh check, including on replay.
+        type(user).objects.filter(pk=user.pk).update(is_active=False)
+        with pytest.raises(PermissionDenied):
+            capture(user, action, submission_key=key)
+    assert DiaryEntry.objects.count() == DiarySubmission.objects.count() == 1
+    assert not Photo.objects.exists() and not (settings.MEDIA_ROOT / ".staging").exists()
+    assert saved.entry.links.count() == (0 if kind == "none" else 1)
+    assert Planting.objects.count() == (0 if kind == "none" else 1)
+    assert PlantingEvent.objects.count() == (1 if kind == "event" else 0)
+    if kind in {"new", "cycle"}:
+        assert PlantingCycle.objects.get().status == "ongoing"
+
+
 def test_standalone_completion_evaluations_and_original_receipt_replay(user, members):
     one, two = members
     cycle = one.cycle
@@ -525,6 +574,67 @@ def test_photo_limits_apply_per_owner_with_shared_byte_budget(
     )
     assert response.status_code == 302
     assert Photo.objects.count() == 4
+
+
+@pytest.mark.parametrize("hx", [False, True])
+@pytest.mark.parametrize(
+    "observation_count,planting_count,excess_bytes",
+    [(6, 6, False), (10, 10, False), (11, 10, False), (10, 11, False), (6, 6, True)],
+)
+def test_combined_http_upload_boundaries(
+    client,
+    user,
+    planting_catalog,
+    image_upload,
+    settings,
+    hx,
+    observation_count,
+    planting_count,
+    excess_bytes,
+):
+    if excess_bytes:
+        # Either owner's files fit separately; their combined upload exceeds the budget.
+        settings.PHOTO_MAX_TOTAL_BYTES = (
+            max(observation_count, planting_count) * image_upload().size
+        )
+    key = uuid4()
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    response = client.post(
+        reverse("diary:capture"),
+        {
+            "submission_key": key,
+            "date": "2026-01-02",
+            "body": "Combined upload boundary",
+            "capture_mode": "quick",
+            "planting_action": "new",
+            "planting-crop": planting_catalog[0].pk,
+            "planting-start_year": 2026,
+            "planting-status": "ongoing",
+            "planting-started_on": "2026-01-02",
+            "planting-lifespan": "annual",
+            "library": [image_upload() for _ in range(observation_count)],
+            "planting-photos": [image_upload() for _ in range(planting_count)],
+        },
+        **({"HTTP_HX_REQUEST": "true"} if hx else {}),
+    )
+    valid = max(observation_count, planting_count) <= settings.PHOTO_MAX_COUNT and not excess_bytes
+    if valid:
+        assert response.status_code == (200 if hx else 302)
+        assert DiaryEntry.objects.get().photos.count() == observation_count
+        assert Planting.objects.get().photos.count() == planting_count
+        assert DiarySubmission.objects.get().key == key
+        assert DiaryEntry.objects.get().links.get().planting_id == Planting.objects.get().pk
+    else:
+        assert response.status_code == 422
+        message = "total upload limit" if excess_bytes else "Too many photos"
+        assert message in response.text and "Nothing was saved." in response.text
+        form = response.context["form" if hx else "capture_form"]
+        assert str(form["submission_key"].value()) == str(key)
+        assert not any(
+            model.objects.exists()
+            for model in (DiaryEntry, DiarySubmission, Planting, PlantingCycle, Photo)
+        )
 
 
 def test_legacy_unknown_dates_remain_unknown_without_a_status_change(user, members):

@@ -115,9 +115,10 @@ corrections optionally accept `evaluations` keyed by member ID with the full
 `expected_member_versions` snapshot, preserving omitted text.
 
 `diary.services.create_entry` runs one typed `diary.actions` action and separate
-`planting_uploads` under the diary actor checks, media lock and receipt, so an identical
-replay does not rerun the action; `update_entry` follows the same contract. Diary edits
-and deletion never undo an action. See
+`planting_uploads` under the diary actor checks and receipt, so an identical replay does
+not rerun the action. Creation without uploads skips media locking and staging; saves
+with uploads, edits and deletions coordinate media storage. `update_entry` follows the
+same retry contract. Diary edits and deletion never undo an action. See
 [Saving changes and retries](usage.md#saving-changes-and-retries) for the form workflow.
 
 ## Browser tests

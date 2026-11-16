@@ -8,7 +8,13 @@ from django.utils.dateparse import parse_date
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
-from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
+from core.forms import (
+    AreaPathChoiceField,
+    MultipleFileField,
+    MultipleFileInput,
+    VersionField,
+    describe_fields,
+)
 from garden.forms import CycleEditForm, PlantingEventForm, PlantingForm, RecordIDChoiceField
 from garden.models import Crop, GrowingArea, Planting, Variety
 from garden.queries import area_paths
@@ -270,7 +276,7 @@ class CaptureForm(TaggedForm):
                 str(obj.start_year),
                 obj.cycle.get_status_display(),
                 obj.label or str(obj.pk),
-                str(obj.batch_key)[:8],
+                str(obj.cycle_id)[:8],
             ]
         )
         self.fields["action_planting"].preserve_selection(self["action_planting"].value())
@@ -486,17 +492,6 @@ class EntryEditForm(TaggedForm):
         return data
 
 
-class EntryPhotoForm(forms.Form):
-    expected_updated_at = VersionField()
-    caption = forms.CharField(label=_("Caption"), max_length=250, required=False)
-    position = forms.IntegerField(label=_("Order"), min_value=0)
-
-
-class AreaFilterField(forms.ModelChoiceField):
-    def label_from_instance(self, obj):
-        return self.paths.get(obj.pk, obj.name)
-
-
 class PlantingFilterField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         parts = [str(obj.crop)]
@@ -518,7 +513,7 @@ class DiaryFilterForm(forms.Form):
     year = forms.TypedChoiceField(
         label=_("Year"), required=False, coerce=int, empty_value=None, choices=()
     )
-    area = AreaFilterField(
+    area = AreaPathChoiceField(
         label=_("Growing area"),
         queryset=GrowingArea.objects.all(),
         required=False,

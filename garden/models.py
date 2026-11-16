@@ -289,7 +289,6 @@ class Planting(ValidatedModel):
         ANNUAL = "annual", _("Annual")
         PERSISTENT = "persistent", _("Persistent")
 
-    batch_key = models.UUIDField(default=uuid4, db_index=True, editable=False)
     cycle = models.ForeignKey(
         PlantingCycle, on_delete=models.PROTECT, related_name="members", editable=False
     )
@@ -336,16 +335,13 @@ class Planting(ValidatedModel):
         verbose_name = _("Planting")
         verbose_name_plural = _("Plantings")
         constraints = [
-            models.CheckConstraint(
-                condition=Q(cycle=F("batch_key")), name="planting_cycle_matches_batch"
-            ),
             models.UniqueConstraint(
-                fields=["batch_key", "variety"],
+                fields=["cycle", "variety"],
                 condition=Q(variety__isnull=False),
                 name="planting_batch_variety_unique",
             ),
             models.UniqueConstraint(
-                fields=["batch_key"],
+                fields=["cycle"],
                 condition=Q(variety__isnull=True),
                 name="planting_batch_unknown_unique",
             ),

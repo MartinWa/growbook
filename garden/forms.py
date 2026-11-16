@@ -5,7 +5,13 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from core.forms import MultipleFileField, MultipleFileInput, VersionField, describe_fields
+from core.forms import (
+    AreaPathChoiceField,
+    MultipleFileField,
+    MultipleFileInput,
+    VersionField,
+    describe_fields,
+)
 
 from .models import (
     Crop,
@@ -141,11 +147,6 @@ class VarietyForm(forms.Form):
         self.fields["crop"].queryset = Crop.objects.filter(Q(is_archived=False) | Q(pk=current))
         if self.is_bound:
             self.fields["crop"].preserve_selection(self.data.get(self.add_prefix("crop")))
-
-
-class AreaChoiceField(forms.ModelChoiceField):
-    def label_from_instance(self, obj):
-        return self.paths.get(obj.pk, obj.name)
 
 
 class AreaForm(forms.Form):
@@ -494,7 +495,7 @@ class PlantingForm(CycleFieldsForm):
         if batch_member is not None:
             self.fields["variety"].queryset = self.fields["variety"].queryset.exclude(
                 pk__in=Planting.objects.filter(
-                    batch_key=batch_member.batch_key, variety_id__isnull=False
+                    cycle_id=batch_member.cycle_id, variety_id__isnull=False
                 ).values("variety_id")
             )
         if (
@@ -504,9 +505,7 @@ class PlantingForm(CycleFieldsForm):
             or (
                 record is not None
                 and record.variety_id is not None
-                and Planting.objects.filter(batch_key=record.batch_key)
-                .exclude(pk=record.pk)
-                .exists()
+                and Planting.objects.filter(cycle_id=record.cycle_id).exclude(pk=record.pk).exists()
             )
         ):
             self.fields["variety"].required = True
@@ -623,7 +622,7 @@ class PlantingFilterForm(forms.Form):
     variety = forms.ModelChoiceField(
         label=_("Variety"), queryset=Variety.objects.all(), required=False
     )
-    area = AreaChoiceField(
+    area = AreaPathChoiceField(
         label=_("Growing area"), queryset=GrowingArea.objects.all(), required=False
     )
     area_only = forms.BooleanField(required=False, widget=forms.HiddenInput)
@@ -665,9 +664,3 @@ class ArchiveForm(forms.Form):
         choices=[("true", "true"), ("false", "false")],
         coerce=lambda value: value == "true",
     )
-
-
-class RegisterPhotoForm(forms.Form):
-    expected_updated_at = VersionField()
-    caption = forms.CharField(label=_("Caption"), max_length=250, required=False)
-    position = forms.IntegerField(label=_("Order"), min_value=0)

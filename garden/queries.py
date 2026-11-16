@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 
-from django.db import transaction
 from django.db.models import F, Q, prefetch_related_objects
 from django.utils.translation import gettext as _
 
@@ -13,16 +12,10 @@ from .models import GrowingArea, Planting, PlantingCycle
 class AreaNode:
     area: GrowingArea
     children: list = field(default_factory=list)
-    records: list = field(default_factory=list)
-    count: int = 0
-    pairs: set = field(default_factory=set)
-    open: bool = False
-    branch: bool = False
-    structural: bool = False
 
 
-def area_tree(*, areas=None, visible_ids=None, plantings=None):
-    """Read a forest once, retain ancestors and attach batches to their exact area.
+def area_tree(*, areas=None, visible_ids=None):
+    """Read a forest once and retain the ancestors of visible areas.
 
     Iterative traversal also renders deep trees without recursive template includes.
     Invalid legacy cycles are cut deterministically; every included area appears once.
@@ -31,24 +24,17 @@ def area_tree(*, areas=None, visible_ids=None, plantings=None):
         areas = list(GrowingArea.objects.all())
     areas = sorted(areas, key=lambda area: (area.name_key, area.pk))
     by_id = {area.pk: area for area in areas}
-    if plantings is not None:
-        plantings = list(plantings)
-        visible_ids = {record.area_id for record in plantings if record.area_id is not None}
     visible = set(by_id) if visible_ids is None else set(visible_ids)
     included = set()
     for pk in visible:
         while pk in by_id and pk not in included:
             included.add(pk)
             pk = by_id[pk].parent_id
-    nodes = {
-        area.pk: AreaNode(area=area, structural=area.pk not in visible)
-        for area in areas
-        if area.pk in included
-    }
+    nodes = {area.pk: AreaNode(area=area) for area in areas if area.pk in included}
     children = {}
     for node in nodes.values():
         children.setdefault(node.area.parent_id, []).append(node)
-    roots, ordered, seen = [], [], set()
+    roots, seen = [], set()
     candidates = [node for node in nodes.values() if node.area.parent_id not in nodes]
     # Remaining candidates recover cyclic components, in normalized name order.
     for candidate in [*candidates, *nodes.values()]:
@@ -61,23 +47,9 @@ def area_tree(*, areas=None, visible_ids=None, plantings=None):
             if node.area.pk in seen:
                 continue
             seen.add(node.area.pk)
-            ordered.append(node)
             if parent is not None:
                 parent.children.append(node)
             pending.extend((child, node) for child in reversed(children.get(node.area.pk, [])))
-    unassigned = []
-    for record in plantings or []:
-        if record.area_id is None:
-            unassigned.append(record)
-        else:
-            nodes[record.area_id].records.append(record)
-    for node in reversed(ordered):
-        node.count = len(node.records) + sum(child.count for child in node.children)
-        node.pairs = {(record.crop_id, record.variety_id) for record in node.records}
-        for child in node.children:
-            node.pairs.update(child.pairs)
-        node.branch = bool(node.children) or plantings is not None
-        node.open = plantings is not None and len(node.pairs) == 1
     events = []
     pending = [(node, False) for node in reversed(roots)]
     while pending:
@@ -86,7 +58,7 @@ def area_tree(*, areas=None, visible_ids=None, plantings=None):
         if not closing:
             pending.append((node, True))
             pending.extend((child, False) for child in reversed(node.children))
-    return {"roots": roots, "events": events, "unassigned": unassigned}
+    return {"roots": roots, "events": events}
 
 
 def area_paths(areas):
@@ -178,8 +150,8 @@ def planting_groups(records):
     groups = {}
     for record in records:
         group = groups.setdefault(
-            record.batch_key,
-            {"key": record.batch_key, "crop": record.crop, "records": []},
+            record.cycle_id,
+            {"key": record.cycle_id, "crop": record.crop, "records": []},
         )
         group["records"].append(record)
     for group in groups.values():
@@ -230,23 +202,3 @@ def cycle_groups(records):
         group["label"] = initial.label or _("Planting %(number)s") % {"number": initial.pk}
         group["years"] = cycle_years(first.cycle.members.all())
     return groups
-
-
-def planting_tree(**filters):
-    """Keep batches and their tree together when an area disappears between reads."""
-    records = list(planting_history(**filters))
-    prefetch_related_objects(records, "photos")
-    areas = list(GrowingArea.objects.all())
-    area_ids = {area.pk for area in areas}
-    if any(record.area_id is not None and record.area_id not in area_ids for record in records):
-        # A planting can move away and its former area can be deleted between reads.
-        # The fallback transaction keeps the refreshed records and areas consistent.
-        with transaction.atomic():
-            records = list(planting_history(**filters))
-            prefetch_related_objects(records, "photos")
-            areas = list(GrowingArea.objects.all())
-    records = planting_rows(records, areas=areas)
-    tree = area_tree(areas=areas, plantings=records)
-    for event in tree["events"]:
-        event["node"].groups = planting_groups(event["node"].records)
-    return {"records": records, **tree}

@@ -14,7 +14,7 @@ from diary.queries import observations_for
 from diary.services import create_entry
 from garden.admin import PlantingAdmin, PlantingEventAdmin
 from garden.models import Crop, GrowingArea, Planting, PlantingEvent, PlantingSubmission, Variety
-from garden.queries import planting_history, planting_tree, plantings_in_year
+from garden.queries import cycle_groups, planting_history, plantings_in_year
 from garden.services import (
     RegisterConflict,
     archive_area,
@@ -786,7 +786,7 @@ def test_batch_members_keep_independent_tracking_and_derived_diary_filters(
         uploads=[],
         submission_key=uuid4(),
     ).entry
-    assert added.batch_key == original.batch_key
+    assert added.cycle_id == original.cycle_id
     assert (original.label, added.label) == ("Tomato-Golden", "Tomato-Red")
     assert (original.quantity, added.quantity) == (0, 12)
     assert (original.evaluation, added.evaluation) == ("First evaluation", "Second evaluation")
@@ -795,13 +795,12 @@ def test_batch_members_keep_independent_tracking_and_derived_diary_filters(
     assert list(observations_for("variety", second)) == [entry]
     assert not observations_for("variety", first)
     assert list(planting_history(variety=second)) == [added]
-    tree = planting_tree(year=2027, area=area)
-    assert len(tree["roots"][0].groups) == 1
-    assert len(tree["roots"][0].groups[0]["records"]) == 2
-    filtered = planting_tree(year=2027, variety=second)
-    assert filtered["roots"][0].groups[0]["records"] == [added]
+    groups = cycle_groups(planting_history(year=2027, area=area))
+    assert len(groups) == 1 and groups[0]["records"] == [original, added]
+    filtered = cycle_groups(planting_history(year=2027, variety=second))
+    assert filtered[0]["records"] == [added]
     other_batch = create_planting(actor=user, crop=crop, variety=second, start_year=2027).record
-    assert other_batch.batch_key != added.batch_key
+    assert other_batch.cycle_id != added.cycle_id
 
 
 @override("en")
@@ -837,7 +836,7 @@ def test_batch_constraints_and_retry_survive_deleted_original_member(user, plant
         )
     delete_planting(actor=user, pk=original.pk, expected_updated_at=original.updated_at)
     assert create_planting(**values).replayed
-    assert Planting.objects.get(pk=added.pk).batch_key == added.batch_key
+    assert Planting.objects.get(pk=added.pk).cycle_id == added.cycle_id
 
 
 @pytest.mark.django_db
@@ -847,22 +846,17 @@ def test_batch_member_uniqueness_is_enforced_by_sqlite(planting_catalog):
         from garden.models import PlantingCycle
 
         cycle = PlantingCycle.objects.create()
-        original = Planting.objects.create(
-            crop=crop, start_year=2027, batch_key=cycle.pk, cycle=cycle
-        )
-        Planting.objects.create(
-            crop=crop, variety=first, start_year=2027, batch_key=original.batch_key, cycle=cycle
-        )
+        original = Planting.objects.create(crop=crop, start_year=2027, cycle=cycle)
+        Planting.objects.create(crop=crop, variety=first, start_year=2027, cycle=cycle)
     for variety in (None, first):
         with pytest.raises(IntegrityError), transaction.atomic(), validated_write():
             Planting.objects.create(
                 crop=crop,
                 variety=variety,
                 start_year=2027,
-                batch_key=original.batch_key,
                 cycle=cycle,
             )
-    assert Planting.objects.filter(batch_key=original.batch_key).count() == 2
+    assert Planting.objects.filter(cycle_id=original.cycle_id).count() == 2
 
 
 @override("en")
@@ -897,7 +891,7 @@ def test_initially_unknown_batch_member_can_be_edited_and_assigned_a_variety(
     edited = edit_planting(actor=user, **edit_values(original, quantity=5)).record
     assert edited.variety_id is None and edited.quantity == 5
     assigned = edit_planting(actor=user, **edit_values(edited, variety=second)).record
-    assert assigned.batch_key == original.batch_key and assigned.variety_id == second.pk
+    assert assigned.cycle_id == original.cycle_id and assigned.variety_id == second.pk
 
 
 @override("en")

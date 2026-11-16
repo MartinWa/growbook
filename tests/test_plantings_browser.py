@@ -754,7 +754,7 @@ def test_batch_addition_requires_explicit_area_correction_and_explains_required_
         page.get_by_role("button", name=PLANTING_COPY[language]["save"], exact=True).click()
         expect(page).to_have_url(live_server.url + original.get_absolute_url())
     added = Planting.objects.exclude(pk=original.pk).get()
-    assert added.area_id == replacement.pk and added.batch_key == original.batch_key
+    assert added.area_id == replacement.pk and added.cycle_id == original.cycle_id
 
 
 @pytest.mark.parametrize("width", [320, 1280])
@@ -835,7 +835,7 @@ def test_add_variety_to_batch_preserves_independent_photos_and_retries(
         expect(page.locator(".record-fields")).to_contain_text("Second evaluation")
         expect(page.locator(".register-photos figure")).to_have_count(1)
     added = Planting.objects.exclude(pk=original.pk).get()
-    assert added.batch_key == original.batch_key and added.quantity == 12
+    assert added.cycle_id == original.cycle_id and added.quantity == 12
     assert added.photos.count() == original.photos.count() == 1
     assert added.label == f"{crop.name}-Red"
 

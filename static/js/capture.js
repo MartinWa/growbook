@@ -2,134 +2,32 @@
 (() => {
   "use strict";
   const form = document.getElementById("capture-form");
-  if (!form || !window.htmx) return;
-  const errors = document.getElementById("capture-errors");
-  const status = document.getElementById("capture-status");
-  const progress = document.getElementById("capture-progress");
-  const save = document.getElementById("save-entry");
-  const inputs = [document.getElementById("id_camera"), document.getElementById("id_library")];
-  let busy = false;
-  let submittedKey;
+  if (!form || !window.growbookFormFeedback) return;
 
-  function syncFieldErrors() {
-    for (const name of ["date", "title", "body", "camera", "library"]) {
-      const input = form.elements.namedItem(name);
-      const target = document.getElementById(`capture-${name}-errors`);
-      const source = errors.querySelector(`[data-field-errors="${name}"]`);
-      target.replaceChildren();
-      if (source) {
-        // Keep field feedback beside the input when HTMX replaces only the summary.
-        for (const item of source.querySelectorAll("li")) {
-          const message = document.createElement("p");
-          message.textContent = item.textContent;
-          target.append(message);
-        }
-        input.setAttribute("aria-invalid", "true");
-      } else input.removeAttribute("aria-invalid");
-    }
-    for (const slot of form.querySelectorAll("[data-register-field-errors]")) {
-      const name = slot.dataset.registerFieldErrors;
-      const source = errors.querySelector(`[data-field-errors="${name}"]`);
-      slot.replaceChildren();
-      if (source) slot.append(source.cloneNode(true));
-      form.querySelectorAll(`[name="${name}"]`).forEach(input => {
-        if (source) input.setAttribute("aria-invalid", "true");
-        else input.removeAttribute("aria-invalid");
-      });
-      if (source) {
-        let disclosure = slot.closest("details");
-        while (disclosure) { disclosure.open = true; disclosure = disclosure.parentElement.closest("details"); }
-      }
-    }
-  }
-
-  function setBusy(value) {
-    busy = value;
-    save.disabled = value;
-    document.getElementById("id_body").readOnly = value;
-    document.getElementById("id_title").readOnly = value;
-    document.getElementById("id_date").readOnly = value;
-    inputs.forEach(input => { input.disabled = value; });
-    form.querySelectorAll("[data-planting-action] input, [data-planting-action] select, [data-planting-action] textarea, [data-planting-action] button").forEach(input => {
-      if (value) { input.dataset.wasDisabled = String(input.disabled); input.disabled = true; }
-      else { input.disabled = input.dataset.wasDisabled === "true"; delete input.dataset.wasDisabled; }
-    });
-    if (value) form.setAttribute("aria-busy", "true");
-    else form.removeAttribute("aria-busy");
-  }
-
-  function showError(message) {
-    errors.textContent = message;
-    errors.focus();
-  }
-
-  form.addEventListener("htmx:configRequest", event => {
-    // A login in another tab rotates Django's CSRF cookie. Refresh the submitted token
-    // without discarding the original save key, note or selected files.
-    const cookie = document.cookie.split("; ").find(value => value.startsWith("csrftoken="));
-    if (cookie) event.detail.parameters.csrfmiddlewaretoken = decodeURIComponent(cookie.split("=")[1]);
-    submittedKey = form.elements.namedItem("submission_key").value;
-  });
-  form.addEventListener("htmx:beforeRequest", event => {
-    if (event.detail.elt !== form) return;
-    if (event.defaultPrevented || busy) { event.preventDefault(); return; }
-    setBusy(true);
-    errors.replaceChildren();
-    syncFieldErrors();
-    progress.hidden = false;
-    progress.value = 0;
-    status.textContent = form.dataset.uploading;
-  });
-  form.addEventListener("htmx:xhr:progress", event => {
-    if (event.detail.lengthComputable) {
-      progress.value = 100 * event.detail.loaded / event.detail.total;
-      if (progress.value >= 100) status.textContent = form.dataset.processing;
-    }
-  });
-  form.addEventListener("htmx:beforeSwap", event => {
-    if (event.detail.target !== errors && event.detail.target?.id !== "quick-receipt") return;
-    const code = event.detail.xhr.status;
-    if ([409, 422, 503].includes(code)) {
-      event.detail.shouldSwap = true;
-      event.detail.isError = false;
-    } else if (code === 401 || code === 403) {
-      event.detail.shouldSwap = false;
-      showError(form.dataset.sessionError);
-    } else if (code >= 400) {
-      event.detail.shouldSwap = false;
-      showError(form.dataset.genericError);
-    }
-  });
-  document.addEventListener("htmx:afterSwap", event => {
-    if (event.detail.target === errors) {
-      syncFieldErrors();
-      errors.focus();
-    } else if (event.detail.target?.id === "quick-receipt") {
+  window.growbookFormFeedback(form, {
+    errors: document.getElementById("capture-errors"),
+    status: document.getElementById("capture-status"),
+    progress: document.getElementById("capture-progress"),
+    successTarget: document.getElementById("quick-receipt"),
+    onSuccess(event, submittedKey) {
       const saved = event.detail.target.querySelector("[data-capture-saved]");
-      if (!saved || event.detail.xhr?.status !== 200 ||
+      if (!saved || event.detail.xhr.status !== 200 ||
           event.detail.xhr.getResponseHeader("X-Growbook-Saved-Key") !== submittedKey ||
           !/^[1-9]\d*$/.test(saved.dataset.captureSaved) ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(saved.dataset.nextKey) ||
-          saved.querySelector("a")?.getAttribute("href") !== `/entries/${saved.dataset.captureSaved}/`) return;
+          saved.querySelector("a")?.getAttribute("href") !== "/entries/" + saved.dataset.captureSaved + "/") return false;
       form.dispatchEvent(new CustomEvent("draft:saved"));
       form.reset();
       const key = form.elements.namedItem("submission_key");
       key.value = key.defaultValue = saved.dataset.nextKey;
-      errors.replaceChildren();
-      syncFieldErrors();
       saved.querySelector("a").focus();
       document.dispatchEvent(new CustomEvent("diary:saved", {
         detail: { entryId: saved.dataset.captureSaved }
       }));
+      return true;
+    },
+    onIdle() {
+      document.dispatchEvent(new CustomEvent("capture:idle"));
     }
-  });
-  form.addEventListener("htmx:afterRequest", () => {
-    setBusy(false);
-    progress.hidden = true;
-    status.textContent = "";
-    document.dispatchEvent(new CustomEvent("capture:idle"));
-  });
-  ["htmx:sendError", "htmx:timeout"].forEach(name => {
-    form.addEventListener(name, () => showError(form.dataset.networkError));
   });
 })();

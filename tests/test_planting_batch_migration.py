@@ -70,9 +70,9 @@ def test_batch_migration_preserves_old_ids_fields_and_immutable_receipts():
         executor.migrate(latest)
         upgraded = Planting.objects.get(pk=first.pk)
         assert upgraded.label == "Old batch" and upgraded.quantity == 0
-        assert upgraded.batch_key != Planting.objects.get(pk=second.pk).batch_key
-        assert Planting.objects.values("batch_key").distinct().count() == 503
-        assert not Planting.objects.filter(batch_key__isnull=True).exists()
+        assert upgraded.cycle_id != Planting.objects.get(pk=second.pk).cycle_id
+        assert Planting.objects.values("cycle_id").distinct().count() == 503
+        assert not Planting.objects.filter(cycle_id__isnull=True).exists()
         receipt = (
             executor.loader.project_state(latest)
             .apps.get_model("garden", "PlantingSubmission")

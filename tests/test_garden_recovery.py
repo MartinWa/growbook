@@ -371,9 +371,9 @@ def test_clean_restore_preserves_batch_members_and_independent_tracking(
     snapshot = open_snapshot(restored / "db.sqlite3")
     try:
         rows = snapshot.execute(
-            "SELECT batch_key, quantity, evaluation FROM garden_planting ORDER BY id"
+            "SELECT cycle_id, quantity, evaluation FROM garden_planting ORDER BY id"
         ).fetchall()
-        assert rows == [(original.batch_key.hex, 0, "First"), (original.batch_key.hex, 7, "Second")]
+        assert rows == [(original.cycle_id.hex, 0, "First"), (original.cycle_id.hex, 7, "Second")]
         assert snapshot.execute(
             "SELECT status, started_on, completed_on FROM garden_plantingcycle"
         ).fetchall() == [("completed", "2027-03-01", "2027-09-01")]
@@ -393,8 +393,7 @@ from garden.services import create_variety, create_planting
 from django.test import Client
 user = User.objects.get(username='gardener')
 records = list(Planting.objects.order_by('id'))
-assert records[0].batch_key == records[1].batch_key
-assert records[0].cycle_id == records[1].cycle_id == records[0].batch_key
+assert records[0].cycle_id == records[1].cycle_id
 assert records[0].cycle.status == 'completed'
 assert records[0].cycle.completed_on.isoformat() == '2027-09-01'
 assert list(records[0].cycle.categories.values_list('name', flat=True)) == ['For Sale']
@@ -407,7 +406,6 @@ assert client.get(records[1].get_absolute_url()).status_code == 200
 variety = create_variety(actor=user, crop=records[0].crop, name='Restored variety').record
 added = create_planting(actor=user, crop=records[0].crop, variety=variety, start_year=2027,
                         batch_planting=records[1]).record
-assert added.batch_key == records[0].batch_key
 assert added.cycle_id == records[0].cycle_id and added.cycle.status == 'completed'
 """
     environment = {**os.environ, "GROWBOOK_DATA_DIR": str(restored)}
