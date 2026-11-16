@@ -103,7 +103,8 @@ RUN echo '1da6d6d6035d651f20e70ddee7c4c15ac6ab8b9fb40ee92240d91263f28a884b  /tmp
     && chmod +x /opt/powershell/pwsh \
     && ln -s /opt/powershell/pwsh /usr/local/bin/pwsh \
     && rm /tmp/powershell.tar.gz
-RUN apt-get update && apt-get install -y --no-install-recommends git libicu72 libgssapi-krb5-2 \
+# The bundled Playwright Node driver needs libatomic before it can install browsers.
+RUN apt-get update && apt-get install -y --no-install-recommends git libicu72 libgssapi-krb5-2 libatomic1 \
     && git config --system --add safe.directory /app \
     && /opt/venv-seed/bin/python -m playwright install --with-deps chromium --no-shell \
     && rm -rf /var/lib/apt/lists/* \
