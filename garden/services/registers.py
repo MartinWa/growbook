@@ -21,7 +21,7 @@ from core.writes import validated_write
 from ..models import Crop, CropCategory, CropCategoryLink, GrowingArea, RegisterSubmission, Variety
 from ..names import normalize_name
 from ._shared import (
-    RegisterConflict,
+    _accept_receipt,
     _active_actor,
     _current,
     _fingerprint,
@@ -40,20 +40,8 @@ class RegisterResult:
 
 def _receipt(key, actor, kind, fingerprint):
     receipt = RegisterSubmission.objects.select_related(kind).filter(key=key).first()
-    if receipt is None:
-        return None
-    if (
-        receipt.author_id != actor.pk
-        or receipt.kind != kind
-        or receipt.payload_sha256 != fingerprint
-    ):
-        raise RegisterConflict(
-            _("This save key was already used with different content. Nothing was overwritten.")
-        )
-    record = getattr(receipt, kind)
-    if record is None:
-        raise RegisterConflict(_("This record was deleted. It was not recreated."))
-    return RegisterResult(record, replayed=True)
+    record = _accept_receipt(receipt, actor, kind, fingerprint)
+    return RegisterResult(record, replayed=True) if record is not None else None
 
 
 def _check_area_parent(area):

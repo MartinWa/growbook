@@ -10,11 +10,10 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
-from core.forms import DeleteForm, form_error, valid_post
+from core.forms import DeleteForm, PhotoDetailsForm, form_error, valid_post
 from core.media import MediaBusy
 from core.models import Photo
 
-from ..forms import RegisterPhotoForm
 from ..services import photos as services
 from ._shared import management_url, return_url
 
@@ -55,7 +54,7 @@ def _photo_destination(request, photo):
 def photo_edit(request, pk):
     photo = _register_photo(pk)
     destination = _photo_destination(request, photo)
-    form = RegisterPhotoForm(
+    form = PhotoDetailsForm(
         request.POST if request.method == "POST" else None,
         initial={
             "caption": photo.caption,

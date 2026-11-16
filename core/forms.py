@@ -42,6 +42,17 @@ class VersionField(forms.DateTimeField):
         return parsed
 
 
+class PhotoDetailsForm(forms.Form):
+    expected_updated_at = VersionField()
+    caption = forms.CharField(label=_("Caption"), max_length=250, required=False)
+    position = forms.IntegerField(label=_("Order"), min_value=0)
+
+
+class AreaPathChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return self.paths.get(obj.pk, obj.name)
+
+
 class DeleteForm(forms.Form):
     expected_updated_at = VersionField()
     confirm = forms.BooleanField(label=_("I confirm this deletion."))

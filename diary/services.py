@@ -93,6 +93,39 @@ def _normalize_title(title):
         raise ValidationError({"title": exc}) from exc
 
 
+def _write_entry(author, date, title, body, links, action, key, fingerprint, rows, planting_rows):
+    """Share fresh actor/receipt checks and one atomic writer for both media paths."""
+    with transaction.atomic(), validated_write():
+        if not User.objects.filter(pk=author.pk, is_active=True).exists():
+            raise PermissionDenied
+        result = check_receipt(key, author.pk, fingerprint)
+        if result:
+            return result
+        resolved_links = _resolve_links(links)
+        if action is not None:
+            planting = execute_action(action, planting_rows)
+            resolved_links[("planting", planting.pk)] = planting
+        entry = DiaryEntry(
+            date=date,
+            title=title,
+            body=body,
+            search_text=entry_search_text(title, body),
+            author=author,
+            submission_key=key,
+        )
+        entry.full_clean()
+        entry.save()
+        _save_links(entry, resolved_links)
+        for position, values in enumerate(rows):
+            image = Photo(entry=entry, **values, position=position)
+            image.full_clean()
+            image.save()
+        receipt = DiarySubmission(key=key, author=author, payload_sha256=fingerprint, entry=entry)
+        receipt.full_clean()
+        receipt.save()
+        return CaptureResult(entry, created=True)
+
+
 def create_entry(
     *,
     author,
@@ -126,6 +159,11 @@ def create_entry(
         raise ValidationError(_("Planting photos require a new planting."))
     if not body and not uploads:
         raise ValidationError(_("Write a note or add at least one photo."))
+    if not uploads and not planting_uploads:
+        fingerprint = payload_fingerprint(
+            date, body, (), links, title=title, action=action_payload(action, ())
+        )
+        return _write_entry(author, date, title, body, links, action, key, fingerprint, (), ())
     with (
         media_operation(),
         staged_uploads(uploads) as photos,
@@ -147,37 +185,9 @@ def create_entry(
             if result:
                 return result
         with published_uploads(photos) as rows, published_uploads(planting_photos) as planting_rows:
-            with transaction.atomic(), validated_write():
-                if not User.objects.filter(pk=author.pk, is_active=True).exists():
-                    raise PermissionDenied
-                result = check_receipt(key, author.pk, fingerprint)
-                if result:
-                    return result
-                resolved_links = _resolve_links(links)
-                if action is not None:
-                    planting = execute_action(action, planting_rows)
-                    resolved_links[("planting", planting.pk)] = planting
-                entry = DiaryEntry(
-                    date=date,
-                    title=title,
-                    body=body,
-                    search_text=entry_search_text(title, body),
-                    author=author,
-                    submission_key=key,
-                )
-                entry.full_clean()
-                entry.save()
-                _save_links(entry, resolved_links)
-                for position, values in enumerate(rows):
-                    image = Photo(entry=entry, **values, position=position)
-                    image.full_clean()
-                    image.save()
-                receipt = DiarySubmission(
-                    key=key, author=author, payload_sha256=fingerprint, entry=entry
-                )
-                receipt.full_clean()
-                receipt.save()
-            return CaptureResult(entry, created=True)
+            return _write_entry(
+                author, date, title, body, links, action, key, fingerprint, rows, planting_rows
+            )
 
 
 LINK_FIELDS = {

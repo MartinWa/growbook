@@ -11,13 +11,13 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods
 
-from core.forms import DeleteForm, form_error, valid_post
+from core.forms import DeleteForm, PhotoDetailsForm, form_error, valid_post
 from core.media import MediaBusy
 from core.models import Photo
 from garden.models import Planting
 from garden.services import RegisterConflict
 
-from .forms import CaptureForm, DiaryFilterForm, EntryEditForm, EntryPhotoForm
+from .forms import CaptureForm, DiaryFilterForm, EntryEditForm
 from .models import DiaryEntry
 from .permissions import can_edit_entry
 from .queries import diary_years, filter_entries
@@ -58,7 +58,7 @@ def _filter_query(value):
     return data.urlencode()
 
 
-def _list_context(request, *, data=None, capture_form=None):
+def _list_context(request, *, data=None):
     data = request.GET.copy() if data is None else data.copy()
     form = DiaryFilterForm(data, years=diary_years())
     valid = form.is_valid()
@@ -94,7 +94,6 @@ def _list_context(request, *, data=None, capture_form=None):
         )
     return {
         "form": form,
-        "capture_form": capture_form or CaptureForm(quick=True),
         "page_obj": page_obj,
         "querystring": query.urlencode(),
         "filter_query": query.urlencode(),
@@ -106,11 +105,13 @@ def _list_context(request, *, data=None, capture_form=None):
 
 @require_GET
 def entry_list(request):
-    context = _list_context(request)
     partial = (
         request.headers.get("HX-Request") == "true"
         and request.headers.get("HX-Target") == "diary-results"
     )
+    context = _list_context(request)
+    if not partial:
+        context["capture_form"] = CaptureForm(quick=True)
     return render(
         request,
         "diary/_results.html" if partial else "diary/list.html",
@@ -247,7 +248,7 @@ def _editable_photo(request, pk):
 @require_http_methods(["GET", "POST"])
 def photo_edit(request, pk):
     photo = _editable_photo(request, pk)
-    form = EntryPhotoForm(
+    form = PhotoDetailsForm(
         request.POST if request.method == "POST" else None,
         initial={
             "expected_updated_at": photo.entry.updated_at,
@@ -355,9 +356,8 @@ def capture(request):
             choice_form._errors = ErrorDict()
         if request.headers.get("HX-Request") == "true":
             return render(request, "diary/_cycle_action_fields.html", {"form": form.cycle_form})
-        context = _list_context(
-            request, data=QueryDict(data.get("filter_query", "")), capture_form=form
-        )
+        context = _list_context(request, data=QueryDict(data.get("filter_query", "")))
+        context["capture_form"] = form
         context["failed"] = bool(request.FILES)
         return render(request, "diary/list.html", context)
     form = CaptureForm(
@@ -440,7 +440,7 @@ def capture(request):
         context = _list_context(
             request,
             data=QueryDict(request.POST.get("filter_query", "")),
-            capture_form=form,
         )
+        context["capture_form"] = form
         context["failed"] = True
         return render(request, "diary/list.html", context, status=status)

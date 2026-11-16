@@ -37,13 +37,14 @@ def assert_no_save(settings):
     assert list((settings.MEDIA_ROOT / ".staging").glob("*")) == []
 
 
-def test_text_only_entry(user):
+def test_text_only_entry(user, settings):
     result = capture(user, body="  Ärtor in bloom\nSecond line  ")
     assert result.created
     assert result.entry.body == "Ärtor in bloom\nSecond line"
     assert result.entry.author == user
     assert result.entry.photos.count() == 0
     assert DiarySubmission.objects.get(key=result.entry.submission_key).entry == result.entry
+    assert not settings.MEDIA_ROOT.exists()
 
 
 @pytest.mark.parametrize("format", ["JPEG", "PNG", "WEBP", "HEIF"])

@@ -221,23 +221,11 @@
     window.addEventListener("resize", resized);
     window.visualViewport?.addEventListener("resize", resized);
     window.visualViewport?.addEventListener("scroll", resized);
-    form.addEventListener("htmx:beforeRequest", event => {
-      if (event.detail.elt !== form || event.defaultPrevented) return;
+    form.addEventListener("form:busy", () => {
       close();
       busy = true;
-      trigger.disabled = true;
-      picker.querySelectorAll("button, input[type=checkbox]").forEach(input => { input.disabled = true; });
-      search.readOnly = true;
-      type.disabled = true;
     });
-    form.addEventListener("htmx:afterRequest", event => {
-      if (event.detail.elt !== form) return;
-      busy = false;
-      trigger.disabled = false;
-      picker.querySelectorAll("button, input[type=checkbox]").forEach(input => { input.disabled = false; });
-      search.readOnly = false;
-      type.disabled = false;
-    });
+    form.addEventListener("form:idle", () => { busy = false; });
     form.addEventListener("draft:saved", () => { savedReset = true; });
     form.addEventListener("reset", () => {
       // A successful quick save starts a fresh draft, including initially checked tags.

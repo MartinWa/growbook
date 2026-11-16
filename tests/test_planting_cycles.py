@@ -94,7 +94,7 @@ def test_list_context_is_retained_only_when_the_view_needs_it(
     response = client.get(
         paths[scope], {"all_years": "1"} if all_years else {"year": 2026}, **headers
     )
-    assert len(response.context["cycle_groups"]) == 1
+    assert response.context["cycle_count"] == 1
     metadata = next((line for line in response.text.splitlines() if "cycle-context" in line), "")
     assert ("Planned" in metadata) == (scope != "status")
     assert ("2025 onwards" in metadata) == (all_years or scope == "history")
@@ -111,10 +111,11 @@ def test_shared_status_categories_distinct_filtered_counts_and_zero_cards(client
         started_on=date(2025, 3, 1),
         category_ids=[sale.pk, sale.pk],
     ).record
-    assert one.cycle_id == two.cycle_id == one.batch_key
+    assert one.cycle_id == two.cycle_id
     client.force_login(user)
     response = client.get(reverse("garden:planting-list"), {"year": 2026})
-    assert len(response.context["cycle_groups"]) == 1
+    assert response.context["cycle_count"] == 1
+    assert not response.context["cycle_groups"]
     assert [card["count"] for card in response.context["category_cards"]] == [0, 1, 0, 0, 1]
     assert 'class="category-grid"' in response.text
     assert "data-area-id=" not in response.text
@@ -137,6 +138,44 @@ def test_shared_status_categories_distinct_filtered_counts_and_zero_cards(client
     )
     assert not response.context["records"]
     assert response.context["empty_action_url"] == sale.get_absolute_url() + "?all_years=1"
+
+
+@pytest.mark.parametrize("scope", ["overview", "status", "custom", "history"])
+@pytest.mark.parametrize("partial", [False, True])
+def test_lists_prepare_only_the_presentation_they_render(
+    client, user, batch, monkeypatch, scope, partial
+):
+    from unittest.mock import Mock
+
+    from garden.views import plantings as views
+
+    first, second = batch
+    category = create_planting_category(actor=user, name="Synthetic scope").record
+    change(user, first.cycle, category_ids=[category.pk])
+    paths = {
+        "overview": reverse("garden:planting-list"),
+        "status": reverse("garden:planting-status", args=["planned"]),
+        "custom": category.get_absolute_url(),
+        "history": reverse("garden:crop-history", args=[first.crop_id]),
+    }
+    rows, groups = Mock(wraps=views.planting_rows), Mock(wraps=views.cycle_groups)
+    monkeypatch.setattr(views, "planting_rows", rows)
+    monkeypatch.setattr(views, "cycle_groups", groups)
+    client.force_login(user)
+    response = client.get(
+        paths[scope],
+        {"year": 2026, "variety": second.variety_id},
+        **({"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": "planting-results"} if partial else {}),
+    )
+    assert response.status_code == 200
+    assert response.context["records"] == [second]
+    assert response.context["cycle_count"] == 1
+    assert rows.call_count == groups.call_count == (0 if scope == "overview" else 1)
+    assert bool(response.context["category_cards"]) == (scope == "overview")
+    assert not any(
+        name in response.context
+        for name in ("area_events", "unassigned_records", "unassigned_groups")
+    )
 
 
 @pytest.mark.parametrize("scope", ["planting", "crop", "variety", "area"])
@@ -387,10 +426,11 @@ def test_sqlite_enforces_cycle_status_and_dates(values):
         PlantingCycle.objects.create(**values)
 
 
-def test_sqlite_enforces_member_cycle_identity(user, planting_catalog):
+@pytest.mark.parametrize("invalid_cycle", [None, uuid4()])
+def test_sqlite_requires_an_existing_cycle_for_each_member(user, planting_catalog, invalid_cycle):
     member = create_planting(actor=user, crop=planting_catalog[0], start_year=2026).record
     with pytest.raises(IntegrityError), transaction.atomic(), validated_write():
-        Planting.objects.filter(pk=member.pk).update(batch_key=uuid4())
+        Planting.objects.filter(pk=member.pk).update(cycle_id=invalid_cycle)
 
 
 def test_cycle_and_category_writers_reject_inactive_actor(user, batch):

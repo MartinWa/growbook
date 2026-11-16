@@ -1427,12 +1427,26 @@ def test_quick_capture_from_later_page_preserves_filters_and_refreshes_first_pag
     filters = "q=pagination&year=2026"
     first_url = live_server.url + "/?" + filters
     later_url = first_url + "&page=2"
-    page.goto(later_url)
-    expect(page.locator("#diary-result-count")).to_contain_text("21")
-    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    page.goto(first_url)
     page.locator("#id_date").fill("2026-05-09")
     page.locator("#id_body").fill("Synthetic newest pagination note")
     page.locator("#id_library").set_input_files(upload(image_upload()))
+    key = page.locator("#id_submission_key").input_value()
+    page.evaluate("window.originalComposer = document.getElementById('capture-form')")
+    page.locator('#diary-results .pagination a[href$="page=2"]').click()
+    expect(page).to_have_url(later_url)
+    expect(page.locator("#diary-result-count")).to_contain_text("21")
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    page.go_back()
+    expect(page).to_have_url(first_url)
+    expect(page.locator("#diary-results .diary-card")).to_have_count(20)
+    page.go_forward()
+    expect(page).to_have_url(later_url)
+    expect(page.locator("#diary-results .diary-card")).to_have_count(1)
+    assert page.evaluate("originalComposer === document.getElementById('capture-form')")
+    expect(page.locator("#id_body")).to_have_value("Synthetic newest pagination note")
+    expect(page.locator("#id_submission_key")).to_have_value(key)
+    assert page.locator("#id_library").evaluate("input => input.files.length") == 1
     if refresh_fails:
         page.route(first_url, lambda route: route.abort())
     page.locator("#save-entry").click()

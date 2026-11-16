@@ -22,20 +22,20 @@
       <label for="{{ form.date.id_for_label }}">{{ form.date.label }}{% if not quick %} <span class="field-requirement">{% translate '(required)' %}</span>{% endif %}</label>
       {{ form.date }}
       <p id="capture-date-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Use the date of the observation.' %}</p>
-      <div id="capture-date-errors" class="field-errors">{{ form.date.errors }}</div>
+      <div id="capture-date-errors" class="field-errors" data-form-field-errors="date">{{ form.date.errors }}</div>
     </div>
     <div class="field">
       <label for="{{ form.title.id_for_label }}">{{ form.title.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
       {{ form.title }}
       <p id="capture-title-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{{ form.title.help_text }}</p>
-      <div id="capture-title-errors" class="field-errors">{{ form.title.errors }}</div>
+      <div id="capture-title-errors" class="field-errors" data-form-field-errors="title">{{ form.title.errors }}</div>
     </div>
   </div>
   <div class="field">
     <label for="{{ form.body.id_for_label }}">{{ form.body.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
     {{ form.body }}
     <p id="capture-note-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Write a diary note, or leave this blank and add a photo.' %}</p>
-    <div id="capture-body-errors" class="field-errors">{{ form.body.errors }}</div>
+    <div id="capture-body-errors" class="field-errors" data-form-field-errors="body">{{ form.body.errors }}</div>
   </div>
   {% include 'components/photo_picker.html' with field=None chooser_id='capture-photo-chooser' %}
   {% include 'diary/_tag_picker.html' %}

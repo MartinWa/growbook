@@ -45,8 +45,9 @@ The procedure:
 1. Obtain the process-shared media-operation lock. All supported media writers and
    orphan cleanup use the same lock on host-local storage.
 2. Create a SQLite **backup-API snapshot**; do not copy a live database/WAL file.
-   Validate database integrity and foreign-key references. Account/session writes
-   may continue: they are consistently represented by the database snapshot.
+   Validate database integrity and foreign-key references. Account/session writes and
+   diary creation without uploads, including planting actions, may continue: they
+   are consistently represented by the database snapshot.
 3. Read photo references from that snapshot; copy every immutable original and
    verify its stored checksum. File copying does not hold a SQLite write transaction.
 4. Copy the supplied private configuration. Write a versioned manifest containing

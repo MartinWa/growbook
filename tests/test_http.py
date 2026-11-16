@@ -234,6 +234,49 @@ def test_diary_fragment_contains_results_and_chips_without_replacing_capture(cli
     assert 'id="diary-results"' in invalid.text
 
 
+@pytest.mark.parametrize(
+    "filters", [{}, {"q": "tomato", "page": 2}, {"year": 2026}, {"year": "invalid"}]
+)
+def test_results_fragments_skip_composer_queries_and_match_full_page_html(
+    client,
+    user,
+    planting_catalog,
+    monkeypatch,
+    filters,
+):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from diary import views
+
+    for _ in range(22):
+        entry(user, body="Synthetic tomato note")
+    client.force_login(user)
+    full = client.get("/", filters)
+    assert full.context["capture_form"]
+
+    def unused_composer(*args, **kwargs):
+        pytest.fail("A results-only fragment constructed the diary composer.")
+
+    monkeypatch.setattr(views, "CaptureForm", unused_composer)
+    with CaptureQueriesContext(connection) as queries:
+        fragment = client.get(
+            "/",
+            filters,
+            HTTP_HX_REQUEST="true",
+            HTTP_HX_TARGET="diary-results",
+        )
+    assert fragment.status_code == full.status_code
+    assert fragment.text.strip() in full.text
+    assert "capture_form" not in fragment.context
+    # Check only unused action choices; filter and entry queries remain legitimate.
+    assert not any(
+        f'FROM "{table}"' in query["sql"]
+        for query in queries
+        for table in ("garden_plantingcategory", "garden_plantingcycle")
+    )
+
+
 def test_operator_link_is_only_in_staff_account_menus(client, user, staff_user):
     client.force_login(user)
     assert 'class="menu-link" href="/operator/"' not in client.get("/").text

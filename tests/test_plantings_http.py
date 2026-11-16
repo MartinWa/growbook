@@ -940,9 +940,7 @@ def test_batch_variety_choices_stay_required_after_reloading(client, user, plant
     crop, first, second, _ = planting_catalog
     with validated_write():
         cycle = PlantingCycle.objects.create()
-        original = Planting.objects.create(
-            crop=crop, variety=first, start_year=2027, batch_key=cycle.pk, cycle=cycle
-        )
+        original = Planting.objects.create(crop=crop, variety=first, start_year=2027, cycle=cycle)
     client.force_login(user)
     response = client.get(
         reverse("garden:planting-varieties"),
@@ -1061,7 +1059,7 @@ def test_batch_form_keeps_unavailable_inherited_area_until_explicitly_changed(
     saved = client.post(path, data, **headers)
     assert saved["HX-Redirect" if hx else "Location"] == destination
     added = Planting.objects.exclude(pk=original.pk).get()
-    assert added.batch_key == original.batch_key
+    assert added.cycle_id == original.cycle_id
     assert added.area_id == (leaf.pk if replacement == "leaf" else None)
 
 
@@ -1168,9 +1166,7 @@ def test_batch_add_action_follows_crop_archive_state(client, user, planting_cata
     crop, first, _, _ = planting_catalog
     with validated_write():
         cycle = PlantingCycle.objects.create()
-        original = Planting.objects.create(
-            crop=crop, variety=first, start_year=2027, batch_key=cycle.pk, cycle=cycle
-        )
+        original = Planting.objects.create(crop=crop, variety=first, start_year=2027, cycle=cycle)
         Crop.objects.filter(pk=crop.pk).update(is_archived=archived)
     client.force_login(user)
     response = client.get(original.get_absolute_url(), HTTP_HX_REQUEST="true" if hx else "false")

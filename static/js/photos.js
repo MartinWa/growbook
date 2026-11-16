@@ -137,17 +137,8 @@
       }
       chooser.focus();
     });
-    function setBusy(value) {
-      busy = value;
-      chooser.disabled = value;
-      previews.querySelectorAll("button").forEach(button => { button.disabled = value; });
-    }
-    form.addEventListener("htmx:beforeRequest", event => {
-      if (event.detail.elt === form) setBusy(true);
-    });
-    form.addEventListener("htmx:afterRequest", event => {
-      if (event.detail.elt === form) setBusy(false);
-    });
+    form.addEventListener("form:busy", () => { busy = true; });
+    form.addEventListener("form:idle", () => { busy = false; });
     window.addEventListener("pagehide", () => urls.forEach(url => URL.revokeObjectURL(url)));
   }
 })();

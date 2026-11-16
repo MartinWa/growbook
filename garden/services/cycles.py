@@ -27,6 +27,7 @@ from ..models import (
 )
 from ._shared import (
     RegisterConflict,
+    _accept_receipt,
     _active_actor,
     _current,
     _identifier,
@@ -56,20 +57,8 @@ def cycle_id(value):
 
 def _receipt(key, actor, kind, fingerprint):
     receipt = CycleSubmission.objects.filter(pk=key).first()
-    if receipt is None:
-        return None
-    if (
-        receipt.author_id != actor.pk
-        or receipt.kind != kind
-        or receipt.payload_sha256 != fingerprint
-    ):
-        raise RegisterConflict(
-            _("This save key was already used with different content. Nothing was overwritten.")
-        )
-    record = getattr(receipt, kind)
-    if record is None:
-        raise RegisterConflict(_("This record was deleted. It was not recreated."))
-    return CycleResult(record, True)
+    record = _accept_receipt(receipt, actor, kind, fingerprint)
+    return CycleResult(record, replayed=True) if record is not None else None
 
 
 def _remember(key, actor, kind, fingerprint, record):

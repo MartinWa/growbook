@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connection
 from PIL import Image
 
-from core.backups import create_backup, verify_backup
+from core.backups import create_backup, open_snapshot, verify_backup
 from core.cleanup import cleanup_orphans
 from core.media import media_operation
 from core.models import User
@@ -142,11 +142,81 @@ def test_cleanup_waits_for_inflight_save_and_never_deletes_published_photo(
         assert published.wait(timeout=10)
         cleanup = executor.submit(worker, lambda: cleanup_orphans(apply=True, minimum_age=0))
         assert not cleanup.done()
+        text = create_entry(
+            author=user,
+            date=date(2026, 5, 9),
+            body="Text during photo publication",
+            uploads=[],
+            submission_key=uuid4(),
+        ).entry
+        assert not save.done() and not cleanup.done()
         release.set()
         saved = save.result(timeout=15)
         assert cleanup.result(timeout=15) == []
     assert saved.entry.photos.count() == 1
+    assert text.photos.count() == 0 and DiaryEntry.objects.count() == 2
     assert list(settings.MEDIA_ROOT.glob("photos/*/*/*/original.jpg"))
+
+
+def test_text_action_during_backup_keeps_the_snapshot_and_originals_consistent(
+    user,
+    planting_catalog,
+    image_upload,
+    tmp_path,
+    monkeypatch,
+):
+    from core import backups
+    from diary.actions import NewPlantingAction
+    from garden.models import Planting
+
+    before = create_entry(
+        author=user,
+        date=date(2026, 5, 9),
+        body="Before snapshot",
+        uploads=[image_upload()],
+        submission_key=uuid4(),
+    ).entry
+    copying, release = threading.Event(), threading.Event()
+    original_copy = backups.copy_private
+
+    def paused_copy(source, destination):
+        copying.set()
+        assert release.wait(timeout=10)
+        return original_copy(source, destination)
+
+    monkeypatch.setattr(backups, "copy_private", paused_copy)
+    configuration = tmp_path / "synthetic.env"
+    configuration.write_text("Synthetic recovery configuration", encoding="utf-8")
+    destination = tmp_path / "backup"
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        backup = executor.submit(worker, lambda: create_backup(destination, [configuration]))
+        assert copying.wait(timeout=10)
+        try:
+            after = create_entry(
+                author=user,
+                date=date(2026, 5, 9),
+                body="After snapshot",
+                uploads=[],
+                submission_key=uuid4(),
+                action=NewPlantingAction(crop=planting_catalog[0].pk),
+            ).entry
+            assert not backup.done()
+        finally:
+            release.set()
+        backup.result(timeout=15)
+    assert verify_backup(destination)
+    snapshot = open_snapshot(destination / "database.sqlite3")
+    try:
+        assert snapshot.execute("SELECT id FROM diary_diaryentry").fetchall() == [(before.pk,)]
+        assert snapshot.execute("SELECT entry_id FROM diary_diarysubmission").fetchall() == [
+            (before.pk,)
+        ]
+        assert snapshot.execute("SELECT entry_id FROM core_photo").fetchall() == [(before.pk,)]
+        assert snapshot.execute("SELECT id FROM garden_planting").fetchall() == []
+    finally:
+        snapshot.close()
+    assert DiaryEntry.objects.count() == 2 and Planting.objects.count() == 1
+    assert after.links.get().planting_id == Planting.objects.get().pk
 
 
 def test_snapshot_mutex_rejects_whole_request_atomic_wrapper():
