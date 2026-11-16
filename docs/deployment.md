@@ -28,12 +28,14 @@ daemon is required; verify the build and deployment on the target platform.
 docker build --tag growbook:local .
 ```
 
-The multi-stage Dockerfile pins the Python base image by digest, verifies native source
-checksums, installs hash-pinned Python dependencies, compiles translations and collects
-static assets. It builds SQLite and a decoder-only HEIC library chain; pip is removed from
-the final runtime image. Build-time checks initialize WSGI as the default non-root user to
-catch unreadable collected assets. No local databases, photos, `.env` files or virtual
-environments enter the build context.
+The multi-stage Dockerfile pins image inputs by digest, verifies native source
+checksums, installs hash-pinned Python dependencies exported from `uv.lock`, compiles
+translations and collects static assets. It builds SQLite and a decoder-only HEIC library
+chain; pip is removed from the final runtime image. Build-time checks initialize WSGI
+as the default non-root user to catch unreadable collected assets. No local databases,
+photos, `.env` files or virtual environments enter the build context.
+
+See [Dependency updates](development.md#dependency-updates) for lockfile maintenance.
 
 **HEIC packaging:** the images use a decoder-only source build. The GPL-encoder wheel
 boundary and release checks are documented in the

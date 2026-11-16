@@ -1,9 +1,21 @@
 # syntax=docker/dockerfile:1
+FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv-tool
+
 # Build native dependencies from checksum-pinned sources. Do not ship the GPL x265 wheel.
 FROM python:3.14.10-slim-bookworm@sha256:3fe1a0b6c2d6b2ebb572906cdabeca75aeb558c0c17db5ffefbcf8094871c32b AS os-base
 # Apply Debian fixes to inherited packages before building development or production.
 RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
+
+FROM os-base AS requirements-export
+COPY --from=uv-tool /uv /usr/local/bin/uv
+ENV UV_PYTHON_DOWNLOADS=never
+WORKDIR /tmp/dependencies
+COPY pyproject.toml uv.lock ./
+RUN uv export --locked --no-dev --no-emit-project --format requirements-txt \
+      --output-file /tmp/requirements.txt \
+    && uv export --locked --only-group dev --no-emit-project --format requirements-txt \
+      --output-file /tmp/requirements-dev.txt
 
 FROM os-base AS native-build
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,7 +60,8 @@ RUN mkdir -p /opt/native/share/sources \
 
 FROM native-build AS python-build
 ENV LD_LIBRARY_PATH=/opt/native/lib LIBHEIF_ROOT=/opt/native
-COPY requirements.txt requirements-build.txt /tmp/
+COPY requirements-build.txt /tmp/
+COPY --from=requirements-export /tmp/requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements-build.txt \
     && python -m pip install --no-cache-dir --require-hashes --no-build-isolation \
       --no-binary=pillow-heif --prefix=/opt/python -r /tmp/requirements.txt
@@ -74,7 +87,7 @@ RUN python /usr/local/bin/growbook-check-runtime.py
 FROM runtime-base AS development
 # Only the dev group is installed, without dependency resolution. The shared
 # source-built pillow-heif stays in the base interpreter's site-packages.
-COPY requirements-dev.txt /opt/requirements-dev.txt
+COPY --from=requirements-export /tmp/requirements-dev.txt /opt/requirements-dev.txt
 RUN python -m venv --system-site-packages /state/venv \
     && /state/venv/bin/python -m pip install --no-cache-dir --require-hashes --no-deps \
        -r /opt/requirements-dev.txt \

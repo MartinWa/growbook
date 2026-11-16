@@ -168,9 +168,9 @@ the stylesheet and fails if the committed file differs.
 ## GitHub Actions
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`, manual
-dispatch and weekly. Linux jobs check locked dependencies, both generated Docker
-requirements files, Ruff, translations, database and migration checks, and the application
-and Chromium suites in the development image. Development and production share the same
+dispatch and weekly. Linux jobs check lockfile consistency, Ruff, translations,
+database and migration checks, and the application and Chromium suites in the
+development image. Development and production share the same
 native builds and application dependencies. The container job validates workflow syntax,
 builds the production image, and checks migrations, deployment settings and non-root WSGI
 initialization with disposable storage.
@@ -221,14 +221,16 @@ Debian repositories can change between builds from the same commit. The release 
 digest and SBOM identify the resulting runtime; use the published digest for repeatable
 deployments as described in [Release images](#release-images).
 
-After a uv update, regenerate both Docker requirements files on the PR branch before
-merging. Use uv 0.13.6 (also pinned in CI) for lockfile/export tooling; this can run on the
-editing host without installing or running the application there:
+Python dependency updates change `pyproject.toml` and `uv.lock`. Every Docker build
+exports hash-pinned runtime and development requirements from the lockfile in a
+build-only stage using `uv export --locked`. A missing or outdated lockfile fails the
+build. The exports are not tracked in the checkout, so Dependabot PRs need no manual
+export commit.
 
-```sh
-uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.txt
-uv export --locked --only-group dev --no-emit-project --format requirements-txt --output-file requirements-dev.txt
-```
+Use uv 0.13.6 for lockfile tooling, matching CI and the digest-pinned Docker export
+image. This tooling can run on the editing host without installing or running the
+application there. Update the export-tool image manually together with CI's
+`UV_VERSION`.
 
 Review `requirements-build.txt`, the pinned uv/audit tools, checksum-pinned native sources
 and vendored HTMX manually. Base-image Python patch updates must stay aligned with
