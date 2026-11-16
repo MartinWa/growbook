@@ -76,6 +76,9 @@ maintained documentation.
 
 ## UI, images and security
 
+[Interface foundations](docs/design.md) documents the shared theme, tokens and form
+conventions.
+
 - Django forms/templates and HTMX are the primary UI. Use small external plain
   JavaScript modules for local state; do not add a SPA or frontend build pipeline
   without a demonstrated need.
@@ -88,25 +91,25 @@ maintained documentation.
 - Decode and re-encode permitted images; enforce upload count, byte and pixel
   limits. Retain originals privately and strip location/EXIF metadata from display
   derivatives. Process images outside write transactions.
-- Review native dependency notices: upstream `pillow-heif` wheels include a GPL
-  encoder; the production image uses the documented decoder-only source build.
+- Keep the decoder-only HEIC source build; see the
+  [packaging boundary](third_party/README.md#heic-packaging-boundary) before changing
+  native dependencies or publishing images.
 - Failed saves must be visible and retryable without silently dropping images or
   creating duplicate entries.
 
 ## Deployment
 
-- Keep the installation private: HTTPS through an existing managed reverse proxy,
-  no published application ports, no public DNS exposure and no router port
-  forwarding.
-- Run as a configured non-root user and verify volume permissions. `PUID`/`PGID`
-  environment variables are not implemented.
-- Hostnames, proxy network/snippet names, volume paths and user/group IDs live in
-  untracked configuration or a private operations repository.
+Follow the [deployment guide](docs/deployment.md) for builds, private configuration and
+upgrades, and verify a backup and clean restore as described in the
+[recovery guide](docs/backup-and-recovery.md) before real data use.
+
+- Keep the installation private: HTTPS through an existing managed reverse proxy, with
+  no published ports, public DNS or router forwarding.
+- Run as a configured non-root user; `PUID`/`PGID` are not implemented. Keep hostnames,
+  proxy and volume paths and user/group IDs in untracked configuration.
 - Pin tested dependency versions and image inputs; limit log retention.
-- Production `check --deploy` deliberately reports W005/W021 because this private
-  installation does not claim control of sibling domains or enroll in HSTS preload.
-  Do not suppress those warnings.
-- Backup and a clean-instance restore must be verified before real data use.
+- Do not suppress the W005/W021 warnings from production `check --deploy`; see
+  [Initialize and start](docs/deployment.md#initialize-and-start).
 
 ## Implementation conventions
 
@@ -116,23 +119,16 @@ operational commands), `diary` (entries and validated creation), and `garden`
 modules only when a feature needs them; do not add a generic repository, event
 bus or separate API layer before it is needed.
 
-Use `pytest-django` for domain and integration tests. Run application commands and tests
-in the Linux development container, using `docker compose -f compose.development.yaml
-run --rm app python tools/run_tests.py`. Windows hosts editing, PowerShell launchers
-and Docker Desktop; native Windows application execution is unsupported. Tests use real
-file-backed SQLite/WAL in container volumes, not an in-memory substitute for contention.
+Use `pytest-django` for domain and integration tests. Run commands and tests in the
+Linux development container as described in
+[Test and check](docs/development.md#test-and-check); Windows is a host for editing and
+PowerShell launchers, with no native application execution. Tests use real file-backed
+SQLite/WAL, not an in-memory substitute for contention.
 
-For a request to run locally and confirm Playwright works, run the
-[browser suite](docs/development.md#browser-tests) in the development image with its
-installed Chromium. Run the
-full browser suite when requested or when interactive changes need regression
-coverage. Reuse instructions already read in the current conversation. This
-repository uses `AGENTS.md` and `README.md`; do not probe for a repository
-`SKILL.md`. Read installed skill instructions only when the task needs that skill.
-
-Cover at least: text-only, photo-only and multi-photo entries, photo failures and
-retries, upload limits, authorization for pages/media/downloads, overlapping writes,
-and clean-instance restore. Browser tests cover real form interaction; they do not
-verify device-native photo pickers or a deployment's private-network routing, so do
-not present them as device evidence. Template styling does not need brittle
-snapshot tests, but interactive behavior and accessibility do need checks.
+Run the full [browser suite](docs/development.md#browser-tests) when requested, to confirm
+Playwright works locally, or when interactive changes need regression coverage. Reuse
+instructions already read in the current conversation. Cover the behaviors listed in
+[Test and check](docs/development.md#test-and-check); browser tests exercise real form
+interaction but are not evidence about device-native pickers or private-network routing.
+Template styling does not need brittle snapshot tests, but interactive behavior and
+accessibility do need checks.

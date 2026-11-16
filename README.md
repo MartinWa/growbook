@@ -117,60 +117,27 @@ development; see [Styles](docs/development.md#styles). The
 [interface foundation guide](docs/design.md) describes the shared theme and form
 conventions.
 
-## Run locally
+## Quick start
 
-Follow [Container development](docs/development.md#container-development) for setup,
-startup, automatic reload, VS Code debugging and persistent development storage.
+Follow [Container development](docs/development.md#container-development) to build and
+start the development container, wait for initialization, and create the first account.
 
-Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts. There
-are no seeded credentials. Diary, photo, register and planting admin screens are
-read-only; use the diary pages for observations, **Growing areas** and
-**Crops and varieties** for records, and **Plantings** for plans and milestones.
+Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts; there are
+no seeded credentials. Diary, photo, register and planting admin screens are read-only:
+use **Diary** for observations, **Growing areas** and **Crops and varieties** for records,
+and **Plantings** for plans and milestones. The [usage guide](docs/usage.md) covers each
+screen, save retries and no-JavaScript behavior.
 
-The separate development Compose configuration publishes HTTP only on host loopback.
-Its database, photos, generated secret, Linux virtualenv and test scratch files live in
-Docker volumes. Do not expose the development server or point it at production data.
+The development configuration publishes HTTP only on host loopback and keeps state in
+Docker volumes; do not expose it or point it at production data. See
+[Container development](docs/development.md#container-development) for reload, VS Code
+debugging and storage, and [Test and check](docs/development.md#test-and-check) for the
+test, lint, migration and browser commands.
 
-## Using growbook
-
-- **Growing areas** and **Crops and varieties** open directly from the main menu.
-  Browse top-level areas and their child cards, choose a crop category, expand crop
-  groups, read information and photos, and search crop and variety names. **Manage growing
-  areas** maintains areas; **Manage categories** maintains crop categories. Crop and variety
-  records retain their editing controls in their details.
-- **Plantings** opens status and custom-category cards with growing-year counts.
-  Choose a category, then a cycle to open its details. Create annual or persistent
-  cycles, start or complete a batch, record member events, and open register histories.
-- **Diary** holds observations. Quick-add a note, photos or both; search and filter by
-  year, area, crop, variety or planting; open linked records from an entry.
-- **Photos** use the native image picker where available, with previews, captions,
-  ordering and private original downloads.
-
-The [usage guide](docs/usage.md) covers each screen, save retries and no-JavaScript
-behavior.
-
-## Test and check
-
-The [development guide](docs/development.md#test-and-check) lists the test, lint,
-migration and deployment-check commands. Run `tools/run_tests.py` inside the development
-container: it compiles translations and keeps artifacts on Linux storage. Tests use real
-file-backed SQLite/WAL and synthetic images; browser tests are excluded. The guide also
-covers browser tests, styles, translations, CI checks and dependency updates.
-
-## Run with Docker
-
-The Dockerfile builds a Linux production image with Waitress. The supplied Compose file
-runs one application process with two threads behind an existing private HTTPS reverse
-proxy. The [deployment guide](docs/deployment.md) covers building, configuration,
-initialization and upgrades.
-
-## Backup and recovery
-
-Use the [operational recovery guide](docs/backup-and-recovery.md) for backup,
-verification, clean-instance restore and orphan cleanup. Never copy a live SQLite
-database file as a backup. Protect backups as sensitive data, keep an independent copy,
-and verify a restore into a new, nonexistent destination before real use. This is
-operational recovery, not portable import/export.
+For production, the image runs behind a private HTTPS reverse proxy; follow the
+[deployment guide](docs/deployment.md). Before real data, back up and verify a clean
+restore as described in [Backup and recovery](docs/backup-and-recovery.md): never copy a
+live SQLite file, and keep an independent copy.
 
 ## Documentation
 

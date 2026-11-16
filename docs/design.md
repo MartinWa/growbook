@@ -107,24 +107,18 @@ aspect ratio, with both dimensions limited to 24 rem and rounded corners on the
 photo itself. Saved captions appear below their photos; galleries show every photo.
 Notes remain fully visible at every width.
 
-With JavaScript, Add photos is one button that opens the native image picker
-directly. Camera/library options and their language are supplied by the browser
-and operating system. Without JavaScript, separate camera and library inputs
-are visible in one column below 600 px and
-two columns above it. Photo limits appear with warnings after a selection exceeds
-the configured count or byte limits.
+The picker's user-facing behavior is described in
+[Photos and uploads](usage.md#photos-and-uploads).
 
-`components/photo_picker.html` and `photos.js` share this behavior across capture,
-observation editing and register forms. Register and edit inputs share the existing
-`photos` field name, so Django combines both sources through its multiple-file
-widget. Selection and removal update native FileLists where supported; previews
-use object URLs, released on replacement or page exit. Removing a preview keeps
-focus on another removal control or the chooser. Errors link back to the chooser
-when native inputs are hidden. Selected counts show the chosen number; count warnings
-include existing photos kept after any marked removals. Warnings do not discard files
-or replace server validation.
-When FileList assignment is unavailable, native replacement selection remains
-usable and a Clear selected photos action empties both inputs.
+`components/photo_picker.html` and `photos.js` implement it across capture, observation
+editing and register forms. Register and edit inputs share the `photos` field name, so
+Django combines both sources through its multiple-file widget. Selection and removal
+update native FileLists where supported; previews use object URLs released on replacement
+or page exit, and removing a preview keeps focus on another control. Errors link back to
+the chooser when native inputs are hidden. Count warnings include existing photos kept
+after marked removals and never discard files or replace server validation. When FileList
+assignment is unavailable, native replacement selection remains usable and a Clear
+selected photos action empties both inputs.
 
 Full-form actions stick to the bottom below 600 px when the viewport is at least
 600 px tall. Their surface and safe-area padding keep controls legible; field/error
@@ -170,8 +164,8 @@ verify device-native camera/library pickers; those require the intended phone.
 ## Register layout and interaction
 
 Main navigation links directly to Diary, Growing areas, Crops and varieties, and
-Plantings; the former Garden landing URL redirects to Growing areas. Growing areas
-reuse the crop-category grid and card styles for top-level areas and child areas.
+Plantings; `/garden/` redirects to Growing areas. Growing areas reuse the crop-category
+grid and card styles for top-level areas and child areas.
 Cards share title and footer spacing, soft shadows and a decorative botanical sprig
 on an inset seasonal surface when no photo is available. Category maintenance actions
 use quiet pill buttons in the card footer.
@@ -206,8 +200,8 @@ Selections bring off-screen details into view and move focus to their labelled r
 This navigation happens during activation. Delayed responses do not repeat it,
 and browser history retains its saved scroll position.
 
-Growing-area cards use bounded area reads and parent IDs to retain ancestor context
-and cut legacy cycles defensively. They retain archived ancestors of active children.
+Growing-area cards use bounded area reads and parent IDs to retain ancestor context.
+They retain archived ancestors of active children.
 Plantings reuses `.category-grid`, `.category-card` and the seasonal botanical
 placeholder for Ongoing, Planned, Completed and custom categories. Cards always show
 the matching cycle count and selected year, including zero counts. Quiet footer actions

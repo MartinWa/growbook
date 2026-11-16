@@ -2,7 +2,7 @@
 
 Canonical guide for local checks, browser tests, styles, translations, workflow audits,
 dependency updates and release publishing. The
-[main README](../README.md#run-locally) links here for first-time setup. Deployment
+[main README](../README.md#quick-start) links here for first-time setup. Deployment
 procedures are in the [deployment guide](deployment.md).
 
 ## Container development
@@ -16,7 +16,14 @@ production's pinned Python, SQLite and decoder-only image libraries.
 docker version
 docker compose -f compose.development.yaml build app
 docker compose -f compose.development.yaml up -d app
-docker compose -f compose.development.yaml logs --tail=50 app
+docker compose -f compose.development.yaml logs --follow --tail=50 app
+```
+
+Wait until the logs show **Starting development server at** before creating the first
+account; detached startup returns before migrations finish. Press Ctrl+C to stop following
+the logs (the container keeps running), then run:
+
+```powershell
 docker compose -f compose.development.yaml exec app python manage.py createsuperuser
 ```
 
@@ -77,10 +84,11 @@ docker compose -f compose.development.yaml run --rm app python manage.py makemig
 
 Use `tools/run_tests.py` inside the container: it compiles translations and keeps
 temporary artifacts in the Linux state volume. Tests use real file-backed SQLite/WAL and
-synthetic images, covering
-capture, observation editing and deletion, permissions, links and derived filters,
-Unicode search, image failures, authorization, retries, concurrency and clean-instance
-recovery. Browser tests are excluded from the default run.
+synthetic images, covering text-only, photo-only and multi-photo entries, photo failures
+and retries, upload limits, capture, observation editing and deletion, permissions,
+links and derived filters, Unicode search, authorization for pages, media and downloads,
+overlapping writes and clean-instance restore. Browser tests are excluded from the
+default run.
 
 For UI-copy changes, update the English source messages and
 `locale/sv/LC_MESSAGES/django.po`, then recompile with
@@ -90,53 +98,27 @@ compile them automatically.
 ## Validated garden writes
 
 Call `garden.services` operations with an active actor and outside an existing database
-transaction. Every public garden edit and delete requires the keyword
-`expected_updated_at`: a timezone-aware `datetime` containing the version the caller
-read. Omitting it is a call error; `None`, strings, malformed values and timezone-naive
-datetimes raise `ValidationError`. Forms preserve microseconds and require a timestamp
-with an explicit timezone.
+transaction. Every public edit and delete takes a timezone-aware `datetime`
+`expected_updated_at` token read from the target record, event, photo owner, cycle or
+category; omitting it or passing a naive/invalid value is an error. Member changes
+advance the cycle version, and category deletion advances linked cycles. Read saved
+state again before a dependent edit rather than reusing a stale token.
 
-Register and planting edits/deletes use the target record's `updated_at`. Event
-edits/deletes use the event's timestamp. `edit_register_photo` and
-`delete_register_photo` use the photo owner's timestamp, including planting owners.
-Photo and event writes also advance the owner's version. Read the saved state before
-starting a subsequent independent edit; do not fetch a fresh timestamp merely to submit
-values from a stale read. Creation needs no version token, and archive operations keep
-their explicit desired-state contract.
+Archive operations (`archive_crop`, `archive_variety` and `archive_area`) take the explicit
+desired `archived` state without an `expected_updated_at` token.
 
-`edit_cycle` and `transition_cycle` use the shared cycle's `updated_at`.
-Adding, editing or deleting a member advances that version, so a stale cycle-wide
-action cannot miss changed membership or years. Cycle completion/corrections that
-change persistent end years also advance the affected members' versions.
-Category-only cycle changes preserve member versions. `edit_planting_category` and
-`delete_planting_category` use the category's version; deleting a category advances
-linked cycles' versions while preserving their members. Category creation needs no
-version token. Pass typed integer category IDs to cycle and creation writers.
+Create/edit saves with submission receipts retry the original payload, version token
+and `submission_key`. Writers check the active actor and matching receipt before current
+association eligibility and stale-state checks in short serialized writes; a matching
+retry returns the saved record, changed content conflicts. Cycle completion and
+corrections optionally accept `evaluations` keyed by member ID with the full
+`expected_member_versions` snapshot, preserving omitted text.
 
-Completion and cycle corrections optionally accept `evaluations` keyed by member ID
-and `expected_member_versions` containing the entire member-version snapshot read by
-the form. Supplied text may be blank to clear it; omitted evaluations stay intact.
-Membership, member versions, lifecycle dates and end years are checked and saved
-atomically. Omitting evaluations preserves older receipt fingerprints.
-
-`diary.services.create_entry` accepts one typed action from `diary.actions` and separate
-`planting_uploads` for new plantings. It runs transaction-level garden writes under the
-diary's active-actor checks, media lock and creation receipt. An identical replay returns
-the entry without rerunning its action. Diary edits and deletion never undo an action.
-
-For create/edit saves with submission receipts, retry the original payload, version
-token and `submission_key`. Writers check the active actor and matching immutable
-receipt before current association eligibility and stale-state checks within short
-serialized writes. A matching retry returns the saved record; changed content or another
-author conflicts. See [Saving changes and retries](usage.md#saving-changes-and-retries)
-for the form workflow.
-
-`diary.services.update_entry` follows the same receipt contract and returns the current
-`DiaryEntry` on both a first save and an identical retry. Pass the original
-`submission_key`, `expected_updated_at`, date, title, note, typed tag IDs, removal IDs and
-uploads when retrying. Omitting a key generates a new submission for service callers;
-browser edit forms require and preserve their key. Existing diary creation receipts
-remain unchanged. Separate photo edits and deletions continue to use version checks.
+`diary.services.create_entry` runs one typed `diary.actions` action and separate
+`planting_uploads` under the diary actor checks, media lock and receipt, so an identical
+replay does not rerun the action; `update_entry` follows the same contract. Diary edits
+and deletion never undo an action. See
+[Saving changes and retries](usage.md#saving-changes-and-retries) for the form workflow.
 
 ## Browser tests
 
@@ -287,11 +269,10 @@ From PowerShell, after the same checkout update, tag fetch and successful CI, us
 ```
 
 The script requires a clean `main` checkout and increments the highest local stable tag's
-patch number by default (`0.1.9` becomes `0.1.10`), including legacy `v`-prefixed tags when
-comparing history. Use `-Version X.Y.Z` to choose a version explicitly or create the first
-release. Without `-Push`, it creates the annotated tag locally; `-WhatIf` previews the
-operation. If a push fails, the local tag remains and the error gives the command to retry
-that push.
+patch number by default (`0.1.9` becomes `0.1.10`). Use `-Version X.Y.Z` to choose a
+version explicitly or create the first release. Without `-Push`, it creates the annotated
+tag locally; `-WhatIf` previews the operation. If a push fails, the local tag remains and
+the error gives the command to retry that push.
 
 No manual GitHub Release creation is needed; watch **Actions → Release image** for
 completion. A manually published stable GitHub Release remains a supported trigger. Tag

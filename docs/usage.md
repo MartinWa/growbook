@@ -7,15 +7,12 @@ implemented features and deliberate limitations. Setup commands are in the
 
 ## Application version
 
-The muted footer at the bottom right shows **GrowBook**, the version and **GitHub**.
-The version links to releases and **GitHub** links to the project. A small orange dot
-beside the version means a newer stable release is available; its tooltip and
-screen-reader text say **Update available**. Signed-in pages
-check through the application server with JavaScript. Without JavaScript, or if the
-check cannot reach GitHub, the version and links remain usable. Local development runs
-show the base version. Hover over the version for its exact Git identifier, including
-local changes or commits after a release. Builds without version metadata show
-**Development**. See
+The muted footer shows **GrowBook**, the version and **GitHub**; the version links to
+releases. An orange dot and an **Update available** tooltip mean a newer stable release
+exists. Signed-in pages check through the application server with JavaScript; without
+it, or when GitHub is unreachable, the links still work and no indicator appears. Local
+runs show the base version and its exact Git identifier on hover; builds without metadata
+show **Development**. See
 [deployment configuration](deployment.md#application-version-and-update-check).
 
 ## Seasonal appearance
@@ -41,7 +38,7 @@ and growing-area headings use their first uploaded image when available.
 ## Growing areas, crops and varieties
 
 Open **Growing areas** or **Crops and varieties** directly from the main menu.
-Existing `/garden/` links redirect to **Growing areas**. Creation and archive actions
+`/garden/` redirects to **Growing areas**. Creation and archive actions
 appear above the lists, with crop and variety search alongside them.
 With JavaScript, selecting a variety or planting shows one record in a shared
 details panel beside the list on wide screens and below it on narrow screens. Selecting
@@ -76,7 +73,7 @@ and archive filters after Save or Cancel. Failed saves keep that destination.
 The same category image appears on its card and in the register heading. Transparent
 PNG and WebP images retain their transparency. Uncategorized uses its own built-in
 illustration on its card and in its heading; categories without an image use the
-default crop heading illustration. Older filtered register links open the full register.
+default crop heading illustration.
 
 From **Manage categories**, edit a category to change its name or crop links, remove
 its image, or upload one replacement image. Selecting another image replaces the
@@ -101,8 +98,7 @@ Clearing search keeps the archive choice; hiding archived varieties keeps the se
 search applies after a short pause or Enter, and Back restores the filter URL and results.
 Failed requests keep the current results and show **Retry**. Without JavaScript, use **Apply**.
 Search opens matching groups. Active varieties remain visible under archived crops,
-marked by the crop's archive badge. Existing crop-list URLs open the combined register
-and retain their search and archive choices.
+marked by the crop's archive badge.
 
 **Growing areas** opens an overview of top-level area cards. Each card shows its name
 and first photo when available, using the same layout as crop-category cards. Open a
@@ -371,9 +367,8 @@ is shown as a dash and zero as zero.
   returning to Planned or reopening a Completed cycle. Reopening clears the completion
   date and persistent end years. Changing shared categories leaves member records
   intact. Transitions and corrections preserve IDs, events, photos and diary links;
-  evaluations change only when supplied. Older automatically classified cycles can have unknown actual dates;
-  correct their classification here. The initial upgrade rule is documented in
-  [deployment](deployment.md#upgrade-an-existing-installation).
+  evaluations change only when supplied. Cycles with unknown actual dates can be
+  corrected here.
 - Filter by crop, variety or area, or find **Unassigned area only** or **Unknown variety
   only**. Area filters normally include the selected area and all descendants; each
   cycle counts once and member details show the actual assigned place.
