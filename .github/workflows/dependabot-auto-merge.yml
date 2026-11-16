@@ -17,7 +17,27 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      - name: Check Dependabot commit signatures
+        id: eligibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          commit_checks=$(gh api --paginate "repos/$GH_REPO/pulls/$PR_NUMBER/commits" \
+            --jq '.[] | (.author.login == "dependabot[bot]" and .commit.verification.verified == true)')
+          eligible=true
+          while IFS= read -r commit_verified; do
+            if [[ "$commit_verified" != true ]]; then
+              eligible=false
+            fi
+          done <<< "$commit_checks"
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          if [[ "$eligible" != true ]]; then
+            echo "Skipping automatic merge setup: this PR includes unsigned or maintainer-created commits."
+          fi
       - name: Read Dependabot metadata
+        if: steps.eligibility.outputs.eligible == 'true'
         id: metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
@@ -27,4 +47,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: gh pr merge --auto --squash --match-head-commit "$PR_HEAD_SHA" "$PR_URL"
