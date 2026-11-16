@@ -213,9 +213,11 @@ can carry Debian security fixes. Dependabot does not update individual Debian pa
 the shared Docker base stage upgrades inherited packages within the pinned Debian
 release. Dependabot security updates are not delayed by cooldown. Patch updates may be
 auto-merged by [`dependabot-auto-merge.yml`](../.github/workflows/dependabot-auto-merge.yml) after
-required checks pass; minor and major updates still require review. Django stays on 5.2
-LTS and Python stays on the current minor series. Dependabot resolves with its bundled
-Python 3.14.9; CI and containers use the pinned 3.14.10.
+required checks pass; minor and major updates still require review. The helper skips
+automatic merge setup when commits are unsigned or were added by a maintainer; it keeps
+Dependabot's signature verification enabled. Django stays on 5.2 LTS and Python stays on
+the current minor series. Dependabot resolves with its bundled Python 3.14.9; CI and
+containers use the pinned 3.14.10.
 
 Debian repositories can change between builds from the same commit. The release image
 digest and SBOM identify the resulting runtime; use the published digest for repeatable
@@ -227,7 +229,7 @@ build-only stage using `uv export --locked`. A missing or outdated lockfile fail
 build. The exports are not tracked in the checkout, so Dependabot PRs need no manual
 export commit.
 
-Use uv 0.13.6 for lockfile tooling, matching CI and the digest-pinned Docker export
+Use uv 0.13.8 for lockfile tooling, matching CI and the digest-pinned Docker export
 image. This tooling can run on the editing host without installing or running the
 application there. Update the export-tool image manually together with CI's
 `UV_VERSION`.
