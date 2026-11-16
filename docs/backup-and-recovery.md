@@ -1,7 +1,7 @@
 # Operational backup and recovery
 
 This is the canonical procedure for the backup, verification, restore and cleanup
-commands. The [main README](../README.md#backup-and-recovery) links here; keep
+commands. The [main README](../README.md#quick-start) links here; keep
 operational instructions on this page rather than maintaining duplicate guides.
 
 This is an **operational backup** for disaster recovery, not a portable export of
@@ -127,13 +127,8 @@ deletes independent backup storage. A crash after file publication but before th
 database commit may leave an orphan; a successful save must not leave a committed
 photo row pointing at a file that has not yet been published.
 
-Create/edit retries compare the original immutable payload fingerprint and actor
-against the stored receipt, not mutable record fields. Diary, register, planting,
-cycle, planting-category and event saves retain receipts; an uncertain photo retry cannot append images
-twice. A reused key with different content conflicts; a missing receipt target
-fails instead of recreating a deleted record. Matching receipts are checked before
-current association eligibility and stale-state checks; see
-[Saving changes and retries](usage.md#saving-changes-and-retries).
+Create/edit retries are receipt-based, including photo uploads, and never recreate a
+deleted record; see [Saving changes and retries](usage.md#saving-changes-and-retries).
 
 Allowed deletion of diary entries, registers, plantings or photos commits database
 changes before removing live file bundles, using the same media-operation lock as

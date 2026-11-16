@@ -1,7 +1,7 @@
 # Deploying growbook
 
 Canonical guide for container builds, private installation configuration and upgrades.
-The [main README](../README.md#run-with-docker) has the short version; keep deployment
+The [main README](../README.md#quick-start) has the short version; keep deployment
 procedures here.
 
 ## SQLite runtime
@@ -10,8 +10,7 @@ Development, tests and production run in Linux containers with checksum-pinned S
 3.51.3 built from source. Application checks reject runtimes without the WAL-reset fix;
 recognized fixed backports are 3.50.7 and 3.44.6 within their release series. Installing
 a newer Python package alone does not establish SQLite safety. Native Windows execution
-and the former project-local DLL installer are unsupported; see
-[Container development](development.md#container-development).
+is unsupported; see [Container development](development.md#container-development).
 
 Connections use WAL, `synchronous=FULL`, a 10-second busy timeout and `IMMEDIATE` for
 explicit transactions. Image processing and file copying happen outside short database
@@ -36,16 +35,17 @@ the final runtime image. Build-time checks initialize WSGI as the default non-ro
 catch unreadable collected assets. No local databases, photos, `.env` files or virtual
 environments enter the build context.
 
-**HEIC packaging:** upstream `pillow-heif` wheels bundle the GPL x265 encoder.
-Development and production images share the BSD wrapper built from source against
-dynamically linked LGPL decoder libraries without x265. Review the [dependency notices](../third_party/README.md) before
-publishing binaries or images.
+**HEIC packaging:** the images use a decoder-only source build. The GPL-encoder wheel
+boundary and release checks are documented in the
+[dependency notices](../third_party/README.md#heic-packaging-boundary).
 
 ### Application version and update check
 
-Published images contain their release tag in `GROWBOOK_VERSION`, which the footer
-displays. Local builds default to **Development** and skip update checks. When building
-an unmodified release checkout locally, stamp its actual tag explicitly:
+[Application version](usage.md#application-version) describes the footer. This section
+covers how the version is stamped and the update check configured. Published images
+contain their release tag in `GROWBOOK_VERSION`. Local builds default to **Development**
+and skip update checks. When building an unmodified release checkout locally, stamp its
+actual tag explicitly:
 
 ```sh
 docker build --build-arg GROWBOOK_VERSION=X.Y.Z --tag growbook:X.Y.Z .
@@ -151,25 +151,10 @@ default for this single-container image, so an image update does not require a s
 `migrate` command. Create and verify a backup before changing the schema, and keep the
 application stopped while the backup runs.
 
-The crop-category migration removes the former free-text Category field on
-varieties and discards its values. It does not create crop categories or modify
-other variety fields and relationships. Retain the verified pre-upgrade backup if
-those old values might be needed later.
-
-The planting-batch migration preserves existing planting IDs, associations and labels.
-Each existing planting starts as its own batch, even when names match. Add further
-varieties through the planting's details after upgrading; records are not merged
-automatically.
-
-The planting-cycle migration creates one shared cycle per existing batch and keeps
-all member IDs, associations, year ranges, labels, events, photos and save receipts.
-It captures the garden's local year once and classifies each member: a future start
-year suggests Planned; an annual start before that year or a persistent end before
-that year suggests Completed; otherwise Ongoing. A mixed batch is Ongoing if any
-member suggests Ongoing, otherwise Planned if any suggests Planned, otherwise Completed.
-Unknown actual start and completion dates remain blank. This is an initial classification;
-users can correct it through **Edit cycle**. Current statuses and custom-category
-memberships apply to past-year views too.
+Migrations preserve existing records, associations, labels, events, photos and save
+receipts; migrated cycles get an initial status that can be corrected through
+**Edit cycle**. Keep the verified pre-upgrade backup. The migration files under each
+app's `migrations/` directory describe any specific schema change.
 
 ```sh
 docker compose build growbook
