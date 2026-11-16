@@ -43,7 +43,6 @@ updates:
     ignore:
       # Update the export tool together with UV_VERSION in ci.yml.
       - dependency-name: ghcr.io/astral-sh/uv
-        versions: ["*"]
       # Keep the Python series aligned with .python-version and pyproject.toml.
       - dependency-name: python
         update-types: [version-update:semver-major, version-update:semver-minor]
