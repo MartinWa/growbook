@@ -16,7 +16,14 @@ production's pinned Python, SQLite and decoder-only image libraries.
 docker version
 docker compose -f compose.development.yaml build app
 docker compose -f compose.development.yaml up -d app
-docker compose -f compose.development.yaml logs --tail=50 app
+docker compose -f compose.development.yaml logs --follow --tail=50 app
+```
+
+Wait until the logs show **Starting development server at** before creating the first
+account; detached startup returns before migrations finish. Press Ctrl+C to stop following
+the logs (the container keeps running), then run:
+
+```powershell
 docker compose -f compose.development.yaml exec app python manage.py createsuperuser
 ```
 
@@ -96,6 +103,9 @@ transaction. Every public edit and delete takes a timezone-aware `datetime`
 category; omitting it or passing a naive/invalid value is an error. Member changes
 advance the cycle version, and category deletion advances linked cycles. Read saved
 state again before a dependent edit rather than reusing a stale token.
+
+Archive operations (`archive_crop`, `archive_variety` and `archive_area`) take the explicit
+desired `archived` state without an `expected_updated_at` token.
 
 Create/edit saves with submission receipts retry the original payload, version token
 and `submission_key`. Writers check the active actor and matching receipt before current

@@ -151,10 +151,12 @@ default for this single-container image, so an image update does not require a s
 `migrate` command. Create and verify a backup before changing the schema, and keep the
 application stopped while the backup runs.
 
-Migrations preserve existing records, associations, labels, events, photos and save
-receipts; migrated cycles get an initial status that can be corrected through
-**Edit cycle**. Keep the verified pre-upgrade backup. The migration files under each
-app's `migrations/` directory describe any specific schema change.
+The crop-category migration removes the former free-text **Category** field on varieties
+and discards its values without creating crop categories. Preserve any values you need
+before upgrading, and keep the verified pre-upgrade backup.
+
+Migrated cycles get an initial status that can be corrected through **Edit cycle**. The
+migration files under each app's `migrations/` directory describe specific schema changes.
 
 ```sh
 docker compose build growbook

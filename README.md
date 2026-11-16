@@ -119,13 +119,8 @@ conventions.
 
 ## Quick start
 
-Build and start the development container, then create the first account:
-
-```powershell
-docker compose -f compose.development.yaml build app
-docker compose -f compose.development.yaml up -d app
-docker compose -f compose.development.yaml exec app python manage.py createsuperuser
-```
+Follow [Container development](docs/development.md#container-development) to build and
+start the development container, wait for initialization, and create the first account.
 
 Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts; there are
 no seeded credentials. Diary, photo, register and planting admin screens are read-only:
