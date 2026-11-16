@@ -16,10 +16,8 @@ updates:
       # Stay on Django 5.2 LTS; larger upgrades require an explicit review.
       - dependency-name: django
         versions: [">=5.3"]
-    # Runtime and development requirements are exported from uv.lock.
+    # Build-only inputs are reviewed manually.
     exclude-paths:
-      - requirements.txt
-      - requirements-dev.txt
       - requirements-build.txt
 
   - package-ecosystem: github-actions
@@ -43,6 +41,9 @@ updates:
     cooldown:
       exclude: ["python"]
     ignore:
+      # Update the export tool together with UV_VERSION in ci.yml.
+      - dependency-name: ghcr.io/astral-sh/uv
+        versions: ["*"]
       # Keep the Python series aligned with .python-version and pyproject.toml.
       - dependency-name: python
         update-types: [version-update:semver-major, version-update:semver-minor]

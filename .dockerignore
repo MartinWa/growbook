@@ -5,6 +5,8 @@
 .review-tmp
 .playwright-cli
 .venv
+requirements.txt
+requirements-dev.txt
 node_modules
 local
 pytest-of-*

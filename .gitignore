@@ -25,6 +25,10 @@ venv/
 *.mo
 pytest-of-*/
 
+# Requirements are exported from uv.lock inside Docker builds
+/requirements.txt
+/requirements-dev.txt
+
 # Tooling caches
 .pytest_cache/
 .ruff_cache/
