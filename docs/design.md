@@ -39,7 +39,7 @@ steps. `--radius-selector`, `--radius-field` and `--radius-box` set the small,
 medium and large radii. The base font is 106.25% of the browser default, with a
 1.6 line height, and `--size-field` gives a 44 px control target at that size.
 
-The four main pages share a 1200 px content limit, horizontal padding aligned with
+Main pages share a 1200 px content limit, horizontal padding aligned with
 the header, and the same heading offset. Their illustrated headings reserve the
 same height, with growing-area, crop/variety and planting illustrations filling
 nearly half the heading width. Narrow layouts reduce the heading height.
@@ -163,8 +163,9 @@ verify device-native camera/library pickers; those require the intended phone.
 
 ## Register layout and interaction
 
-Main navigation links directly to Diary, Growing areas, Crops and varieties, and
-Plantings; `/garden/` redirects to Growing areas. Growing areas reuse the crop-category
+Main navigation links directly to Diary, Growing areas, Crops and varieties,
+Plantings and Economy; `/garden/` redirects to Growing areas. The account menu holds
+language, season and currency display preferences. Growing areas reuse the crop-category
 grid and card styles for top-level areas and child areas.
 Cards share title and footer spacing, soft shadows and a decorative botanical sprig
 on an inset seasonal surface when no photo is available. Category maintenance actions

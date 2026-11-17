@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "core.apps.CoreConfig",
     "diary.apps.DiaryConfig",
     "garden.apps.GardenConfig",
+    "economy.apps.EconomyConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -58,6 +59,7 @@ TEMPLATES = [
                 "core.context_processors.photo_limits",
                 "core.context_processors.app_release",
                 "core.appearance.appearance_context",
+                "core.currency.currency_context",
             ],
         },
     },

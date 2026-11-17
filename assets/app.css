@@ -269,6 +269,8 @@
   .main-navigation [aria-current="page"] {
     background: var(--color-primary);
     color: var(--color-primary-content);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
 
   /* daisyUI buttons do not shrink by default; large text must still fit the viewport. */
@@ -1135,6 +1137,9 @@
 
   .account-menu .menu-panel {
     @apply left-auto max-w-[min(22rem,calc(100vw-2rem))] min-w-[min(15rem,calc(100vw-2rem))];
+    max-block-size: calc(100svh - 5rem);
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 
   .account-name {
@@ -1145,11 +1150,13 @@
     @apply mb-3;
   }
 
-  .season-form {
+  .season-form,
+  .currency-form {
     @apply mb-3 min-w-0 text-sm;
   }
 
-  .season-form label {
+  .season-form label,
+  .currency-form label {
     @apply mb-1 block font-medium;
   }
 
@@ -1382,7 +1389,7 @@
     }
 
     .main-navigation {
-      @apply grid w-full grid-cols-4 gap-1;
+      @apply grid w-full grid-cols-5 gap-1;
       order: 3;
     }
 
@@ -1454,6 +1461,137 @@
     .register-form-panel :is(input, select, textarea),
     [role="alert"][tabindex="-1"] {
       scroll-margin-block-end: 7rem;
+    }
+  }
+}
+
+@layer components {
+  .economy-toolbar,
+  .economy-summary,
+  .economy-records {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: 1.25rem;
+    margin-block: 1.5rem;
+  }
+
+  .economy-toolbar {
+    align-items: start;
+  }
+
+  .economy-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: 1rem;
+    margin-block: 1rem;
+  }
+
+  .economy-stats dt {
+    color: var(--color-secondary);
+  }
+
+  .economy-stats dd {
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  .money-number {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .economy-section,
+  .economy-filters {
+    margin-block: 1.5rem;
+  }
+
+  .economy-page :is(h1, h2, h3, th),
+  .economy-choices label {
+    overflow-wrap: anywhere;
+  }
+
+  .economy-choices > div > div,
+  .economy-choices label,
+  .economy-amount-choice > legend {
+    margin-block: 0.5rem;
+  }
+
+  .economy-choices label,
+  .economy-form .checkbox-field label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-block-size: 3rem;
+  }
+
+  .economy-table-wrapper {
+    max-inline-size: 100%;
+    max-block-size: min(34rem, 75svh);
+    overflow: auto;
+    container-type: inline-size;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
+  }
+
+  .economy-table {
+    inline-size: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .economy-table caption {
+    text-align: start;
+    padding: 0.75rem;
+    color: var(--color-secondary);
+  }
+
+  .economy-table :is(th, td) {
+    padding: 0.75rem;
+    vertical-align: top;
+  }
+
+  .economy-table thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background: var(--color-base-200);
+  }
+
+  .economy-table th[scope="row"] {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    min-inline-size: 10rem;
+    background: var(--color-base-100);
+  }
+
+  @container (width < 40rem) {
+    .economy-table,
+    .economy-table tbody,
+    .economy-table tr,
+    .economy-table th,
+    .economy-table td {
+      display: block;
+      inline-size: auto;
+    }
+
+    .economy-table thead {
+      display: none;
+    }
+
+    .economy-table th[scope="row"] {
+      inset-block-start: 0;
+      background: var(--color-base-200);
+    }
+
+    .economy-table tr + tr {
+      border-block-start: 1px solid var(--color-base-300);
+    }
+
+    .economy-table td[data-label]::before {
+      content: attr(data-label) ": ";
+      display: block;
+      color: var(--color-secondary);
     }
   }
 }

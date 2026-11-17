@@ -108,6 +108,18 @@ def _validate_planting(record, previous):
         raise ValidationError({"variety": _("Keep a variety for a planting in a shared batch.")})
     if peers.filter(variety_id=record.variety_id).exists():
         raise ValidationError({"variety": _("This variety is already in the batch.")})
+    if record.pk and record.variety_id != previous.get("variety_id"):
+        from economy.references import sold_variety_referenced
+
+        if sold_variety_referenced(record, previous.get("variety_id")):
+            raise ValidationError(
+                {
+                    "variety": _(
+                        "Remove or reassign this variety's sales "
+                        "before changing its planting-cycle association."
+                    )
+                }
+            )
     validate_member_years(record, record.cycle)
     record.full_clean()
 
@@ -286,6 +298,15 @@ def delete_planting(*, actor, pk, expected_updated_at):
             with transaction.atomic(), validated_write():
                 _active_actor(actor)
                 record = _current(Planting, _identifier(pk, "id"), expected_updated_at)
+                from economy.references import planting_referenced
+
+                if planting_referenced(record):
+                    raise ValidationError(
+                        _(
+                            "Remove or reassign this cycle's economy references "
+                            "before deleting its plantings."
+                        )
+                    )
                 folders.extend(photo_bundles(record.photos.all()))
                 try:
                     cycle = record.cycle

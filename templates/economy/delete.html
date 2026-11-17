@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Confirm economy deletion' %} · GrowBook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1 id="economy-delete-title">{% translate 'Confirm economy deletion' %}</h1>
+  {% if kind == 'expense' %}<p>{{ record.description }} · {% include 'economy/money.html' with value=record.total_price %}</p><p>{% translate 'Deleting this expense also removes its allocations and all future equipment shares.' %}</p>
+  {% elif kind == 'allocation' %}<p>{{ record.expense.description }} · {{ record.growing_year }} · {% include 'economy/money.html' with value=record.amount %}</p><p>{% translate 'Deleting this allocation releases its reserved amount and updates all affected estimates.' %}</p>
+  {% else %}<p>{{ record.description }} · {% include 'economy/money.html' with value=record.total_price %}</p><p>{% translate 'Deleting this plant sale removes its income from the summaries. Plant quantities are unchanged.' %}</p>{% endif %}
+  <form method="post" action="{{ request.path }}" aria-labelledby="economy-delete-title">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ list_url }}"><input type="hidden" name="year" value="{{ year }}">
+    <div role="alert" tabindex="-1">{% include 'economy/form_errors.html' %}</div>
+    {% for field in form %}{% include 'economy/field.html' %}{% endfor %}
+    <div class="form-actions"><button type="submit" class="btn btn-error">{% translate 'Delete' %}</button><a href="{{ list_url }}">{% translate 'Cancel' %}</a></div>
+  </form>
+</section>
+{% endblock %}

@@ -4,4 +4,5 @@
   <a class="btn {% if active == 'areas' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'garden:area-list' %}"{% if active == 'areas' %} aria-current="page"{% endif %}>{% translate 'Growing areas' %}</a>
   <a class="btn {% if active == 'varieties' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'garden:variety-list' %}"{% if active == 'varieties' %} aria-current="page"{% endif %}>{% translate 'Crops and varieties' %}</a>
   <a class="btn {% if active == 'plantings' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'garden:planting-list' %}"{% if active == 'plantings' %} aria-current="page"{% endif %}>{% translate 'Plantings' %}</a>
+  <a class="btn {% if active == 'economy' %}btn-primary{% else %}btn-ghost{% endif %}" href="{% url 'economy:list' %}"{% if active == 'economy' %} aria-current="page"{% endif %}>{% translate 'Economy' %}</a>
 </nav>

@@ -1,0 +1,4 @@
+{% load i18n %}
+<p class="field-help">{% if estimate.reason == 'unknown' %}{% translate 'Pending: supply the unknown plant quantities to calculate this split.' %}{% elif estimate.reason == 'zero' %}{% translate 'Pending: all selected plant quantities are zero.' %}{% else %}{% translate 'Pending: there are no matching planting cycles yet.' %}{% endif %}</p>
+<p>{% translate 'Reserved and unallocated' %}: {% include 'economy/money.html' with value=estimate.allocation.amount %}. {% translate 'This amount cannot be assigned elsewhere until this allocation is changed or removed.' %}</p>
+{% if estimate.groups %}<ul>{% for group in estimate.groups %}<li>{{ group.label }} · {% translate 'Quantity' %}: {{ group.quantity|default_if_none:'—' }}</li>{% endfor %}</ul>{% endif %}

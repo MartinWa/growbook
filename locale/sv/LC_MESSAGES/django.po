@@ -1625,3 +1625,630 @@ msgstr "Det lagrade utkastet kunde inte återställas. Behåll eller kopiera eve
 
 msgid "Earlier writing (select and copy)"
 msgstr "Tidigare text (markera och kopiera)"
+
+msgid ""
+"A cycle supplies its crop, growing year and, when possible, variety. Selling"
+" plants does not reduce its recorded quantity."
+msgstr ""
+"En odlingsomgång ger gröda, odlingsår och om möjligt sort. Försäljning "
+"minskar inte det registrerade antalet plantor."
+
+msgid "Additional costs are pending."
+msgstr "Ytterligare kostnader väntar på fördelning."
+
+msgid "All planting cycles"
+msgstr "Alla odlingsomgångar"
+
+msgid "All planting cycles in the growing year"
+msgstr "Alla odlingsomgångar under odlingsåret"
+
+msgid ""
+"All-year groups include new matching cycles automatically. Unknown "
+"quantities, no cycles or an all-zero group keep plant-count allocations "
+"pending and their amounts reserved."
+msgstr ""
+"Årsgrupper inkluderar automatiskt nya omgångar för året. Om antal saknas, "
+"inga omgångar finns eller alla antal är noll väntar fördelningen efter "
+"plantantal och beloppet förblir reserverat."
+
+msgid "Allocate expense"
+msgstr "Fördela utgift"
+
+msgid "Allocated cost"
+msgstr "Fördelad kostnad"
+
+msgid "Allocated to plantings"
+msgstr "Fördelat på planteringar"
+
+msgid "Amount to allocate"
+msgstr "Belopp att fördela"
+
+msgid "Amounts in"
+msgstr "Belopp i"
+
+msgid "An allocation must belong to this expense."
+msgstr "Fördelningen måste tillhöra den här utgiften."
+
+msgid "Annual balance available to assign"
+msgstr "Årets tillgängliga belopp att fördela"
+
+msgid "Annual cost share"
+msgstr "Årlig kostnadsandel"
+
+msgid "Annual equipment costs and allocations"
+msgstr "Årliga utrustningskostnader och fördelningar"
+
+msgid "Attribute the remaining cost to a crop without selecting a planting."
+msgstr ""
+"Koppla den återstående kostnaden till en gröda utan att välja en plantering."
+
+msgid "Back to economy"
+msgstr "Tillbaka till ekonomi"
+
+msgid "By current plant quantities"
+msgstr "Efter nuvarande plantantal"
+
+msgid "Choose Equipment to spread a cost across years."
+msgstr "Välj Utrustning för att fördela en kostnad över flera år."
+
+msgid "Choose a cycle with a planting."
+msgstr "Välj en omgång med en plantering."
+
+msgid "Choose a growing year within the equipment period."
+msgstr "Välj ett odlingsår inom utrustningens period."
+
+msgid "Choose a planting cycle"
+msgstr "Välj en odlingsomgång"
+
+msgid "Choose a planting cycle or a variety for the sale."
+msgstr "Välj en odlingsomgång eller en sort för försäljningen."
+
+msgid "Choose a unit"
+msgstr "Välj en enhet"
+
+msgid "Choose a valid currency label."
+msgstr "Välj en giltig valutavisning."
+
+msgid "Choose a variety in the selected planting cycle."
+msgstr "Välj en sort i den valda odlingsomgången."
+
+msgid ""
+"Choose a variety when no cycle is selected, or to identify a variety within "
+"a shared cycle."
+msgstr ""
+"Välj en sort om ingen omgång är vald, eller för att ange en sort i en "
+"gemensam omgång."
+
+msgid "Choose at least one existing planting cycle."
+msgstr "Välj minst en befintlig odlingsomgång."
+
+msgid "Choose how much of the cost to assign"
+msgstr "Välj hur mycket av kostnaden som ska fördelas"
+
+msgid "Chosen amount"
+msgstr "Valt belopp"
+
+msgid "Compare varieties"
+msgstr "Jämför sorter"
+
+msgid "Confirm economy deletion"
+msgstr "Bekräfta borttagning från ekonomin"
+
+msgid ""
+"Consecutive calendar years count even when the equipment is unused. The full"
+" purchase cost is not added to these annual growing costs."
+msgstr ""
+"Sammanhängande kalenderår räknas även när utrustningen inte används. Hela "
+"inköpskostnaden läggs inte till dessa årliga odlingskostnader."
+
+msgid "Costs by crop"
+msgstr "Kostnader per gröda"
+
+msgid "Costs by variety"
+msgstr "Kostnader per sort"
+
+msgid "Crop economy"
+msgstr "Ekonomi per gröda"
+
+msgid "Currency label"
+msgstr "Valutavisning"
+
+msgid "Current allocation split"
+msgstr "Nuvarande kostnadsfördelning"
+
+msgid "Current plant quantities, allocated costs and plant sales"
+msgstr "Nuvarande plantantal, fördelade kostnader och plantförsäljning"
+
+msgid "Delete allocation"
+msgstr "Ta bort fördelning"
+
+msgid "Delete expense"
+msgstr "Ta bort utgift"
+
+msgid ""
+"Deleting this allocation releases its reserved amount and updates all "
+"affected estimates."
+msgstr ""
+"När fördelningen tas bort frigörs det reserverade beloppet och alla berörda "
+"uppskattningar uppdateras."
+
+msgid ""
+"Deleting this expense also removes its allocations and all future equipment "
+"shares."
+msgstr ""
+"När utgiften tas bort försvinner också dess fördelningar och alla framtida "
+"utrustningsandelar."
+
+msgid ""
+"Deleting this plant sale removes its income from the summaries. Plant "
+"quantities are unchanged."
+msgstr ""
+"När plantförsäljningen tas bort försvinner inkomsten från "
+"sammanställningarna. Plantantalen ändras inte."
+
+msgid "Deletion could not be confirmed. Reload Economy before retrying."
+msgstr ""
+"Borttagningen kunde inte bekräftas. Ladda om Ekonomi innan du försöker igen."
+
+msgid ""
+"Direct crop and variety assignments apply to the remaining cost. Planting "
+"allocations replace that attribution for their portions, so costs are "
+"counted once."
+msgstr ""
+"Direkta kopplingar till gröda och sort gäller den återstående kostnaden. "
+"Fördelningar på planteringar ersätter kopplingen för sina andelar, så "
+"kostnaderna räknas en gång."
+
+msgid "Divide the chosen amount"
+msgstr "Fördela det valda beloppet"
+
+msgid "Economy"
+msgstr "Ekonomi"
+
+msgid "Economy filters"
+msgstr "Ekonomifilter"
+
+msgid "Economy for this cycle"
+msgstr "Ekonomi för denna omgång"
+
+msgid "Economy navigation"
+msgstr "Ekonominavigering"
+
+msgid "Edit allocation"
+msgstr "Redigera fördelning"
+
+msgid "Edit expense"
+msgstr "Redigera utgift"
+
+msgid "Edit plant sale"
+msgstr "Redigera plantförsäljning"
+
+msgid "Enter a percentage greater than 0 and no more than 100."
+msgstr "Ange en procentandel större än 0 och högst 100."
+
+msgid "Enter a positive whole number of plants sold."
+msgstr "Ange ett positivt heltal för antalet sålda plantor."
+
+msgid "Enter a useful life in whole years from 1 to 9999."
+msgstr "Ange en livslängd i hela år från 1 till 9999."
+
+msgid "Enter a valid decimal number."
+msgstr "Ange ett giltigt decimaltal."
+
+msgid "Enter an amount from 0 to 9,999,999,999.99."
+msgstr "Ange ett belopp från 0 till 9 999 999 999,99."
+
+msgid "Enter both the purchased quantity and its unit, or leave both blank."
+msgstr "Ange både inköpt mängd och dess enhet, eller lämna båda tomma."
+
+msgid "Enter either a unit price or a total sale amount."
+msgstr "Ange antingen ett styckpris eller ett totalt försäljningsbelopp."
+
+msgid ""
+"Enter either a unit price or a total sale amount. Record sales of plants, "
+"rather than harvested produce."
+msgstr ""
+"Ange antingen ett styckpris eller ett totalt försäljningsbelopp. Registrera "
+"försäljning av plantor; skördade produkter ingår inte."
+
+msgid "Enter exactly one allocation amount, percentage or quantity used."
+msgstr ""
+"Ange exakt ett fördelningsbelopp, en procentandel eller en använd mängd."
+
+msgid "Equally between cycles"
+msgstr "Lika mellan omgångar"
+
+msgid "Equipment"
+msgstr "Utrustning"
+
+msgid ""
+"Equipment only. Enter whole years to spread the cost from the purchase year;"
+" leave blank to charge the purchase year in full."
+msgstr ""
+"Endast utrustning. Ange hela år för att fördela kostnaden från inköpsåret; "
+"lämna tomt för att belasta inköpsåret med hela kostnaden."
+
+msgid "Equipment period"
+msgstr "Utrustningens period"
+
+msgid "Estimated cost per plant"
+msgstr "Uppskattad kostnad per planta"
+
+msgid ""
+"Estimates can change when those quantities are corrected. Successfully grown"
+" plants include plants later sold."
+msgstr ""
+"Uppskattningarna kan ändras när antalen korrigeras. Lyckade plantor "
+"inkluderar plantor som senare sålts."
+
+msgid ""
+"Estimates use current recorded plant quantities, including plants later "
+"sold, and can change when those quantities are corrected."
+msgstr ""
+"Uppskattningarna använder nuvarande registrerade plantantal, inklusive "
+"plantor som senare sålts, och kan ändras när antalen korrigeras."
+
+msgid "Every selected cycle must belong to the chosen growing year."
+msgstr "Varje vald omgång måste tillhöra det valda odlingsåret."
+
+msgid "Expense category"
+msgstr "Utgiftskategori"
+
+msgid "Expenses"
+msgstr "Utgifter"
+
+msgid "Fertilizer"
+msgstr "Gödningsmedel"
+
+msgid ""
+"Fill in one amount, percentage or quantity. Choosing a group does not assign"
+" the whole purchase automatically. Use 100% to charge the full cost even "
+"when some of the purchase remains unused."
+msgstr ""
+"Fyll i ett belopp, en procentandel eller en mängd. När du väljer en grupp "
+"fördelas inte hela inköpet automatiskt. Använd 100 % för att belasta gruppen"
+" med hela kostnaden även om en del av inköpet inte används."
+
+msgid "For equipment, the percentage applies to this year's cost share."
+msgstr "För utrustning gäller procentandelen årets kostnadsandel."
+
+msgid "Future scheduled shares"
+msgstr "Framtida planerade andelar"
+
+msgid "Growing costs"
+msgstr "Odlingskostnader"
+
+msgid "Growing costs and plant sales"
+msgstr "Odlingskostnader och plantförsäljning"
+
+msgid ""
+"Growing costs follow the year of use, including annual equipment shares. "
+"Both yearly differences use income received in the selected year."
+msgstr ""
+"Odlingskostnader följer användningsåret och inkluderar årliga "
+"utrustningsandelar. Båda årsskillnaderna använder inkomster mottagna "
+"under det valda året."
+
+msgid "Cycle sales totals use the growing year of their source cycle, even when the income is received in another year."
+msgstr "Omgångarnas försäljningssummor använder odlingsåret för sin ursprungsomgång, även när inkomsten tas emot under ett annat år."
+
+msgid "More purchase details"
+msgstr "Fler inköpsuppgifter"
+
+msgid "Remove or reassign this variety's sales before changing its planting-cycle association."
+msgstr "Ta bort eller ändra kopplingen för sortens försäljningar innan du ändrar dess koppling till odlingsomgången."
+
+msgid "Growing-year income"
+msgstr "Inkomst för odlingsåret"
+
+msgid "Income minus allocated costs"
+msgstr "Inkomst minus fördelade kostnader"
+
+msgid "Income minus growing costs"
+msgstr "Inkomst minus odlingskostnader"
+
+msgid "Income minus money spent"
+msgstr "Inkomst minus inköp"
+
+msgid "Income received"
+msgstr "Mottagen inkomst"
+
+msgid "Items"
+msgstr "Stycken"
+
+msgid "Items must be a whole number."
+msgstr "Stycken måste anges som ett heltal."
+
+msgid "Kilograms"
+msgstr "Kilogram"
+
+msgid ""
+"Label only. Amounts are not converted; use one numeric basis for all "
+"entries."
+msgstr ""
+"Endast visning. Beloppen räknas inte om; använd samma beloppsgrund för alla "
+"poster."
+
+msgid "Litres"
+msgstr "Liter"
+
+msgid "Money spent"
+msgstr "Pengar till inköp"
+
+msgid "New expense"
+msgstr "Ny utgift"
+
+msgid "No costs or plant sales match these filters."
+msgstr "Inga kostnader eller plantförsäljningar matchar filtren."
+
+msgid "No expenses match these filters. Add a purchase or adjust the filters."
+msgstr ""
+"Inga utgifter matchar filtren. Lägg till ett inköp eller ändra filtren."
+
+msgid "No plant sales match these filters."
+msgstr "Inga plantförsäljningar matchar filtren."
+
+msgid ""
+"No planting allocations yet. The cost remains available to assign later."
+msgstr ""
+"Inga fördelningar på planteringar ännu. Kostnaden kan fördelas senare."
+
+msgid "No planting cycles match these filters."
+msgstr "Inga odlingsomgångar matchar filtren."
+
+msgid "Optional amount purchased; this is separate from the total price."
+msgstr "Valfri inköpt mängd; den är separat från totalpriset."
+
+msgid "Pending allocation groups"
+msgstr "Grupper som väntar på fördelning"
+
+msgid "Pending: all selected plant quantities are zero."
+msgstr "Väntar: alla valda plantantal är noll."
+
+msgid "Pending: supply the unknown plant quantities to calculate this split."
+msgstr "Väntar: ange de saknade plantantalen för att beräkna fördelningen."
+
+msgid "Pending: there are no matching planting cycles yet."
+msgstr "Väntar: det finns inga matchande odlingsomgångar ännu."
+
+msgid "Periodized equipment"
+msgstr "Periodiserad utrustning"
+
+msgid ""
+"Plant quantities redistribute only the chosen amount. Equal division also "
+"divides each cycle's share equally between its varieties."
+msgstr ""
+"Plantantal omfördelar endast det valda beloppet. Lika fördelning delar också"
+" varje omgångs andel lika mellan dess sorter."
+
+msgid "Plant sales"
+msgstr "Plantförsäljning"
+
+msgid "Plant sales income"
+msgstr "Inkomst från plantförsäljning"
+
+msgid "Planting allocations"
+msgstr "Fördelningar på planteringar"
+
+msgid "Planting cycles"
+msgstr "Odlingsomgångar"
+
+msgid "Planting group"
+msgstr "Planteringsgrupp"
+
+msgid "Planting-cycle estimates"
+msgstr "Uppskattningar per odlingsomgång"
+
+msgid "Plants sold"
+msgstr "Sålda plantor"
+
+msgid "Purchase balance available to assign"
+msgstr "Tillgängligt inköpsbelopp att fördela"
+
+msgid "Purchase cost"
+msgstr "Inköpskostnad"
+
+msgid "Purchase date"
+msgstr "Inköpsdatum"
+
+msgid "Purchase year"
+msgstr "Inköpsår"
+
+#, python-format
+msgid ""
+"Purchase year: %(purchase_year)s. The date must fall in that year. Assign "
+"costs to planting cycles after saving, whenever you are ready."
+msgstr ""
+"Inköpsår: %(purchase_year)s. Datumet måste ligga inom det året. Fördela "
+"kostnader på odlingsomgångar efter att du sparat, när du är redo."
+
+msgid "Purchased quantity"
+msgstr "Inköpt mängd"
+
+msgid "Purchases and income received"
+msgstr "Inköp och mottagen inkomst"
+
+msgid ""
+"Purchases stay in their recorded purchase year; income received uses the "
+"sale date."
+msgstr ""
+"Inköp ligger kvar i sitt registrerade inköpsår; mottagen inkomst använder "
+"försäljningsdatumet."
+
+msgid "Quantity unit"
+msgstr "Mängdenhet"
+
+msgid "Quantity used"
+msgstr "Använd mängd"
+
+msgid "Record plant sale"
+msgstr "Registrera plantförsäljning"
+
+msgid ""
+"Record the purchased quantity and unit before allocating a quantity used."
+msgstr "Registrera inköpt mängd och enhet innan du fördelar en använd mängd."
+
+msgid ""
+"Reduce or remove allocations before lowering an annual equipment share below"
+" the reserved amount."
+msgstr ""
+"Minska eller ta bort fördelningar innan du sänker en årlig utrustningsandel "
+"under det reserverade beloppet."
+
+msgid ""
+"Reduce or remove allocations before lowering the purchase cost below the "
+"reserved amount."
+msgstr ""
+"Minska eller ta bort fördelningar innan du sänker inköpskostnaden under det "
+"reserverade beloppet."
+
+msgid ""
+"Remove allocations outside the new equipment period before changing it."
+msgstr ""
+"Ta bort fördelningar utanför den nya utrustningsperioden innan du ändrar "
+"den."
+
+msgid ""
+"Remove or reassign this cycle's economy references before deleting its "
+"plantings."
+msgstr ""
+"Ta bort eller ändra omgångens ekonomikopplingar innan du tar bort dess "
+"planteringar."
+
+msgid ""
+"Remove or reassign this variety's economy references before changing its "
+"crop."
+msgstr ""
+"Ta bort eller ändra sortens ekonomikopplingar innan du ändrar dess gröda."
+
+msgid "Reserved and unallocated"
+msgstr "Reserverat och ofördelat"
+
+msgid "Sale date"
+msgstr "Försäljningsdatum"
+
+msgid "Save progress"
+msgstr "Sparförlopp"
+
+msgid "Seeds"
+msgstr "Frön"
+
+msgid ""
+"Select whole cycles. Varieties later added to these cycles are included."
+msgstr ""
+"Välj hela omgångar. Sorter som läggs till senare i omgångarna inkluderas."
+
+msgid "Selected planting cycles"
+msgstr "Valda odlingsomgångar"
+
+msgid "Share of cost (%)"
+msgstr "Andel av kostnaden (%)"
+
+msgid "Soil"
+msgstr "Jord"
+
+msgid "Successfully grown plants"
+msgstr "Lyckade plantor"
+
+msgid "Supplies"
+msgstr "Förbrukningsmaterial"
+
+msgid "The chosen allocation must be at least 0.01."
+msgstr "Den valda fördelningen måste vara minst 0,01."
+
+msgid "The equipment period must end by year 9999."
+msgstr "Utrustningens period måste sluta senast år 9999."
+
+msgid ""
+"The full amounts reserved for these groups are shown below; the share for a "
+"filtered cycle is unavailable until the split can be calculated."
+msgstr ""
+"Hela beloppen som reserverats för grupperna visas nedan; andelen för en "
+"filtrerad omgång är inte tillgänglig förrän fördelningen kan beräknas."
+
+msgid "The purchase date must be in the recorded purchase year."
+msgstr "Inköpsdatumet måste ligga inom det registrerade inköpsåret."
+
+msgid "The total sale amount is too large."
+msgstr "Det totala försäljningsbeloppet är för stort."
+
+msgid ""
+"These are estimates for your garden, based on recorded entries and current "
+"plant quantities."
+msgstr ""
+"Detta är uppskattningar för din trädgård, baserade på registrerade poster "
+"och nuvarande plantantal."
+
+msgid ""
+"This amount cannot be assigned elsewhere until this allocation is changed or"
+" removed."
+msgstr ""
+"Beloppet kan inte fördelas någon annanstans förrän den här fördelningen "
+"ändras eller tas bort."
+
+msgid ""
+"This amount exceeds the available balance, including amounts reserved for "
+"pending allocations."
+msgstr ""
+"Beloppet överstiger det tillgängliga beloppet, inklusive belopp som "
+"reserverats för väntande fördelningar."
+
+msgid "This expense has a pending allocation."
+msgstr "Utgiften har en väntande fördelning."
+
+msgid "This record no longer exists. Reload Economy."
+msgstr "Posten finns inte längre. Ladda om Ekonomi."
+
+msgid "Total price"
+msgstr "Totalpris"
+
+msgid "Total sale amount"
+msgstr "Totalt försäljningsbelopp"
+
+msgid ""
+"Unallocated costs include pending reserved amounts. The available balance "
+"excludes reservations."
+msgstr ""
+"Ofördelade kostnader inkluderar väntande reserverade belopp. Det "
+"tillgängliga beloppet räknar bort reservationer."
+
+msgid "Unallocated to plantings"
+msgstr "Ej fördelat på planteringar"
+
+msgid ""
+"Unassigned balances stay in the purchase year. An allocation moves only its "
+"chosen portion to its growing year."
+msgstr ""
+"Ofördelade belopp ligger kvar i inköpsåret. En fördelning flyttar endast sin"
+" valda andel till sitt odlingsår."
+
+msgid "Unassigned crop"
+msgstr "Ingen gröda vald"
+
+msgid "Unavailable"
+msgstr "Ej tillgänglig"
+
+msgid "Unit price"
+msgstr "Styckpris"
+
+msgid "Use a positive quantity no greater than the purchased quantity."
+msgstr "Ange en positiv mängd som inte är större än den inköpta mängden."
+
+#, python-format
+msgid "Use no more than %(places)s decimal places."
+msgstr "Använd högst %(places)s decimaler."
+
+msgid "Useful life (whole years)"
+msgstr "Livslängd (hela år)"
+
+msgid ""
+"Uses the purchase's recorded unit and quantity. Estimated use is enough."
+msgstr ""
+"Använder inköpets registrerade enhet och mängd. Uppskattad användning "
+"räcker."
+
+msgid "Variety economy"
+msgstr "Ekonomi per sort"
+
+msgid "Years remaining after the selected year"
+msgstr "År kvar efter det valda året"
