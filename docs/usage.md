@@ -453,7 +453,10 @@ share or fall outside the new period. Saved allocations retain their chosen amou
 price or total amount, and a cycle or variety. A cycle supplies its crop and growing
 year and supplies its variety when it has one member. For a shared cycle, select a
 variety if known; a cycle-wide sale can leave it blank. A variety without a cycle
-uses the sale date's year. Sales leave planting quantities unchanged. Cycle estimates
+uses the sale date's year. A cycle sale with an identified variety follows that member's
+growing years; a cycle-wide sale follows the first remaining member. Annual sources
+use their start year; persistent sources use the sale year bounded by their start
+and optional end years. Sales leave planting quantities unchanged. Cycle estimates
 show allocated cost, cost per plant, sales income and income minus allocated cost.
 
 The account/settings menu's **Currency label** defaults to SEK and is remembered

@@ -179,10 +179,13 @@ def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_
     assert expense.total_cents == 10000
 
 
+@pytest.mark.parametrize(
+    "scope,selected_count", [("selected", 2), ("year", 0), ("year", 1), ("year", 2)]
+)
 def test_all_year_group_and_selected_cycles_survive_draft_recovery(
-    browser_endpoint, live_server, user, catalog
+    browser_endpoint, live_server, user, catalog, scope, selected_count
 ):
-    first = catalog[3]
+    members = catalog[3:]
     expense = create_expense(actor=user, description="Synthetic supplies", total_price="100").record
     with economy_page(browser_endpoint, live_server, user) as page:
         path = reverse("economy:allocation-create", args=[expense.pk])
@@ -190,24 +193,37 @@ def test_all_year_group_and_selected_cycles_survive_draft_recovery(
         key = page.locator("#id_submission_key").input_value()
         version = page.locator("#id_expected_expense_updated_at").input_value()
         page.locator("#id_share").fill("60")
-        checkbox = page.locator(f'[name=cycle_ids][value="{first.cycle_id}"]')
-        checkbox.check()
-        page.locator("[name=scope][value=year]").check()
+        for member in members[:selected_count]:
+            page.locator(f'[name=cycle_ids][value="{member.cycle_id}"]').check()
+        page.locator(f"[name=scope][value={scope}]").check()
+        expect(page.locator("[data-draft-storage]")).to_be_hidden()
         page.reload()
         expect(page.locator("[data-draft-status]")).to_contain_text("was restored")
-        expect(page.locator("#id_cycle_ids_group")).to_be_hidden()
+        expect(page.locator("#id_share")).to_have_value("60")
         expect(page.locator("#id_submission_key")).to_have_value(key)
         expect(page.locator("#id_expected_expense_updated_at")).to_have_value(version)
         page.locator("[name=scope][value=selected]").check()
-        expect(checkbox).to_be_checked()
+        expect(page.locator("#id_cycle_ids_group")).to_be_visible()
+        for index, member in enumerate(members):
+            expect(page.locator(f'[name=cycle_ids][value="{member.cycle_id}"]')).to_be_checked(
+                checked=index < selected_count
+            )
         page.locator("[name=scope][value=year]").check()
+        expect(page.locator("#id_cycle_ids_group")).to_be_hidden()
+        page.locator(f"[name=scope][value={scope}]").check()
         save(page)
         expect(page).to_have_url(re.compile(r"#allocation-"))
-        expect(page.locator("main")).to_contain_text("All planting cycles in the growing year")
+        expect(page.locator("main")).to_contain_text(
+            "All planting cycles in the growing year"
+            if scope == "year"
+            else "Selected planting cycles"
+        )
         money_text(page.locator("[data-available-balance]"), "40.00")
     allocation = Allocation.objects.get()
-    assert allocation.scope == "year" and allocation.amount_cents == 6000
-    assert not allocation.cycles.exists()
+    assert allocation.scope == scope and allocation.amount_cents == 6000
+    assert set(allocation.cycles.values_list("pk", flat=True)) == (
+        {member.cycle_id for member in members[:selected_count]} if scope == "selected" else set()
+    )
 
 
 @pytest.mark.parametrize("language", ["en", "sv"])

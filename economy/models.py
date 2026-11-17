@@ -260,7 +260,10 @@ class Sale(ValidatedModel):
     def source_member(self):
         if self.cycle_id is None:
             return None
-        return min(self.cycle.members.all(), key=lambda member: member.pk, default=None)
+        members = self.cycle.members.all()
+        if self.variety_id is not None:
+            members = [member for member in members if member.variety_id == self.variety_id]
+        return min(members, key=lambda member: member.pk, default=None)
 
     @property
     def crop(self):

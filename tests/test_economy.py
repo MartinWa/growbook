@@ -457,6 +457,68 @@ def test_plant_sale_derives_source_and_growing_year_without_reducing_quantity(us
     assert report(cycle=first.cycle_id)["cycle_rows"][0]["income"] == Decimal("86.38")
 
 
+@pytest.mark.parametrize(
+    "lifespan,start_year,end_year,expected_year",
+    [
+        ("annual", 2027, None, 2027),
+        ("persistent", 2027, None, 2028),
+        ("persistent", 2025, 2027, 2027),
+        ("persistent", 2029, None, 2029),
+    ],
+)
+def test_batch_sale_uses_the_selected_variety_growing_year(
+    user, catalog, django_assert_num_queries, lifespan, start_year, end_year, expected_year
+):
+    crop, _, _, red, first, _, _ = catalog
+    member = create_planting(
+        actor=user,
+        crop=crop,
+        variety=red,
+        batch_planting=first,
+        start_year=start_year,
+        lifespan=lifespan,
+        end_year=end_year,
+        quantity=10,
+    ).record
+    expense = create_expense(actor=user, description="Batch supplies", total_price="100").record
+    allocate(user, expense, [first], amount="60", growing_year=expected_year)
+    sale = create_sale(
+        actor=user,
+        description="Selected variety plants",
+        sold_on=date(2028, 5, 9),
+        quantity=2,
+        total_price="20",
+        cycle=first.cycle_id,
+        variety=red,
+    ).record
+    assert sale.source_member().pk == member.pk and sale.growing_year == expected_year
+    state = load_economy()
+    with django_assert_num_queries(0):
+        selected_year = overview(state, expected_year, cycle=first.cycle_id)
+        first_year = overview(state, first.start_year, cycle=first.cycle_id)
+    assert selected_year["totals"]["growing_income"] == 20
+    assert selected_year["cycle_rows"][0]["difference"] == -40
+    assert first_year["totals"]["growing_income"] == 0
+
+
+def test_cycle_wide_sale_keeps_the_earliest_member_growing_year(user, catalog):
+    crop, _, _, red, first, _, _ = catalog
+    create_planting(
+        actor=user, crop=crop, variety=red, batch_planting=first, start_year=2027, quantity=10
+    )
+    sale = create_sale(
+        actor=user,
+        description="Whole batch plants",
+        sold_on=date(2028, 5, 9),
+        quantity=2,
+        total_price="20",
+        cycle=first.cycle_id,
+    ).record
+    assert sale.variety_id is None
+    assert sale.source_member().pk == first.pk and sale.growing_year == first.start_year
+    assert report(first.start_year, cycle=first.cycle_id)["cycle_rows"][0]["income"] == 20
+
+
 def test_yearly_differences_use_received_income_while_cycle_sales_follow_the_growing_year(
     user, catalog
 ):
