@@ -82,6 +82,12 @@ docker compose -f compose.development.yaml run --rm app python manage.py check -
 docker compose -f compose.development.yaml run --rm app python manage.py makemigrations --check --dry-run
 ```
 
+The two Ruff invocations may also run on the Windows editing host when the same
+pinned version is installed there (for example with
+`uv tool install ruff==0.17.4`); Ruff is self-contained and produces identical
+results. The container and CI runs stay authoritative whenever versions differ,
+and tests and application checks never leave the container.
+
 Use `tools/run_tests.py` inside the container: it compiles translations and keeps
 temporary artifacts in the Linux state volume. Tests use real file-backed SQLite/WAL and
 synthetic images, covering text-only, photo-only and multi-photo entries, photo failures

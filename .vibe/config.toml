@@ -1,0 +1,14 @@
+# Project-local Vibe configuration for growbook.
+#
+# Windows is only an editing host for this repository: application execution,
+# linting, formatting and tests all run in the Linux development container
+# (docs/development.md, "Container development"), so the linter and test runner
+# are reached through Docker Compose. Interpreters and arbitrary-code entry
+# points are deliberately not allowlisted.
+
+[tools.git_bash]
+allowlist = [
+    "git",    # VCS: status, diff, log, commit, branch, ...
+    "docker", # Container runner: compose build/up/run for checks and tests
+    "ruff",   # Host linter/formatter, pinned to pyproject's version (see the lint-changed hook)
+]
