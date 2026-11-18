@@ -166,6 +166,25 @@ def test_invalid_or_inexact_money_is_rejected(user, amount):
     assert not Expense.objects.exists()
 
 
+@pytest.mark.parametrize("purchased_quantity", [Decimal("0"), Decimal("-2.500"), "0.000"])
+def test_service_rejects_non_positive_purchased_quantities(user, purchased_quantity):
+    with pytest.raises(ValidationError, match="positive purchased quantity"):
+        create_expense(
+            actor=user,
+            description="Seeds",
+            total_price="10",
+            purchased_quantity=purchased_quantity,
+            unit="items",
+        )
+    assert not Expense.objects.exists()
+
+
+def test_service_rejects_sales_without_a_cycle_or_variety(user):
+    with pytest.raises(ValidationError, match="planting cycle or a variety"):
+        create_sale(actor=user, description="Plants", quantity=1, unit_price="5")
+    assert not Sale.objects.exists()
+
+
 @pytest.mark.parametrize(
     "unit,value", [("litres", "20.5"), ("kilograms", "0.125"), ("items", "100")]
 )
@@ -264,6 +283,22 @@ def test_redistribution_never_consumes_the_remaining_purchase_balance(user, cata
     assert zero["quantity"] == 0 and zero["per_plant"] is None
     allocation.refresh_from_db()
     assert allocation.amount_cents == 8000 and report()["totals"]["unallocated"] == 20
+
+
+def test_percentage_and_quantity_allocations_round_half_up(user, catalog):
+    _, _, _, _, first, _, _ = catalog
+    soil = create_expense(actor=user, description="Soil", total_price="100.01").record
+    share = allocate(user, soil, [first], share="50")
+    assert share.amount_cents == 5001
+    seeds = create_expense(
+        actor=user,
+        description="Seeds",
+        total_price="0.01",
+        purchased_quantity="2",
+        unit="items",
+    ).record
+    by_quantity = allocate(user, seeds, [first], quantity_used="1")
+    assert by_quantity.amount_cents == 1
 
 
 @pytest.mark.parametrize("missing", [None, 0])

@@ -246,7 +246,7 @@ def _expense_values(
         raise ValidationError(
             {"useful_life_years": _("Enter a useful life in whole years from 1 to 9999.")}
         )
-    return {
+    values = {
         "description": _text(description, "description"),
         "purchased_on": _date(purchased_on, "purchased_on"),
         "total_cents": to_cents(total_price, "total_price"),
@@ -259,6 +259,9 @@ def _expense_values(
         "crop_id": _id(crop, "crop", optional=True),
         "variety_id": _id(variety, "variety", optional=True),
     }
+    if values["purchased_quantity"] is not None and values["purchased_quantity"] <= 0:
+        raise ValidationError({"purchased_quantity": _("Use a positive purchased quantity.")})
+    return values
 
 
 def create_expense(
@@ -561,7 +564,7 @@ def _sale_values(description, sold_on, quantity, unit_price, total_price, cycle,
     )
     if cents > MAX_CENTS:
         raise ValidationError({"unit_price": _("The total sale amount is too large.")})
-    return {
+    values = {
         "description": _text(description, "description"),
         "sold_on": _date(sold_on, "sold_on"),
         "quantity": quantity,
@@ -570,6 +573,9 @@ def _sale_values(description, sold_on, quantity, unit_price, total_price, cycle,
         "cycle_id": _id(cycle, "cycle", optional=True, cycle=True),
         "variety_id": _id(variety, "variety", optional=True),
     }
+    if values["cycle_id"] is None and values["variety_id"] is None:
+        raise ValidationError({"cycle": _("Choose a planting cycle or a variety for the sale.")})
+    return values
 
 
 def create_sale(
