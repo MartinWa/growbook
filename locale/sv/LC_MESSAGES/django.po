@@ -2240,6 +2240,9 @@ msgstr "Ej tillgänglig"
 msgid "Unit price"
 msgstr "Styckpris"
 
+msgid "Use a positive purchased quantity."
+msgstr "Ange en positiv inköpt mängd."
+
 msgid "Use a positive quantity no greater than the purchased quantity."
 msgstr "Ange en positiv mängd som inte är större än den inköpta mängden."
 

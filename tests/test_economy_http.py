@@ -12,7 +12,12 @@ from django.utils import timezone
 
 from core.currency import CURRENCY_COOKIE
 from economy.models import Allocation, EconomySubmission, Expense, Sale
-from economy.services import create_expense, edit_expense
+from economy.services import (
+    create_allocation,
+    create_expense,
+    edit_allocation,
+    edit_expense,
+)
 from garden.services import archive_variety, create_crop, create_planting, create_variety
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -200,6 +205,46 @@ def test_allocation_native_forms_reserve_pending_cost_and_offer_later_editing(
     assert filtered.context["cycle_rows"][0]["per_plant"] == Decimal("1.50")
 
 
+def test_stale_allocation_edits_conflict_and_preserve_entered_values(signed_in, user, planting):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="20",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    expense.refresh_from_db()
+    edit_allocation(
+        actor=user,
+        pk=allocation.pk,
+        expected_updated_at=allocation.updated_at,
+        expected_expense_updated_at=expense.updated_at,
+        expense=expense,
+        growing_year=2026,
+        amount="25",
+        cycle_ids=[planting.cycle_id],
+    )
+    expense.refresh_from_db()
+    stale = signed_in.post(
+        reverse("economy:allocation-edit", args=[expense.pk, allocation.pk]),
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "growing_year": 2026,
+            "amount": "40",
+            "scope": "selected",
+            "method": "plants",
+            "cycle_ids": [str(planting.cycle_id)],
+        },
+    )
+    assert stale.status_code == 409
+    assert stale.context["form"].cleaned_data["amount"] == Decimal("40")
+    assert Allocation.objects.get(pk=allocation.pk).amount_cents == 2500
+
+
 def test_sale_source_is_derived_and_localized_decimal_inputs_are_exact(signed_in, planting):
     signed_in.cookies["django_language"] = "sv"
     saved = signed_in.post(
@@ -263,6 +308,8 @@ def test_deletion_requires_confirmation_and_a_current_version_for_every_member(
 def test_currency_preference_only_changes_labels_and_rejects_unsafe_destinations(signed_in, user):
     expense = create_expense(actor=user, description="Supplies", total_price="100").record
     original = expense.updated_at
+    default = signed_in.get(reverse("economy:list"))
+    assert default.context["currency_label"] == "SEK"
     response = signed_in.post(
         reverse("set_currency"), {"currency": "EUR", "next": "/economy/?year=2026"}, secure=True
     )
