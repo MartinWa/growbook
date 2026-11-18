@@ -65,15 +65,17 @@ def release_status(request):
 
 @require_POST
 def set_currency(request):
-    label = request.POST.get("currency")
-    if label not in CURRENCY_LABELS:
+    requested_label = request.POST.get("currency")
+    label = next((allowed for allowed in CURRENCY_LABELS if allowed == requested_label), None)
+    if label is None:
         return HttpResponseBadRequest(_("Choose a valid currency label."))
     destination = request.POST.get("next", "/economy/")
-    if not destination.startswith("/") or not url_has_allowed_host_and_scheme(
+    if destination.startswith("/") and url_has_allowed_host_and_scheme(
         destination, allowed_hosts=None
     ):
-        destination = "/economy/"
-    response = HttpResponseRedirect(destination)
+        response = HttpResponseRedirect(destination)
+    else:
+        response = HttpResponseRedirect("/economy/")
     response.set_cookie(
         CURRENCY_COOKIE,
         label,
