@@ -213,7 +213,7 @@ def test_register_headings_and_fixed_illustrations_follow_the_season(
         navigation = page.get_by_role(
             "navigation", name="Huvudmeny" if language == "sv" else "Main navigation"
         )
-        expect(navigation.locator("a")).to_have_count(4)
+        expect(navigation.locator("a")).to_have_count(5)
         expect(navigation.locator('[aria-current="page"]')).to_have_attribute(
             "href", path.split("?")[0]
         )

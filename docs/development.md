@@ -82,13 +82,20 @@ docker compose -f compose.development.yaml run --rm app python manage.py check -
 docker compose -f compose.development.yaml run --rm app python manage.py makemigrations --check --dry-run
 ```
 
+The two Ruff invocations may also run on the Windows editing host when the same
+pinned version is installed there (for example with
+`uv tool install ruff==0.17.4`); Ruff is self-contained and produces identical
+results. The container and CI runs stay authoritative whenever versions differ,
+and tests and application checks never leave the container.
+
 Use `tools/run_tests.py` inside the container: it compiles translations and keeps
 temporary artifacts in the Linux state volume. Tests use real file-backed SQLite/WAL and
 synthetic images, covering text-only, photo-only and multi-photo entries, photo failures
 and retries, upload limits, capture, observation editing and deletion, permissions,
 links and derived filters, Unicode search, authorization for pages, media and downloads,
-overlapping writes and clean-instance restore. Browser tests are excluded from the
-default run.
+economy spending and growing-year summaries, exact allocation rounding, pending groups,
+equipment schedules, plant sales, overlapping writes and clean-instance restore.
+Browser tests are excluded from the default run.
 
 For UI-copy changes, update the English source messages and
 `locale/sv/LC_MESSAGES/django.po`, then recompile with
@@ -120,6 +127,16 @@ not rerun the action. Creation without uploads skips media locking and staging; 
 with uploads, edits and deletions coordinate media storage. `update_entry` follows the
 same retry contract. Diary edits and deletion never undo an action. See
 [Saving changes and retries](usage.md#saving-changes-and-retries) for the form workflow.
+
+Economy writes use `economy.services` with the same active-actor, outside-transaction
+and timezone-aware `expected_updated_at` rules. Allocation create/edit/delete also
+requires the expense's `expected_expense_updated_at`; allocation changes advance that
+expense version. Matching immutable submission receipts precede current budget and
+association checks, and deleted targets retain receipt tombstones. Budget validation
+and financial-reference checks run inside short serialized writes. Money is stored
+as integer cents because SQLite decimal arithmetic is not exact; percentage/quantity
+choices become fixed monetary reservations. Current allocation splits are calculated
+from a consistent snapshot without modifying or consuming those reservations.
 
 ## Browser tests
 

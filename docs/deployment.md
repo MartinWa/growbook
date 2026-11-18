@@ -167,7 +167,7 @@ docker compose stop growbook
 docker compose up -d growbook
 docker compose logs --tail=100 growbook
 docker compose run --rm growbook python manage.py migrate --check
-docker compose run --rm growbook python manage.py showmigrations core diary garden
+docker compose run --rm growbook python manage.py showmigrations core diary garden economy
 ```
 
 Use `docker compose pull growbook` instead of `build` when the service uses the published

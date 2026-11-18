@@ -164,7 +164,7 @@ evaluation. The display works in both the details panel and the full record page
 
 ## Saving changes and retries
 
-Diary, register, planting and event forms reject stale edits instead of overwriting
+Diary, register, planting, event and economy forms reject stale edits instead of overwriting
 another member's changes. After a failed or uncertain create/edit save, keep the form open and
 retry the same content and save key; photos are not appended twice. With JavaScript,
 validation updates feedback beside the fields while preserving fields and selected
@@ -177,7 +177,7 @@ Diary filters can still update results without changing the draft or selected ph
 ### Unsaved writing
 
 With JavaScript, diary capture/edit and crop, variety, growing-area, planting,
-event and cycle evaluation forms recover unfinished text and related selections
+event, cycle evaluation and economy forms recover unfinished text and related selections
 after reload or returning to the form in the same tab. Drafts use `sessionStorage`,
 separately for each account and form/record. Filters, language and season do not
 create separate drafts. Adding a variety has a separate draft for each target batch.
@@ -391,6 +391,92 @@ changes past-year results too. For an established plant that moves, prefer endin
 old planting and creating a new one at the destination; this preserves year-level
 presence, not exact movement dates, lineage or historical layouts.
 
+## Economy
+
+Open **Economy** from the main menu. **Economy for this cycle** on a planting opens its
+filtered estimates. Costs stay on the Economy pages. Filter by year, crop, variety
+or planting cycle; **Compare varieties** adds the variety overview. Use **Apply** to
+submit filters, or the neighbouring year links to retain them while changing year.
+
+The yearly overview separates **Money spent** on purchases dated in that year from
+**Growing costs** attributed to it. Both yearly differences use income received by
+sale date in the selected year. Cycle estimates associate plant sales with their
+source's growing year, which can differ from the year the income was received.
+Crop and variety totals include directly assigned costs as well as their portions
+of shared purchases; assigning a portion to a planting replaces its direct attribution.
+
+**New expense** requires a description, purchase date and total price. The date
+defaults to today in the garden's timezone and can be set to an earlier year,
+regardless of the year being browsed. The saved date's year becomes the
+purchase year. Saved purchases keep that year: the date can be corrected within
+it, and a different year needs deleting the purchase and entering it again.
+Open **More purchase details** for category, optional purchased quantity and unit,
+crop/variety assignment, or equipment useful life. Litres and kilograms accept up
+to three decimal places; items are whole numbers. Purchased quantity is separate
+from price. A variety supplies its crop. Leave assignments blank to allocate later.
+
+After saving, open **Allocate expense**. Choose a growing year and enter exactly one
+monetary amount, percentage or estimated quantity used. Then choose selected cycles
+or all cycles in that year, and divide the chosen amount by current plant quantities
+or equally between cycles. For example, assigning 40% of a 100 purchase distributes
+40 and leaves 60 available. A quantity uses the purchase's recorded unit and price;
+routine watering or inventory logging is unnecessary. Use 100% to charge a whole
+seed packet even when seeds remain unused. For equipment, percentages and quantities
+apply to the selected year's annual share.
+
+Ordinary unassigned costs stay in the purchase year. Assigning a portion to another
+growing year moves only that portion's growing cost; money spent remains in the
+purchase year. The purchase page shows assigned costs, unassigned costs and the
+balance still available for new allocations. Edit or delete an allocation to change
+its reserved amount or selected group.
+
+Plant-count allocation recalculates from each cycle's current **Quantity**, including
+every variety in a batch. Update that existing quantity to the successfully grown
+count, including plants subsequently sold. An all-year group includes new matching
+cycles automatically; a selected group includes new varieties within its selected
+cycles. Recalculation redistributes the chosen amount without consuming the remaining
+balance. Known zero quantities receive no share. If any quantity is unknown, all
+are zero, or the group is empty, the split stays pending and its amount remains
+visibly reserved and unassigned. It cannot also be assigned elsewhere. Equal division
+does not require plant counts; cost per plant still needs a known positive count.
+Pending plant-count splits also make cost-per-plant estimates unavailable.
+
+For reusable equipment, choose **Equipment** and a **Useful life (whole years)**.
+Its purchase cost is divided across consecutive calendar years starting in the
+purchase year, including unused years. A 900 purchase with three years contributes
+900 to money spent in its purchase year and 300 to growing costs in each year.
+The purchase page separates the selected year's share and assignments from future
+scheduled shares, with links to each year. Monetary splits preserve the exact total
+after rounding to two decimal places. Changing cost or useful life updates the
+schedule; reduce or remove allocations first if they would exceed a new annual
+share or fall outside the new period. Saved allocations retain their chosen amounts.
+
+**Record plant sale** accepts a description, date, whole number sold, either a unit
+price or total amount, and a cycle or variety. A cycle supplies its crop and growing
+year and supplies its variety when it has one member. For a shared cycle, select a
+variety if known; a cycle-wide sale can leave it blank. A variety without a cycle
+uses the sale date's year. A cycle sale with an identified variety follows that member's
+growing years; a cycle-wide sale follows the first remaining member. Annual sources
+use their start year; persistent sources use the sale year bounded by their start
+and optional end years. Sales leave planting quantities unchanged. Cycle estimates
+show allocated cost, cost per plant, sales income and income minus allocated cost.
+
+The account/settings menu's **Currency label** defaults to SEK and is remembered
+in this browser for one year.
+Changing it to EUR or another label leaves every numeric amount unchanged: it
+performs no conversion. Enter all amounts on one consistent numeric basis. With
+JavaScript, label changes preserve the current page and unfinished form. Without
+JavaScript, choose the label and use **Change**; save unfinished changes first.
+
+All active members can create, edit and delete economy records. Saves and draft
+recovery follow [Saving changes and retries](#saving-changes-and-retries). Deletion
+requires confirmation. Deleting a purchase also removes its allocations and future
+equipment shares. Financially referenced plantings, crops and varieties are protected
+from deletion until the references are removed or reassigned. A directly referenced
+variety cannot change crop, and a sold variety cannot be changed out of its source
+cycle while its sales still refer to it. This is an estimate for personal growing and
+occasional plant sales; harvested produce sales and formal accounting are outside its scope.
+
 ## Diary
 
 Capture's optional **Link to a planting** section starts collapsed. Its bordered
@@ -494,7 +580,7 @@ requires confirmation. Originals stay out of the ordinary diary view and are inc
 in operational backups. If your session expires, downloading opens the sign-in page
 so you can regain access.
 
-The account menu contains Language, Season, Log out and, for staff, Operator. Language changes
+The account menu contains Language, Season, Currency label, Log out and, for staff, Operator. Language changes
 apply immediately with JavaScript and retain the page and filters; a submit button
 remains without JavaScript. The login page has its own selector.
 

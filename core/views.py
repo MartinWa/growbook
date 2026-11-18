@@ -20,6 +20,7 @@ from diary.permissions import can_edit_entry
 from garden.views._shared import return_url
 
 from .appearance import SEASON_COOKIE, SEASON_COOKIE_AGE, SEASON_MODES
+from .currency import CURRENCY_COOKIE, CURRENCY_COOKIE_AGE, CURRENCY_LABELS
 from .images import FORMATS
 from .media import private_path
 from .models import Photo
@@ -60,6 +61,29 @@ def set_season(request):
 @never_cache
 def release_status(request):
     return JsonResponse({"update_available": update_available()})
+
+
+@require_POST
+def set_currency(request):
+    requested_label = request.POST.get("currency")
+    label = next((allowed for allowed in CURRENCY_LABELS if allowed == requested_label), None)
+    if label is None:
+        return HttpResponseBadRequest(_("Choose a valid currency label."))
+    destination = request.POST.get("next", "/economy/")
+    if destination.startswith("/") and url_has_allowed_host_and_scheme(
+        destination, allowed_hosts=None
+    ):
+        response = HttpResponseRedirect(destination)
+    else:
+        response = HttpResponseRedirect("/economy/")
+    response.set_cookie(
+        CURRENCY_COOKIE,
+        label,
+        max_age=CURRENCY_COOKIE_AGE,
+        secure=request.is_secure(),
+        samesite="Lax",
+    )
+    return response
 
 
 @require_GET

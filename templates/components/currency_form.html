@@ -1,0 +1,13 @@
+{% load i18n %}
+<form method="post" action="{% url 'set_currency' %}" class="currency-form" data-currency-form aria-labelledby="currency-label-heading">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <label id="currency-label-heading" for="currency">{% translate 'Currency label' %}</label>
+  <div class="season-controls">
+    <select id="currency" name="currency" aria-describedby="currency-help">
+      {% for label in currency_labels %}<option value="{{ label }}"{% if currency_label == label %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn btn-outline">{% translate 'Change' %}</button>
+  </div>
+  <p id="currency-help" class="field-help">{% translate 'Label only. Amounts are not converted; use one numeric basis for all entries.' %}</p>
+</form>

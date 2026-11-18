@@ -22,6 +22,9 @@
     event,
     cycle,
     "cycle-transition": ["date"],
+    expense: ["description", "purchased_on", "total_price", "category", "purchased_quantity", "unit", "crop", "variety", "useful_life_years"],
+    allocation: ["growing_year", "amount", "share", "quantity_used", "scope", "cycle_ids", "method"],
+    sale: ["description", "sold_on", "quantity", "unit_price", "total_price", "cycle", "variety"],
   };
   const files = {capture: ["camera", "library", "planting-photos"], entry: ["photos"], variety: ["photos"], area: ["photos"], planting: ["photos"]};
   const limit = 1024 * 1024; // Reject oversized snapshots whole; never shorten writing or evict other drafts.
@@ -57,7 +60,7 @@
     return Object.fromEntries((files[kind] || []).map(name =>
       [name, controls(form, name).reduce((count, input) => count + (input.files?.length || 0), 0)]));
   }
-  function versionName(name) { return name === "expected_updated_at" || name === "cycle-expected_updated_at" || /^(?:cycle-)?member_version_/.test(name); }
+  function versionName(name) { return name === "expected_updated_at" || name === "expected_expense_updated_at" || name === "cycle-expected_updated_at" || /^(?:cycle-)?member_version_/.test(name); }
 
   function setup(form) {
     const kind = form.dataset.draftKind;
@@ -66,7 +69,7 @@
     const identity = `${kind}:${new URL(form.action).pathname}${batch ? `:batch:${batch}` : ""}`;
     const key = `${prefix}${user}:${identity}`;
     const allowField = name => fields[kind].includes(name) || (["capture", "cycle", "cycle-transition"].includes(kind) && member.test(name) && name.includes("evaluation_"));
-    const allowToken = name => name === "submission_key" || name === "expected_updated_at" || kind === "capture" && name === "cycle-expected_updated_at" ||
+    const allowToken = name => name === "submission_key" || name === "expected_updated_at" || kind === "allocation" && name === "expected_expense_updated_at" || kind === "capture" && name === "cycle-expected_updated_at" ||
       ["capture", "cycle", "cycle-transition"].includes(kind) && member.test(name) && name.includes("member_version_");
     const notice = form.querySelector("[data-draft-notice]");
     const status = notice.querySelector("[data-draft-status]");
@@ -148,7 +151,7 @@
         // Scalar controls must never silently drop extra values from an untrusted snapshot.
         for (const [name, entries] of Object.entries({...draft.fields, ...draft.tokens})) {
           const inputs = controls(form, name);
-          const multi = tags.includes(name) || name.endsWith("category_ids") || name === "remove_photos";
+          const multi = tags.includes(name) || name.endsWith("category_ids") || name === "remove_photos" || name === "cycle_ids";
           if (!multi && entries.length !== 1) throw new Error("scalar");
           if (allowToken(name) && (entries.length !== 1 || entries[0].length > 100)) throw new Error("token");
           if (inputs.length === 1 && ["date", "number"].includes(inputs[0].type)) {

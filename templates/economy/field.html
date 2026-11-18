@@ -1,0 +1,14 @@
+{% load i18n %}
+{% if field.is_hidden %}{{ field }}{% elif field.name == 'scope' or field.name == 'method' or field.name == 'cycle_ids' %}
+<fieldset class="field economy-choices" id="{{ field.auto_id }}_group" tabindex="-1" data-field-name="{{ field.name }}" aria-describedby="{{ field.auto_id }}_errors{% if field.help_text %} {{ field.auto_id }}_helptext{% endif %}">
+  <legend>{{ field.label }} <span class="field-requirement">{% if field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></legend>
+  {{ field }}
+  {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="field-help">{{ field.help_text }}</p>{% endif %}
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-form-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+</fieldset>
+{% elif field.name == 'show_varieties' or field.name == 'confirm' %}
+<div class="field checkbox-field" data-field-name="{{ field.name }}">
+  <div>{{ field }} <label for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-form-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+</div>
+{% else %}{% include 'components/field.html' %}{% endif %}

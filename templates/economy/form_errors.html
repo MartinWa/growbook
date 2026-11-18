@@ -1,0 +1,8 @@
+{% if form.errors %}
+<div class="error-summary">
+  {{ form.non_field_errors }}
+  {% for field in form %}{% if field.errors %}
+  <div>{% if field.is_hidden %}{{ field.label }}{% else %}<a href="#{% if field.name == 'cycle_ids' or field.name == 'scope' or field.name == 'method' %}{{ field.auto_id }}_group{% else %}{{ field.id_for_label }}{% endif %}">{{ field.label }}</a>{% endif %}: <div data-field-errors="{{ field.name }}">{{ field.errors }}</div></div>
+  {% endif %}{% endfor %}
+</div>
+{% endif %}

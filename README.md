@@ -41,6 +41,10 @@ interface defaults to Swedish, with English available.
 - Repeated planting events with independent planned and actual dates, plus cumulative
   evaluation text and private photos. Completed evaluations also appear as linked results
   under the associated variety's Experiences notes.
+- An Economy overview in the main navigation with purchases, plant sales, crop/variety totals,
+  shared cycle allocations and estimated cost per plant using current recorded quantities.
+  Costs can follow their growing year; reusable equipment can be spread across consecutive
+  calendar years, with pending allocations and unassigned balances kept visible.
 - Dated text-only, photo-only and text-plus-photo entries with optional titles,
   chronological paging, title and note search, and combined year, area, crop, variety
   and planting filters.
@@ -58,9 +62,9 @@ interface defaults to Swedish, with English available.
 - JPEG, PNG, WebP and HEIC validation, orientation correction and metadata-stripped WebP
   display images and thumbnails. Originals are retained privately and served only through
   authenticated downloads; there is no public media directory.
-- Retry-safe diary, register, planting, cycle, category and event saves with visible
+- Retry-safe diary, register, planting, cycle, category, event and economy saves with visible
   errors and no partial photo saves.
-- Recovery of unsaved diary, register, planting, event and evaluation text in the
+- Recovery of unsaved diary, register, planting, event, evaluation and economy text in the
   current browser tab, with conditional leave warnings and explicit discard.
 - Operational database/photo backup, verification, clean-instance restore and orphan
   cleanup.
@@ -68,9 +72,9 @@ interface defaults to Swedish, with English available.
 ## Scope and limitations
 
 - The garden is shared within an installation: every active account can read all
-  entries, records, photos and original downloads, and maintain registers, plantings and
-  events. Only an entry's author or an active staff administrator may edit or delete
-  that entry. There are no per-user gardens or read-only member roles.
+  entries, records, photos and original downloads, and maintain registers, plantings,
+  events and economy records. Only an entry's author or an active staff administrator
+  may edit or delete that entry. There are no per-user gardens or read-only member roles.
 - Diary tags are chosen explicitly; a capture planting action adds its planting link.
   There is no automatic text matching.
   Structured harvest accounting and portable data import/export are
@@ -97,6 +101,9 @@ interface defaults to Swedish, with English available.
   exposure. Verify backup and clean-instance recovery before recording real data.
 - Draft recovery requires JavaScript and available browser storage. It does not
   retain selected photos or synchronize writing across tabs or devices.
+- Economy is a personal growing-cost estimate, not formal accounting or harvested-produce
+  sales tracking. Amounts use exact two-decimal precision and one numeric basis. The
+  browser's currency label defaults to SEK and changes presentation without conversion.
 
 ## Requirements
 
@@ -123,9 +130,10 @@ Follow [Container development](docs/development.md#container-development) to bui
 start the development container, wait for initialization, and create the first account.
 
 Open **http://127.0.0.1:8000/** and use **`/operator/`** to manage other accounts; there are
-no seeded credentials. Diary, photo, register and planting admin screens are read-only:
+no seeded credentials. Diary, photo, register, planting and economy admin screens are read-only:
 use **Diary** for observations, **Growing areas** and **Crops and varieties** for records,
-and **Plantings** for plans and milestones. The [usage guide](docs/usage.md) covers each
+**Plantings** for plans and milestones, and **Economy** for growing costs and plant sales.
+The [usage guide](docs/usage.md) covers each
 screen, save retries and no-JavaScript behavior.
 
 The development configuration publishes HTTP only on host loopback and keeps state in
@@ -143,7 +151,7 @@ live SQLite file, and keep an independent copy.
 
 | Guide | Contents |
 |---|---|
-| [Using growbook](docs/usage.md) | Registers, plantings, diary, photos and retries |
+| [Using growbook](docs/usage.md) | Registers, plantings, economy, diary, photos and retries |
 | [Development, CI and releases](docs/development.md) | Tests, browser suite, styles, translations, workflows, dependency updates and release images |
 | [Deployment](docs/deployment.md) | Docker, private configuration, upgrades and SQLite runtime |
 | [Backup and recovery](docs/backup-and-recovery.md) | Backup, verification, restore and orphan cleanup |
@@ -158,6 +166,7 @@ live SQLite file, and keep an independent copy.
 | `core/` | Users, shared form and photo-storage helpers, security, SQLite configuration and operational commands. |
 | `diary/` | Diary models, forms, views, filtering and validated create/edit/delete operations. |
 | `garden/` | Models, forms and year/history queries; `views/` and `services/` separate registers, photos, plantings and events. |
+| `economy/` | Validated purchases, reserved cycle allocations, plant sales and current cost estimates. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
 | `assets/` | Stylesheet source compiled into the committed application CSS. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |

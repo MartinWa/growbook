@@ -119,11 +119,13 @@ operational commands), `diary` (entries and validated creation), and `garden`
 modules only when a feature needs them; do not add a generic repository, event
 bus or separate API layer before it is needed.
 
-Use `pytest-django` for domain and integration tests. Run commands and tests in the
-Linux development container as described in
-[Test and check](docs/development.md#test-and-check); Windows is a host for editing and
-PowerShell launchers, with no native application execution. Tests use real file-backed
-SQLite/WAL, not an in-memory substitute for contention.
+Use `pytest-django` for domain and integration tests. Run the application and its
+tests only in the Linux development container as described in
+[Test and check](docs/development.md#test-and-check); the Windows host is for
+editing and PowerShell launchers and never executes application code.
+Version-pinned non-application tooling matching the container and CI (ruff, uv
+lockfile operations, pnpm stylesheet builds) may run on the host. Tests use real
+file-backed SQLite/WAL, not an in-memory substitute for contention.
 
 Run the full [browser suite](docs/development.md#browser-tests) when requested, to confirm
 Playwright works locally, or when interactive changes need regression coverage. Reuse

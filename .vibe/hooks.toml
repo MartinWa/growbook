@@ -1,0 +1,10 @@
+# Project-local Vibe hooks for growbook.
+# Runs ruff (lint + format check) on the Python files this turn changed,
+# inside the same Linux development container the project uses for all checks.
+
+[[hooks]]
+name = "lint-changed"
+type = "post_agent"
+command = "bash .vibe/hooks/lint-changed.sh"
+timeout = 120.0
+description = "Lint and format-check changed Python files with pinned host ruff, falling back to the development container"

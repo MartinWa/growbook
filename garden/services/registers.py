@@ -65,10 +65,26 @@ def _validate(record, previous_parent_id=None):
             crop = Crop.objects.get(pk=record.crop_id)
         except Crop.DoesNotExist as exc:
             raise ValidationError({"crop": _("Choose a valid record.")}) from exc
-        if record.pk and record.crop_id != previous_parent_id and record.plantings.exists():
-            raise ValidationError(
-                {"crop": _("This variety has plantings. Reconcile them before changing its crop.")}
-            )
+        if record.pk and record.crop_id != previous_parent_id:
+            if record.plantings.exists():
+                raise ValidationError(
+                    {
+                        "crop": _(
+                            "This variety has plantings. Reconcile them before changing its crop."
+                        )
+                    }
+                )
+            from economy.references import variety_referenced
+
+            if variety_referenced(record):
+                raise ValidationError(
+                    {
+                        "crop": _(
+                            "Remove or reassign this variety's economy references "
+                            "before changing its crop."
+                        )
+                    }
+                )
         if crop.is_archived and record.crop_id != previous_parent_id:
             raise ValidationError({"crop": _("Choose an active crop for a new association.")})
     elif isinstance(record, GrowingArea):

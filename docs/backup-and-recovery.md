@@ -106,6 +106,10 @@ For each deployment, verify that:
   work without losing member history.
 - Referenced originals for diary entries, areas, varieties, plantings and categories match
   checksums; regenerated derivatives display and photo captions/order remain intact.
+- Economy purchase dates/years, exact amounts, quantities/units, direct crop/variety
+  assignments, equipment periods, selected/all-year reservations, plant sales and save
+  receipts are preserved. Recalculated yearly and cycle summaries retain pending groups
+  and future equipment shares, and financial references still protect deletion.
 - Anonymous clients cannot read entries, registers, planting/history pages, media
   or original downloads.
 - New validated saves work with the restored database's WAL configuration.
