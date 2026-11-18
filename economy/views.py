@@ -189,7 +189,8 @@ def expense_form(request, pk=None):
     context = _form_context(
         request, form, "expense", _("Edit expense") if record else _("New expense"), record
     )
-    context["purchase_year"] = record.purchase_year if record else timezone.localdate().year
+    if record:
+        context["purchase_year"] = record.purchase_year
     return _submit(
         request, form, context, services.edit_expense if record else services.create_expense, {}
     )

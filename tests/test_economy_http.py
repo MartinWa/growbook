@@ -49,17 +49,17 @@ def expense_payload(**values):
     }
 
 
-def test_new_expense_uses_current_year_independently_of_the_viewed_year(signed_in):
+def test_new_expense_defaults_to_today_and_saves_the_purchase_date_s_year(signed_in):
     path = reverse("economy:expense-create")
     page = signed_in.get(path, {"year": 2028})
-    assert page.context["purchase_year"] == 2026
     assert page.context["form"]["purchased_on"].value() == date(2026, 5, 9)
     saved = signed_in.post(path, expense_payload())
     assert saved.status_code == 302 and Expense.objects.get().purchase_year == 2026
     assert signed_in.get(saved.url).status_code == 200
-    invalid = signed_in.post(path, expense_payload(purchased_on="2027-01-01"))
-    assert invalid.status_code == 422 and "purchased_on" in invalid.context["form"].errors
-    assert Expense.objects.count() == 1
+    backdated = signed_in.post(path, expense_payload(purchased_on="2027-01-01"))
+    assert backdated.status_code == 302 and "year=2027" in backdated.url
+    assert Expense.objects.count() == 2
+    assert Expense.objects.order_by("pk").last().purchase_year == 2027
 
 
 @pytest.mark.parametrize("language", ["en", "sv"])

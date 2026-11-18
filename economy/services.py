@@ -213,12 +213,10 @@ def _validate_budgets(expense):
 
 
 def _write_expense(pk, values, expected_updated_at):
-    today = timezone.localdate()
-    record = (
-        _current(Expense, pk, expected_updated_at)
-        if pk is not None
-        else Expense(purchase_year=today.year, purchased_on=today)
-    )
+    record = _current(Expense, pk, expected_updated_at) if pk is not None else None
+    if record is None:
+        purchased_on = values.get("purchased_on") or timezone.localdate()
+        record = Expense(purchase_year=purchased_on.year, purchased_on=purchased_on)
     previous = {"crop_id": record.crop_id, "variety_id": record.variety_id}
     for field, value in values.items():
         if field == "purchased_on" and value is None:

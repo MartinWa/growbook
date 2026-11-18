@@ -154,13 +154,13 @@ class ExpenseForm(SaveForm):
     def __init__(self, *args, record=None, **kwargs):
         super().__init__(*args, **kwargs)
         taxonomy_choices(self, record, has_crop=True)
-        today = timezone.localdate()
         if record is None:
-            self.initial.setdefault("purchased_on", today)
-        year = record.purchase_year if record else today.year
-        self.fields["purchased_on"].widget.attrs.update(
-            {"min": f"{year:04d}-01-01", "max": f"{year:04d}-12-31"}
-        )
+            self.initial.setdefault("purchased_on", timezone.localdate())
+        else:
+            year = record.purchase_year
+            self.fields["purchased_on"].widget.attrs.update(
+                {"min": f"{year:04d}-01-01", "max": f"{year:04d}-12-31"}
+            )
         describe_fields(self)
 
     def clean(self):

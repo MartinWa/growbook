@@ -2169,6 +2169,15 @@ msgstr ""
 msgid "The purchase date must be in the recorded purchase year."
 msgstr "Inköpsdatumet måste ligga inom det registrerade inköpsåret."
 
+msgid ""
+"The saved date decides the purchase year. A saved purchase keeps that year, "
+"and the date can be corrected within it. Assign costs to planting cycles "
+"after saving, whenever you are ready."
+msgstr ""
+"Det sparade datumet bestämmer inköpsåret. Ett sparat inköp behåller det "
+"året, och datumet kan rättas inom det. Fördela kostnader på odlingsomgångar "
+"efter att du sparat, när du är redo."
+
 msgid "The total sale amount is too large."
 msgstr "Det totala försäljningsbeloppet är för stort."
 

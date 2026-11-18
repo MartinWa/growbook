@@ -6,7 +6,7 @@
 <section class="panel register-form-panel">
   <h1 id="economy-form-title">{{ title }}</h1>
   {% if expense %}<p>{{ expense.description }} · {% include 'economy/money.html' with value=expense.total_price %}</p>{% endif %}
-  {% if kind == 'expense' %}<p class="field-help">{% blocktranslate %}Purchase year: {{ purchase_year }}. The date must fall in that year. Assign costs to planting cycles after saving, whenever you are ready.{% endblocktranslate %}</p>{% endif %}
+  {% if kind == 'expense' %}{% if record %}<p class="field-help">{% blocktranslate %}Purchase year: {{ purchase_year }}. The date must fall in that year. Assign costs to planting cycles after saving, whenever you are ready.{% endblocktranslate %}</p>{% else %}<p class="field-help">{% translate 'The saved date decides the purchase year. A saved purchase keeps that year, and the date can be corrected within it. Assign costs to planting cycles after saving, whenever you are ready.' %}</p>{% endif %}{% endif %}
   <p class="field-help">{% translate 'Amounts in' %} <span data-currency-label>{{ currency_label }}</span>. {% translate 'These are estimates for your garden, based on recorded entries and current plant quantities.' %}</p>
   <form id="economy-form" class="economy-form" method="post" action="{{ action }}" aria-labelledby="economy-form-title"
     hx-post="{{ action }}" hx-target="#economy-errors" hx-swap="innerHTML" hx-sync="this:drop"

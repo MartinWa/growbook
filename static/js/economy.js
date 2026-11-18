@@ -13,20 +13,9 @@
   scope();
   const details = form.querySelector("[data-expense-details]");
   if (details) {
-    const date = form.elements.namedItem("purchased_on");
-    const minimum = date.min, maximum = date.max;
     const restorePurchase = () => {
       details.open = [...details.querySelectorAll("input, select")].some(input =>
         input.value !== "" && (input.name !== "category" || input.value !== "other"));
-      date.min = minimum;
-      date.max = maximum;
-      if (!form.elements.namedItem("expected_updated_at").value && date.value &&
-          (date.value < minimum || date.value > maximum)) {
-        // A recovered create can retry a purchase saved before New Year.
-        // The server checks the receipt before validating a new purchase's year.
-        date.removeAttribute("min");
-        date.removeAttribute("max");
-      }
     };
     form.addEventListener("draft:restored", restorePurchase);
     form.addEventListener("draft:discarded", restorePurchase);

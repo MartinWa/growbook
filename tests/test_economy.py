@@ -120,7 +120,7 @@ def test_purchase_needs_only_description_date_and_price_and_has_a_visible_balanc
     assert not expense.allocations.exists()
 
 
-def test_new_purchase_year_is_garden_local_and_a_saved_purchase_keeps_its_year(
+def test_a_new_purchase_year_follows_the_saved_date_and_edits_keep_the_recorded_year(
     user, settings, monkeypatch
 ):
     monkeypatch.setattr(timezone, "localdate", LOCALDATE)
@@ -134,19 +134,28 @@ def test_new_purchase_year_is_garden_local_and_a_saved_purchase_keeps_its_year(
     monkeypatch.setattr(timezone, "now", lambda: datetime(2028, 2, 1, tzinfo=UTC))
     replay = create_expense(actor=user, description="Trays", total_price="90", submission_key=key)
     assert replay.replayed and replay.record.pk == expense.pk
+    backdated = create_expense(
+        actor=user, description="Old date", purchased_on=date(2027, 12, 31), total_price="10"
+    ).record
+    assert backdated.purchase_year == 2027 and backdated.purchased_on == date(2027, 12, 31)
     edit_expense(
         actor=user,
-        pk=expense.pk,
-        expected_updated_at=expense.updated_at,
-        description="Trays corrected",
-        total_price="90",
-        purchased_on=expense.purchased_on,
+        pk=backdated.pk,
+        expected_updated_at=backdated.updated_at,
+        description="Old date corrected",
+        total_price="10",
+        purchased_on=date(2027, 6, 1),
     )
-    expense.refresh_from_db()
-    assert expense.purchase_year == 2027
+    backdated.refresh_from_db()
+    assert backdated.purchase_year == 2027 and backdated.purchased_on == date(2027, 6, 1)
     with pytest.raises(ValidationError, match="recorded purchase year"):
-        create_expense(
-            actor=user, description="Old date", purchased_on=date(2027, 12, 31), total_price="10"
+        edit_expense(
+            actor=user,
+            pk=backdated.pk,
+            expected_updated_at=backdated.updated_at,
+            description="Old date",
+            total_price="10",
+            purchased_on=date(2028, 6, 1),
         )
 
 

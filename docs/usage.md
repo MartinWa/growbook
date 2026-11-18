@@ -406,8 +406,10 @@ Crop and variety totals include directly assigned costs as well as their portion
 of shared purchases; assigning a portion to a planting replaces its direct attribution.
 
 **New expense** requires a description, purchase date and total price. The date
-defaults to today in the garden's timezone and must be within the current year,
-regardless of the year being browsed. Saved purchases retain that recorded year.
+defaults to today in the garden's timezone and can be set to an earlier year,
+regardless of the year being browsed. The saved date's year becomes the
+purchase year. Saved purchases keep that year: the date can be corrected within
+it, and a different year needs deleting the purchase and entering it again.
 Open **More purchase details** for category, optional purchased quantity and unit,
 crop/variety assignment, or equipment useful life. Litres and kilograms accept up
 to three decimal places; items are whole numbers. Purchased quantity is separate
