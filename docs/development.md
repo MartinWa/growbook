@@ -232,7 +232,8 @@ workflow in the repository.
 
 Model, fallback and token budget live in [`.pr_agent.toml`](../.pr_agent.toml); the
 `mistral/` prefix also covers the third-party models Mistral hosts. PR-Agent reads that
-file from `main`, so a change takes effect on the next pull request after it merges.
+file from `main`, so a change takes effect on the next pull request after it merges, and
+the job skips while the file is absent.
 
 The job checks out nothing, so no pull request code runs with the key in scope. The
 action image is pinned by digest because the upstream `github_action` tag is rolling;
