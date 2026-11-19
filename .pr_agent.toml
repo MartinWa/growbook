@@ -14,6 +14,8 @@ model = "mistral/mistral-large-latest"
 fallback_models = ["mistral/mistral-small-latest"]
 # 0 disables the cap: the diff is sent whole, up to the model's own context window.
 max_model_tokens = 0
+# Large 4 reasons before answering, so the 120 s default is too short for a full diff.
+ai_timeout = 300
 response_language = "en-US"
 # Feed the repository conventions to the reviewer.
 repo_context_files = ["AGENTS.md"]

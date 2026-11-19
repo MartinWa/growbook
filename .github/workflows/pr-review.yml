@@ -33,6 +33,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
           # Repository settings are read from `main`, so the pull request that introduces
-          # .pr_agent.toml would otherwise run with the upstream default model. Keep this
-          # value in sync with the `model` entry there.
+          # .pr_agent.toml would otherwise run with the upstream defaults: the wrong model,
+          # a 120 s timeout, and the describe/improve tools enabled. These mirror the file
+          # until it is merged; keep them in sync.
           CONFIG__MODEL: mistral/mistral-large-latest
+          CONFIG__FALLBACK_MODELS: '["mistral/mistral-small-latest"]'
+          CONFIG__AI_TIMEOUT: "300"
+          GITHUB_ACTION_CONFIG.AUTO_DESCRIBE: "false"
+          GITHUB_ACTION_CONFIG.AUTO_IMPROVE: "false"
