@@ -226,12 +226,13 @@ do not replace the build, test, audit and image checks above.
 [`pr-review.yml`](../.github/workflows/pr-review.yml) runs
 [PR-Agent](https://github.com/The-PR-Agent/pr-agent) against the Mistral API and posts a
 review comment on pull requests authored by the maintainer. It is advisory and never
-blocks a merge. Add the `MISTRAL_API_KEY` repository secret before the first run.
+blocks a merge. Add the `MISTRAL_API_KEY` secret to the `pr-review` environment before
+the first run; the job declares that environment, so the key is not readable by every
+workflow in the repository.
 
 Model, fallback and token budget live in [`.pr_agent.toml`](../.pr_agent.toml); the
-`mistral/` prefix also covers the third-party models Mistral hosts. The workflow repeats
-the primary model as an environment variable because repository settings are read from
-`main`, so keep the two in sync.
+`mistral/` prefix also covers the third-party models Mistral hosts. PR-Agent reads that
+file from `main`, so a change takes effect on the next pull request after it merges.
 
 The job checks out nothing, so no pull request code runs with the key in scope. The
 action image is pinned by digest because the upstream `github_action` tag is rolling;

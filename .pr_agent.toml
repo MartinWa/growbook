@@ -12,8 +12,9 @@
 model = "mistral/mistral-large-latest"
 # A cheaper model, used when the primary is rate-limited or unavailable.
 fallback_models = ["mistral/mistral-small-latest"]
-# 0 disables the cap: the diff is sent whole, up to the model's own context window.
-max_model_tokens = 0
+# Three times the largest diff seen in this repository, so it never binds in practice but
+# still bounds a runaway diff. Above it the diff is pruned, not rejected.
+max_model_tokens = 200000
 # Large 4 reasons before answering: a full review spends roughly 13k reasoning tokens
 # before the answer, so the 120 s default and the provider's output default are both too
 # small. Measured at about 5 minutes for a small diff.
