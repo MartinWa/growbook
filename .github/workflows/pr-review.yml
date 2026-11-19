@@ -1,0 +1,52 @@
+name: PR review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Mistral review
+    if: >-
+      github.repository == 'MartinWa/growbook' &&
+      github.event.pull_request.user.login == 'MartinWa'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # The key lives in this environment rather than at repository scope, so it is not
+    # readable by every workflow in the repository.
+    environment: pr-review
+    permissions:
+      contents: read
+      issues: write # PR-Agent publishes its summary as a pull request conversation comment.
+      pull-requests: write # Inline review comments are written through the pull request API.
+    steps:
+      # PR-Agent reads .pr_agent.toml from `main`, so the pull request that introduces the
+      # file has no settings to run with. Skip until it is there rather than duplicating
+      # the settings here, where they would override the file permanently.
+      - name: Check for reviewer settings
+        id: settings
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh api "repos/$GH_REPO/contents/.pr_agent.toml?ref=main" >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      # PR-Agent reads the pull request through the GitHub API and needs no checkout, so no
+      # pull request code runs in this job. The image is pinned by digest because the
+      # upstream `github_action` tag is rolling; resolve a new digest with
+      # `docker buildx imagetools inspect pragent/pr-agent:<version>-github_action`.
+      - name: Review the pull request
+        if: steps.settings.outputs.present == 'true'
+        uses: docker://pragent/pr-agent@sha256:548e894a88071180832b2f4233f734d0acd0db1a879e2fcbaa70bac8b8372ebe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
