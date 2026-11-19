@@ -14,13 +14,11 @@ model = "mistral/mistral-large-latest"
 fallback_models = ["mistral/mistral-small-latest"]
 # 0 disables the cap: the diff is sent whole, up to the model's own context window.
 max_model_tokens = 0
-# Large 4 reasons before answering, so the 120 s default is too short for a full diff.
-ai_timeout = 300
-# At the default effort the model spends its whole output budget thinking and returns
-# little. "low" still reviews well and finishes. LiteLLM does not advertise the parameter
-# for this model, so it has to be listed explicitly.
-reasoning_effort = "low"
-additional_reasoning_effort_models = ["mistral-large-latest"]
+# Large 4 reasons before answering: a full review spends roughly 13k reasoning tokens
+# before the answer, so the 120 s default and the provider's output default are both too
+# small. Measured at about 5 minutes for a small diff.
+ai_timeout = 900
+max_output_tokens = 20000
 response_language = "en-US"
 # Feed the repository conventions to the reviewer.
 repo_context_files = ["AGENTS.md"]

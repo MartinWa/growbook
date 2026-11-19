@@ -17,7 +17,7 @@ jobs:
       github.repository == 'MartinWa/growbook' &&
       github.event.pull_request.user.login == 'MartinWa'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     permissions:
       contents: read
       issues: write # PR-Agent publishes its summary as a pull request conversation comment.
@@ -38,9 +38,8 @@ jobs:
           # until it is merged; keep them in sync.
           CONFIG__MODEL: mistral/mistral-large-latest
           CONFIG__FALLBACK_MODELS: '["mistral/mistral-small-latest"]'
-          CONFIG__AI_TIMEOUT: "300"
-          CONFIG__REASONING_EFFORT: low
-          CONFIG__ADDITIONAL_REASONING_EFFORT_MODELS: '["mistral-large-latest"]'
+          CONFIG__AI_TIMEOUT: "900"
+          CONFIG__MAX_OUTPUT_TOKENS: "20000"
           PR_REVIEWER.REQUIRE_RISK_ASSESSMENT: "true"
           PR_REVIEWER.REQUIRE_MERGE_RECOMMENDATION: "true"
           PR_REVIEWER.REQUIRE_FAILURE_MODES: "true"
