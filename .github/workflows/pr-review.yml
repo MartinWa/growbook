@@ -39,5 +39,10 @@ jobs:
           CONFIG__MODEL: mistral/mistral-large-latest
           CONFIG__FALLBACK_MODELS: '["mistral/mistral-small-latest"]'
           CONFIG__AI_TIMEOUT: "300"
+          CONFIG__REASONING_EFFORT: low
+          CONFIG__ADDITIONAL_REASONING_EFFORT_MODELS: '["mistral-large-latest"]'
+          PR_REVIEWER.REQUIRE_RISK_ASSESSMENT: "true"
+          PR_REVIEWER.REQUIRE_MERGE_RECOMMENDATION: "true"
+          PR_REVIEWER.REQUIRE_FAILURE_MODES: "true"
           GITHUB_ACTION_CONFIG.AUTO_DESCRIBE: "false"
           GITHUB_ACTION_CONFIG.AUTO_IMPROVE: "false"

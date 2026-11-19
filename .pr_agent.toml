@@ -16,9 +16,20 @@ fallback_models = ["mistral/mistral-small-latest"]
 max_model_tokens = 0
 # Large 4 reasons before answering, so the 120 s default is too short for a full diff.
 ai_timeout = 300
+# At the default effort the model spends its whole output budget thinking and returns
+# little. "low" still reviews well and finishes. LiteLLM does not advertise the parameter
+# for this model, so it has to be listed explicitly.
+reasoning_effort = "low"
+additional_reasoning_effort_models = ["mistral-large-latest"]
 response_language = "en-US"
 # Feed the repository conventions to the reviewer.
 repo_context_files = ["AGENTS.md"]
+
+[pr_reviewer]
+# The default output is a summary table. These add a verdict and concrete failure modes.
+require_risk_assessment = true
+require_merge_recommendation = true
+require_failure_modes = true
 
 [github_action_config]
 auto_review = true
