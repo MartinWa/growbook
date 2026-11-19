@@ -1,0 +1,27 @@
+# PR-Agent settings for the advisory review in .github/workflows/pr-review.yml.
+# Only overrides belong here; the defaults live in the upstream configuration.toml.
+# The Mistral key is supplied as the MISTRAL_API_KEY repository secret and is read by
+# LiteLLM's `mistral/` provider, so no credential is stored in this file.
+#
+# Mistral hosts third-party models on the same API, so the `mistral/` prefix applies to
+# them too. The review runs on a different model family from the one used for authoring,
+# and on a generally available model rather than a preview. See
+# https://docs.mistral.ai/inference/pricing for current rates.
+
+[config]
+model = "mistral/mistral-large-latest"
+# A cheaper model, used when the primary is rate-limited or unavailable.
+fallback_models = ["mistral/mistral-small-latest"]
+# 0 disables the cap: the diff is sent whole, up to the model's own context window.
+max_model_tokens = 0
+response_language = "en-US"
+# Feed the repository conventions to the reviewer.
+repo_context_files = ["AGENTS.md"]
+
+[github_action_config]
+auto_review = true
+auto_describe = false
+auto_improve = false
+# `synchronize` is not part of pr_actions; new commits run push_commands instead.
+handle_push_trigger = true
+push_commands = ["/review"]
