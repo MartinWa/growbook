@@ -221,24 +221,6 @@ security problems on pull requests, pushes to `main`, manual dispatch and weekly
 its SARIF results to code scanning on `main` and weekly. These reports are advisory; they
 do not replace the build, test, audit and image checks above.
 
-### Advisory pull request review
-
-[`pr-review.yml`](../.github/workflows/pr-review.yml) runs
-[PR-Agent](https://github.com/The-PR-Agent/pr-agent) against the Mistral API and posts a
-review comment on pull requests authored by the maintainer. It is advisory and never
-blocks a merge. Add the `MISTRAL_API_KEY` secret to the `pr-review` environment before
-the first run; the job declares that environment, so the key is not readable by every
-workflow in the repository.
-
-Model, fallback and token budget live in [`.pr_agent.toml`](../.pr_agent.toml); the
-`mistral/` prefix also covers the third-party models Mistral hosts. PR-Agent reads that
-file from `main`, so a change takes effect on the next pull request after it merges, and
-the job skips while the file is absent.
-
-The job checks out nothing, so no pull request code runs with the key in scope. The
-action image is pinned by digest because the upstream `github_action` tag is rolling;
-update it with `docker buildx imagetools inspect pragent/pr-agent:<version>-github_action`.
-
 ## Dependency updates
 
 [`dependabot.yml`](../.github/dependabot.yml) checks uv and GitHub Actions weekly, with a
