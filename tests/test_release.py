@@ -473,6 +473,44 @@ def test_wait_for_ci_run_tolerates_ci_that_does_not_exist_yet(monkeypatch):
     assert run == {"push": {"conclusion": "success"}}
 
 
+def test_wait_for_ci_run_survives_a_transient_ci_lookup_error(monkeypatch):
+    def read_ci_runs(commit):
+        read_ci_runs.calls += 1
+        if read_ci_runs.calls == 1:
+            raise subprocess.CalledProcessError(1, ["gh", "run", "list"])
+        return {"push": {"conclusion": "success"}}
+
+    read_ci_runs.calls = 0
+    monkeypatch.setattr(publish_release, "read_ci_runs", read_ci_runs)
+
+    run = publish_release.wait_for_ci_run(
+        "abc",
+        wait_seconds=60,
+        poll_seconds=5,
+        sleep=lambda seconds: None,
+        monotonic=lambda: 0,
+    )
+
+    assert run == {"push": {"conclusion": "success"}}
+    assert read_ci_runs.calls == 2
+
+
+def test_wait_for_ci_run_reports_ci_lookups_that_keep_failing(monkeypatch):
+    def read_ci_runs(commit):
+        raise subprocess.CalledProcessError(1, ["gh", "run", "list"])
+
+    monkeypatch.setattr(publish_release, "read_ci_runs", read_ci_runs)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        publish_release.wait_for_ci_run(
+            "abc",
+            wait_seconds=60,
+            poll_seconds=5,
+            sleep=lambda seconds: None,
+            monotonic=lambda: 0,
+        )
+
+
 def test_wait_for_ci_run_stops_once_every_existing_run_has_concluded(monkeypatch):
     polls = []
 
