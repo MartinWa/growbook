@@ -5,9 +5,13 @@ import json
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 
 STABLE_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+CI_EVENTS = ("push", "workflow_dispatch")
+CI_POLL_SECONDS = 20
+CI_WAIT_SECONDS = 900
 
 
 def version_number(tag, *, legacy=False):
@@ -20,20 +24,10 @@ def read_command(*arguments):
     return subprocess.run(arguments, check=True, capture_output=True, text=True).stdout.strip()
 
 
-def validate_source(tag, *, event_name, tag_created):
-    """Require a new stable tag on a tested main commit."""
-    if event_name == "push" and tag_created != "true":
-        raise ValueError("Release tags must be new; do not move or overwrite an existing tag.")
-    if version_number(tag) is None:
-        raise ValueError("Release tags must use X.Y.Z without a v prefix or prerelease suffix.")
-    commit = read_command("git", "rev-parse", "HEAD")
-    tag_commit = read_command("git", "rev-parse", f"refs/tags/{tag}^{{commit}}")
-    if commit != tag_commit:
-        raise ValueError("The release tag no longer points at the triggering commit.")
-    read_command("git", "merge-base", "--is-ancestor", "HEAD", "origin/main")
-    # Bot merges can suppress push workflows; manual CI must test the same main commit.
-    for event in ("push", "workflow_dispatch"):
-        conclusion = read_command(
+def read_ci_run(commit, event):
+    """Return the latest CI run for a commit and event, or None before that run exists."""
+    runs = json.loads(
+        read_command(
             "gh",
             "run",
             "list",
@@ -49,11 +43,57 @@ def validate_source(tag, *, event_name, tag_created):
             "1",
             "--json",
             "conclusion",
-            "--jq",
-            ".[0].conclusion",
         )
-        if conclusion == "success":
-            return commit
+    )
+    return runs[0] if runs else None
+
+
+def read_ci_runs(commit):
+    """Return the latest CI run per event, omitting events without a run yet."""
+    runs = {}
+    for event in CI_EVENTS:
+        run = read_ci_run(commit, event)
+        if run:
+            runs[event] = run
+    return runs
+
+
+def wait_for_ci_run(
+    commit,
+    *,
+    wait_seconds=CI_WAIT_SECONDS,
+    poll_seconds=CI_POLL_SECONDS,
+    sleep=time.sleep,
+    monotonic=time.monotonic,
+):
+    """Wait for CI on a commit to conclude, because a tag often lands while its run is going."""
+    deadline = monotonic() + wait_seconds
+    while True:
+        runs = read_ci_runs(commit)
+        if any(run["conclusion"] == "success" for run in runs.values()):
+            return runs
+        # Without a run still in progress, only a newly started manual run can change that.
+        if runs and all(run["conclusion"] for run in runs.values()):
+            return runs
+        if monotonic() >= deadline:
+            return runs
+        sleep(poll_seconds)
+
+
+def validate_source(tag, *, event_name, tag_created):
+    """Require a new stable tag on a tested main commit."""
+    if event_name == "push" and tag_created != "true":
+        raise ValueError("Release tags must be new; do not move or overwrite an existing tag.")
+    if version_number(tag) is None:
+        raise ValueError("Release tags must use X.Y.Z without a v prefix or prerelease suffix.")
+    commit = read_command("git", "rev-parse", "HEAD")
+    tag_commit = read_command("git", "rev-parse", f"refs/tags/{tag}^{{commit}}")
+    if commit != tag_commit:
+        raise ValueError("The release tag no longer points at the triggering commit.")
+    read_command("git", "merge-base", "--is-ancestor", "HEAD", "origin/main")
+    # Bot merges can suppress push workflows; manual CI must test the same main commit.
+    if any(run["conclusion"] == "success" for run in wait_for_ci_run(commit).values()):
+        return commit
     raise ValueError(
         "The release commit must have a successful push or manually dispatched CI run on main. "
         "Run CI on main for this exact commit and wait for it to pass before retrying."

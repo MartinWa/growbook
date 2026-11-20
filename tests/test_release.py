@@ -97,13 +97,17 @@ def run(arguments, **options):
                 if option in arguments:
                     value = arguments[arguments.index(option) + 1]
                     runs = [run for run in runs if run[field] == value]
-            conclusion = runs[0]["conclusion"] if runs else ""
-            return helper.subprocess.CompletedProcess(arguments, 0, conclusion)
+            conclusion = runs[0]["conclusion"] if runs else None
+            return helper.subprocess.CompletedProcess(
+                arguments, 0, json.dumps([{"conclusion": conclusion or None}] if runs else [])
+            )
         if arguments[1] == "api":
             return helper.subprocess.CompletedProcess(arguments, 0, "[[]]")
         raise AssertionError("GitHub publication must never run in this test")
     return original(arguments, **options)
 helper.subprocess.run = run
+# The guard integration checks must not wait minutes for CI they mock anyway.
+helper.wait_for_ci_run.__kwdefaults__.update(wait_seconds=0, poll_seconds=0)
 sys.argv = ["publish_release.py", "--check"]
 helper.main()
 """
@@ -409,6 +413,95 @@ def test_tag_is_the_release_version_without_changing_project_or_lock_metadata(re
 @pytest.mark.parametrize("tag", ["0.1.3", "1.0.0", "10.20.300"])
 def test_stable_release_tags_are_unprefixed_numeric_versions(tag):
     assert publish_release.version_number(tag) == tuple(map(int, tag.split(".")))
+
+
+class FakeClock:
+    def __init__(self, *values):
+        self.values = list(values)
+
+    def __call__(self):
+        return self.values.pop(0)
+
+
+def test_wait_for_ci_run_returns_as_soon_as_a_run_succeeds(monkeypatch):
+    runs = [{"push": {"conclusion": None}}, {"push": {"conclusion": "success"}}]
+    monkeypatch.setattr(publish_release, "read_ci_runs", lambda commit: runs.pop(0))
+    slept = []
+
+    run = publish_release.wait_for_ci_run(
+        "abc",
+        wait_seconds=60,
+        poll_seconds=5,
+        sleep=slept.append,
+        monotonic=FakeClock(0, 5),
+    )
+
+    assert run == {"push": {"conclusion": "success"}}
+    assert slept == [5]
+
+
+def test_wait_for_ci_run_gives_up_at_the_deadline(monkeypatch):
+    monkeypatch.setattr(
+        publish_release, "read_ci_runs", lambda commit: {"push": {"conclusion": None}}
+    )
+    slept = []
+
+    run = publish_release.wait_for_ci_run(
+        "abc",
+        wait_seconds=60,
+        poll_seconds=5,
+        sleep=slept.append,
+        monotonic=FakeClock(0, 60),
+    )
+
+    assert run == {"push": {"conclusion": None}}
+    assert slept == []
+
+
+def test_wait_for_ci_run_tolerates_ci_that_does_not_exist_yet(monkeypatch):
+    runs = [{}, {"push": {"conclusion": "success"}}]
+    monkeypatch.setattr(publish_release, "read_ci_runs", lambda commit: runs.pop(0))
+
+    run = publish_release.wait_for_ci_run(
+        "abc",
+        wait_seconds=60,
+        poll_seconds=5,
+        sleep=lambda seconds: None,
+        monotonic=FakeClock(0, 5),
+    )
+
+    assert run == {"push": {"conclusion": "success"}}
+
+
+def test_wait_for_ci_run_stops_once_every_existing_run_has_concluded(monkeypatch):
+    polls = []
+
+    def read_ci_runs(commit):
+        polls.append(commit)
+        return {"push": {"conclusion": "failure"}}
+
+    monkeypatch.setattr(publish_release, "read_ci_runs", read_ci_runs)
+
+    run = publish_release.wait_for_ci_run(
+        "abc",
+        wait_seconds=60,
+        poll_seconds=5,
+        sleep=lambda seconds: None,
+        monotonic=FakeClock(0),
+    )
+
+    assert run == {"push": {"conclusion": "failure"}}
+    assert polls == ["abc"]
+
+
+def test_validate_source_rejects_ci_that_did_not_pass(monkeypatch):
+    monkeypatch.setattr(publish_release, "read_command", lambda *arguments: "abc123")
+    monkeypatch.setattr(
+        publish_release, "wait_for_ci_run", lambda commit: {"push": {"conclusion": "failure"}}
+    )
+
+    with pytest.raises(ValueError, match="successful push or manually dispatched CI run on main"):
+        publish_release.validate_source("0.1.3", event_name="push", tag_created="true")
 
 
 @pytest.mark.parametrize("tag", ["v0.1.3", "0.1", "0.1.3-rc.1", "0.1.3+build", "01.1.3", "0.1.3\n"])
