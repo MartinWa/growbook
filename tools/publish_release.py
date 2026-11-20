@@ -12,6 +12,8 @@ STABLE_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
 CI_EVENTS = ("push", "workflow_dispatch")
 CI_POLL_SECONDS = 20
 CI_WAIT_SECONDS = 900
+# A rate limit or a network blip must not decide a release; a persistent failure must.
+CI_LOOKUP_ATTEMPTS = 3
 
 
 def version_number(tag, *, legacy=False):
@@ -68,13 +70,22 @@ def wait_for_ci_run(
 ):
     """Wait for CI on a commit to conclude, because a tag often lands while its run is going."""
     deadline = monotonic() + wait_seconds
+    runs = {}
+    failures = 0
     while True:
-        runs = read_ci_runs(commit)
-        if any(run["conclusion"] == "success" for run in runs.values()):
-            return runs
-        # Without a run still in progress, only a newly started manual run can change that.
-        if runs and all(run["conclusion"] for run in runs.values()):
-            return runs
+        try:
+            runs = read_ci_runs(commit)
+        except subprocess.CalledProcessError:
+            failures += 1
+            if failures >= CI_LOOKUP_ATTEMPTS or monotonic() >= deadline:
+                raise
+        else:
+            failures = 0
+            if any(run["conclusion"] == "success" for run in runs.values()):
+                return runs
+            # Without a run still in progress, only a newly started manual run can change that.
+            if runs and all(run["conclusion"] for run in runs.values()):
+                return runs
         if monotonic() >= deadline:
             return runs
         sleep(poll_seconds)

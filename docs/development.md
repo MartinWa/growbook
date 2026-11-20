@@ -322,7 +322,9 @@ the failed workflow, not by force-pushing tags.
 Tagging immediately after a merge is fine: the guard waits up to fifteen minutes for the
 CI run on the tagged commit to conclude instead of failing when that run is still going.
 CI that fails, or a wait that expires, still refuses to publish, and rerunning the workflow
-afterwards is safe because an existing image version is never overwritten.
+afterwards is safe because an existing image version is never overwritten. A transient
+GitHub API error during the wait is retried; a lookup that keeps failing stops the run
+before anything is published.
 
 The workflow rebuilds, smoke-checks and audits the image before pushing its `X.Y.Z` tag,
 then attaches provenance and SBOM attestations. Only after those steps succeed does it
