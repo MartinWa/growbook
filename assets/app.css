@@ -1146,11 +1146,8 @@
     @apply mb-3 font-semibold break-words;
   }
 
-  .account-menu .language-form {
-    @apply mb-3;
-  }
-
   .season-form,
+  .language-form,
   .currency-form {
     @apply mb-3 min-w-0 text-sm;
   }
@@ -1181,16 +1178,8 @@
     @apply w-full;
   }
 
-  .language-form {
-    @apply flex flex-wrap items-center gap-2 text-sm;
-  }
-
-  .language-form label {
-    @apply sr-only;
-  }
-
   .language-form select {
-    @apply w-auto min-h-11 py-1;
+    @apply min-h-11 py-1;
   }
 
   .diary-heading h1 {

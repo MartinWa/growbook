@@ -64,7 +64,7 @@ def test_the_signed_out_menu_offers_language_and_season_without_account_actions(
     assert "Språk och utseende" in content
     assert 'href="/operator/"' not in content
     assert "/accounts/logout/" not in content
-    menu = re.search(r'<div class="menu-panel dropdown-content">(.*?)</div>', content, re.S)
+    menu = re.search(r'<div class="menu-panel dropdown-content">(.*?)</details>', content, re.S)
     assert menu and 'class="language-form"' in menu.group(1)
     assert 'class="season-form"' in menu.group(1)
 
