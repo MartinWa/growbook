@@ -15,6 +15,9 @@ from garden.models import Planting
 
 from .money import MAX_CENTS, money
 
+# The records route lists expenses and income separately; a saved sale links to its page.
+RECORDS_PAGE_SIZE = 25
+
 
 class Expense(ValidatedModel):
     class Category(models.TextChoices):
@@ -46,12 +49,6 @@ class Expense(ValidatedModel):
         null=True,
         blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(9999)],
-    )
-    crop = models.ForeignKey(
-        "garden.Crop", on_delete=models.PROTECT, null=True, blank=True, related_name="expenses"
-    )
-    variety = models.ForeignKey(
-        "garden.Variety", on_delete=models.PROTECT, null=True, blank=True, related_name="expenses"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -105,10 +102,6 @@ class Expense(ValidatedModel):
                 condition=Q(useful_life_years__isnull=True)
                 | Q(useful_life_years__lte=10000 - models.F("purchase_year")),
                 name="expense_period_end_range",
-            ),
-            models.CheckConstraint(
-                condition=Q(variety__isnull=True) | Q(crop__isnull=False),
-                name="expense_variety_has_crop",
             ),
         ]
 
@@ -283,9 +276,21 @@ class Sale(ValidatedModel):
         return self.description
 
     def get_absolute_url(self):
-        return reverse(
-            "economy:list", query={"year": self.sold_on.year}, fragment=f"sale-{self.pk}"
+        # Same ordering as the records route: date first, then creation time and id, newest first.
+        newer = (
+            Sale.objects.filter(sold_on__year=self.sold_on.year)
+            .filter(
+                Q(sold_on__gt=self.sold_on)
+                | Q(sold_on=self.sold_on, created_at__gt=self.created_at)
+                | Q(sold_on=self.sold_on, created_at=self.created_at, pk__gt=self.pk)
+            )
+            .count()
         )
+        query = {"year": self.sold_on.year}
+        page = newer // RECORDS_PAGE_SIZE + 1
+        if page > 1:
+            query["page_income"] = page
+        return reverse("economy:records", query=query, fragment=f"sale-{self.pk}")
 
 
 class EconomySubmission(ValidatedModel):

@@ -2,7 +2,7 @@
 
 from garden.queries import plantings_in_year
 
-from .models import Allocation, AllocationCycle, Expense, Sale
+from .models import Allocation, AllocationCycle, Sale
 
 
 def planting_referenced(planting):
@@ -22,10 +22,7 @@ def planting_referenced(planting):
 
 
 def variety_referenced(variety):
-    return (
-        Expense.objects.filter(variety=variety).exists()
-        or Sale.objects.filter(variety=variety).exists()
-    )
+    return Sale.objects.filter(variety=variety).exists()
 
 
 def sold_variety_referenced(planting, previous_variety_id):

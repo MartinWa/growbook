@@ -180,7 +180,7 @@
     outline-offset: -5px !important;
   }
 
-  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   select,
   textarea {
     @apply min-h-11 w-full rounded-lg border border-base-300 bg-base-100 px-3 py-2 text-base text-base-content;
@@ -196,6 +196,10 @@
   input[type="radio"] {
     @apply accent-primary;
     min-height: auto;
+  }
+
+  input[type="range"] {
+    @apply w-full accent-primary;
   }
 
   input[aria-invalid="true"],
@@ -1511,6 +1515,115 @@
     align-items: center;
     gap: 0.75rem;
     min-block-size: 3rem;
+  }
+
+  .economy-row-list {
+    @apply m-0 list-none p-0;
+  }
+
+  .economy-row-list > li {
+    @apply my-2;
+  }
+
+  .economy-row {
+    @apply flex min-h-11 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-base-300 bg-base-100 px-3 py-2 text-base-content no-underline;
+  }
+
+  .economy-row:hover,
+  .economy-row:focus-visible {
+    @apply border-primary/60 bg-base-300/50;
+  }
+
+  .economy-expense-heading {
+    @apply my-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-lg;
+  }
+
+  .economy-choice-group {
+    @apply my-4 min-w-0 rounded-lg border border-base-300 bg-base-100/60 p-3 sm:p-4;
+  }
+
+  .economy-share-controls {
+    @apply flex min-w-0 items-center gap-3;
+  }
+
+  .economy-share-controls output {
+    @apply shrink-0 text-sm font-medium tabular-nums;
+  }
+
+  .economy-cycle-options {
+    @apply grid gap-1;
+  }
+
+  .economy-cycle-option {
+    @apply flex min-h-11 min-w-0 items-center gap-2 py-1;
+  }
+
+  .economy-cycle-name {
+    @apply min-w-0 flex-1 truncate;
+  }
+
+  .economy-cycle-meta {
+    @apply min-w-0 max-w-[45%] shrink truncate text-sm text-base-content/70;
+  }
+
+  .economy-completed-cycles > summary {
+    @apply flex min-h-11 cursor-pointer items-center gap-2 font-semibold text-primary;
+    list-style: none;
+  }
+
+  .economy-completed-cycles > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .economy-completed-cycles > summary::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 120ms ease;
+  }
+
+  .economy-completed-cycles[open] > summary::before {
+    transform: rotate(45deg);
+  }
+
+  .economy-price-controls {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .economy-price-controls > input {
+    @apply min-w-0 flex-1;
+  }
+
+  .economy-price-controls > span {
+    @apply shrink-0 text-sm text-base-content/70;
+  }
+
+  .economy-quantity-controls {
+    @apply flex min-w-0 items-start gap-2;
+  }
+
+  .economy-quantity-controls > input {
+    @apply min-w-0 flex-1;
+  }
+
+  .economy-quantity-controls > select {
+    @apply w-auto max-w-[45%] shrink-0;
+  }
+
+  .economy-row-name {
+    @apply min-w-0 font-medium;
+  }
+
+  .economy-row-meta {
+    @apply text-sm text-base-content/70;
+  }
+
+  .economy-row-amount {
+    @apply ms-auto text-sm whitespace-nowrap;
   }
 
   .economy-table-wrapper {

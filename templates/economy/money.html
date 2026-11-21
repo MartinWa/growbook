@@ -1,1 +1,1 @@
-{% load i18n %}{% if value != None %}<span class="money-number">{{ value|floatformat:'2' }}</span> <span data-currency-label>{{ currency_label }}</span>{% else %}{% translate 'Unavailable' %}{% endif %}
+{% load i18n %}{% if value != None %}<span class="money-number">{{ value|floatformat:'2' }}</span> {{ currency_label }}{% else %}{% translate 'Unavailable' %}{% endif %}

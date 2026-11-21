@@ -1,9 +1,25 @@
-"""Separate purchase-year spending, growing-year costs and current source summaries."""
+"""Landing summaries, filtered records and the cost-per-plant reads.
+
+A selected year is the page context; ``year=None`` aggregates every year and cuts
+scheduled equipment shares at ``through_year`` so totals never contain costs that
+have not happened yet.
+"""
 
 from django.urls import reverse
 
+from garden.queries import cycle_years
+
 from .calculations import cost_per_plant, in_year
 from .money import money
+
+
+def year_query(year):
+    return {"year": year} if year is not None else {"all_years": 1}
+
+
+def records_url(year, **values):
+    """The records route, with ``all=1`` so the year and filters stay in view."""
+    return reverse("economy:records", query={**year_query(year), "all": 1, **values})
 
 
 def matches(crop, variety, cycle_id, filters):
@@ -85,36 +101,63 @@ def _source_rows(spent, growing, cash_sales, growing_sales, year, *, varieties=F
                 item["allocated"],
             )
         )
-        query = {"year": year}
-        if item["source"] is not None:
-            query["variety" if varieties else "crop"] = item["source"].pk
-        item["url"] = reverse("economy:list", query=query)
+        values = {"variety" if varieties else "crop": item["source"].pk} if item["source"] else {}
+        item["url"] = records_url(year, **values)
     return sorted(
         rows.values(),
         key=lambda item: (item["source"] is None, str(item["source"] or "").casefold()),
     )
 
 
-def overview(state, year, **filters):
+def available_balance(estimate, year, through_year=None):
+    """Reserved amounts reduce the balance; future scheduled shares are excluded."""
+    if year is not None:
+        return estimate.available(year)
+    cutoff = 9999 if through_year is None else through_year
+    years = estimate.schedule or {estimate.expense.purchase_year: estimate.expense.total_cents}
+    return sum(estimate.available(item) for item in years if item <= cutoff)
+
+
+def _in_scope(estimate, year, through_year):
+    if year is not None:
+        return estimate.expense.purchase_year == year or any(
+            part.year == year for part in estimate.parts
+        )
+    cutoff = 9999 if through_year is None else through_year
+    return estimate.expense.purchase_year <= cutoff or any(
+        part.year <= cutoff for part in estimate.parts
+    )
+
+
+def overview(state, year, *, through_year=None, **filters):
+    """Totals and rows for one year, or for every year when ``year`` is None."""
+    cutoff = 9999 if through_year is None else through_year
+    all_years = year is None
     parts = [
         part
         for estimate in state.estimates
         for part in estimate.parts
         if part_matches(part, filters)
     ]
-    spent = [part for part in parts if part.expense.purchase_year == year]
-    growing = [part for part in parts if part.year == year]
     sales = [
         sale for sale in state.sales if matches(sale.crop, sale.variety, sale.cycle_id, filters)
     ]
-    cash_sales = [sale for sale in sales if sale.sold_on.year == year]
-    growing_sales = [sale for sale in sales if sale.growing_year == year]
+    if all_years:
+        spent = [part for part in parts if part.expense.purchase_year <= cutoff]
+        growing = [part for part in parts if part.year <= cutoff]
+        cash_sales = [sale for sale in sales if sale.sold_on.year <= cutoff]
+        growing_sales = [sale for sale in sales if sale.growing_year <= cutoff]
+    else:
+        spent = [part for part in parts if part.expense.purchase_year == year]
+        growing = [part for part in parts if part.year == year]
+        cash_sales = [sale for sale in sales if sale.sold_on.year == year]
+        growing_sales = [sale for sale in sales if sale.growing_year == year]
     pending = [
         allocation
         for estimate in state.estimates
         for allocation in estimate.allocations
         if allocation.pending
-        and allocation.allocation.growing_year == year
+        and (all_years or allocation.allocation.growing_year == year)
         and pending_matches(allocation, filters)
     ]
     totals = _amounts(
@@ -133,30 +176,41 @@ def overview(state, year, **filters):
             for allocation in pending
             if allocation.allocation.expense_id == estimate.expense.pk
         ]
-        if purchase_parts or used_parts or unresolved:
-            expense_rows.append(
-                {
-                    "expense": estimate.expense,
-                    "spent": money(sum(part.cents for part in purchase_parts)),
-                    "growing": money(sum(part.cents for part in used_parts)),
-                    "allocated": money(
-                        sum(part.cents for part in used_parts if part.planting is not None)
-                    ),
-                    "unallocated": money(
-                        sum(part.cents for part in used_parts if part.planting is None)
-                    ),
-                    "pending": bool(unresolved),
-                }
-            )
+        if not (purchase_parts or used_parts or unresolved):
+            continue
+        # The purchase page reopens the share being browsed; All years needs one year.
+        detail_year = year if year is not None else estimate.expense.purchase_year
+        if year is None and any(part.year == cutoff for part in estimate.parts):
+            detail_year = cutoff
+        expense_rows.append(
+            {
+                "expense": estimate.expense,
+                "spent": money(sum(part.cents for part in purchase_parts)),
+                "growing": money(sum(part.cents for part in used_parts)),
+                "allocated": money(
+                    sum(part.cents for part in used_parts if part.planting is not None)
+                ),
+                "unallocated": money(
+                    sum(part.cents for part in used_parts if part.planting is None)
+                ),
+                "available": money(available_balance(estimate, year, cutoff)),
+                "detail_year": detail_year,
+                "pending": bool(unresolved),
+            }
+        )
     cycles = {}
     referenced = {part.planting.pk for part in growing if part.planting is not None}
     sale_cycles = {sale.cycle_id for sale in growing_sales}
     for planting in sorted(state.plantings, key=lambda member: member.pk):
-        if not (
-            in_year(planting, year) or planting.pk in referenced or planting.cycle_id in sale_cycles
-        ):
-            continue
-        if not matches(planting.crop, planting.variety, planting.cycle_id, filters):
+        if year is None:
+            relevant = planting.start_year <= cutoff
+        else:
+            relevant = (
+                in_year(planting, year)
+                or planting.pk in referenced
+                or planting.cycle_id in sale_cycles
+            )
+        if not relevant or not matches(planting.crop, planting.variety, planting.cycle_id, filters):
             continue
         item = cycles.setdefault(
             planting.cycle_id,
@@ -175,7 +229,12 @@ def overview(state, year, **filters):
     for sale in growing_sales:
         if sale.cycle_id in cycles:
             cycles[sale.cycle_id]["income_cents"] += sale.total_cents
-    pending_cycles = {group.cycle.pk for estimate in pending for group in estimate.groups}
+    pending_cycles = {
+        group.cycle.pk
+        for estimate in pending
+        if not all_years or estimate.allocation.growing_year <= cutoff
+        for group in estimate.groups
+    }
     for key, item in cycles.items():
         item["quantity"] = (
             None
@@ -189,11 +248,12 @@ def overview(state, year, **filters):
         item["cost"] = money(item["cost_cents"])
         item["income"] = money(item["income_cents"])
         item["difference"] = money(item["income_cents"] - item["cost_cents"])
-        item["url"] = reverse("economy:list", query={"year": year, "cycle": key})
+        item["years"] = cycle_years(item["members"])
+        item["url"] = reverse("economy:cost-per-plant-cycle", args=[key], query=year_query(year))
     return {
         "totals": totals,
         "expense_rows": expense_rows,
-        "sales": [sale for sale in sales if sale.sold_on.year == year or sale.growing_year == year],
+        "sales": cash_sales,
         "pending_allocations": pending,
         "crop_rows": _source_rows(spent, growing, cash_sales, growing_sales, year),
         "variety_rows": _source_rows(
@@ -201,6 +261,103 @@ def overview(state, year, **filters):
         ),
         "cycle_rows": list(cycles.values()),
     }
+
+
+def _expense_order(row):
+    return (row["expense"].purchased_on, row["expense"].created_at)
+
+
+def _sale_order(sale):
+    return (sale.sold_on, sale.created_at)
+
+
+def landing(state, year, *, through_year=None):
+    """Short recent lists, pending reservations and unallocated balances."""
+    data = overview(state, year, through_year=through_year)
+    by_expense = {estimate.expense.pk: estimate for estimate in state.estimates}
+    expenses = sorted(data["expense_rows"], key=_expense_order, reverse=True)
+    sales = sorted(data["sales"], key=_sale_order, reverse=True)
+    groups = {}
+    for estimate in sorted(
+        data["pending_allocations"],
+        key=lambda item: (item.allocation.growing_year, item.allocation.pk),
+    ):
+        groups.setdefault(estimate.allocation.growing_year, []).append(estimate)
+    balances = [
+        row
+        for row in expenses
+        if row["available"] > 0
+        and _in_scope(
+            by_expense[row["expense"].pk],
+            year,
+            through_year,
+        )
+    ]
+    return {
+        **data,
+        "recent_expenses": expenses[:5],
+        "recent_sales": sales[:5],
+        "pending_groups": [
+            {"year": growing_year, "estimates": estimates}
+            for growing_year, estimates in groups.items()
+        ],
+        "unallocated_purchases": balances,
+        "has_records": bool(expenses or sales),
+    }
+
+
+def cycle_index(state, year, *, through_year=None):
+    """Planting cycles with their growing cost and cost per plant."""
+    data = overview(state, year, through_year=through_year)
+    return {
+        "cycle_rows": data["cycle_rows"],
+        "totals": data["totals"],
+        "crop_rows": data["crop_rows"],
+        "variety_rows": data["variety_rows"],
+    }
+
+
+def cycle_breakdown(state, year, cycle, *, through_year=None):
+    """Each allocation that reaches the cycle, using the current split estimate."""
+    cutoff = 9999 if through_year is None else through_year
+    rows = []
+    for estimate in state.estimates:
+        for allocation in estimate.allocations:
+            if allocation.allocation.growing_year > cutoff or (
+                year is not None and allocation.allocation.growing_year != year
+            ):
+                continue
+            for group in allocation.groups:
+                if group.cycle.pk != cycle.pk:
+                    continue
+                if allocation.pending:
+                    rows.append(
+                        {
+                            "expense": estimate.expense,
+                            "allocation": allocation.allocation,
+                            "amount": None,
+                            "reserved": money(allocation.allocation.amount_cents),
+                            "quantity": group.quantity,
+                            "pending": True,
+                            "reason": allocation.reason,
+                            "per_plant": None,
+                        }
+                    )
+                    continue
+                cents = sum(share.cents for share in group.member_shares)
+                rows.append(
+                    {
+                        "expense": estimate.expense,
+                        "allocation": allocation.allocation,
+                        "amount": money(cents),
+                        "reserved": money(0),
+                        "quantity": group.quantity,
+                        "pending": False,
+                        "reason": "",
+                        "per_plant": cost_per_plant(cents, group.quantity),
+                    }
+                )
+    return rows
 
 
 def expense_detail(estimate, year):

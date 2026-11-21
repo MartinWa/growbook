@@ -1,7 +1,7 @@
 {% load i18n static %}
 {% get_current_language as language %}
 <!doctype html>
-<html lang="{{ language }}" data-season="{{ season }}" data-season-mode="{{ season_mode }}" data-garden-timezone="{{ garden_timezone }}" data-currency-label="{{ currency_label }}">
+<html lang="{{ language }}" data-season="{{ season }}" data-season-mode="{{ season_mode }}" data-garden-timezone="{{ garden_timezone }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,7 +17,6 @@
   <script src="{% static 'js/capture.js' %}" defer></script>
   <script src="{% static 'js/site.js' %}" defer></script>
   <script src="{% static 'js/season.js' %}" defer></script>
-  <script src="{% static 'js/currency.js' %}" defer></script>
   <script src="{% static 'js/releases.js' %}" defer></script>
   <script src="{% static 'js/filters.js' %}" defer></script>
   <script src="{% static 'js/registers.js' %}" defer></script>
@@ -66,7 +65,6 @@
             {% include 'components/language_form.html' %}
             {% include 'components/season_form.html' %}
             {% if user.is_authenticated %}
-            {% include 'components/currency_form.html' %}
             {% if user.is_staff %}<a class="menu-link" href="{% url 'admin:index' %}">{% translate 'Operator' %}</a>{% endif %}
             <form method="post" action="{% url 'logout' %}" data-draft-logout>
               {% csrf_token %}

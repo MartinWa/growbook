@@ -5,6 +5,11 @@ from .releases import RELEASES_URL, REPOSITORY_URL, version_number
 MIB = 1024 * 1024
 
 
+def currency_label(request):
+    """The one instance-wide display label; amounts are never converted."""
+    return {"currency_label": settings.CURRENCY_LABEL}
+
+
 def app_release(request):
     version = settings.APP_VERSION
     release_number = version_number(version.split("-", 1)[0])

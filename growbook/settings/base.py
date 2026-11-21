@@ -62,7 +62,7 @@ TEMPLATES = [
                 "core.context_processors.photo_limits",
                 "core.context_processors.app_release",
                 "core.appearance.appearance_context",
-                "core.currency.currency_context",
+                "core.context_processors.currency_label",
             ],
         },
     },
@@ -105,6 +105,21 @@ def environment_time_zone():
     return name
 
 
+# One display label for the whole instance; amounts are never converted or summed across labels.
+CURRENCY_LABELS = ("SEK", "EUR", "USD", "GBP", "NOK", "DKK")
+
+
+def environment_currency():
+    """Refuse an unknown label at startup instead of rendering a misleading amount."""
+    label = os.environ.get("GROWBOOK_CURRENCY", "SEK").strip() or "SEK"
+    if label not in CURRENCY_LABELS:
+        raise ImproperlyConfigured(
+            f"GROWBOOK_CURRENCY must be one of {', '.join(CURRENCY_LABELS)}, not {label!r}."
+        )
+    return label
+
+
+CURRENCY_LABEL = environment_currency()
 TIME_ZONE = environment_time_zone()
 USE_I18N = True
 USE_TZ = True

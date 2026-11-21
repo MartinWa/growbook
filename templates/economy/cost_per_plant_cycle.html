@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Cost per plant' %} · GrowBook{% endblock %}
+{% block page_class %}page register-page economy-page{% endblock %}
+{% block content %}
+<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}">
+  <a href="{% url 'economy:cost-per-plant' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}">{% translate 'Cost per plant' %}</a>
+  <a href="{{ cycle.get_absolute_url }}">{% translate 'Open cycle' %}</a>
+  <a href="{% url 'economy:sale-create' %}?cycle={{ cycle.pk }}&amp;next={{ request.get_full_path|urlencode }}">{% translate 'Add plant sale' %}</a>
+  <a href="{{ all_years_url }}"{% if all_years %} aria-current="true"{% endif %}>{% translate 'All years' %}</a>
+  {% if previous_url %}<a href="{{ previous_url }}" rel="prev">← {% translate 'Previous year' %}</a>{% endif %}
+  {% if next_url %}<a href="{{ next_url }}" rel="next">{% translate 'Next year' %} →</a>{% endif %}
+</nav>
+<section class="panel">
+  <h1>{{ row.label|default:cycle }}</h1>
+  {% if not row %}<p class="field-help">{% translate 'No allocated costs or plantings for this cycle in the selected period.' %}</p>{% endif %}
+  <p class="field-help">{{ row.years }}{% if row.members %} · {% for member in row.members %}{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+  <dl class="economy-stats">
+    <div><dt>{% translate 'Successfully grown plants' %}</dt><dd>{{ row.quantity|default_if_none:'—' }}</dd></div>
+    <div><dt>{% translate 'Growing costs' %}</dt><dd>{% include 'economy/money.html' with value=row.cost %}</dd></div>
+    <div><dt>{% translate 'Cost per plant' %}</dt><dd>{% include 'economy/money.html' with value=row.per_plant %}</dd></div>
+    <div><dt>{% translate 'Income' %}</dt><dd>{% include 'economy/money.html' with value=row.income %}</dd></div>
+    <div><dt>{% translate 'Result' %}</dt><dd>{% include 'economy/money.html' with value=row.difference %}</dd></div>
+  </dl>
+  {% if row.pending %}<p class="field-help">{% translate 'Additional costs are pending, so cost per plant is unavailable until the split can be calculated.' %}</p>{% endif %}
+</section>
+<section class="economy-section">
+  <h2>{% translate 'Allocations reaching this cycle' %}</h2>
+  <p class="field-help">{% translate 'Each row is one allocation. Equal division or current plant quantities decide its share; changing plant quantities updates the share without changing the chosen amount.' %}</p>
+  <div class="economy-table-wrapper" tabindex="0" role="region" aria-labelledby="cycle-allocation-caption"><table class="economy-table table">
+    <caption id="cycle-allocation-caption">{% translate 'Allocations, shares and plant quantities for this planting cycle' %}</caption>
+    <thead><tr><th scope="col">{% translate 'Expense' %}</th><th scope="col">{% translate 'Growing year' %}</th><th scope="col">{% translate 'Divide the chosen amount' %}</th><th scope="col">{% translate 'Allocated cost' %}</th><th scope="col">{% translate 'Successfully grown plants' %}</th><th scope="col">{% translate 'Cost per plant' %}</th></tr></thead>
+    <tbody>{% for item in allocations %}<tr>
+      <th scope="row"><a href="{{ item.expense.get_absolute_url }}?year={{ item.allocation.growing_year }}">{{ item.expense.description }}</a></th>
+      <td data-label="{% translate 'Growing year' %}">{{ item.allocation.growing_year }}</td>
+      <td data-label="{% translate 'Divide the chosen amount' %}">{{ item.allocation.get_method_display }}</td>
+      <td data-label="{% translate 'Allocated cost' %}">{% if item.pending %}{% translate 'Reserved and unallocated' %}: {% include 'economy/money.html' with value=item.reserved %}{% else %}{% include 'economy/money.html' with value=item.amount %}{% endif %}{% if item.pending %}<p class="field-help">{% translate 'This split is pending; the reserved amount stays unassigned until it can be calculated.' %}</p>{% endif %}</td>
+      <td data-label="{% translate 'Successfully grown plants' %}">{{ item.quantity|default_if_none:'—' }}</td>
+      <td data-label="{% translate 'Cost per plant' %}">{% include 'economy/money.html' with value=item.per_plant %}</td>
+    </tr>{% empty %}<tr><td colspan="6">{% translate 'No allocations reach this cycle yet.' %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

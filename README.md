@@ -102,8 +102,9 @@ interface defaults to Swedish, with English available.
 - Draft recovery requires JavaScript and available browser storage. It does not
   retain selected photos or synchronize writing across tabs or devices.
 - Economy is a personal growing-cost estimate, not formal accounting or harvested-produce
-  sales tracking. Amounts use exact two-decimal precision and one numeric basis. The
-  browser's currency label defaults to SEK and changes presentation without conversion.
+  sales tracking. Amounts use exact two-decimal precision and one numeric basis. One
+  instance-wide currency label, set in configuration and defaulting to SEK, changes
+  presentation only and never converts amounts.
 
 ## Requirements
 

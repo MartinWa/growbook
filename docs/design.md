@@ -165,7 +165,8 @@ verify device-native camera/library pickers; those require the intended phone.
 
 Main navigation links directly to Diary, Growing areas, Crops and varieties,
 Plantings and Economy; `/garden/` redirects to Growing areas. The account menu holds
-language, season and currency display preferences. Growing areas reuse the crop-category
+language and season preferences; the instance-wide currency label comes from
+configuration instead. Growing areas reuse the crop-category
 grid and card styles for top-level areas and child areas.
 Cards share title and footer spacing, soft shadows and a decorative botanical sprig
 on an inset seasonal surface when no photo is available. Category maintenance actions

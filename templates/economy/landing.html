@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Economy' %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
+{% block page_class %}page register-page economy-page{% endblock %}
+{% block content %}
+{% include 'components/register_heading.html' with heading=title illustration='images/registers/plantings.webp' %}
+<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}">
+  <a href="{% url 'garden:planting-list' %}{% if year %}?year={{ year }}{% endif %}">{% translate 'Plantings' %}</a>
+  <a href="{{ all_years_url }}"{% if all_years %} aria-current="true"{% endif %}>{% translate 'All years' %}</a>
+  {% if previous_url %}<a href="{{ previous_url }}" rel="prev">← {% translate 'Previous year' %}</a>{% endif %}
+  {% if next_url %}<a href="{{ next_url }}" rel="next">{% translate 'Next year' %} →</a>{% endif %}
+  <a href="{% url 'economy:cost-per-plant' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}">{% translate 'Cost per plant' %}</a>
+</nav>
+<div class="heading-actions"><a class="btn btn-primary" href="{% url 'economy:expense-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'Add expense' %}</a><a class="btn btn-outline" href="{% url 'economy:sale-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'Add plant sale' %}</a></div>
+<section class="panel">
+  <h2>{% translate 'Summary' %} · {% if all_years %}{% translate 'All years' %}{% else %}{{ year }}{% endif %}</h2>
+  <dl class="economy-stats">
+    <div><dt>{% translate 'Expenses' %}</dt><dd data-total="spent">{% include 'economy/money.html' with value=totals.spent %}</dd></div>
+    <div><dt>{% translate 'Growing costs' %}</dt><dd data-total="growing">{% include 'economy/money.html' with value=totals.growing %}</dd></div>
+    <div><dt>{% translate 'Income' %}</dt><dd data-total="income">{% include 'economy/money.html' with value=totals.income %}</dd></div>
+    <div><dt>{% translate 'Result' %}</dt><dd data-total="growing-difference">{% include 'economy/money.html' with value=totals.growing_difference %}</dd></div>
+  </dl>
+  <p class="field-help">{% translate 'Result is income minus growing costs.' %}{% if all_years %} {% translate 'All years excludes future equipment shares.' %}{% endif %}</p>
+</section>
+{% if pending_groups or unallocated_purchases %}
+<section class="panel economy-pending">
+  <h2>{% translate 'Pending and unallocated' %}</h2>
+  <p class="field-help">{% translate 'Reserved amounts cannot be assigned elsewhere. Remaining balances can still be allocated.' %}</p>
+  {% for group in pending_groups %}
+  <h3>{% blocktranslate with year=group.year %}Pending splits · {{ year }}{% endblocktranslate %}</h3>
+  {% for estimate in group.estimates %}
+  <article>
+    <h4><a href="{{ estimate.allocation.expense.get_absolute_url }}?year={{ group.year }}">{{ estimate.allocation.expense.description }}</a></h4>
+    {% include 'economy/pending.html' %}
+  </article>
+  {% endfor %}
+  {% endfor %}
+  {% if unallocated_purchases %}
+  <h3>{% translate 'Unallocated purchases' %}</h3>
+  <ul class="economy-row-list">
+    {% for row in unallocated_purchases %}
+    <li><a class="economy-row" href="{{ row.expense.get_absolute_url }}?year={{ row.detail_year }}"><span class="economy-row-name">{{ row.expense.description }}</span><span class="economy-row-meta">{% translate 'Purchase year' %} {{ row.expense.purchase_year }}</span><span class="economy-row-amount">{% translate 'Available' %} {% include 'economy/money.html' with value=row.available %}</span></a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% if recent_expenses %}
+<section class="economy-section">
+  <div class="planting-section-heading"><h2>{% translate 'Recent expenses' %}</h2><a href="{{ records_url }}">{% translate 'View all' %}</a></div>
+  <div class="economy-records">
+    {% for row in recent_expenses %}
+    <article class="panel">
+      <h3><a href="{{ row.expense.get_absolute_url }}?year={{ row.expense.purchase_year }}&amp;next={{ request.get_full_path|urlencode }}">{{ row.expense.description }}</a></h3>
+      <p>{{ row.expense.purchased_on|date:'Y-m-d' }}{% if all_years %} · {{ row.expense.purchase_year }}{% endif %} · {{ row.expense.get_category_display }}</p>
+      <p>{% translate 'Expenses' %}: {% include 'economy/money.html' with value=row.spent %}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% if recent_sales %}
+<section class="economy-section">
+  <div class="planting-section-heading"><h2>{% translate 'Recent income' %}</h2><a href="{{ records_url }}">{% translate 'View all' %}</a></div>
+  <div class="economy-records">
+    {% for sale in recent_sales %}
+    <article class="panel">
+      <h3><a href="{% url 'economy:sale-edit' sale.pk %}?year={{ sale.sold_on.year }}&amp;next={{ request.get_full_path|urlencode }}">{{ sale.description }}</a></h3>
+      <p>{{ sale.sold_on|date:'Y-m-d' }}{% if all_years %} · {{ sale.sold_on.year }}{% endif %} · {{ sale.crop.name }}{% if sale.variety %} · {{ sale.variety.name }}{% endif %}</p>
+      <p>{% translate 'Income' %}: {% include 'economy/money.html' with value=sale.total_price %}</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% if not has_records %}
+<div class="panel empty-state"><p>{% translate 'No economy records for this period yet.' %}</p><p>{% translate 'Add a purchase or a plant sale to see summaries and cost per plant.' %}</p></div>
+{% endif %}
+{% endblock %}

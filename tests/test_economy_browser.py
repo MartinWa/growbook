@@ -69,8 +69,18 @@ def money_text(locator, value, language="en"):
     )
 
 
+def set_share(page, value):
+    page.locator("#id_share").evaluate(
+        "(input, value) => {"
+        "input.value = value;"
+        "input.dispatchEvent(new Event('input', {bubbles: true}));"
+        "}",
+        value,
+    )
+
+
 @pytest.mark.parametrize("language", ["en", "sv"])
-def test_minimal_purchase_currency_and_retry_after_a_committed_but_uncertain_save(
+def test_minimal_purchase_currency_label_and_retry_after_a_committed_but_uncertain_save(
     browser_endpoint, live_server, user, language, monkeypatch
 ):
     path = reverse("economy:expense-create")
@@ -81,14 +91,8 @@ def test_minimal_purchase_currency_and_retry_after_a_committed_but_uncertain_sav
         page.locator("#id_description").fill("Synthetic seed packet")
         page.locator("#id_total_price").fill("12,34" if language == "sv" else "12.34")
         key = page.locator("#id_submission_key").input_value()
-        url = page.url
-        page.locator("#account-menu > summary").click()
-        page.locator("#currency").select_option("EUR")
-        page.keyboard.press("Escape")
-        expect(page.locator("html")).to_have_attribute("data-currency-label", "EUR")
-        expect(page.locator("#id_description")).to_have_value("Synthetic seed packet")
-        expect(page.locator("#id_submission_key")).to_have_value(key)
-        expect(page).to_have_url(url)
+        expect(page.locator("main")).to_contain_text("SEK")
+        expect(page.locator("[data-currency-form]")).to_have_count(0)
 
         committed = []
 
@@ -117,10 +121,8 @@ def test_minimal_purchase_currency_and_retry_after_a_committed_but_uncertain_sav
         save(page)
         expect(page).to_have_url(re.compile(r"/economy/expenses/\d+/\?year=2026"))
         money_text(page.locator(".record-fields"), "12.34", language)
-        expect(page.locator(".record-fields [data-currency-label]")).to_have_text("EUR")
+        expect(page.locator(".record-fields")).to_contain_text("SEK")
         assert page.evaluate("Object.keys(sessionStorage).every(key => !key.includes(':expense:'))")
-        page.reload()
-        expect(page.locator("html")).to_have_attribute("data-currency-label", "EUR")
     expense = Expense.objects.get()
     assert expense.total_cents == 1234 and expense.purchase_year == 2026
     assert expense.purchased_quantity is None and EconomySubmission.objects.count() == 1
@@ -144,16 +146,16 @@ def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_
     ).record
     with economy_page(browser_endpoint, live_server, user) as page:
         page.goto(live_server.url + reverse("economy:allocation-create", args=[expense.pk]))
-        page.locator("#id_amount").fill("80")
+        set_share(page, "80")
         for member in (first, second):
             page.locator(f'[name=cycle_ids][value="{member.cycle_id}"]').check()
         save(page)
         expect(page).to_have_url(re.compile(r"/economy/expenses/\d+/\?year=2026#allocation-"))
-        expect(page.locator("main")).to_contain_text("Pending: supply the unknown plant quantities")
+        expect(page.locator("main")).to_contain_text("Pending: set the missing plant quantities")
         money_text(page.locator("[data-available-balance]"), "20.00")
 
         page.get_by_role("link", name="Allocate expense", exact=True).click()
-        page.locator("#id_amount").fill("20.01")
+        set_share(page, "20.1")
         page.locator("[name=scope][value=year]").check()
         expect(page.locator("#id_cycle_ids_group")).to_be_hidden()
         save(page)
@@ -166,9 +168,7 @@ def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_
             page.locator("#id_quantity").fill(count)
             page.locator("#register-form .form-actions button[type=submit]").click()
             expect(page).to_have_url(live_server.url + member.get_absolute_url())
-            page.goto(live_server.url + reverse("economy:list", query={"year": 2026}))
-            money_text(page.locator('[data-total="allocated"]'), "80.00")
-            money_text(page.locator('[data-total="unallocated"]'), "20.00")
+            page.goto(live_server.url + reverse("economy:cost-per-plant", query={"year": 2026}))
             row = page.locator(f'tr[data-cycle="{second.cycle_id}"]')
             money_text(row.locator("td").nth(1), "40.00" if count == "50" else "80.00")
         expect(
@@ -192,7 +192,7 @@ def test_all_year_group_and_selected_cycles_survive_draft_recovery(
         page.goto(live_server.url + path)
         key = page.locator("#id_submission_key").input_value()
         version = page.locator("#id_expected_expense_updated_at").input_value()
-        page.locator("#id_share").fill("60")
+        set_share(page, "60")
         for member in members[:selected_count]:
             page.locator(f'[name=cycle_ids][value="{member.cycle_id}"]').check()
         page.locator(f"[name=scope][value={scope}]").check()
@@ -295,8 +295,10 @@ def test_sale_derives_its_variety_and_rejects_a_stale_browser_edit(
         page.locator("#id_cycle").select_option(str(first.cycle_id))
         expect(page.locator("#id_variety")).to_have_value(str(first.variety_id))
         save(page)
-        expect(page).to_have_url(re.compile(r"/economy/\?year=2026#sale-"))
+        expect(page).to_have_url(re.compile(r"/economy/records/\?year=2026#sale-"))
+        page.goto(live_server.url + reverse("economy:list", query={"year": 2026}))
         money_text(page.locator('[data-total="income"]'), "37.50")
+        page.goto(live_server.url + reverse("economy:records", query={"year": 2026}))
         page.get_by_role("link", name=re.compile("Edit plant sale")).click()
         edit_url = page.url
         page.locator("#id_description").fill("Unsaved correction")
@@ -341,7 +343,7 @@ def test_a_cycle_with_an_unknown_variety_does_not_autoselect_its_only_known_vari
     assert Sale.objects.get().variety_id is None
 
 
-def test_native_forms_keep_invalid_values_and_support_quantities_allocations_sales_and_currency(
+def test_native_forms_keep_invalid_values_and_support_quantities_allocations_and_sales(
     browser_endpoint, live_server, user, catalog
 ):
     first = catalog[3]
@@ -359,13 +361,9 @@ def test_native_forms_keep_invalid_values_and_support_quantities_allocations_sal
         page.locator("#id_unit").select_option("litres")
         save(page)
         expect(page).to_have_url(re.compile(r"/economy/expenses/\d+/"))
-        page.locator("#account-menu > summary").click()
-        page.locator("#currency").select_option("EUR")
-        page.locator("[data-currency-form] button").click()
-        expect(page.locator(".record-fields [data-currency-label]")).to_have_text("EUR")
         money_text(page.locator(".record-fields"), "100.50")
         page.get_by_role("link", name="Allocate expense", exact=True).click()
-        page.locator("#id_quantity_used").fill("10.25")
+        set_share(page, "50")
         page.locator("[name=scope][value=year]").check()
         save(page)
         expect(page).to_have_url(re.compile(r"#allocation-"))
@@ -376,8 +374,37 @@ def test_native_forms_keep_invalid_values_and_support_quantities_allocations_sal
         page.locator("#id_unit_price").fill("10.50")
         page.locator("#id_cycle").select_option(str(first.cycle_id))
         save(page)
-        expect(page).to_have_url(re.compile(r"#sale-"))
+        expect(page).to_have_url(re.compile(r"/economy/records/\?year=2026#sale-"))
+        page.goto(live_server.url + reverse("economy:list", query={"year": 2026}))
         money_text(page.locator('[data-total="income"]'), "21.00")
     assert Expense.objects.get().purchased_quantity == Decimal("20.500")
     assert Allocation.objects.get().amount_cents == 5025
     assert Sale.objects.get().variety_id == first.variety_id
+
+
+def test_live_preview_and_year_filtered_picker_follow_the_form(
+    browser_endpoint, live_server, user, catalog
+):
+    crop, _, _, first, second = catalog
+    later = create_planting(actor=user, crop=crop, start_year=2027, quantity=10).record
+    expense = create_expense(actor=user, description="Synthetic soil", total_price="100").record
+    with economy_page(browser_endpoint, live_server, user) as page:
+        page.goto(live_server.url + reverse("economy:allocation-create", args=[expense.pk]))
+        preview = page.locator("#allocation-preview-body")
+        expect(page.locator("#allocation-preview[aria-live]")).to_have_count(0)
+        expect(preview).to_contain_text("Choose at least one planting cycle")
+        set_share(page, "60")
+        page.locator(f'[name=cycle_ids][value="{first.cycle_id}"]').check()
+        expect(preview).to_contain_text("Estimated allocation")
+        money_text(preview.locator("dl.economy-stats div").nth(0), "60.00")
+        money_text(preview.locator("dl.economy-stats div").nth(1), "40.00")
+        row = preview.locator("tbody tr").first
+        money_text(row.locator("td").nth(1), "60.00")
+        expect(row.locator("td").nth(2)).to_contain_text("1.20")
+
+        page.locator("#id_growing_year").fill("2027")
+        page.locator("#id_growing_year").dispatch_event("change")
+        expect(page.locator(f'[name=cycle_ids][value="{later.cycle_id}"]')).to_be_visible()
+        expect(page.locator(f'[name=cycle_ids][value="{first.cycle_id}"]')).to_have_count(0)
+        expect(preview).to_contain_text("Choose at least one planting cycle")
+    assert Allocation.objects.count() == 0

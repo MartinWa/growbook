@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Cost per plant' %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
+{% block page_class %}page register-page economy-page{% endblock %}
+{% block content %}
+{% include 'components/register_heading.html' with heading=title illustration='images/registers/plantings.webp' %}
+<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}">
+  <a href="{% url 'economy:list' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}">{% translate 'Economy overview' %}</a>
+  <a href="{% url 'economy:records' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}&amp;all=1">{% translate 'Economy records' %}</a>
+  <a href="{{ all_years_url }}"{% if all_years %} aria-current="true"{% endif %}>{% translate 'All years' %}</a>
+  {% if previous_url %}<a href="{{ previous_url }}" rel="prev">← {% translate 'Previous year' %}</a>{% endif %}
+  {% if next_url %}<a href="{{ next_url }}" rel="next">{% translate 'Next year' %} →</a>{% endif %}
+</nav>
+<p class="field-help">{% translate 'Cost per plant uses the growing costs allocated to a planting cycle and its recorded plant quantities. Sales do not change those quantities.' %}{% if all_years %} {% translate 'All years excludes scheduled equipment shares after the current year.' %}{% endif %}</p>
+<section class="economy-section">
+  <h2>{% translate 'Planting cycles' %}</h2>
+  <div class="economy-table-wrapper" tabindex="0" role="region" aria-labelledby="cost-per-plant-caption"><table class="economy-table table">
+    <caption id="cost-per-plant-caption">{% translate 'Allocated costs, plant quantities and plant sales by planting cycle' %}</caption>
+    <thead><tr><th scope="col">{% translate 'Planting cycle' %}</th><th scope="col">{% translate 'Successfully grown plants' %}</th><th scope="col">{% translate 'Growing costs' %}</th><th scope="col">{% translate 'Cost per plant' %}</th><th scope="col">{% translate 'Income' %}</th><th scope="col">{% translate 'Result' %}</th></tr></thead>
+    <tbody>{% for row in cycle_rows %}<tr data-cycle="{{ row.cycle.pk }}">
+      <th scope="row"><a href="{{ row.url }}">{{ row.label }}</a><p class="field-help">{{ row.years }} · {% for member in row.members %}{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p></th>
+      <td data-label="{% translate 'Successfully grown plants' %}">{{ row.quantity|default_if_none:'—' }}</td>
+      <td data-label="{% translate 'Growing costs' %}">{% include 'economy/money.html' with value=row.cost %}</td>
+      <td data-label="{% translate 'Cost per plant' %}">{% include 'economy/money.html' with value=row.per_plant %}{% if row.pending %}<p class="field-help">{% translate 'Additional costs are pending.' %}</p>{% endif %}</td>
+      <td data-label="{% translate 'Income' %}">{% include 'economy/money.html' with value=row.income %}</td>
+      <td data-label="{% translate 'Result' %}">{% include 'economy/money.html' with value=row.difference %}</td>
+    </tr>{% empty %}<tr><td colspan="6">{% translate 'No planting cycles have recorded costs in this period.' %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="economy-section"><h2>{% translate 'Costs by crop' %}</h2>{% translate 'Crop economy' as crop_caption %}{% include 'economy/source_table.html' with rows=crop_rows table_id='crop-economy' caption=crop_caption %}</section>
+<section class="economy-section"><h2>{% translate 'Costs by variety' %}</h2>{% translate 'Variety economy' as variety_caption %}{% include 'economy/source_table.html' with rows=variety_rows table_id='variety-economy' caption=variety_caption varieties=True %}</section>
+{% endblock %}

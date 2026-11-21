@@ -12,11 +12,8 @@
     <dt>{% translate 'Purchase cost' %}</dt><dd>{% include 'economy/money.html' with value=expense.total_price %}</dd>
     <dt>{% translate 'Expense category' %}</dt><dd>{{ expense.get_category_display }}</dd>
     {% if expense.purchased_quantity %}<dt>{% translate 'Purchased quantity' %}</dt><dd>{{ expense.purchased_quantity|floatformat:'-3' }} {{ expense.get_unit_display }}</dd>{% endif %}
-    <dt>{% translate 'Crop' %}</dt><dd>{{ expense.crop.name|default:'—' }}</dd>
-    <dt>{% translate 'Variety' %}</dt><dd>{{ expense.variety.name|default:'—' }}</dd>
     {% if expense.useful_life_years %}<dt>{% translate 'Useful life (whole years)' %}</dt><dd>{{ expense.useful_life_years }} · {{ expense.purchase_year }}–{{ last_year }}</dd>{% endif %}
   </dl>
-  <p class="field-help">{% translate 'Direct crop and variety assignments apply to the remaining cost. Planting allocations replace that attribution for their portions, so costs are counted once.' %}</p>
   <div class="form-actions"><a class="btn btn-outline" href="{% url 'economy:expense-edit' expense.pk %}?year={{ year }}&amp;next={{ request.get_full_path|urlencode }}">{% translate 'Edit expense' %}</a><a href="{% url 'economy:expense-delete' expense.pk %}?year={{ year }}&amp;next={{ list_url|urlencode }}">{% translate 'Delete expense' %}</a></div>
 </section>
 <section class="panel economy-section">
@@ -59,7 +56,7 @@
       <caption id="allocation-caption-{{ estimate.allocation.pk }}">{% translate 'Current allocation split' %}</caption>
       <thead><tr><th scope="col">{% translate 'Planting cycle' %}</th><th scope="col">{% translate 'Successfully grown plants' %}</th><th scope="col">{% translate 'Allocated cost' %}</th><th scope="col">{% translate 'Estimated cost per plant' %}</th></tr></thead>
       <tbody>{% for group in estimate.groups %}<tr>
-        <th scope="row"><a href="{% url 'economy:list' %}?year={{ estimate.allocation.growing_year }}&amp;cycle={{ group.cycle.pk }}">{{ group.label }}</a><p class="field-help">{% for member in group.members %}{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p></th>
+        <th scope="row"><a href="{% url 'economy:cost-per-plant-cycle' group.cycle.pk %}?year={{ estimate.allocation.growing_year }}">{{ group.label }}</a><p class="field-help">{% for member in group.members %}{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p></th>
         <td data-label="{% translate 'Successfully grown plants' %}">{{ group.quantity|default_if_none:'—' }}</td>
         <td data-label="{% translate 'Allocated cost' %}">{% include 'economy/money.html' with value=group.amount %}</td>
         <td data-label="{% translate 'Estimated cost per plant' %}">{% include 'economy/money.html' with value=group.per_plant %}</td>

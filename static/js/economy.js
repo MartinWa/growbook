@@ -2,14 +2,31 @@
 (() => {
   "use strict";
   const form = document.querySelector("[data-economy-form]");
+  const share = document.querySelector(".economy-share");
+  if (share) {
+    const input = share.querySelector('input[type="range"]');
+    const output = share.querySelector("[data-share-output]");
+    const quantity = Number(share.dataset.quantity || "");
+    const derived = share.querySelector("[data-share-quantity]");
+    const format = new Intl.NumberFormat(document.documentElement.lang, {maximumFractionDigits: 3});
+    const updateShare = () => {
+      const percent = Number(input.value);
+      output.textContent = `${format.format(percent)} %`;
+      if (derived) derived.textContent = `${format.format(quantity * percent / 100)} ${share.dataset.unit}`;
+    };
+    input.addEventListener("input", updateShare);
+    updateShare();
+  }
   if (!form) return;
   const scope = () => {
-    const group = form.querySelector('[data-field-name="cycle_ids"]');
+    const group = form.querySelector('[data-choice-group="cycles"]');
     if (group) group.hidden = form.elements.namedItem("scope").value === "year";
   };
   form.querySelectorAll('[name="scope"]').forEach(input => input.addEventListener("change", scope));
   form.addEventListener("draft:restored", scope);
   form.addEventListener("draft:discarded", scope);
+  // The year-filtered cycle picker is swapped in; keep the group's visibility in step.
+  form.addEventListener("htmx:afterSwap", scope);
   scope();
   const details = form.querySelector("[data-expense-details]");
   if (details) {

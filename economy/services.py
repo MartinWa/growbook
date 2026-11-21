@@ -217,12 +217,10 @@ def _write_expense(pk, values, expected_updated_at):
     if record is None:
         purchased_on = values.get("purchased_on") or timezone.localdate()
         record = Expense(purchase_year=purchased_on.year, purchased_on=purchased_on)
-    previous = {"crop_id": record.crop_id, "variety_id": record.variety_id}
     for field, value in values.items():
         if field == "purchased_on" and value is None:
             continue
         setattr(record, field, value)
-    record.crop_id = _taxonomy(record.crop_id, record.variety_id, previous)
     record.full_clean()
     _validate_budgets(record)
     record.save()
@@ -237,8 +235,6 @@ def _expense_values(
     purchased_quantity,
     unit,
     useful_life_years,
-    crop,
-    variety,
 ):
     if useful_life_years is not None and (
         type(useful_life_years) is not int or not 1 <= useful_life_years <= 9999
@@ -256,8 +252,6 @@ def _expense_values(
         else None,
         "unit": _text(unit, "unit"),
         "useful_life_years": useful_life_years,
-        "crop_id": _id(crop, "crop", optional=True),
-        "variety_id": _id(variety, "variety", optional=True),
     }
     if values["purchased_quantity"] is not None and values["purchased_quantity"] <= 0:
         raise ValidationError({"purchased_quantity": _("Use a positive purchased quantity.")})
@@ -274,8 +268,6 @@ def create_expense(
     purchased_quantity=None,
     unit="",
     useful_life_years=None,
-    crop=None,
-    variety=None,
     submission_key=None,
 ):
     values = _expense_values(
@@ -286,8 +278,6 @@ def create_expense(
         purchased_quantity,
         unit,
         useful_life_years,
-        crop,
-        variety,
     )
     return _save(actor, "expense", None, values, submission_key, None, _write_expense)
 
@@ -304,8 +294,6 @@ def edit_expense(
     purchased_quantity=None,
     unit="",
     useful_life_years=None,
-    crop=None,
-    variety=None,
     submission_key=None,
 ):
     values = _expense_values(
@@ -316,13 +304,18 @@ def edit_expense(
         purchased_quantity,
         unit,
         useful_life_years,
-        crop,
-        variety,
     )
     return _save(actor, "expense", pk, values, submission_key, expected_updated_at, _write_expense)
 
 
-def _allocation_amount(expense, values):
+def allocation_amount(expense, growing_year, amount=None, share=None, quantity_used=None):
+    """Exactly one of amount, share or quantity, resolved to integer cents."""
+    values = {
+        "amount": amount,
+        "share": share,
+        "quantity_used": quantity_used,
+        "growing_year": growing_year,
+    }
     entries = [field for field in ("amount", "share", "quantity_used") if values[field] is not None]
     if len(entries) != 1:
         raise ValidationError(
@@ -330,7 +323,7 @@ def _allocation_amount(expense, values):
         )
     field = entries[0]
     value = values[field]
-    budget = allocation_budget(expense, values["growing_year"])
+    budget = allocation_budget(expense, growing_year)
     if field == "amount":
         cents = to_cents(value, field)
     elif field == "share":
@@ -360,6 +353,16 @@ def _allocation_amount(expense, values):
     return cents
 
 
+def _allocation_amount(expense, values):
+    return allocation_amount(
+        expense,
+        values["growing_year"],
+        amount=values["amount"],
+        share=values["share"],
+        quantity_used=values["quantity_used"],
+    )
+
+
 def _write_allocation(pk, values, expected_updated_at):
     expense = _current(Expense, values["expense_id"], values["expected_expense_updated_at"])
     record = (
@@ -374,6 +377,10 @@ def _write_allocation(pk, values, expected_updated_at):
         values["scope"],
         values["method"],
     )
+    if record.growing_year < expense.purchase_year:
+        raise ValidationError(
+            {"growing_year": _("Choose the purchase year or a later growing year.")}
+        )
     if expense.useful_life_years is not None and record.growing_year not in equipment_schedule(
         expense
     ):

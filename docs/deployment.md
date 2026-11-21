@@ -91,6 +91,7 @@ docker run --rm growbook:local python -c "import secrets; print(secrets.token_ur
 | `GROWBOOK_ALLOWED_HOSTS` | Comma-separated exact hostnames, without schemes; no wildcard. |
 | `GROWBOOK_CSRF_TRUSTED_ORIGINS` | Comma-separated trusted HTTPS origins. |
 | `GROWBOOK_TIME_ZONE` | Garden timezone as an IANA name; defaults to `Europe/Stockholm`. An invalid name stops startup. |
+| `GROWBOOK_CURRENCY` | One display label for the whole instance: `SEK`, `EUR`, `USD`, `GBP`, `NOK` or `DKK`; defaults to `SEK`. An unknown label stops startup. Amounts are never converted. |
 | `GROWBOOK_UPDATE_CHECK` | Check public stable release metadata; defaults to `true`. Set `false` to disable outbound update checks. |
 | `GROWBOOK_MIGRATE_ON_START` | Apply pending migrations at startup; defaults to `true`. Set `false` for a separate migration step. |
 | `GROWBOOK_TRUST_PROXY` | Set `true` behind a trusted HTTPS reverse proxy that replaces `X-Forwarded-Proto`; defaults to `false`. No fixed proxy IP is needed. |

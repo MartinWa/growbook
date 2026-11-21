@@ -1,0 +1,9 @@
+{% load i18n %}
+<div class="field economy-price" data-field-name="{{ field.name }}">
+  <label for="{{ field.id_for_label }}">{{ field.label }} <span class="field-requirement">{% if field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></label>
+  <div class="economy-price-controls">
+    {{ field }}
+    <span>{{ currency_label }}</span>
+  </div>
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-form-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+</div>

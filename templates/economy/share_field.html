@@ -1,0 +1,10 @@
+{% load i18n %}
+<div class="field economy-share" data-field-name="share"{% if expense.purchased_quantity %} data-quantity="{{ expense.purchased_quantity }}" data-unit="{{ expense.get_unit_display }}"{% endif %}>
+  <label for="{{ field.id_for_label }}">{{ field.label }} <span class="field-requirement">{% translate '(required)' %}</span></label>
+  <div class="economy-share-controls">
+    {{ field }}
+    <output for="{{ field.id_for_label }}" data-share-output>{{ field.value|default_if_none:'100' }} %</output>
+  </div>
+  {% if expense.purchased_quantity %}<p class="field-help" data-share-quantity>{{ share_quantity|floatformat:'-3' }} {{ expense.get_unit_display }}</p>{% endif %}
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-form-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+</div>
