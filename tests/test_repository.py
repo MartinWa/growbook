@@ -52,7 +52,11 @@ def test_contributor_agreement_is_documented_and_does_not_use_an_archived_action
     assert "## 6. Corporate contributions" in agreement
     assert "the owner of the `MartinWa/growbook` GitHub repository" in agreement
     assert "the laws of Sweden" in agreement
-    assert "cla-assistant.io" in contributing
+    # The sign-in app is named, not linked by URL: a URL substring check in a test is what
+    # CodeQL reports as incomplete URL sanitization, and the setup steps are the substance.
+    assert "CLA Assistant" in contributing
+    assert "### For maintainers" in contributing
+    assert "required status check" in contributing
     assert "docs/development.md#test-and-check" in contributing
     assert not any("contributor-assistant/github-action" in text for text in workflows)
     assert not (ROOT / "signatures").exists()
