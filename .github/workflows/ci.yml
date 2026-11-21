@@ -158,6 +158,18 @@ jobs:
           uv export --locked --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/audit-requirements.txt"
           uvx --from pip-audit==2.10.1 pip-audit --disable-pip --strict \
             --progress-spinner off -r "$RUNNER_TEMP/audit-requirements.txt" -r requirements-build.txt
+      - name: Validate compose files
+        env:
+          APP_UID: "1000"
+          APP_GID: "1000"
+          APP_DATA_PATH: /tmp/growbook-data
+          PROXY_NETWORK: proxy
+          GROWBOOK_ENV_FILE: ${{ runner.temp }}/compose.env
+        run: |
+          cp .env.example "$GROWBOOK_ENV_FILE"
+          docker compose config -q
+          docker compose -f compose.yaml -f compose.host-port.yaml config -q
+          docker compose -f compose.development.yaml config -q
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build production image without publishing
@@ -172,37 +184,10 @@ jobs:
           cache-from: type=gha,scope=ci-production
           cache-to: type=gha,scope=ci-production,mode=max
           github-token: ""
-      - name: Check migrations and non-root WSGI initialization
+      - name: Check the production image as its runtime user
         run: |
           docker run --rm --network none --read-only --cap-drop ALL \
-            --security-opt no-new-privileges:true \
-            --tmpfs /data:mode=1777 --tmpfs /tmp \
-            --env GROWBOOK_SECRET_KEY=synthetic-ci-container-key-not-for-runtime-000000000000000000 \
-            --env GROWBOOK_ALLOWED_HOSTS=ci.invalid \
-            --env GROWBOOK_TRUST_PROXY=false \
-            growbook:ci sh -ec '
-              python manage.py migrate --noinput
-              python manage.py check --deploy --database default
-              python -c "
-          import os
-          import importlib.util
-          from growbook.wsgi import application
-          from django.core.checks import run_checks
-          assert os.geteuid() != 0
-          assert application
-          assert all(importlib.util.find_spec(name) is None for name in (\"pip\", \"pytest\", \"playwright\"))
-          issues = run_checks(include_deployment_checks=True, databases=[\"default\"])
-          assert {issue.id for issue in issues} <= {\"security.W005\", \"security.W021\"}, issues
-          "
-            '
+            --security-opt no-new-privileges:true --tmpfs /tmp \
+            growbook:ci python tools/check_image.py
       - name: Audit production image
-        run: |
-          curl --fail --silent --show-error --location --retry 3 \
-            https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz \
-            --output "$RUNNER_TEMP/trivy.tar.gz"
-          printf '%s  %s\n' \
-            'c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0' \
-            "$RUNNER_TEMP/trivy.tar.gz" | sha256sum --check
-          tar -xzf "$RUNNER_TEMP/trivy.tar.gz" -C "$RUNNER_TEMP" trivy
-          "$RUNNER_TEMP/trivy" image --scanners vuln --severity HIGH,CRITICAL \
-            --ignore-unfixed --exit-code 1 --timeout 10m growbook:ci
+        run: bash tools/audit_image.sh growbook:ci

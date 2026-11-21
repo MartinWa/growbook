@@ -156,6 +156,7 @@ live SQLite file, and keep an independent copy.
 | [Deployment](docs/deployment.md) | Docker, private configuration, upgrades and SQLite runtime |
 | [Backup and recovery](docs/backup-and-recovery.md) | Backup, verification, restore and orphan cleanup |
 | [Interface foundations](docs/design.md) | Shared styles, tokens and capture form conventions |
+| [Contributing](CONTRIBUTING.md) | Ground rules, checks and the contributor agreement |
 | [Third-party notices](third_party/README.md) | Dependency licensing and native build provenance |
 
 ## Project layout
@@ -195,4 +196,5 @@ dependencies retain their own terms; the project license does not claim ownershi
 user-entered garden records or photos.
 
 For engineering conventions and expectations for contributors and coding assistants,
-see [AGENTS.md](AGENTS.md).
+see [AGENTS.md](AGENTS.md). Contributions are accepted under [CONTRIBUTING.md](CONTRIBUTING.md)
+and the [Contributor License Agreement](CLA.md), which keeps your copyright.

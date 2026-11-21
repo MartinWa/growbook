@@ -2,6 +2,9 @@
 
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = Path(os.environ.get("GROWBOOK_DATA_DIR", "/state/development")).resolve()
@@ -88,7 +91,21 @@ CSRF_FAILURE_VIEW = "core.views.csrf_failure"
 LANGUAGE_CODE = "sv"
 LANGUAGES = [("sv", "Svenska"), ("en", "English")]
 LOCALE_PATHS = [Path(os.environ.get("GROWBOOK_LOCALE_DIR", BASE_DIR / "locale"))]
-TIME_ZONE = os.environ.get("GROWBOOK_TIME_ZONE", "Europe/Stockholm")
+
+
+def environment_time_zone():
+    """Return a valid IANA zone, refusing a typo instead of failing later at runtime."""
+    name = os.environ.get("GROWBOOK_TIME_ZONE", "Europe/Stockholm").strip() or "Europe/Stockholm"
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ImproperlyConfigured(
+            f"GROWBOOK_TIME_ZONE must be an IANA zone name such as Europe/Stockholm, not {name!r}."
+        ) from exc
+    return name
+
+
+TIME_ZONE = environment_time_zone()
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "/static/"
