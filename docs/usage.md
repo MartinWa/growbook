@@ -580,9 +580,10 @@ requires confirmation. Originals stay out of the ordinary diary view and are inc
 in operational backups. If your session expires, downloading opens the sign-in page
 so you can regain access.
 
-The account menu contains Language, Season, Currency label, Log out and, for staff, Operator. Language changes
-apply immediately with JavaScript and retain the page and filters; a submit button
-remains without JavaScript. The login page has its own selector.
+The account menu contains Language, Season, Currency label, Log out and, for staff,
+Operator. The sign-in page shows the same menu with Language and Season only. Language
+changes apply immediately with JavaScript and retain the page and filters; a submit
+button remains without JavaScript.
 
 - Search is a literal substring match after Unicode NFC normalization and casefolding:
   uppercase and lowercase match, diacritics do not (`Ångström` finds `ångström`, but

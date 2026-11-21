@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
@@ -52,6 +53,20 @@ def test_anonymous_pages_require_login(client, path):
     assert response.status_code == 302
     assert "login" in response.url
     assert "no-store" in response["Cache-Control"]
+
+
+def test_the_signed_out_menu_offers_language_and_season_without_account_actions(client):
+    page = client.get("/accounts/login/")
+    assert page.status_code == 200
+    content = page.text
+    assert content.count('id="account-menu"') == 1
+    assert content.count('id="language"') == 1 and content.count('id="season"') == 1
+    assert "Språk och utseende" in content
+    assert 'href="/operator/"' not in content
+    assert "/accounts/logout/" not in content
+    menu = re.search(r'<div class="menu-panel dropdown-content">(.*?)</div>', content, re.S)
+    assert menu and 'class="language-form"' in menu.group(1)
+    assert 'class="season-form"' in menu.group(1)
 
 
 def test_login_and_language_selection_are_public(client):

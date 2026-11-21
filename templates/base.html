@@ -59,25 +59,22 @@
       {% endwith %}
       {% endif %}
       <div class="ml-auto flex flex-wrap items-center gap-2">
-        {% if user.is_authenticated %}
         <details class="disclosure-menu account-menu dropdown dropdown-end" id="account-menu">
-          <summary class="btn btn-ghost btn-square" aria-label="{% translate 'Account menu' %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-user-round"/></svg></summary>
+          <summary class="btn btn-ghost btn-square" aria-label="{% if user.is_authenticated %}{% translate 'Account menu' %}{% else %}{% translate 'Language and appearance' %}{% endif %}"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-user-round"/></svg></summary>
           <div class="menu-panel dropdown-content">
-            <p class="account-name">{{ user.get_username }}</p>
+            {% if user.is_authenticated %}<p class="account-name">{{ user.get_username }}</p>{% endif %}
             {% include 'components/language_form.html' %}
             {% include 'components/season_form.html' %}
+            {% if user.is_authenticated %}
             {% include 'components/currency_form.html' %}
             {% if user.is_staff %}<a class="menu-link" href="{% url 'admin:index' %}">{% translate 'Operator' %}</a>{% endif %}
             <form method="post" action="{% url 'logout' %}" data-draft-logout>
               {% csrf_token %}
               <button type="submit" class="btn btn-ghost w-full">{% translate 'Log out' %}</button>
             </form>
+            {% endif %}
           </div>
         </details>
-        {% else %}
-        {% include 'components/language_form.html' %}
-        {% include 'components/season_form.html' %}
-        {% endif %}
       </div>
     </div>
   </header>

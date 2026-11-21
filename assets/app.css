@@ -1156,6 +1156,7 @@
   }
 
   .season-form label,
+  .language-form label,
   .currency-form label {
     @apply mb-1 block font-medium;
   }
