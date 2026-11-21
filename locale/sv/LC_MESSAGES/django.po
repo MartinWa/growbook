@@ -1028,6 +1028,9 @@ msgstr "Skriv en dagboksanteckning, eller lämna fältet tomt och lägg till en 
 msgid "Account menu"
 msgstr "Kontomeny"
 
+msgid "Language and appearance"
+msgstr "Språk och utseende"
+
 msgid "Active filters"
 msgstr "Aktiva filter"
 

@@ -3,9 +3,11 @@
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ request.get_full_path }}">
   <label for="language">{% translate 'Language' %}</label>
-  <select id="language" name="language">
-    <option value="sv" {% if language == 'sv' %}selected{% endif %}>Svenska</option>
-    <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
-  </select>
-  <button type="submit" class="btn btn-outline">{% translate 'Change' %}</button>
+  <div class="season-controls">
+    <select id="language" name="language">
+      <option value="sv" {% if language == 'sv' %}selected{% endif %}>Svenska</option>
+      <option value="en" {% if language == 'en' %}selected{% endif %}>English</option>
+    </select>
+    <button type="submit" class="btn btn-outline">{% translate 'Change' %}</button>
+  </div>
 </form>

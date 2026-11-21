@@ -414,6 +414,11 @@ def test_season_form_and_colours_work_without_javascript(page, live_server, user
     try:
         plain = context.new_page()
         plain.goto(live_server.url + "/accounts/login/")
+        plain.locator("#account-menu > summary").click()
+        expect(plain.locator("#account-menu #language")).to_have_count(1)
+        expect(plain.locator("#account-menu #season")).to_have_count(1)
+        expect(plain.locator('#account-menu a[href="/operator/"]')).to_have_count(0)
+        expect(plain.locator("#account-menu form[data-draft-logout]")).to_have_count(0)
         plain.locator("#season").select_option("winter")
         plain.locator('.season-form button[type="submit"]').click()
         expect(plain.locator("html")).to_have_attribute("data-season", "winter")
