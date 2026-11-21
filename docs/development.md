@@ -332,16 +332,17 @@ The server applies pending migrations at startup by default. Set
 `GROWBOOK_MIGRATE_ON_START=false` to run migrations separately; see
 [Upgrade an existing installation](deployment.md#upgrade-an-existing-installation).
 
-GHCR creates a container package private even for a public repository. The workflow's last
-step sets the package visibility to public when the token allows it, which needs a
-repository secret `PACKAGE_TOKEN` holding a token with `write:packages`, and then requires
-an anonymous pull token for the package. Without that secret the first release finishes
-with the package private and the step fails with the one-time instruction: set the
-visibility to public in the package settings. Later releases inherit it.
+GHCR creates a container package private even for a public repository, and container
+package visibility cannot be changed through the REST API: it exposes only read, delete
+and restore for packages. Set the package visibility to public once under the
+repository's package settings before the first release is recommended to anyone; later
+releases inherit it. The workflow's last step requests an anonymous pull token and emits
+a warning naming that manual step, so a release never claims public pullability it does
+not have.
 
 The arm64 image runs under QEMU on the release runner, so that platform is slower to build
-and its first build is the first time it is exercised. Verify an actual arm64 host
-boots a released digest before relying on it.
+and its first build is the first time it is exercised. Verify an actual arm64 host boots a
+released digest before relying on it.
 
 Before recommending a published image, verify anonymous pulls and its attestation. Keep
 deployment configuration private and pin the published digest rather than a moving tag.

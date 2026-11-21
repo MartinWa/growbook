@@ -1,6 +1,7 @@
 """One production WSGI process with explicit trusted-proxy configuration."""
 
 import os
+import tempfile
 from pathlib import Path
 
 from django.conf import settings
@@ -64,9 +65,10 @@ def verify_data_directory():
             "non-root user before starting the server; see docs/deployment.md."
         )
     try:
-        probe = directory / f".write-probe-{os.getpid()}"
-        probe.write_text("", encoding="utf-8")
-        probe.unlink()
+        # An exclusively created temporary file keeps concurrent starts from sharing a
+        # probe name: separate containers can hold the same process ID.
+        with tempfile.NamedTemporaryFile(dir=directory, prefix=".write-probe-"):
+            pass
     except OSError as exc:
         raise ImproperlyConfigured(
             f"Data directory {directory} is not writable: {exc}. The configured non-root user "

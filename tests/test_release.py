@@ -744,9 +744,16 @@ def test_release_workflow_builds_checks_and_publishes_each_platform():
     assert 'docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"' in workflow
     assert "--prefer-index=false" not in workflow
     # A private package would make the released image unusable for anonymous deployments.
+    # Visibility is a manual package-settings change; the REST API has no endpoint for it,
+    # so the workflow verifies the result and warns instead of attempting an update.
     assert "ghcr.io/token?scope=repository" in workflow
-    assert "-f visibility=public" in workflow
-    assert "secrets.PACKAGE_TOKEN || github.token" in workflow
+    assert "PATCH" not in workflow
+    assert "visibility=public" not in workflow
+    assert "PACKAGE_TOKEN" not in workflow
+    assert "not anonymously pullable" in workflow
+    assert workflow.index("- name: Check the package can be pulled anonymously") > workflow.index(
+        "- name: Update latest for the current stable release"
+    )
 
 
 def test_release_check_runs_inside_each_platform_image():

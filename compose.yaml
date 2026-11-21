@@ -12,9 +12,9 @@ services:
     networks:
       - managed-proxy
     restart: unless-stopped
+    # Forward signals to the application and reap orphaned processes. The application has
+    # no graceful drain, so a stop interrupts in-flight requests; failed saves are retryable.
     init: true
-    # Photo processing finishes before SIGKILL replaces the default 10-second stop.
-    stop_grace_period: 30s
     read_only: true
     tmpfs:
       - /tmp:size=536870912,mode=1777

@@ -198,6 +198,47 @@ def test_server_names_the_ownership_fix_for_an_unwritable_data_directory(tmp_pat
     assert "APP_DATA_PATH" in result.stderr
 
 
+def test_concurrent_write_probes_do_not_collide(tmp_path):
+    # Separate containers can hold the same process ID, so the probe must not be named
+    # after it; identical names let one start delete another's file and fail falsely.
+    (tmp_path / "state").mkdir()
+    result = run_settings(
+        tmp_path,
+        """
+import threading
+
+import django
+
+django.setup()
+
+from growbook.server import verify_data_directory
+
+errors = []
+
+
+def probe():
+    try:
+        for _ in range(25):
+            verify_data_directory()
+    except Exception as error:
+        errors.append(error)
+
+
+threads = [threading.Thread(target=probe) for _ in range(4)]
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+assert not errors, errors
+print("probes ok")
+""",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "probes ok" in result.stdout
+    assert not list((tmp_path / "state").glob(".write-probe-*"))
+
+
 def test_server_refuses_missing_or_outdated_database(tmp_path):
     check = """
 import django

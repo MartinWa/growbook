@@ -14,7 +14,9 @@ def test_default_compose_publishes_no_host_ports_and_hardens_the_container():
     assert "cap_drop" in text
     assert "no-new-privileges:true" in text
     assert "init: true" in text
-    assert "stop_grace_period: 30s" in text
+    # Waitress has no graceful drain, so a longer stop period would promise what the
+    # server cannot honour.
+    assert "stop_grace_period" not in text
 
 
 def test_host_proxy_override_binds_loopback_only():

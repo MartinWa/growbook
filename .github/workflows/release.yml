@@ -186,22 +186,16 @@ jobs:
             echo "Skipping latest: $RELEASE_TAG is not the current stable release."
           fi
       # GHCR creates the package private even for a public repository, and a private
-      # package is useless to anyone deploying the released image anonymously.
-      - name: Require the published package to be publicly pullable
+      # package is useless to anyone deploying the released image anonymously. Visibility
+      # is a package-settings change: the REST API supports only GET, DELETE and restore,
+      # so this step verifies the result and names the manual fix instead of faking one.
+      - name: Check the package can be pulled anonymously
         shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.PACKAGE_TOKEN || github.token }}
         run: |
-          owner=${GITHUB_REPOSITORY%/*}
-          package=${GITHUB_REPOSITORY#*/}
-          repository="${owner,,}/${package,,}"
-          api_path="users/${owner,,}/packages/container/${package,,}"
-          if [ "$(gh api "$api_path" --jq .visibility 2>/dev/null)" != public ]; then
-            gh api --method PATCH "$api_path" -f visibility=public >/dev/null 2>&1 || true
-          fi
+          repository=${GITHUB_REPOSITORY,,}
           if curl --fail --silent --output /dev/null "https://ghcr.io/token?scope=repository:${repository}:pull"; then
             echo "ghcr.io/$repository is publicly pullable." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          echo "::error::ghcr.io/$repository is not public. Set its visibility once in the package settings, or add a PACKAGE_TOKEN secret with write:packages so this step can do it."
-          exit 1
+          echo "::warning::ghcr.io/$repository is not anonymously pullable. Set the package visibility to public once under the repository's package settings; no API endpoint changes container package visibility. Later releases inherit it."
+          echo "Package visibility needs the one-time manual change described in docs/development.md#release-images." >> "$GITHUB_STEP_SUMMARY"

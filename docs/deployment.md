@@ -195,6 +195,12 @@ default for this single-container image, so an image update does not require a s
 `migrate` command. Create and verify a backup before changing the schema, and keep the
 application stopped while the backup runs.
 
+Stopping the container ends in-flight requests immediately: Waitress does not drain, so
+`docker compose stop` interrupts an upload that is still being processed. The save fails
+visibly in the browser and can be retried; the retry path is the same one used after a
+lost connection. Stop the application when it is idle if that matters, and never stop or
+restart it while a backup or restore is running.
+
 The crop-category migration removes the former free-text **Category** field on varieties
 and discards its values without creating crop categories. Preserve any values you need
 before upgrading, and keep the verified pre-upgrade backup.
