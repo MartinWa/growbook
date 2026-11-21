@@ -53,6 +53,27 @@ def assert_current_schema():
         )
 
 
+def verify_data_directory():
+    """Refuse a missing or unwritable data directory with the fix, not an opaque SQLite error."""
+    from django.db import connections
+
+    directory = Path(connections["default"].settings_dict["NAME"]).parent
+    if not directory.is_dir():
+        raise ImproperlyConfigured(
+            f"Data directory {directory} does not exist. Create it and give it to the configured "
+            "non-root user before starting the server; see docs/deployment.md."
+        )
+    try:
+        probe = directory / f".write-probe-{os.getpid()}"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+    except OSError as exc:
+        raise ImproperlyConfigured(
+            f"Data directory {directory} is not writable: {exc}. The configured non-root user "
+            "must own it, for example `sudo chown <APP_UID>:<APP_GID> <APP_DATA_PATH>`."
+        ) from exc
+
+
 def migrate_on_start():
     """Apply pending migrations under a data-directory lock, then verify the schema."""
     from django.core.management import call_command
@@ -62,10 +83,7 @@ def migrate_on_start():
 
     database = Path(connections["default"].settings_dict["NAME"])
     data_directory = database.parent
-    if not data_directory.is_dir():
-        raise ImproperlyConfigured(
-            f"Data directory {data_directory} does not exist. Create it before starting the server."
-        )
+    verify_data_directory()
     lock = FileLock(
         data_directory / ".migrate.lock",
         timeout=settings.MIGRATION_LOCK_TIMEOUT,
@@ -94,6 +112,7 @@ def main():
     if settings.MIGRATE_ON_START:
         migrate_on_start()
     else:
+        verify_data_directory()
         assert_current_schema()
     serve(application, **options)
 

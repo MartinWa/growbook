@@ -105,6 +105,99 @@ def test_production_refuses_missing_or_placeholder_configuration(tmp_path, key, 
     assert "ImproperlyConfigured" in result.stderr
 
 
+def test_production_reads_the_secret_from_a_file(tmp_path):
+    secret_file = tmp_path / "secret"
+    secret_file.write_text("synthetic-file-secret-key-" * 2 + "\n", encoding="utf-8")
+
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.SECRET_KEY)",
+        GROWBOOK_SECRET_KEY="",
+        GROWBOOK_SECRET_KEY_FILE=str(secret_file),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "synthetic-file-secret-key-" * 2
+
+
+def test_the_environment_secret_wins_over_the_file(tmp_path):
+    secret_file = tmp_path / "secret"
+    secret_file.write_text("unused-file-secret-key-" * 2, encoding="utf-8")
+
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.SECRET_KEY)",
+        GROWBOOK_SECRET_KEY_FILE=str(secret_file),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "unused-file-secret-key" not in result.stdout
+
+
+def test_an_unreadable_secret_file_is_refused(tmp_path):
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.SECRET_KEY)",
+        GROWBOOK_SECRET_KEY="",
+        GROWBOOK_SECRET_KEY_FILE=str(tmp_path / "missing-secret"),
+    )
+
+    assert result.returncode != 0
+    assert "GROWBOOK_SECRET_KEY_FILE" in result.stderr
+
+
+@pytest.mark.parametrize("value", ["Mars/Olympus", "UTC+2", "../etc/passwd", "/etc"])
+def test_an_invalid_time_zone_is_refused_instead_of_failing_later(tmp_path, value):
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.TIME_ZONE)",
+        GROWBOOK_TIME_ZONE=value,
+    )
+
+    assert result.returncode != 0
+    assert "GROWBOOK_TIME_ZONE" in result.stderr
+    assert "ImproperlyConfigured" in result.stderr
+
+
+def test_the_time_zone_is_a_validated_iana_name(tmp_path):
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.TIME_ZONE)",
+        GROWBOOK_TIME_ZONE="Europe/Stockholm",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "Europe/Stockholm"
+
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.TIME_ZONE)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "Europe/Stockholm"
+
+
+def test_server_names_the_ownership_fix_for_an_unwritable_data_directory(tmp_path):
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        pytest.skip("Ownership checks need a non-root test process.")
+    state = tmp_path / "state"
+    state.mkdir()
+    state.chmod(0o500)
+    try:
+        result = run_settings(
+            tmp_path,
+            "import django; django.setup(); "
+            "from growbook.server import verify_data_directory; "
+            "verify_data_directory()",
+        )
+    finally:
+        state.chmod(0o700)
+
+    assert result.returncode != 0
+    assert "not writable" in result.stderr
+    assert "chown" in result.stderr
+    assert "APP_DATA_PATH" in result.stderr
+
+
 def test_server_refuses_missing_or_outdated_database(tmp_path):
     check = """
 import django

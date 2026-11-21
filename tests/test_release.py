@@ -706,7 +706,7 @@ def test_check_entry_point_validates_source_and_writes_image_outputs(monkeypatch
     assert output.read_text(encoding="utf-8") == ("image=ghcr.io/example/growbook\nversion=0.1.3\n")
 
 
-def test_release_workflow_publishes_images_before_creating_the_release():
+def test_release_workflow_builds_checks_and_publishes_each_platform():
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     assert 'tags: ["[0-9]*.[0-9]*.[0-9]*"]' in workflow
     assert "!github.event.deleted" in workflow
@@ -715,16 +715,49 @@ def test_release_workflow_publishes_images_before_creating_the_release():
     assert "TAG_CREATED: ${{ github.event.created }}" in workflow
     assert "org.opencontainers.image.version=${{ steps.release.outputs.version }}" in workflow
     assert "GROWBOOK_VERSION=${{ steps.release.outputs.version }}" in workflow
-    assert (
-        "tags: ${{ steps.release.outputs.image }}:${{ steps.release.outputs.version }}" in workflow
+    for platform in ("linux/amd64", "linux/arm64"):
+        assert f"platforms: {platform}" in workflow
+    assert "platforms: arm64" in workflow
+    assert workflow.count("push-by-digest=true") == 2
+    assert workflow.count("run: bash tools/check_release_image.sh") == 2
+    assert "sbom-amd64.spdx.json" in workflow
+    assert "sbom-arm64.spdx.json" in workflow
+    assert "run: python3 tools/publish_release.py --check" in workflow
+    # Each platform is checked before the index composed from it is published.
+    assert workflow.index("run: bash tools/check_release_image.sh") < workflow.index(
+        "- name: Publish the tested index"
     )
-    assert workflow.index("run: python3 tools/publish_release.py --check") < workflow.index(
-        "- name: Publish the tested image"
+    assert workflow.index("- name: Publish the tested index") < workflow.index(
+        "- name: Attest build provenance"
     )
-    assert workflow.index("- name: Attest the image SBOM") < workflow.index(
+    assert workflow.index("- name: Attest the arm64 SBOM") < workflow.index(
         "- name: Create or publish the GitHub Release"
     )
     assert workflow.index("- name: Create or publish the GitHub Release") < workflow.index(
         "- name: Update latest for the current stable release"
     )
     assert "if: ${{ steps.github-release.outputs.latest == 'true' }}" in workflow
+    assert (
+        'docker buildx imagetools create --tag "$IMAGE:$VERSION" "$IMAGE@$AMD64" "$IMAGE@$ARM64"'
+        in workflow
+    )
+    assert 'docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"' in workflow
+    assert "--prefer-index=false" not in workflow
+    # A private package would make the released image unusable for anonymous deployments.
+    assert "ghcr.io/token?scope=repository" in workflow
+    assert "-f visibility=public" in workflow
+    assert "secrets.PACKAGE_TOKEN || github.token" in workflow
+
+
+def test_release_check_runs_inside_each_platform_image():
+    script = (ROOT / "tools" / "check_release_image.sh").read_text(encoding="utf-8")
+    audit = (ROOT / "tools" / "audit_image.sh").read_text(encoding="utf-8")
+    check = (ROOT / "tools" / "check_image.py").read_text(encoding="utf-8")
+
+    assert 'docker pull "$IMAGE"' in script
+    assert "python tools/check_image.py" in script
+    assert 'audit_image.sh" "$IMAGE" "$SBOM" "$PLATFORM"' in script
+    assert 'platform_args=(--platform "$platform")' in audit
+    assert "PRAGMA journal_mode" in check
+    assert "verify_refuses_incomplete_configuration" in check
+    assert "GROWBOOK_SECRET_KEY" in check

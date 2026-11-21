@@ -17,6 +17,8 @@ repository.
   clean-instance restore and orphan cleanup.
 - [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) — PolyForm Noncommercial 1.0.0, with the
   standard terms left unmodified.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CLA.md`](CLA.md) — contribution workflow and
+  the agreement to sign before a first merge.
 - [`third_party/README.md`](third_party/README.md) — dependency licensing and the
   decoder-only HEIC packaging boundary.
 
@@ -53,7 +55,8 @@ maintained documentation.
 - Licensing is **PolyForm Noncommercial 1.0.0**. Describe the project as
   source-available, not OSI open source. Keep the standard license text intact,
   preserve dependency notices, and do not add commercial-use exceptions or
-  relicense without an explicit decision.
+  relicense without an explicit decision. Contributions are accepted under
+  [`CLA.md`](CLA.md), which grants the rights an additional licence would need.
 
 ## Database and integrity
 

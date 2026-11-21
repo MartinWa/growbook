@@ -87,20 +87,23 @@ docker run --rm growbook:local python -c "import secrets; print(secrets.token_ur
 | Setting | Meaning |
 |---|---|
 | `GROWBOOK_SECRET_KEY` | Random secret, at least 50 characters; keep private and preserve for recovery. |
+| `GROWBOOK_SECRET_KEY_FILE` | Read the secret from a mounted file instead, for Docker or Podman secrets. The environment value wins when both are set. |
 | `GROWBOOK_ALLOWED_HOSTS` | Comma-separated exact hostnames, without schemes; no wildcard. |
 | `GROWBOOK_CSRF_TRUSTED_ORIGINS` | Comma-separated trusted HTTPS origins. |
-| `GROWBOOK_TIME_ZONE` | Garden timezone; defaults to `Europe/Stockholm`. |
+| `GROWBOOK_TIME_ZONE` | Garden timezone as an IANA name; defaults to `Europe/Stockholm`. An invalid name stops startup. |
 | `GROWBOOK_UPDATE_CHECK` | Check public stable release metadata; defaults to `true`. Set `false` to disable outbound update checks. |
 | `GROWBOOK_MIGRATE_ON_START` | Apply pending migrations at startup; defaults to `true`. Set `false` for a separate migration step. |
 | `GROWBOOK_TRUST_PROXY` | Set `true` behind a trusted HTTPS reverse proxy that replaces `X-Forwarded-Proto`; defaults to `false`. No fixed proxy IP is needed. |
 | `APP_UID`, `APP_GID` | Non-root numeric process IDs. |
 | `APP_DATA_PATH` | Absolute private directory on the application host's local filesystem. |
 | `PROXY_NETWORK` | Existing private Docker network used by the managed reverse proxy. |
+| `GROWBOOK_HOST_PORT` | Loopback port for a proxy running on the host; used only with `compose.host-port.yaml`. |
 
 Create the data directory and give the configured UID/GID the necessary access **before**
 starting containers. The image does not implement `PUID`/`PGID`. Compose mounts that
 directory at `/data`, sets production settings, uses a read-only root filesystem and
-temporary scratch storage, and limits log retention.
+temporary scratch storage, and limits log retention. Startup stops with the directory
+path and the ownership fix when it is not writable.
 
 Configure the existing reverse proxy to reach the application on container port `8000`
 over the private network. When the proxy terminates HTTPS and forwards HTTP, set
@@ -117,7 +120,46 @@ Secure cookies and HTTPS redirects remain enabled in either mode.
 
 There are **no published host ports or bundled proxy** in `compose.yaml`. Keep access
 private through LAN/VPN and HTTPS; do not add public DNS exposure or router port
-forwarding.
+forwarding. Two patterns cover a proxy in a container and a proxy on the host itself;
+both need `GROWBOOK_TRUST_PROXY=true` and nothing else is proxy-specific.
+
+#### Proxy in a container (default)
+
+Compose attaches the application to the existing private proxy network named by
+`PROXY_NETWORK`, so the proxy container forwards to the `growbook` service on port
+`8000`:
+
+```nginx
+location / {
+    proxy_pass http://growbook:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+}
+```
+
+#### Proxy on the host
+
+For a proxy installed on the host, such as a NAS proxy package or a native nginx or
+Caddy, publish the port on loopback with the optional override:
+
+```sh
+APP_UID=1000 APP_GID=1000 APP_DATA_PATH=/srv/growbook-data PROXY_NETWORK=proxy \
+  docker compose -f compose.yaml -f compose.host-port.yaml up -d
+```
+
+The override binds `127.0.0.1:${GROWBOOK_HOST_PORT:-8000}` and never `0.0.0.0`. Point the
+proxy at `http://127.0.0.1:8000` and set `GROWBOOK_TRUST_PROXY=true` as for the container
+pattern. A Caddy site block for the container pattern is:
+
+```caddyfile
+garden.example.internal {
+    reverse_proxy growbook:8000
+}
+```
+
+A host-run Caddy uses `reverse_proxy 127.0.0.1:8000` instead; nginx and Traefik need
+`X-Forwarded-Proto` set explicitly, while Caddy forwards it on its own.
 
 ### Initialize and start
 

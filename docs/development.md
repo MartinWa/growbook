@@ -188,9 +188,12 @@ the stylesheet and fails if the committed file differs.
 dispatch and weekly. Linux jobs check lockfile consistency, Ruff, translations,
 database and migration checks, and the application and Chromium suites in the
 development image. Development and production share the same
-native builds and application dependencies. The container job validates workflow syntax,
-builds the production image, and checks migrations, deployment settings and non-root WSGI
-initialization with disposable storage.
+native builds and application dependencies. The container job validates workflow syntax
+and the Compose files (the default file, the optional host-port override, and the
+development file), builds the production image, and runs
+[`tools/check_image.py`](../tools/check_image.py) with disposable storage: migrations,
+deployment settings, non-root execution, refusal without operator configuration, and
+the persisted WAL journal mode.
 
 The application check job is named **Checks (Linux)**. GitHub required status checks
 match job names exactly; keep the `main` ruleset aligned when renaming a required job.
@@ -258,7 +261,8 @@ and vendored HTMX manually. Base-image Python patch updates must stay aligned wi
 ## Release images
 
 [`release.yml`](../.github/workflows/release.yml) creates a GitHub Release and publishes a
-Linux/amd64 image to `ghcr.io/martinwa/growbook` when an `X.Y.Z` tag is pushed. The Git tag
+Linux images for `linux/amd64` and `linux/arm64` to `ghcr.io/martinwa/growbook` when an
+`X.Y.Z` tag is pushed. The Git tag
 is the release version used for the image tag, OCI version label and application footer;
 the workflow passes it as the Docker build argument `GROWBOOK_VERSION`. No version bump in
 `pyproject.toml` or `uv.lock` is needed. The static project version is local tooling
@@ -308,19 +312,36 @@ afterwards is safe because an existing image version is never overwritten. A tra
 GitHub API error during the wait is retried; a lookup that keeps failing stops the run
 before anything is published.
 
-The workflow rebuilds, smoke-checks and audits the image before pushing its `X.Y.Z` tag,
-then attaches provenance and SBOM attestations. Only after those steps succeed does it
-create or publish the GitHub Release with generated notes, preserving an existing release's
-notes. If the version is the highest published stable version and GitHub identifies it as
-the current release, `:latest` updates to the same image digest. Existing image version
-tags are not overwritten; prereleases and older releases do not update `:latest`. A rerun
-after the image has been pushed stops at the no-overwrite guard and requires investigation.
-There is no automatic deployment; use version tags or digests for reproducible
-deployments.
+The workflow builds each platform separately by digest, then runs
+[`tools/check_release_image.sh`](../tools/check_release_image.sh) per platform: it pulls
+the digest, runs [`tools/check_image.py`](../tools/check_image.py) inside the container
+(non-root runtime, no development tooling, stamped version, HEIC decoding, deployment
+checks, refusal without operator configuration, startup migration and the persisted WAL
+journal mode) and audits the platform with [`tools/audit_image.sh`](../tools/audit_image.sh)
+while writing its SBOM. The published `X.Y.Z` index is composed from those two checked
+digests, provenance is attested against the index and each platform SBOM against its own
+manifest digest. Only after those steps succeed does the workflow create or publish the
+GitHub Release with generated notes, preserving an existing release's notes. If the
+version is the highest published stable version and GitHub identifies it as the current
+release, `:latest` moves to the tested index. Existing image version tags are not
+overwritten; prereleases and older releases do not update `:latest`. A rerun after the
+image has been pushed stops at the no-overwrite guard and requires investigation. There
+is no automatic deployment; use version tags or digests for reproducible deployments.
 
 The server applies pending migrations at startup by default. Set
 `GROWBOOK_MIGRATE_ON_START=false` to run migrations separately; see
 [Upgrade an existing installation](deployment.md#upgrade-an-existing-installation).
+
+GHCR creates a container package private even for a public repository. The workflow's last
+step sets the package visibility to public when the token allows it, which needs a
+repository secret `PACKAGE_TOKEN` holding a token with `write:packages`, and then requires
+an anonymous pull token for the package. Without that secret the first release finishes
+with the package private and the step fails with the one-time instruction: set the
+visibility to public in the package settings. Later releases inherit it.
+
+The arm64 image runs under QEMU on the release runner, so that platform is slower to build
+and its first build is the first time it is exercised. Verify an actual arm64 host
+boots a released digest before relying on it.
 
 Before recommending a published image, verify anonymous pulls and its attestation. Keep
 deployment configuration private and pin the published digest rather than a moving tag.
