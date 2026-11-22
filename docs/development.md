@@ -201,6 +201,10 @@ pnpm run build:css
 verifies the pnpm archive checksum, installs from the frozen lockfile, rebuilds the
 stylesheet and fails if the committed file differs.
 
+The build scans `templates/` and explicitly excludes `docs/` with `@source not`, so
+documentation prose can never add or remove shipped CSS. Other source files still take part
+in Tailwind's automatic detection; keep class names out of Markdown when that matters.
+
 ## Interface foundations
 
 The interface uses the committed, self-hosted stylesheet, system body fonts, a self-hosted

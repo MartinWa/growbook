@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
+/* Scan templates only by default. Documentation prose is excluded so that editing
+   a guide can never add or remove shipped CSS. */
 @source "../templates/**/*.html";
+@source not "../docs/**";
 
 @plugin "daisyui" {
   themes: false;
