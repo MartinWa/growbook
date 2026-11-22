@@ -1,0 +1,26 @@
+{% load i18n %}
+{% if state == 'ready' %}
+<h3>{% translate 'Estimated allocation' %}</h3>
+<dl class="economy-stats">
+  <div><dt>{% translate 'Chosen amount' %}</dt><dd>{% include 'economy/money.html' with value=amount %}</dd></div>
+  <div><dt>{% translate 'Remaining after this allocation' %}</dt><dd>{% include 'economy/money.html' with value=remaining %}</dd></div>
+</dl>
+{% if over %}<p class="field-help">{% translate 'This amount exceeds the available balance. The save will be rejected.' %}</p>{% endif %}
+{% if estimate.pending %}
+{% include 'economy/pending.html' %}
+{% else %}
+<div class="economy-table-wrapper" tabindex="0" role="region" aria-label="{% translate 'Estimated allocation' %}"><table class="economy-table table">
+  <thead><tr><th scope="col">{% translate 'Planting cycle' %}</th><th scope="col">{% translate 'Successfully grown plants' %}</th><th scope="col">{% translate 'Allocated cost' %}</th><th scope="col">{% translate 'Cost per plant' %}</th></tr></thead>
+  <tbody>{% for group in estimate.groups %}<tr>
+    <th scope="row">{{ group.label }}</th>
+    <td data-label="{% translate 'Successfully grown plants' %}">{{ group.quantity|default_if_none:'—' }}</td>
+    <td data-label="{% translate 'Allocated cost' %}">{% include 'economy/money.html' with value=group.amount %}</td>
+    <td data-label="{% translate 'Cost per plant' %}">{% include 'economy/money.html' with value=group.per_plant %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% elif state == 'unavailable' %}
+<p class="field-help">{{ message }}</p>
+{% else %}
+<p class="field-help">{% translate 'Choose at least one planting cycle to preview the split.' %}</p>
+{% endif %}

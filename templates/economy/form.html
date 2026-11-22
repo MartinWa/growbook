@@ -2,12 +2,11 @@
 {% load i18n %}
 {% block title %}{{ title }} · GrowBook{% endblock %}
 {% block content %}
-<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}"><a href="{{ list_url }}">{% translate 'Back to economy' %}</a><a href="{% url 'garden:planting-list' %}">{% translate 'Plantings' %}</a></nav>
+<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}"><a href="{{ list_url }}">{% translate 'Back to economy' %}</a></nav>
 <section class="panel register-form-panel">
   <h1 id="economy-form-title">{{ title }}</h1>
-  {% if expense %}<p>{{ expense.description }} · {% include 'economy/money.html' with value=expense.total_price %}</p>{% endif %}
-  {% if kind == 'expense' %}{% if record %}<p class="field-help">{% blocktranslate %}Purchase year: {{ purchase_year }}. The date must fall in that year. Assign costs to planting cycles after saving, whenever you are ready.{% endblocktranslate %}</p>{% else %}<p class="field-help">{% translate 'The saved date decides the purchase year. A saved purchase keeps that year, and the date can be corrected within it. Assign costs to planting cycles after saving, whenever you are ready.' %}</p>{% endif %}{% endif %}
-  <p class="field-help">{% translate 'Amounts in' %} <span data-currency-label>{{ currency_label }}</span>. {% translate 'These are estimates for your garden, based on recorded entries and current plant quantities.' %}</p>
+  {% if expense %}<p class="economy-expense-heading"><span>{{ expense.description }} · {% include 'economy/money.html' with value=expense.total_price %}</span><span>{% translate 'Purchase year' %}: {{ purchase_year }}</span></p>{% endif %}
+  {% if kind == 'expense' and record %}<p class="field-help">{% blocktranslate %}Purchase year: {{ purchase_year }}. The date must fall in that year.{% endblocktranslate %}</p>{% endif %}
   <form id="economy-form" class="economy-form" method="post" action="{{ action }}" aria-labelledby="economy-form-title"
     hx-post="{{ action }}" hx-target="#economy-errors" hx-swap="innerHTML" hx-sync="this:drop"
     data-register-form data-economy-form data-draft-kind="{{ kind }}" data-draft-bound="{{ form.is_bound|yesno:'true,false' }}"
@@ -23,28 +22,24 @@
     {% if kind == 'allocation' %}
       {% for field in form.hidden_fields %}{{ field }}{% endfor %}
       {% include 'economy/field.html' with field=form.growing_year %}
-      <fieldset class="economy-amount-choice"><legend>{% translate 'Choose how much of the cost to assign' %}</legend>
-        <p class="field-help">{% translate 'Fill in one amount, percentage or quantity. Choosing a group does not assign the whole purchase automatically. Use 100% to charge the full cost even when some of the purchase remains unused.' %}</p>
-        {% include 'economy/field.html' with field=form.amount %}
-        {% include 'economy/field.html' with field=form.share %}
-        {% if expense.purchased_quantity %}<p class="field-help">{{ expense.purchased_quantity|floatformat:'-3' }} {{ expense.get_unit_display }}</p>{% endif %}
-        {% include 'economy/field.html' with field=form.quantity_used %}
-      </fieldset>
-      {% include 'economy/field.html' with field=form.scope %}
-      {% include 'economy/field.html' with field=form.cycle_ids %}
-      {% include 'economy/field.html' with field=form.method %}
-      <p class="field-help">{% translate 'All-year groups include new matching cycles automatically. Unknown quantities, no cycles or an all-zero group keep plant-count allocations pending and their amounts reserved.' %}</p>
+      {% if quantity_mode %}{% include 'economy/share_field.html' with field=form.quantity_used quantity_mode=True %}{% else %}{% include 'economy/share_field.html' with field=form.share %}{% endif %}
+      <div class="economy-choice-group">{% include 'economy/field.html' with field=form.scope %}</div>
+      <div class="economy-choice-group" data-choice-group="cycles">{% include 'economy/field.html' with field=form.cycle_ids %}</div>
+      <div class="economy-choice-group">{% include 'economy/field.html' with field=form.method %}</div>
+      <div class="panel economy-section" id="allocation-preview" hx-post="{{ preview_url }}" hx-trigger="input delay:400ms from:closest form, change delay:100ms from:closest form" hx-include="closest form" hx-target="#allocation-preview-body" hx-swap="innerHTML" hx-sync="this:replace">
+        <div id="allocation-preview-body">{% include 'economy/allocation_preview.html' with state='incomplete' %}</div>
+      </div>
     {% elif kind == 'expense' %}
       {% for field in form.hidden_fields %}{{ field }}{% endfor %}
       {% include 'economy/field.html' with field=form.description %}
       {% include 'economy/field.html' with field=form.purchased_on %}
-      {% include 'economy/field.html' with field=form.total_price %}
+      {% include 'economy/price_field.html' with field=form.total_price %}
+      {% include 'economy/quantity_field.html' with quantity=form.purchased_quantity unit=form.unit %}
       <details class="form-disclosure" data-expense-details{% if form.details_open %} open{% endif %}>
         <summary>{% translate 'More purchase details' %}</summary>
-        {% for field in form.details_fields %}{% include 'economy/field.html' %}{% endfor %}
+        {% for field in form.details_fields %}{% include 'economy/field.html' with field=field %}{% endfor %}
       </details>
     {% else %}
-      {% if kind == 'sale' %}<p class="field-help">{% translate 'Enter either a unit price or a total sale amount. Record sales of plants, rather than harvested produce.' %}</p>{% endif %}
       {% for field in form %}{% include 'economy/field.html' %}{% endfor %}
     {% endif %}
     <p data-register-status role="status" aria-live="polite"></p>

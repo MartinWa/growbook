@@ -175,8 +175,11 @@
         attempted || Object.values(uploadCounts(form, kind)).some(Boolean));
       photoMessage.hidden = !missingPhotos();
       omit.hidden = photoMessage.hidden;
-      notice.hidden = !state.dirty && !storageFailed && !status.textContent;
-      discard.hidden = !state.dirty;
+      // A silently stored draft needs no notice; it appears with a restored draft,
+      // an uncertain submission or a storage problem, and the discard button with it.
+      const announced = Boolean(storageFailed || status.textContent || !photoMessage.hidden);
+      notice.hidden = !announced;
+      discard.hidden = !announced;
       updateWarning();
     }
     function persist(force = false) {
@@ -322,7 +325,7 @@
       updateWarning();
       try {
         (draft.previous || []).forEach(showCopy);
-        if (!retained && kind === "capture" || !retained && kind === "planting") {
+        if (!retained && ["capture", "planting", "allocation"].includes(kind)) {
           // Choice failures cannot replace an uncertain submission's original save key.
           if (!await prepare(draft.fields) && !draft.attempted) { showCopy(draft); return; }
         }
@@ -456,6 +459,17 @@
       const xhr = event.detail.xhr;
       if (xhr.status === 204 && xhr.getResponseHeader("HX-Redirect") &&
           xhr.getResponseHeader("X-Growbook-Saved-Key") === requestKey) clear();
+    });
+    // A rejected or lost submission keeps its writing; make it visible and discardable.
+    form.addEventListener("htmx:afterRequest", event => {
+      if (event.detail.elt !== form || (event.detail.xhr?.status || 0) < 400) return;
+      status.textContent = messages.draftRetained;
+      update();
+    });
+    form.addEventListener("htmx:sendError", event => {
+      if (event.detail.elt !== form) return;
+      status.textContent = messages.draftRetained;
+      update();
     });
     document.addEventListener("diary:saved", () => {
       if (kind !== "capture") return;

@@ -37,7 +37,6 @@ def test_clean_restore_preserves_money_reservations_equipment_sales_receipts_and
         total_price="100.00",
         purchased_quantity="5",
         unit="kilograms",
-        crop=crop,
         submission_key=purchase_key,
     ).record
     original_version = expense.updated_at.isoformat()
@@ -56,7 +55,6 @@ def test_clean_restore_preserves_money_reservations_equipment_sales_receipts_and
         total_price="900",
         category="equipment",
         useful_life_years=3,
-        crop=crop,
     ).record
     create_allocation(
         actor=user,
@@ -136,7 +134,7 @@ assert Sale.objects.get().variety_id == first.variety_id
 assert EconomySubmission.objects.count() == 6
 replayed = create_expense(
     actor=actor, description='Shared fertilizer', purchased_on=date(2026, 5, 9),
-    total_price='100.00', purchased_quantity='5', unit='kilograms', crop=crop.pk,
+    total_price='100.00', purchased_quantity='5', unit='kilograms',
     submission_key=UUID('{purchase_key}'),
 )
 assert replayed.replayed

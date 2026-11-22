@@ -1,0 +1,21 @@
+{% load i18n %}
+<fieldset class="field economy-choices" id="{{ field.auto_id }}_group" tabindex="-1" data-field-name="{{ field.name }}" aria-describedby="{{ field.auto_id }}_errors{% if field.help_text %} {{ field.auto_id }}_helptext{% endif %}"{% if preview_url %} hx-post="{{ preview_url }}" hx-trigger="load" hx-target="#allocation-preview-body" hx-swap="innerHTML" hx-sync="#allocation-preview:replace" hx-include="closest form"{% endif %}>
+  <legend>{{ field.label }} <span class="field-requirement">{% if field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></legend>
+  <div class="economy-cycle-options">
+    {% for entry in field.field.cycle_entries %}{% if entry.status != 'completed' %}
+    <label class="economy-cycle-option"><input type="checkbox" name="{{ field.html_name }}" value="{{ entry.value }}"{% if entry.checked %} checked{% endif %}> <span class="economy-cycle-name">{{ entry.name }}</span>{% if entry.meta %}<span class="economy-cycle-meta">{{ entry.meta }}</span>{% endif %}</label>
+    {% endif %}{% endfor %}
+  </div>
+  {% if field.field.completed_count %}
+  <details class="form-disclosure economy-completed-cycles"{% if field.field.open_completed %} open{% endif %}>
+    <summary>{% translate 'Completed cycles' %} ({{ field.field.completed_count }})</summary>
+    <div class="economy-cycle-options">
+      {% for entry in field.field.cycle_entries %}{% if entry.status == 'completed' %}
+      <label class="economy-cycle-option"><input type="checkbox" name="{{ field.html_name }}" value="{{ entry.value }}"{% if entry.checked %} checked{% endif %}> <span class="economy-cycle-name">{{ entry.name }}</span>{% if entry.meta %}<span class="economy-cycle-meta">{{ entry.meta }}</span>{% endif %}</label>
+      {% endif %}{% endfor %}
+    </div>
+  </details>
+  {% endif %}
+  {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="field-help">{{ field.help_text }}</p>{% endif %}
+  <div class="field-errors" id="{{ field.auto_id }}_errors" data-form-field-errors="{{ field.html_name }}">{{ field.errors }}</div>
+</fieldset>

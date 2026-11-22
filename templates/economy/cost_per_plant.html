@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Cost per plant' %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
+{% block page_class %}page register-page economy-page{% endblock %}
+{% block content %}
+{% include 'components/register_heading.html' with heading=title illustration='images/registers/plantings.webp' %}
+{% include 'components/economy_navigation.html' with active='cost' %}
+<section class="economy-section">
+  <h2 id="cost-per-plant-heading">{% translate 'Planting cycles' %}</h2>
+  <div class="economy-table-wrapper" tabindex="0" role="region" aria-labelledby="cost-per-plant-heading"><table class="economy-table table">
+    <thead><tr><th scope="col">{% translate 'Planting cycle' %}</th><th scope="col">{% translate 'Successfully grown plants' %}</th><th scope="col">{% translate 'Growing costs' %}</th><th scope="col">{% translate 'Cost per plant' %}</th><th scope="col">{% translate 'Income' %}</th><th scope="col">{% translate 'Result' %}</th></tr></thead>
+    <tbody>{% for row in cycle_rows %}<tr data-cycle="{{ row.cycle.pk }}">
+      <th scope="row"><a href="{{ row.url }}">{{ row.label }}</a><p class="field-help">{{ row.years }} · {% for member in row.members %}{% if member.variety %}{{ member.variety.name }}{% else %}{% translate 'Unknown variety' %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p></th>
+      <td data-label="{% translate 'Successfully grown plants' %}">{{ row.quantity|default_if_none:'—' }}</td>
+      <td data-label="{% translate 'Growing costs' %}">{% include 'economy/money.html' with value=row.cost %}</td>
+      <td data-label="{% translate 'Cost per plant' %}">{% include 'economy/money.html' with value=row.per_plant %}{% if row.pending %}<p class="field-help">{% translate 'Additional costs are pending.' %}</p>{% endif %}</td>
+      <td data-label="{% translate 'Income' %}">{% include 'economy/money.html' with value=row.income %}</td>
+      <td data-label="{% translate 'Result' %}">{% include 'economy/money.html' with value=row.difference %}</td>
+    </tr>{% empty %}<tr><td colspan="6">{% translate 'No planting cycles have recorded costs in this period.' %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="economy-section"><h2 id="cost-per-plant-crop-heading">{% translate 'Costs by crop' %}</h2>{% include 'economy/source_table.html' with rows=crop_rows table_id='crop-economy' labelledby='cost-per-plant-crop-heading' %}</section>
+<section class="economy-section"><h2 id="cost-per-plant-variety-heading">{% translate 'Costs by variety' %}</h2>{% include 'economy/source_table.html' with rows=variety_rows table_id='variety-economy' labelledby='cost-per-plant-variety-heading' varieties=True %}</section>
+{% endblock %}

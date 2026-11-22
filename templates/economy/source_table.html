@@ -1,13 +1,13 @@
 {% load i18n %}
-<div class="economy-table-wrapper" tabindex="0" role="region" aria-labelledby="{{ table_id }}-caption">
+<div class="economy-table-wrapper" tabindex="0" role="region"{% if labelledby %} aria-labelledby="{{ labelledby }}"{% elif caption %} aria-labelledby="{{ table_id }}-caption"{% endif %}>
 <table class="economy-table table">
-  <caption id="{{ table_id }}-caption">{{ caption }}</caption>
-  <thead><tr><th scope="col">{% if varieties %}{% translate 'Variety' %}{% else %}{% translate 'Crop' %}{% endif %}</th><th scope="col">{% translate 'Money spent' %}</th><th scope="col">{% translate 'Growing costs' %}</th><th scope="col">{% translate 'Income received' %}</th><th scope="col">{% translate 'Income minus growing costs' %}</th></tr></thead>
+  {% if caption %}<caption id="{{ table_id }}-caption">{{ caption }}</caption>{% endif %}
+  <thead><tr><th scope="col">{% if varieties %}{% translate 'Variety' %}{% else %}{% translate 'Crop' %}{% endif %}</th><th scope="col">{% translate 'Expenses' %}</th><th scope="col">{% translate 'Growing costs' %}</th><th scope="col">{% translate 'Income' %}</th><th scope="col">{% translate 'Income minus growing costs' %}</th></tr></thead>
   <tbody>{% for row in rows %}<tr>
     <th scope="row">{% if row.source %}<a href="{{ row.url }}">{{ row.source }}</a>{% elif varieties %}{% translate 'Unknown variety' %}{% else %}{% translate 'Unassigned crop' %}{% endif %}</th>
-    <td data-label="{% translate 'Money spent' %}">{% include 'economy/money.html' with value=row.spent %}</td>
+    <td data-label="{% translate 'Expenses' %}">{% include 'economy/money.html' with value=row.spent %}</td>
     <td data-label="{% translate 'Growing costs' %}">{% include 'economy/money.html' with value=row.growing %}</td>
-    <td data-label="{% translate 'Income received' %}">{% include 'economy/money.html' with value=row.income %}</td>
+    <td data-label="{% translate 'Income' %}">{% include 'economy/money.html' with value=row.income %}</td>
     <td data-label="{% translate 'Income minus growing costs' %}">{% include 'economy/money.html' with value=row.growing_difference %}</td>
   </tr>{% empty %}<tr><td colspan="5">{% translate 'No costs or plant sales match these filters.' %}</td></tr>{% endfor %}</tbody>
 </table>

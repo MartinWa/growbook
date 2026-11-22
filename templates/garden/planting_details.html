@@ -39,7 +39,7 @@
       <dt>{% translate 'Custom categories' %}</dt><dd>{% for category in cycle.categories.all %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
     </dl>
     <div class="related-actions planting-maintenance">
-      <a href="{% url 'economy:list' %}?cycle={{ cycle.pk }}&amp;year={% if year %}{{ year }}{% else %}{{ record.start_year }}{% endif %}">{% translate 'Economy for this cycle' %}</a>
+      <a href="{% url 'economy:cost-per-plant-cycle' cycle.pk %}?year={% if year %}{{ year }}{% else %}{{ record.start_year }}{% endif %}">{% translate 'Economy for this cycle' %}</a>
       <a href="{% url 'garden:cycle-edit' cycle.pk %}?next={{ destination|default:cycle.get_absolute_url|urlencode }}">{% translate 'Edit cycle' %}</a>
       {% if not cycle_panel %}<a href="{{ cycle.get_absolute_url }}?member={{ record.pk }}{% if destination %}&amp;next={{ destination|urlencode }}{% endif %}{% if year %}&amp;year={{ year }}{% endif %}">{% translate 'Open cycle' %}</a>{% endif %}
       <a href="{% url 'garden:planting-delete' record.pk %}{% if destination %}?next={{ destination|urlencode }}{% endif %}">{% translate 'Delete planting' %}</a>

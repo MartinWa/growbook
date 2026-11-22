@@ -76,13 +76,16 @@ class AllocationEstimate:
     reason: str = ""
 
 
-def estimate_allocation(allocation, plantings):
+def estimate_allocation(allocation, plantings, cycle_ids=None):
+    """Split the chosen amount; a preview passes its unsaved cycle selection."""
     if allocation.scope == Allocation.Scope.YEAR:
         selected = {
             planting.cycle_id
             for planting in plantings
             if in_year(planting, allocation.growing_year)
         }
+    elif cycle_ids is not None:
+        selected = set(cycle_ids)
     else:
         selected = {link.cycle_id for link in allocation.cycle_links.all()}
     cycles = {}
@@ -176,8 +179,6 @@ def estimate_expense(expense, plantings):
                     expense,
                     allocation.growing_year,
                     allocation.amount_cents,
-                    expense.crop,
-                    expense.variety,
                     allocation=allocation,
                 )
             )
@@ -196,7 +197,7 @@ def estimate_expense(expense, plantings):
                         )
                     )
     for year, cents in baseline.items():
-        parts.append(CostPart(expense, year, cents, expense.crop, expense.variety))
+        parts.append(CostPart(expense, year, cents))
     return ExpenseEstimate(expense, parts, allocations, schedule)
 
 
@@ -208,14 +209,16 @@ class EconomyState:
     estimates: list
 
 
+def load_plantings():
+    # One short, consistent snapshot; calculations run after releasing the writer.
+    with transaction.atomic():
+        return list(Planting.objects.select_related("crop", "variety__crop", "cycle"))
+
+
 def load_economy():
     # Materialize one short, consistent snapshot; calculate after releasing the writer.
     with transaction.atomic():
-        expenses = list(
-            Expense.objects.select_related("crop", "variety__crop").prefetch_related(
-                "allocations__cycle_links"
-            )
-        )
+        expenses = list(Expense.objects.prefetch_related("allocations__cycle_links"))
         plantings = list(Planting.objects.select_related("crop", "variety__crop", "cycle"))
         sales = list(
             Sale.objects.select_related("variety__crop", "cycle").prefetch_related(

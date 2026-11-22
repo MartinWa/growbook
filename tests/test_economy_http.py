@@ -7,18 +7,25 @@ from uuid import uuid4
 import pytest
 from django.db import OperationalError
 from django.test import Client
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
-from core.currency import CURRENCY_COOKIE
 from economy.models import Allocation, EconomySubmission, Expense, Sale
 from economy.services import (
     create_allocation,
     create_expense,
+    create_sale,
     edit_allocation,
     edit_expense,
 )
-from garden.services import archive_variety, create_crop, create_planting, create_variety
+from garden.services import (
+    archive_variety,
+    create_crop,
+    create_planting,
+    create_variety,
+    edit_cycle,
+    edit_planting,
+)
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -50,6 +57,8 @@ def expense_payload(**values):
         "description": "Synthetic soil",
         "purchased_on": "2026-05-09",
         "total_price": "100.10",
+        "purchased_quantity": "10",
+        "unit": "items",
         **values,
     }
 
@@ -75,17 +84,20 @@ def test_economy_pages_render_translated_navigation_filters_empty_states_and_cur
     response = signed_in.get(reverse("economy:list"))
     assert response.status_code == 200 and response.context["year"] == 2026
     assert ("Economy" if language == "en" else "Ekonomi") in response.content.decode()
-    assert b"<search>" in response.content and b"data-currency-form" in response.content
-    assert (
-        "no-store" in response["Cache-Control"]
-        and "unsafe-eval" not in response["Content-Security-Policy"]
-    )
+    assert b"SEK" in response.content and b"data-currency-form" not in response.content
+    records = signed_in.get(reverse("economy:records"))
+    assert records.status_code == 200 and b"<search>" in records.content
+    assert records.context["year"] == 2026 and records.context["expense_page"].number == 1
+    assert "no-store" in response["Cache-Control"]
+    assert "unsafe-eval" not in response["Content-Security-Policy"]
 
 
 def test_private_routes_and_htmx_sessions_require_authentication(client, user, planting):
     expense = create_expense(actor=user, description="Supplies", total_price="10").record
     paths = [
         reverse("economy:list"),
+        reverse("economy:records"),
+        reverse("economy:cost-per-plant"),
         reverse("economy:expense-create"),
         expense.get_absolute_url(),
         reverse("economy:expense-edit", args=[expense.pk]),
@@ -168,7 +180,7 @@ def test_allocation_native_forms_reserve_pending_cost_and_offer_later_editing(
         "submission_key": str(uuid4()),
         "expected_expense_updated_at": expense.updated_at.isoformat(),
         "growing_year": 2026,
-        "amount": "60",
+        "share": "60",
         "scope": "selected",
         "method": "plants",
         "cycle_ids": [str(planting.cycle_id)],
@@ -183,7 +195,7 @@ def test_allocation_native_forms_reserve_pending_cost_and_offer_later_editing(
             **payload,
             "submission_key": str(uuid4()),
             "expected_expense_updated_at": expense.updated_at.isoformat(),
-            "amount": "40.01",
+            "share": "40.01",
         },
     )
     assert over.status_code == 422 and b"available balance" in over.content
@@ -196,13 +208,16 @@ def test_allocation_native_forms_reserve_pending_cost_and_offer_later_editing(
             "submission_key": str(uuid4()),
             "expected_updated_at": allocation.updated_at.isoformat(),
             "expected_expense_updated_at": expense.updated_at.isoformat(),
-            "amount": "75",
+            "share": "75",
         },
     )
     assert edited.status_code == 302 and Allocation.objects.get().amount_cents == 7500
-    filtered = signed_in.get(reverse("economy:list"), {"year": 2026, "cycle": planting.cycle_id})
+    filtered = signed_in.get(reverse("economy:records"), {"year": 2026, "cycle": planting.cycle_id})
     assert filtered.context["totals"]["growing"] == Decimal("75")
-    assert filtered.context["cycle_rows"][0]["per_plant"] == Decimal("1.50")
+    detail = signed_in.get(
+        reverse("economy:cost-per-plant-cycle", args=[planting.cycle_id]), {"year": 2026}
+    )
+    assert detail.context["row"]["per_plant"] == Decimal("1.50")
 
 
 def test_stale_allocation_edits_conflict_and_preserve_entered_values(signed_in, user, planting):
@@ -234,14 +249,14 @@ def test_stale_allocation_edits_conflict_and_preserve_entered_values(signed_in, 
             "expected_updated_at": allocation.updated_at.isoformat(),
             "expected_expense_updated_at": expense.updated_at.isoformat(),
             "growing_year": 2026,
-            "amount": "40",
+            "share": "40",
             "scope": "selected",
             "method": "plants",
             "cycle_ids": [str(planting.cycle_id)],
         },
     )
     assert stale.status_code == 409
-    assert stale.context["form"].cleaned_data["amount"] == Decimal("40")
+    assert stale.context["form"].cleaned_data["share"] == Decimal("40")
     assert Allocation.objects.get(pk=allocation.pk).amount_cents == 2500
 
 
@@ -278,10 +293,10 @@ def test_cycle_sale_links_prefill_a_known_variety_including_existing_archived_so
 
 
 def test_invalid_filters_show_errors_without_misleading_zero_totals(signed_in):
-    response = signed_in.get(reverse("economy:list"), {"year": "invalid"})
+    response = signed_in.get(reverse("economy:records"), {"year": "invalid"})
     assert response.status_code == 200 and response.context["form"].errors
-    assert b'data-total="spent"' not in response.content
-    response = signed_in.get(reverse("economy:list"), {"year": 2026, "cycle": uuid4()})
+    assert "expense_page" not in response.context
+    response = signed_in.get(reverse("economy:records"), {"year": 2026, "cycle": uuid4()})
     assert response.context["form"].errors
 
 
@@ -305,44 +320,540 @@ def test_deletion_requires_confirmation_and_a_current_version_for_every_member(
     assert signed_in.get(reverse("economy:list"), {"year": 2028}).context["totals"]["growing"] == 0
 
 
-def test_currency_preference_only_changes_labels_and_rejects_unsafe_destinations(signed_in, user):
-    expense = create_expense(actor=user, description="Supplies", total_price="100").record
-    original = expense.updated_at
-    default = signed_in.get(reverse("economy:list"))
-    assert default.context["currency_label"] == "SEK"
-    response = signed_in.post(
-        reverse("set_currency"), {"currency": "EUR", "next": "/economy/?year=2026"}, secure=True
-    )
-    assert response.status_code == 302 and response.url == "/economy/?year=2026"
-    assert (
-        response.cookies[CURRENCY_COOKIE].value == "EUR"
-        and response.cookies[CURRENCY_COOKIE]["secure"]
-    )
-    page = signed_in.get(response.url)
-    assert page.context["currency_label"] == "EUR" and page.context["totals"]["spent"] == 100
-    expense.refresh_from_db()
-    assert expense.total_price == 100 and expense.updated_at == original
-    invalid = signed_in.post(reverse("set_currency"), {"currency": "EUR\r\nInjected"})
-    assert invalid.status_code == 400 and CURRENCY_COOKIE not in invalid.cookies
-    assert signed_in.get(reverse("set_currency")).status_code == 405
-    assert (
-        signed_in.post(
-            reverse("set_currency"), {"currency": "SEK", "next": "//outside.example/"}
-        ).url
-        == "/economy/"
-    )
+def test_currency_label_is_configuration_and_not_a_per_user_route(signed_in, settings):
+    assert settings.CURRENCY_LABEL == "SEK"
+    page = signed_in.get(reverse("economy:list"))
+    assert page.context["currency_label"] == "SEK" and b"SEK" in page.content
+    settings.CURRENCY_LABEL = "EUR"
+    page = signed_in.get(reverse("economy:list"))
+    assert page.context["currency_label"] == "EUR" and b"EUR" in page.content
+    assert b"SEK" not in page.content
+    with pytest.raises(NoReverseMatch):
+        reverse("set_currency")
+    assert signed_in.post("/accounts/currency/", {"currency": "EUR"}).status_code == 404
 
 
-def test_planting_links_open_the_relevant_economy_view_without_inline_cost_summaries(
+def test_planting_links_open_the_cost_per_plant_view_without_inline_cost_summaries(
     signed_in, planting
 ):
     page = signed_in.get(planting.get_absolute_url())
-    target = f"/economy/?cycle={planting.cycle_id}&amp;year=2026".encode()
+    target = f"/economy/cost-per-plant/{planting.cycle_id}/?year=2026".encode()
     assert target in page.content and b"Economy for this cycle" in page.content
     assert b"Estimated cost per plant" not in page.content
     plantings = signed_in.get(reverse("garden:planting-list")).content
     assert plantings.count(b'href="/economy/"') == 1
     economy = signed_in.get(reverse("economy:list")).content
     assert b'href="/economy/" aria-current="page"' in economy
-    assert b"data-currency-form" in economy.split(b"<main", 1)[0]
-    assert b"data-currency-form" not in economy.split(b"<main", 1)[1]
+    assert b"data-currency-form" not in economy
+
+
+def test_allocation_cycle_picker_follows_the_growing_year_and_keeps_completed_cycles(
+    signed_in, user, planting
+):
+    other = create_planting(actor=user, crop=planting.crop, start_year=2027, quantity=10).record
+    planting.cycle.refresh_from_db()
+    picker_cycle = planting.cycle
+    edit_cycle(
+        actor=user,
+        pk=picker_cycle.pk,
+        status="completed",
+        completed_on=date(2026, 4, 1),
+        expected_updated_at=picker_cycle.updated_at,
+    )
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    path = reverse("economy:allocation-create", args=[expense.pk])
+    first = signed_in.get(path, {"year": 2026})
+    choices = dict(first.context["form"].fields["cycle_ids"].choices)
+    assert str(planting.cycle_id) in choices and str(other.cycle_id) not in choices
+    second = signed_in.get(path, {"year": 2027})
+    choices = dict(second.context["form"].fields["cycle_ids"].choices)
+    assert str(other.cycle_id) in choices and str(planting.cycle_id) not in choices
+    fragment = signed_in.get(
+        reverse("economy:allocation-cycles", args=[expense.pk]), {"growing_year": 2027}
+    )
+    assert fragment.status_code == 200
+    assert str(other.cycle_id).encode() in fragment.content
+    assert str(planting.cycle_id).encode() not in fragment.content
+
+
+def test_allocate_form_shows_the_purchase_year_and_current_share(signed_in, user, planting):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="60",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    expense.refresh_from_db()
+    page = signed_in.get(reverse("economy:allocation-create", args=[expense.pk]), {"year": 2026})
+    assert page.context["purchase_year"] == 2026
+    assert page.context["form"]["share"].value() == Decimal("100")
+    edited = signed_in.get(reverse("economy:allocation-edit", args=[expense.pk, allocation.pk]))
+    assert edited.context["form"]["share"].value() == Decimal("60")
+
+
+def test_counted_purchase_allocates_by_whole_purchased_units(signed_in, user, planting):
+    expense = create_expense(
+        actor=user,
+        description="Pots",
+        total_price="250",
+        purchased_quantity="50",
+        unit="items",
+    ).record
+    path = reverse("economy:allocation-create", args=[expense.pk])
+    page = signed_in.get(path, {"year": 2026})
+    form = page.context["form"]
+    assert "quantity_used" in form.fields and "share" not in form.fields
+    assert form["quantity_used"].value() == Decimal("50")
+    attrs = form.fields["quantity_used"].widget.attrs
+    assert attrs["max"] == "50.000" and attrs["step"] == "1" and attrs["min"] == 0
+    assert page.context["quantity_mode"] is True
+    assert page.context["share_percent"] == Decimal("100.0")
+
+    payload = {
+        "submission_key": str(uuid4()),
+        "expected_expense_updated_at": expense.updated_at.isoformat(),
+        "growing_year": 2026,
+        "quantity_used": "16",
+        "scope": "selected",
+        "method": "plants",
+        "cycle_ids": [str(planting.cycle_id)],
+    }
+    saved = signed_in.post(path, payload)
+    assert saved.status_code == 302
+    allocation = Allocation.objects.get()
+    assert allocation.amount_cents == 8000
+
+    expense.refresh_from_db()
+    edited = signed_in.get(
+        reverse("economy:allocation-edit", args=[expense.pk, allocation.pk]),
+        {"year": 2026},
+    )
+    assert edited.context["form"]["quantity_used"].value() == Decimal("16")
+    whole = signed_in.post(
+        path,
+        {
+            **payload,
+            "submission_key": str(uuid4()),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "quantity_used": "16.5",
+        },
+    )
+    assert whole.status_code == 422 and b"whole number" in whole.content
+
+    preview = signed_in.post(
+        reverse("economy:allocation-preview", args=[expense.pk]),
+        {**payload, "quantity_used": "10"},
+    )
+    assert preview.status_code == 200 and preview.context["amount"] == Decimal("50.00")
+
+
+def test_measured_purchases_step_by_percentage_and_periodized_equipment_keeps_shares(
+    signed_in, user, planting
+):
+    measured = create_expense(
+        actor=user,
+        description="Compost",
+        total_price="100",
+        purchased_quantity="2",
+        unit="kilograms",
+    ).record
+    page = signed_in.get(reverse("economy:allocation-create", args=[measured.pk]), {"year": 2026})
+    assert page.context["form"].fields["quantity_used"].widget.attrs["step"] == "0.020"
+
+    fractional = create_expense(
+        actor=user,
+        description="Sulphur",
+        total_price="10",
+        purchased_quantity="1.234",
+        unit="kilograms",
+    ).record
+    page = signed_in.get(reverse("economy:allocation-create", args=[fractional.pk]), {"year": 2026})
+    # A rounded step would leave the purchased quantity itself unreachable.
+    attrs = page.context["form"].fields["quantity_used"].widget.attrs
+    assert attrs["step"] == "any" and attrs["max"] == "1.234"
+
+    equipment = create_expense(
+        actor=user,
+        description="Greenhouse",
+        total_price="900",
+        category="equipment",
+        purchased_quantity="1",
+        unit="items",
+        useful_life_years=3,
+    ).record
+    page = signed_in.get(reverse("economy:allocation-create", args=[equipment.pk]), {"year": 2026})
+    assert "share" in page.context["form"].fields
+    assert "quantity_used" not in page.context["form"].fields
+    assert page.context["form"]["share"].value() == Decimal("100")
+
+
+def test_editing_keeps_the_saved_amount_until_the_share_is_changed(signed_in, user, planting):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="33.33",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    expense.refresh_from_db()
+    path = reverse("economy:allocation-edit", args=[expense.pk, allocation.pk])
+    page = signed_in.get(path, {"year": 2026})
+    assert page.context["form"]["share"].value() == Decimal("33.330")
+
+    # The browser snaps the untouched slider to 35%; the reservation must survive.
+    saved = signed_in.post(
+        path,
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "growing_year": 2026,
+            "share": "35",
+            "scope": "selected",
+            "method": "equal",
+            "cycle_ids": [str(planting.cycle_id)],
+        },
+    )
+    assert saved.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 3333 and allocation.method == "equal"
+
+    expense.refresh_from_db()
+    changed = signed_in.post(
+        path,
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "growing_year": 2026,
+            "share": "40",
+            "scope": "selected",
+            "method": "equal",
+            "cycle_ids": [str(planting.cycle_id)],
+        },
+    )
+    assert changed.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 4000
+
+
+def test_editing_a_counted_allocation_keeps_cents_until_the_quantity_changes(
+    signed_in, user, planting
+):
+    expense = create_expense(
+        actor=user,
+        description="Pots",
+        total_price="100",
+        purchased_quantity="10",
+        unit="items",
+    ).record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="33.33",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    expense.refresh_from_db()
+    path = reverse("economy:allocation-edit", args=[expense.pk, allocation.pk])
+    page = signed_in.get(path, {"year": 2026})
+    assert page.context["form"]["quantity_used"].value() == Decimal("3.333")
+    assert page.context["share_percent"] == Decimal("33.3")
+
+    payload = {
+        "submission_key": str(uuid4()),
+        "expected_updated_at": allocation.updated_at.isoformat(),
+        "expected_expense_updated_at": expense.updated_at.isoformat(),
+        "growing_year": 2026,
+        "quantity_used": "3",
+        "scope": "selected",
+        "method": "equal",
+        "cycle_ids": [str(planting.cycle_id)],
+    }
+    saved = signed_in.post(path, payload)
+    assert saved.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 3333
+
+    expense.refresh_from_db()
+    changed = signed_in.post(
+        path,
+        {
+            **payload,
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "quantity_used": "4",
+        },
+    )
+    assert changed.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 4000
+
+
+def test_expense_form_requires_the_purchased_quantity_and_unit(signed_in):
+    path = reverse("economy:expense-create")
+    response = signed_in.post(path, expense_payload(purchased_quantity="", unit=""))
+    assert response.status_code == 422
+    assert set(response.context["form"].errors) == {"purchased_quantity", "unit"}
+    assert not Expense.objects.exists()
+    saved = signed_in.post(path, expense_payload())
+    assert saved.status_code == 302
+    expense = Expense.objects.get()
+    assert expense.purchased_quantity == Decimal("10.000") and expense.unit == "items"
+
+
+def test_allocation_preview_reports_the_split_without_saving(signed_in, user, planting):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    path = reverse("economy:allocation-preview", args=[expense.pk])
+    payload = {
+        "growing_year": "2026",
+        "share": "60",
+        "scope": "selected",
+        "method": "plants",
+        "cycle_ids": [str(planting.cycle_id)],
+    }
+    response = signed_in.post(path, payload)
+    assert response.status_code == 200
+    estimate = response.context["estimate"]
+    assert not estimate.pending and estimate.groups[0].cents == 6000
+    assert response.context["amount"] == Decimal("60.00")
+    assert response.context["available"] == Decimal("100.00")
+    assert response.context["remaining"] == Decimal("40.00")
+    assert b"60.00" in response.content
+    missing = signed_in.post(path, {**payload, "share": ""})
+    assert missing.context["state"] == "incomplete" and b"preview the split" in missing.content
+    assert not Allocation.objects.exists()
+
+
+def test_landing_links_to_records_while_records_paginate_and_keep_the_year(
+    signed_in, user, planting
+):
+    for index in range(27):
+        create_expense(
+            actor=user,
+            description=f"Synthetic purchase {index}",
+            total_price="1",
+            purchased_on=date(2026, 5, 9),
+        )
+    landing_page = signed_in.get(reverse("economy:list"))
+    assert landing_page.context["has_records"]
+    assert (
+        f'href="{reverse("economy:records")}?all=1&amp;year=2026"' in landing_page.content.decode()
+    )
+    first = signed_in.get(reverse("economy:records"), {"year": 2026})
+    assert first.context["expense_page"].paginator.num_pages == 2
+    assert len(first.context["expense_page"].object_list) == 25
+    second = signed_in.get(reverse("economy:records"), {"year": 2026, "page_expenses": 2})
+    assert len(second.context["expense_page"].object_list) == 2
+    assert "year=2026" in second.context["expense_previous_url"]
+
+
+def test_economy_toolbar_keeps_a_year_reachable_from_all_years(signed_in, user):
+    create_expense(
+        actor=user, description="Synthetic twine", total_price="8", purchased_on=date(2026, 5, 9)
+    )
+    page = signed_in.get(reverse("economy:list"), {"all_years": 1})
+    assert page.context["anchor_year"] == timezone.localdate().year
+    assert page.context["year_url"] == f"{reverse('economy:list')}?year={timezone.localdate().year}"
+    assert page.context["previous_url"] and page.context["next_url"]
+    body = page.content.decode()
+    assert f'href="{page.context["all_years_url"]}" aria-current="page"' in body
+    previous = signed_in.get(page.context["previous_url"])
+    assert previous.context["year"] == timezone.localdate().year - 1
+    records = signed_in.get(reverse("economy:records"), {"year": 2026})
+    assert records.context["previous_url"] == f"{reverse('economy:records')}?year=2025"
+    assert records.context["year_url"] == f"{reverse('economy:records')}?year=2026"
+
+
+def test_all_years_aggregates_purchases_and_cuts_future_equipment_shares(signed_in, user):
+    create_expense(
+        actor=user,
+        description="Synthetic seed trays",
+        total_price="900",
+        category="equipment",
+        useful_life_years=3,
+    )
+    create_expense(
+        actor=user,
+        description="Past purchase",
+        total_price="50",
+        purchased_on=date(2025, 5, 9),
+    )
+    every_year = signed_in.get(reverse("economy:list"), {"all_years": 1})
+    assert every_year.context["all_years"] and every_year.context["year"] is None
+    assert every_year.context["totals"]["spent"] == Decimal("950.00")
+    assert every_year.context["totals"]["growing"] == Decimal("350.00")
+    assert signed_in.get(reverse("economy:list"), {"year": 2028}).context["totals"][
+        "growing"
+    ] == Decimal("300.00")
+    index = signed_in.get(reverse("economy:cost-per-plant"), {"all_years": 1})
+    assert index.context["all_years"]
+    assert index.status_code == 200
+
+
+def test_cost_per_plant_indexes_cycles_and_shows_each_reaching_allocation(
+    signed_in, user, planting
+):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="50",
+        cycle_ids=[planting.cycle_id],
+    )
+    index = signed_in.get(reverse("economy:cost-per-plant"), {"year": 2026})
+    row = next(
+        item for item in index.context["cycle_rows"] if item["cycle"].pk == planting.cycle_id
+    )
+    assert row["per_plant"] == Decimal("1.00") and row["cost"] == Decimal("50.00")
+    detail = signed_in.get(
+        reverse("economy:cost-per-plant-cycle", args=[planting.cycle_id]), {"year": 2026}
+    )
+    assert detail.context["row"]["per_plant"] == Decimal("1.00")
+    assert detail.context["allocations"][0]["amount"] == Decimal("50.00")
+    assert detail.context["totals"]["growing"] == Decimal("50.00")
+
+
+def test_landing_groups_pending_splits_by_growing_year_and_lists_unallocated_balances(
+    signed_in, user, planting
+):
+    edit = planting
+    edit.refresh_from_db()
+    edit_planting(
+        actor=user,
+        pk=edit.pk,
+        expected_updated_at=edit.updated_at,
+        crop=edit.crop_id,
+        variety=edit.variety_id,
+        start_year=2026,
+        quantity=None,
+    )
+    expense = create_expense(actor=user, description="Reserved soil", total_price="100").record
+    create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="40",
+        cycle_ids=[planting.cycle_id],
+    )
+    other = create_expense(actor=user, description="Open balance", total_price="30").record
+    page = signed_in.get(reverse("economy:list"))
+    groups = page.context["pending_groups"]
+    assert [group["year"] for group in groups] == [2026]
+    assert page.context["unallocated_purchases"]
+    assert b"Reserved soil" in page.content and b"Open balance" in page.content
+    assert other.pk in {row["expense"].pk for row in page.context["unallocated_purchases"]}
+
+
+def test_edit_preview_excludes_the_saved_allocation_it_replaces(signed_in, user, planting):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="60",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    payload = {
+        "growing_year": "2026",
+        "share": "60",
+        "scope": "selected",
+        "method": "plants",
+        "cycle_ids": [str(planting.cycle_id)],
+    }
+    create = signed_in.post(reverse("economy:allocation-preview", args=[expense.pk]), payload)
+    assert create.context["available"] == Decimal("40.00")
+    assert create.context["over"]
+    edit = signed_in.post(
+        reverse("economy:allocation-preview", args=[expense.pk]) + f"?allocation={allocation.pk}",
+        payload,
+    )
+    assert edit.context["available"] == Decimal("100.00")
+    assert edit.context["remaining"] == Decimal("40.00")
+    assert not edit.context["over"]
+
+
+def test_unallocated_links_open_the_year_whose_balance_is_shown(signed_in, user):
+    expense = create_expense(
+        actor=user,
+        description="Synthetic seed trays",
+        total_price="100",
+        purchased_on=date(2025, 5, 9),
+        category="equipment",
+        useful_life_years=2,
+    ).record
+    create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2025,
+        amount="50",
+        scope="year",
+    )
+    page = signed_in.get(reverse("economy:list"), {"year": 2026})
+    row = next(
+        item for item in page.context["unallocated_purchases"] if item["expense"].pk == expense.pk
+    )
+    assert row["available"] == Decimal("50.00") and row["detail_year"] == 2026
+    target = f"/economy/expenses/{expense.pk}/?year=2026"
+    assert target.encode() in page.content
+    detail = signed_in.get(target)
+    assert detail.status_code == 200
+    assert detail.context["available"] == Decimal("50.00")
+
+    records = signed_in.get(reverse("economy:records"), {"year": 2026})
+    expense_row = next(
+        item for item in records.context["expense_rows"] if item["expense"].pk == expense.pk
+    )
+    assert expense_row["detail_year"] == 2026
+
+    every_year = signed_in.get(reverse("economy:list"), {"all_years": 1})
+    assert b"year=None" not in every_year.content
+    fallback = next(
+        item["detail_year"]
+        for item in every_year.context["unallocated_purchases"]
+        if item["expense"].pk == expense.pk
+    )
+    assert fallback == 2026
+    assert signed_in.get(f"/economy/expenses/{expense.pk}/?year={fallback}").status_code == 200
+
+
+def test_saved_sale_links_to_the_records_page_that_contains_it(signed_in, user, planting):
+    for index in range(26):
+        create_sale(
+            actor=user,
+            description=f"Synthetic sale {index}",
+            sold_on=date(2026, 5, 9),
+            quantity=1,
+            unit_price="1",
+            cycle=planting.cycle_id,
+        )
+    saved = signed_in.post(
+        reverse("economy:sale-create"),
+        {
+            "submission_key": str(uuid4()),
+            "description": "Synthetic older sale",
+            "sold_on": "2026-01-01",
+            "quantity": "1",
+            "unit_price": "1",
+            "cycle": str(planting.cycle_id),
+        },
+    )
+    assert saved.status_code == 302
+    sale = Sale.objects.get(description="Synthetic older sale")
+    assert "page_income=2" in saved.url and "year=2026" in saved.url
+    assert saved.url.endswith(f"#sale-{sale.pk}")
+    records = signed_in.get(saved.url)
+    assert records.status_code == 200
+    assert f'id="sale-{sale.pk}"'.encode() in records.content

@@ -102,6 +102,20 @@ def test_immediate_paste_reload_unicode_key_recovery_and_keyboard_discard(page):
     assert warnings == ["beforeunload"]
 
 
+def test_typing_keeps_the_recovery_notice_and_discard_out_of_the_way(page):
+    expect(page.locator("[data-draft-notice]")).to_be_hidden()
+    page.locator("#id_body").fill(WRITING)
+    expect(page.locator("[data-draft-notice]")).to_be_hidden()
+    expect(page.locator("[data-draft-discard]")).to_be_hidden()
+    assert drafts(page)
+    page.reload()
+    expect(page.locator("[data-draft-status]")).to_contain_text("was restored")
+    expect(page.locator("[data-draft-discard]")).to_be_visible()
+    page.locator("[data-draft-discard]").click()
+    expect(page.locator("[data-draft-notice]")).to_be_hidden()
+    expect(page.locator("#id_body")).to_have_value("")
+
+
 def test_native_warning_only_for_changes_uploads_and_failed_saves(page, image_upload):
     warnings = []
     page.on("dialog", lambda dialog: (warnings.append(dialog.type), dialog.accept()))
@@ -453,7 +467,13 @@ def test_untrusted_malformed_snapshots_are_rejected_whole(page, corrupt):
     elif corrupt == "count":
         snapshot["uploads"]["library"] = -1
     # Avoid pagehide's legitimate final flush replacing the intentionally corrupt fixture.
-    page.locator("[data-draft-discard]").click()
+    page.locator("#id_body").fill("")
+    page.evaluate(
+        "prefix => Object.keys(sessionStorage)"
+        ".filter(key => key.startsWith(prefix))"
+        ".forEach(key => sessionStorage.removeItem(key))",
+        PREFIX,
+    )
     raw = "{" if corrupt == "json" else json.dumps(snapshot)
     page.add_init_script(f"sessionStorage.setItem({json.dumps(key)}, {json.dumps(raw)})")
     page.reload()

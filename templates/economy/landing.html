@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Economy' %}{% if year %} · {{ year }}{% endif %} · GrowBook{% endblock %}
+{% block page_class %}page register-page economy-page{% endblock %}
+{% block content %}
+{% include 'components/register_heading.html' with heading=title illustration='images/registers/plantings.webp' %}
+{% include 'components/economy_navigation.html' with active='overview' show_actions=True %}
+<section class="panel">
+  <h2>{% translate 'Summary' %} · {% if all_years %}{% translate 'All years' %}{% else %}{{ year }}{% endif %}</h2>
+  <dl class="economy-stats">
+    <div><dt>{% translate 'Expenses' %}</dt><dd data-total="spent">{% include 'economy/money.html' with value=totals.spent %}</dd></div>
+    <div><dt>{% translate 'Growing costs' %}</dt><dd data-total="growing">{% include 'economy/money.html' with value=totals.growing %}</dd></div>
+    <div><dt>{% translate 'Income' %}</dt><dd data-total="income">{% include 'economy/money.html' with value=totals.income %}</dd></div>
+    <div><dt>{% translate 'Result' %}</dt><dd data-total="growing-difference">{% include 'economy/money.html' with value=totals.growing_difference %}</dd></div>
+  </dl>
+  {% if all_years %}<p class="field-help">{% translate 'All years excludes future equipment shares.' %}</p>{% endif %}
+</section>
+{% if pending_groups or unallocated_purchases %}
+<section class="panel economy-pending">
+  <h2>{% translate 'Pending and unallocated' %}</h2>
+  <ul class="economy-row-list">
+    {% for group in pending_groups %}{% for estimate in group.estimates %}
+    <li>{% include 'economy/pending.html' with show_expense=True %}</li>
+    {% endfor %}{% endfor %}
+  </ul>
+  {% if unallocated_purchases %}
+  <h3>{% translate 'Unallocated purchases' %}</h3>
+  <ul class="economy-row-list">
+    {% for row in unallocated_purchases %}
+    <li><a class="economy-row" href="{{ row.expense.get_absolute_url }}?year={{ row.detail_year }}"><span class="economy-row-name">{{ row.expense.description }}</span><span class="economy-row-meta">{% translate 'Purchase year' %} {{ row.expense.purchase_year }}</span><span class="economy-row-amount">{% translate 'Available' %} {% include 'economy/money.html' with value=row.available %}</span></a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% if not has_records %}
+<div class="panel empty-state"><p>{% translate 'No economy records for this period yet.' %}</p><p>{% translate 'Add a purchase or a plant sale to see summaries and cost per plant.' %}</p></div>
+{% endif %}
+{% endblock %}

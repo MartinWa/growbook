@@ -463,3 +463,33 @@ print('production proxy requests verified')
     )
     assert result.returncode == 0, result.stderr
     assert "production proxy requests verified" in result.stdout
+
+
+@pytest.mark.parametrize("value", ["SEK; DROP TABLE", "eur", "EURO", "XBT"])
+def test_an_invalid_currency_label_is_refused_at_startup(tmp_path, value):
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.CURRENCY_LABEL)",
+        GROWBOOK_CURRENCY=value,
+    )
+
+    assert result.returncode != 0
+    assert "GROWBOOK_CURRENCY" in result.stderr
+    assert "ImproperlyConfigured" in result.stderr
+
+
+def test_the_currency_label_defaults_to_sek_and_accepts_a_configured_label(tmp_path):
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.CURRENCY_LABEL)",
+        GROWBOOK_CURRENCY="EUR",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "EUR"
+
+    result = run_settings(
+        tmp_path,
+        "from django.conf import settings; print(settings.CURRENCY_LABEL)",
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "SEK"

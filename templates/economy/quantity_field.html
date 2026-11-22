@@ -1,0 +1,12 @@
+{% load i18n %}
+<div class="field economy-quantity" data-field-name="purchased_quantity">
+  <label for="{{ quantity.id_for_label }}">{{ quantity.label }} <span class="field-requirement">{% if quantity.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></label>
+  <div class="economy-quantity-controls">
+    {{ quantity }}
+    <label class="visually-hidden" for="{{ unit.id_for_label }}">{{ unit.label }}</label>
+    {{ unit }}
+  </div>
+  {% if quantity.help_text %}<p id="{{ quantity.auto_id }}_helptext" class="field-help">{{ quantity.help_text }}</p>{% endif %}
+  <div class="field-errors" id="{{ quantity.auto_id }}_errors" data-form-field-errors="{{ quantity.html_name }}">{{ quantity.errors }}</div>
+  <div class="field-errors" id="{{ unit.auto_id }}_errors" data-form-field-errors="{{ unit.html_name }}">{{ unit.errors }}</div>
+</div>

@@ -99,10 +99,8 @@ def report(year=2026, **filters):
 def test_estimates_do_not_read_shared_state_after_releasing_the_snapshot(
     user, catalog, django_assert_num_queries
 ):
-    golden, first, second = catalog[2], catalog[4], catalog[5]
-    expense = create_expense(
-        actor=user, description="Seeds", total_price="100", variety=golden
-    ).record
+    first, second = catalog[4], catalog[5]
+    expense = create_expense(actor=user, description="Seeds", total_price="100").record
     allocate(user, expense, [first, second], amount="60")
     create_sale(actor=user, description="Plants", quantity=1, unit_price="10", cycle=first.cycle_id)
     state = load_economy()
@@ -211,33 +209,17 @@ def test_invalid_quantity_pairs_and_equipment_periods_are_rejected(user, values)
         create_expense(actor=user, description="Invalid", total_price="10", **values)
 
 
-def test_refining_a_crop_cost_into_shared_cycles_counts_each_portion_once(user, catalog):
+def test_unallocated_purchases_stay_unassigned_until_they_reach_a_cycle(user, catalog):
     tomato, bean, _, _, first, _, other = catalog
-    expense = create_expense(
-        actor=user, description="Shared soil", total_price="100", crop=tomato
-    ).record
+    expense = create_expense(actor=user, description="Shared soil", total_price="100").record
     allocate(user, expense, [first, other], amount="60")
-    assert report(crop=tomato.pk)["totals"]["spent"] == Decimal("70")
-    assert report(crop=bean.pk)["totals"]["spent"] == Decimal("30")
     totals = report()["totals"]
     assert totals["growing"] == 100 and totals["allocated"] == 60 and totals["unallocated"] == 40
     assert report(cycle=first.cycle_id)["totals"]["growing"] == 30
-
-
-def test_variety_attribution_without_plantings_is_refined_and_redistributed(user, catalog):
-    tomato, _, golden, red, first, second, _ = catalog
-    expense = create_expense(
-        actor=user, description="Seed packet", total_price="100", variety=golden
-    ).record
-    assert expense.crop_id == tomato.pk
-    assert report(variety=golden.pk)["totals"]["growing"] == 100
-    allocate(user, expense, [first, second], amount="40")
-    assert report(variety=golden.pk)["totals"]["growing"] == 80
-    assert report(variety=red.pk)["totals"]["growing"] == 20
-    quantity(user, first, 0)
-    assert report(variety=golden.pk)["totals"]["growing"] == 60
-    assert report(variety=red.pk)["totals"]["growing"] == 40
-    assert report(crop=tomato.pk)["totals"]["growing"] == 100
+    assert report(crop=tomato.pk)["totals"]["growing"] == 30
+    assert report(crop=bean.pk)["totals"]["growing"] == 30
+    unassigned = next(row for row in report()["crop_rows"] if row["source"] is None)
+    assert unassigned["growing"] == Decimal("40.00")
 
 
 def test_portion_moves_to_another_year_while_spending_and_unused_balance_stay_in_purchase_year(
@@ -317,6 +299,25 @@ def test_unknown_or_all_zero_groups_remain_pending_and_reserved(user, catalog, m
     allocate(user, expense, [other], amount="20")
     quantity(user, first, 70)
     assert not report()["pending_allocations"] and report()["totals"]["allocated"] == 100
+
+
+def test_all_years_counts_future_members_of_a_cycle_that_holds_costs(user, catalog):
+    crop, _, _, red, first, _, _ = catalog
+    quantity(user, first, 10)
+    create_planting(
+        actor=user,
+        crop=crop,
+        variety=red,
+        batch_planting=first,
+        start_year=2028,
+        quantity=90,
+    )
+    expense = create_expense(actor=user, description="Batch soil", total_price="100").record
+    allocate(user, expense, [first], amount="100")
+    row = next(item for item in report(None)["cycle_rows"] if item["cycle"].pk == first.cycle_id)
+    # Costs and plants come from the same members, as they do in the split breakdown.
+    assert row["quantity"] == 100
+    assert row["cost"] == Decimal("100.00") and row["per_plant"] == Decimal("1.00")
 
 
 def test_an_unknown_quantity_is_not_treated_as_zero_when_other_plants_are_known(user, catalog):
@@ -566,14 +567,13 @@ def test_cycle_wide_sale_keeps_the_earliest_member_growing_year(user, catalog):
 def test_yearly_differences_use_received_income_while_cycle_sales_follow_the_growing_year(
     user, catalog
 ):
-    crop, _, _, _, first, _, _ = catalog
+    first = catalog[4]
     expense = create_expense(
         actor=user,
         description="Seed trays",
         total_price="900",
         category="equipment",
         useful_life_years=3,
-        crop=crop,
     ).record
     allocate(user, expense, [first], amount="100")
     create_sale(
@@ -584,13 +584,12 @@ def test_yearly_differences_use_received_income_while_cycle_sales_follow_the_gro
         unit_price="12.34",
         cycle=first.cycle_id,
     )
-    for filters in ({}, {"crop": crop.pk}):
-        purchase_year = report(2026, **filters)["totals"]
-        sale_year = report(2027, **filters)["totals"]
-        assert purchase_year["cash_difference"] == -900
-        assert purchase_year["growing_difference"] == -300
-        assert sale_year["cash_difference"] == Decimal("86.38")
-        assert sale_year["growing_difference"] == Decimal("-213.62")
+    purchase_year = report(2026)["totals"]
+    sale_year = report(2027)["totals"]
+    assert purchase_year["cash_difference"] == -900
+    assert purchase_year["growing_difference"] == -300
+    assert sale_year["cash_difference"] == Decimal("86.38")
+    assert sale_year["growing_difference"] == Decimal("-213.62")
     cycle = report(cycle=first.cycle_id)["cycle_rows"][0]
     assert cycle["income"] == Decimal("86.38") and cycle["difference"] == Decimal("-13.62")
 
@@ -675,7 +674,6 @@ def test_receipts_precede_new_year_archive_and_changed_budget_checks(user, catal
         "actor": user,
         "description": "Soil",
         "total_price": "100",
-        "crop": tomato,
         "submission_key": purchase_key,
     }
     expense = create_expense(**purchase).record
@@ -697,7 +695,6 @@ def test_receipts_precede_new_year_archive_and_changed_budget_checks(user, catal
         "expected_updated_at": expense.updated_at,
         "description": "Soil",
         "total_price": "200",
-        "crop": tomato,
         "submission_key": uuid4(),
     }
     edit_expense(**edited)
@@ -738,12 +735,12 @@ def test_financially_referenced_plantings_cannot_be_deleted(user, catalog, refer
     delete_planting(actor=user, pk=first.pk, expected_updated_at=first.updated_at)
 
 
-def test_direct_financial_references_protect_register_deletion_and_variety_reclassification(user):
+def test_financial_references_protect_register_deletion_and_variety_reclassification(user):
     crop = create_crop(actor=user, name="Tomato").record
     other = create_crop(actor=user, name="Bean").record
     variety = create_variety(actor=user, crop=crop, name="Golden").record
-    expense = create_expense(
-        actor=user, description="Seeds", total_price="10", variety=variety
+    sale = create_sale(
+        actor=user, description="Plants", quantity=1, total_price="10", variety=variety
     ).record
     with pytest.raises(ValidationError):
         delete_variety(actor=user, pk=variety.pk, expected_updated_at=variety.updated_at)
@@ -755,25 +752,12 @@ def test_direct_financial_references_protect_register_deletion_and_variety_recla
             crop=other,
             name=variety.name,
         )
-    delete_expense(actor=user, pk=expense.pk, expected_updated_at=expense.updated_at)
-    sale = create_sale(
-        actor=user, description="Plants", quantity=1, total_price="10", variety=variety
-    ).record
-    with pytest.raises(ValidationError, match="economy references"):
-        edit_variety(
-            actor=user,
-            pk=variety.pk,
-            expected_updated_at=variety.updated_at,
-            crop=other,
-            name=variety.name,
-        )
     delete_sale(actor=user, pk=sale.pk, expected_updated_at=sale.updated_at)
     delete_variety(actor=user, pk=variety.pk, expected_updated_at=variety.updated_at)
-    expense = create_expense(actor=user, description="Supplies", total_price="10", crop=crop).record
-    with pytest.raises(ValidationError):
-        delete_crop(actor=user, pk=crop.pk, expected_updated_at=crop.updated_at)
-    delete_expense(actor=user, pk=expense.pk, expected_updated_at=expense.updated_at)
+    # A purchase no longer references a crop or variety directly.
+    expense = create_expense(actor=user, description="Supplies", total_price="10").record
     delete_crop(actor=user, pk=crop.pk, expected_updated_at=crop.updated_at)
+    assert Expense.objects.filter(pk=expense.pk).exists()
 
 
 def test_expense_deletion_removes_allocations_future_shares_and_retains_receipt_tombstones(
@@ -854,3 +838,25 @@ def test_database_constraints_reject_invalid_purchase_rows_even_when_hooks_are_b
                 **values,
             }
         )
+
+
+def test_all_years_does_not_hold_current_cycles_pending_for_a_future_split(user):
+    crop = create_crop(actor=user, name="Tomato").record
+    persistent = create_planting(
+        actor=user, crop=crop, start_year=2025, lifespan="persistent", quantity=10
+    ).record
+    create_planting(actor=user, crop=crop, start_year=2027)
+    current = create_expense(actor=user, description="Current soil", total_price="30").record
+    allocate(user, current, [persistent], amount="30", growing_year=2026)
+    future = create_expense(actor=user, description="Future soil", total_price="40").record
+    allocate(user, future, amount="40", scope="year", growing_year=2027)
+    state = load_economy()
+    aggregated = overview(state, None, through_year=2026)
+    row = next(item for item in aggregated["cycle_rows"] if item["cycle"].pk == persistent.cycle_id)
+    assert row["per_plant"] == Decimal("3.00")
+    assert aggregated["pending_allocations"]
+    planned = overview(state, 2027)
+    planned_row = next(
+        item for item in planned["cycle_rows"] if item["cycle"].pk == persistent.cycle_id
+    )
+    assert planned_row["pending"] and planned_row["per_plant"] is None
