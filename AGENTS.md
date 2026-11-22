@@ -5,10 +5,12 @@ repository.
 
 ## Read first
 
-- [`README.md`](README.md) — current features, limitations, quick start and documentation
-  index.
-- [`docs/usage.md`](docs/usage.md) — screen behavior, save retries and no-JavaScript
-  fallbacks.
+- [`README.md`](README.md) — purpose, screenshots, quick start and documentation index.
+- [`docs/getting-started.md`](docs/getting-started.md) — shared screen behavior, saving and
+  retries, unsaved writing, photos and limits; the feature guides ([diary](docs/diary.md),
+  [registers](docs/garden-registers.md), [plantings](docs/plantings.md),
+  [economy](docs/economy.md)) document their own behavior.
+- [`docs/administration.md`](docs/administration.md) — accounts, roles and access.
 - [`docs/development.md`](docs/development.md) — tests, browser suite, translations, CI,
   dependency updates and release publishing.
 - [`docs/deployment.md`](docs/deployment.md) — Docker, private configuration, upgrades and
@@ -24,8 +26,9 @@ repository.
 
 ## Scope and documentation ownership
 
-The [README](README.md#current-features) is the source of truth for implemented
-features and deliberate limitations; do not duplicate that inventory here.
+The user guides linked from the [README](README.md#documentation) are the source of truth
+for implemented features and deliberate limitations; do not duplicate that inventory
+here.
 Do not implement a feature outside the current scope without agreeing it with
 the maintainer first. A planned feature is not an implemented capability.
 
@@ -79,8 +82,8 @@ maintained documentation.
 
 ## UI, images and security
 
-[Interface foundations](docs/design.md) documents the shared theme, tokens and form
-conventions.
+[Interface foundations](docs/development.md#interface-foundations) documents the shared
+theme, tokens and form conventions.
 
 - Django forms/templates and HTMX are the primary UI. Use small external plain
   JavaScript modules for local state; do not add a SPA or frontend build pipeline
