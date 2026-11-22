@@ -7,16 +7,17 @@ garden: every active account can read everything and add records.
 - [Install and first sign-in](deployment.md#initialize-and-start) is in the deployment
   guide, together with [accounts and roles](administration.md#accounts-and-roles).
 - Everything below applies to every screen. The feature guides reference it instead of
-  repeating it: [Diary](diary.md), [Growing areas, crops and varieties](garden-registers.md),
-  [Plantings](plantings.md) and [Economy](economy.md).
+  repeating it: [Diary](diary.md), [Calendar](calendar.md),
+  [Growing areas, crops and varieties](garden-registers.md), [Plantings](plantings.md) and
+  [Economy](economy.md).
 
 ## Signing in and finding your way
 
 There are no seeded credentials: an administrator creates accounts in **Operator**
-(`/operator/`). After signing in, the main menu opens **Diary**, **Growing areas**,
-**Crops and varieties**, **Plantings** and **Economy**; `/garden/` redirects to Growing
-areas. The account menu holds **Language**, **Season**, **Operator** for administrators
-and **Log out**.
+(`/operator/`). After signing in, the main menu opens **Diary**, **Calendar**,
+**Growing areas**, **Crops and varieties**, **Plantings** and **Economy**; `/garden/`
+redirects to Growing areas. The account menu holds **Language**, **Season**, **Operator**
+for administrators and **Log out**.
 
 The interface is in Swedish by default; **English** is available in the account menu.
 Language changes apply immediately and keep the current page and filters. Changing

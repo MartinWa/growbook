@@ -42,6 +42,8 @@
       {% with route=request.resolver_match.url_name %}
         {% if request.resolver_match.namespace == 'diary' %}
           {% include 'components/main_navigation.html' with active='diary' %}
+        {% elif request.resolver_match.namespace == 'planner' %}
+          {% include 'components/main_navigation.html' with active='calendar' %}
         {% elif request.resolver_match.namespace == 'economy' %}
           {% include 'components/main_navigation.html' with active='economy' %}
         {% elif request.resolver_match.namespace == 'garden' %}

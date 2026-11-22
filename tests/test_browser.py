@@ -658,6 +658,8 @@ def test_capture_foundation_reflows_and_supports_keyboard(
     expect(page.locator(".about-label")).to_have_count(0)
     page.locator("#id_body").focus()
     page.keyboard.press("Tab")
+    expect(page.locator("#id_show_in_calendar")).to_be_focused()
+    page.keyboard.press("Tab")
     expect(tag).to_be_focused()
     page.keyboard.press("Enter")
     expect(page.locator("[data-tag-search]")).to_be_focused()

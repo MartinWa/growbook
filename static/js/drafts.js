@@ -12,9 +12,9 @@
   const cycle = "status started_on completed_on category_ids".split(" ");
   const tags = "link_areas link_crops link_varieties link_plantings".split(" ");
   const fields = {
-    capture: ["date", "title", "body", "date_overrides", "default_date", "planting_action", "action_planting", ...tags,
+    capture: ["date", "title", "body", "show_in_calendar", "date_overrides", "default_date", "planting_action", "action_planting", ...tags,
       ...planting.map(name => `planting-${name}`), ...event.map(name => `event-${name}`), ...cycle.map(name => `cycle-${name}`)],
-    entry: ["date", "title", "body", "remove_photos", ...tags],
+    entry: ["date", "title", "body", "show_in_calendar", "remove_photos", ...tags],
     crop: ["name", "notes", "category"],
     variety: ["crop", "name", "description", "source", "experiences"],
     area: ["name", "parent", "area_type", "length_cm", "width_cm", "description", "notes"],
@@ -152,7 +152,9 @@
         for (const [name, entries] of Object.entries({...draft.fields, ...draft.tokens})) {
           const inputs = controls(form, name);
           const multi = tags.includes(name) || name.endsWith("category_ids") || name === "remove_photos" || name === "cycle_ids";
-          if (!multi && entries.length !== 1) throw new Error("scalar");
+          // One checkbox or radio stores no value when cleared, so 0 and 1 are both valid.
+          const choice = inputs.some(input => ["checkbox", "radio"].includes(input.type));
+          if (!multi && (choice ? entries.length > 1 : entries.length !== 1)) throw new Error("scalar");
           if (allowToken(name) && (entries.length !== 1 || entries[0].length > 100)) throw new Error("token");
           if (inputs.length === 1 && ["date", "number"].includes(inputs[0].type)) {
             const probe = inputs[0].cloneNode();

@@ -24,6 +24,11 @@
       {% include 'components/field.html' with field=form.title %}
     </div>
     {% include 'components/field.html' with field=form.body %}
+    <div class="field checkbox-field">
+      <label for="{{ form.show_in_calendar.id_for_label }}">{{ form.show_in_calendar }} {{ form.show_in_calendar.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
+      <p id="{{ form.show_in_calendar.auto_id }}_helptext" class="field-help">{{ form.show_in_calendar.help_text }}</p>
+      <div id="{{ form.show_in_calendar.auto_id }}_errors" class="field-errors" data-form-field-errors="show_in_calendar">{{ form.show_in_calendar.errors }}</div>
+    </div>
 
     <fieldset class="photo-picker" id="id_remove_photos" tabindex="-1">
       <legend>{% translate 'Existing photos' %}</legend>

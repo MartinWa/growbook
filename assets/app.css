@@ -693,6 +693,22 @@
     @apply mt-2;
   }
 
+  .checkbox-field {
+    @apply flex flex-wrap items-center gap-x-2 gap-y-1;
+  }
+
+  .checkbox-field > label {
+    @apply m-0 flex min-h-11 items-center gap-2 font-normal;
+  }
+
+  .checkbox-field > label input {
+    @apply order-first;
+  }
+
+  .checkbox-field .field-help {
+    @apply m-0 w-full;
+  }
+
   .errorlist {
     @apply my-1 list-disc pl-5;
   }
@@ -1386,7 +1402,7 @@
     }
 
     .main-navigation {
-      @apply grid w-full grid-cols-5 gap-1;
+      @apply grid w-full grid-cols-6 gap-1;
       order: 3;
     }
 
@@ -1844,6 +1860,151 @@
 
     .economy-table .economy-amount {
       text-align: start;
+    }
+  }
+
+  /* Calendar: one grid that stacks into day sections on narrow screens. */
+  .calendar-heading {
+    @apply mb-4;
+  }
+
+  .month-navigation {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .calendar-grid {
+    @apply w-full border-collapse overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-notebook;
+    table-layout: fixed;
+  }
+
+  .calendar-caption {
+    @apply px-3 py-3 text-xl font-semibold text-base-content;
+    font-family: "Barlow Condensed", var(--font-sans);
+    text-align: start;
+  }
+
+  .calendar-grid th {
+    @apply border border-base-300 bg-base-200/60 px-2 py-2 text-sm font-semibold text-secondary;
+  }
+
+  .calendar-grid td {
+    @apply border border-base-300 p-2 align-top;
+    height: 6.5rem;
+  }
+
+  .calendar-day.is-outside {
+    @apply bg-base-200/40 text-base-content/50;
+  }
+
+  .calendar-day.is-today {
+    box-shadow: inset 0 0 0 2px var(--color-accent);
+  }
+
+  .calendar-day-label {
+    @apply m-0 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold;
+  }
+
+  .calendar-day-number {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .calendar-day-date {
+    @apply hidden;
+  }
+
+  .calendar-day-today {
+    @apply text-xs font-normal text-accent;
+  }
+
+  .calendar-items {
+    @apply m-0 mt-1 list-none p-0;
+  }
+
+  .calendar-items > li {
+    @apply my-1 min-w-0;
+  }
+
+  .calendar-item {
+    @apply min-w-0;
+  }
+
+  .calendar-item-meta,
+  .calendar-item-title,
+  .calendar-item-link {
+    @apply block truncate text-sm;
+  }
+
+  .calendar-item-meta {
+    @apply text-xs text-base-content/70;
+  }
+
+  .calendar-item-title {
+    @apply font-medium text-primary underline decoration-primary/60 underline-offset-2;
+  }
+
+  .calendar-item-title:hover {
+    @apply bg-base-200/70 decoration-primary;
+  }
+
+  .calendar-item-link {
+    @apply text-xs text-secondary underline underline-offset-2;
+  }
+
+  .calendar-item.is-planned .calendar-item-title {
+    @apply italic;
+  }
+
+  .calendar-empty {
+    @apply my-4;
+  }
+
+  @media (max-width: 700px) {
+    .calendar-grid,
+    .calendar-grid tbody,
+    .calendar-grid tr,
+    .calendar-grid td {
+      display: block;
+      inline-size: auto;
+    }
+
+    .calendar-grid thead {
+      display: none;
+    }
+
+    .calendar-grid caption {
+      @apply px-2;
+    }
+
+    .calendar-grid td {
+      @apply border-0 border-b border-base-300 px-1 py-3;
+      height: auto;
+    }
+
+    .calendar-grid td.is-outside,
+    .calendar-grid td:not(:has(.calendar-item)):not(.is-today) {
+      display: none;
+    }
+
+    .calendar-day-number {
+      display: none;
+    }
+
+    .calendar-day-date {
+      display: inline;
+    }
+
+    .calendar-items > li {
+      @apply my-2;
+    }
+
+    .calendar-item-meta,
+    .calendar-item-title,
+    .calendar-item-link {
+      @apply text-base;
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
   }
 }

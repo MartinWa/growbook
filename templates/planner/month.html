@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ month_label }} · {% translate 'Calendar' %} · GrowBook{% endblock %}
+{% block page_class %}page calendar-page{% endblock %}
+{% block content %}
+<div class="page-heading calendar-heading">
+  <h1>{% translate 'Calendar' %}</h1>
+  <nav class="month-navigation" aria-label="{% translate 'Month navigation' %}">
+    {% if previous %}<a class="btn btn-ghost" rel="prev" href="{{ previous.url }}">← <span>{{ previous.label }}</span></a>{% endif %}
+    <a class="btn btn-ghost" href="{% url 'planner:current' %}">{% translate 'Current month' %}</a>
+    {% if following %}<a class="btn btn-ghost" rel="next" href="{{ following.url }}"><span>{{ following.label }}</span> →</a>{% endif %}
+  </nav>
+</div>
+<table class="calendar-grid">
+  <caption class="calendar-caption">{{ month_label }}</caption>
+  <thead>
+    <tr>{% for name in weekdays %}<th scope="col">{{ name }}</th>{% endfor %}</tr>
+  </thead>
+  <tbody>
+    {% for week in weeks %}
+    <tr>
+      {% for value in week %}
+      <td class="calendar-day{% if not value.in_month %} is-outside{% endif %}{% if value.is_today %} is-today{% endif %}" data-date="{{ value.day|date:'Y-m-d' }}">
+        <h2 class="calendar-day-label">
+          <time datetime="{{ value.day|date:'Y-m-d' }}"{% if value.is_today %} aria-current="date"{% endif %}><span class="calendar-day-number">{{ value.day|date:'j' }}</span><span class="calendar-day-date">{{ value.day|date:'DATE_FORMAT' }}</span></time>
+          {% if value.is_today %}<span class="calendar-day-today">{% translate 'Today' %}</span>{% endif %}
+        </h2>
+        {% if value.items %}
+        <ul class="calendar-items">
+          {% for item in value.items %}<li>{% include 'planner/_item.html' %}</li>{% endfor %}
+        </ul>
+        {% endif %}
+      </td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if not has_items %}<p class="calendar-empty muted">{% translate 'No calendar items this month.' %}</p>{% endif %}
+{% endblock %}

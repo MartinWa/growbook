@@ -28,6 +28,11 @@ TAG_FIELDS = {
     "link_varieties": (Variety, "variety", _("Varieties")),
 }
 
+CALENDAR_HELP = _(
+    "Planting events appear in the calendar automatically. "
+    "Tick this to show an entry that has no planting event."
+)
+
 
 class TagIdsField(forms.TypedMultipleChoiceField):
     """Validate typed IDs; association eligibility belongs after immutable receipt lookup."""
@@ -242,6 +247,14 @@ class CaptureForm(TaggedForm):
             attrs={"rows": 4, "aria-describedby": "capture-note-help capture-body-errors"}
         ),
     )
+    show_in_calendar = forms.BooleanField(
+        label=_("Show in calendar"),
+        required=False,
+        help_text=CALENDAR_HELP,
+        widget=forms.CheckboxInput(
+            attrs={"aria-describedby": "capture-calendar-help capture-calendar-errors"}
+        ),
+    )
     camera = MultipleFileField(
         label=_("Take a photo"),
         required=False,
@@ -447,6 +460,9 @@ class EntryEditForm(TaggedForm):
     )
     body = forms.CharField(
         label=_("Note"), required=False, widget=forms.Textarea(attrs={"rows": 5})
+    )
+    show_in_calendar = forms.BooleanField(
+        label=_("Show in calendar"), required=False, help_text=CALENDAR_HELP
     )
     photos = MultipleFileField(
         label=_("Add photos"),

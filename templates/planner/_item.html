@@ -1,0 +1,6 @@
+{% load i18n %}
+<article class="calendar-item calendar-item-{{ item.kind }}{% if item.planned %} is-planned{% endif %}">
+  {% if item.meta %}<span class="calendar-item-meta">{{ item.meta }}</span>{% endif %}
+  <a class="calendar-item-title" href="{{ item.primary_url }}">{{ item.title }}</a>
+  {% if item.kind == 'combined' %}<a class="calendar-item-link" href="{{ item.event_url }}">{% translate 'Planting event' %}</a>{% endif %}
+</article>

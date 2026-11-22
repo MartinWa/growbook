@@ -81,6 +81,7 @@ but do not publish the service's HTTP port.
 | `diary/` | Diary models, forms, views, filtering and validated create/edit/delete operations. |
 | `garden/` | Models, forms and year/history queries; `views/` and `services/` separate registers, photos, plantings and events. |
 | `economy/` | Validated purchases, reserved cycle allocations, plant sales and current cost estimates. |
+| `planner/` | Read-only calendar month of planting events and chosen diary observations. |
 | `templates/`, `static/` | Server-rendered HTML and self-hosted CSS/JavaScript. |
 | `assets/` | Stylesheet source compiled into the committed application CSS. |
 | `locale/` | Maintained translation catalogs; compiled `.mo` files are generated. |

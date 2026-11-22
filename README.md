@@ -80,6 +80,8 @@ For using the garden:
 - [Getting started](docs/getting-started.md) — signing in, seasons, saving and retries,
   unsaved writing, photos and limits
 - [Diary](docs/diary.md) — observations, tags, filters, planting actions while writing
+- [Calendar](docs/calendar.md) — the read-only month of planting events and chosen
+  observations
 - [Growing areas, crops and varieties](docs/garden-registers.md) — registers, categories,
   search, archive and deletion rules
 - [Plantings](docs/plantings.md) — batches, statuses, growing years, events, histories

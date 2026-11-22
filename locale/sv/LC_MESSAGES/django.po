@@ -2430,3 +2430,28 @@ msgstr "Lägg till en plantering för det här odlingsåret"
 
 msgid "Set the plant quantity"
 msgstr "Ange plantantalet"
+
+msgid "Calendar"
+msgstr "Kalender"
+
+msgid "Month navigation"
+msgstr "Månadsnavigering"
+
+msgid "Current month"
+msgstr "Aktuell månad"
+
+msgid "Today"
+msgstr "I dag"
+
+msgid "No calendar items this month."
+msgstr "Inga kalenderposter den här månaden."
+
+msgid "Show in calendar"
+msgstr "Visa i kalendern"
+
+msgid ""
+"Planting events appear in the calendar automatically. Tick this to show an "
+"entry that has no planting event."
+msgstr ""
+"Odlingshändelser visas automatiskt i kalendern. Markera detta för att visa "
+"en anteckning som inte har någon odlingshändelse."

@@ -147,7 +147,13 @@ def test_populated_cycle_identity_upgrade_and_reverse_preserve_rows_and_retry_pa
         upgraded = executor.loader.project_state(latest).apps
         assert list(Planting.objects.order_by("pk").values()) == members
         for model, snapshot in snapshots.items():
-            assert list(upgraded.get_model(*model).objects.order_by("pk").values()) == snapshot
+            rows = list(upgraded.get_model(*model).objects.order_by("pk").values())
+            # Compare only the columns this migration state knows; later migrations add
+            # fields to these tables without touching the preserved rows.
+            if snapshot:
+                fields = tuple(snapshot[0])
+                rows = [{name: row[name] for name in fields} for row in rows]
+            assert rows == snapshot
         assert set(planting_history(year=2026, area=area.pk)) == set(Planting.objects.all())
         assert not planting_history(year=2027).exists()
         with connection.cursor() as cursor:

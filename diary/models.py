@@ -13,6 +13,16 @@ class DiaryEntry(ValidatedModel):
     title = models.CharField(_("Title"), max_length=200, blank=True, default="")
     body = models.TextField(_("Note"), blank=True)
     search_text = models.TextField(editable=False, blank=True, default="")
+    show_in_calendar = models.BooleanField(_("Show in calendar"), default=False)
+    # Written once by the capture save that created the event; never user-editable.
+    event = models.OneToOneField(
+        "garden.PlantingEvent",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="diary_entry",
+        verbose_name=_("Planting event"),
+    )
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     submission_key = models.UUIDField(unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)

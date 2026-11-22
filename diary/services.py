@@ -48,7 +48,9 @@ class CaptureResult:
     created: bool
 
 
-def payload_fingerprint(date, body, photos, links=(), *, title="", action=None):
+def payload_fingerprint(
+    date, body, photos, links=(), *, title="", action=None, show_in_calendar=False
+):
     payload = {
         "version": 1,
         "date": date.isoformat(),
@@ -63,6 +65,9 @@ def payload_fingerprint(date, body, photos, links=(), *, title="", action=None):
         payload["title"] = title
     if action is not None:
         payload["action"] = action
+    # Hidden entries preserve receipts issued before calendar visibility existed.
+    if show_in_calendar:
+        payload["show_in_calendar"] = True
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
@@ -93,7 +98,20 @@ def _normalize_title(title):
         raise ValidationError({"title": exc}) from exc
 
 
-def _write_entry(author, date, title, body, links, action, key, fingerprint, rows, planting_rows):
+def _write_entry(
+    *,
+    author,
+    date,
+    title,
+    body,
+    show_in_calendar,
+    links,
+    action,
+    key,
+    fingerprint,
+    rows,
+    planting_rows,
+):
     """Share fresh actor/receipt checks and one atomic writer for both media paths."""
     with transaction.atomic(), validated_write():
         if not User.objects.filter(pk=author.pk, is_active=True).exists():
@@ -102,14 +120,19 @@ def _write_entry(author, date, title, body, links, action, key, fingerprint, row
         if result:
             return result
         resolved_links = _resolve_links(links)
+        event = None
         if action is not None:
-            planting = execute_action(action, planting_rows)
+            action_result = execute_action(action, planting_rows)
+            planting = action_result.planting
+            event = action_result.event
             resolved_links[("planting", planting.pk)] = planting
         entry = DiaryEntry(
             date=date,
             title=title,
             body=body,
             search_text=entry_search_text(title, body),
+            show_in_calendar=show_in_calendar,
+            event=event,
             author=author,
             submission_key=key,
         )
@@ -137,6 +160,7 @@ def create_entry(
     title="",
     action=None,
     planting_uploads=(),
+    show_in_calendar=False,
 ):
     """Process outside atomic; revalidate shared state inside the serialized write."""
     if connection.in_atomic_block:
@@ -161,9 +185,27 @@ def create_entry(
         raise ValidationError(_("Write a note or add at least one photo."))
     if not uploads and not planting_uploads:
         fingerprint = payload_fingerprint(
-            date, body, (), links, title=title, action=action_payload(action, ())
+            date,
+            body,
+            (),
+            links,
+            title=title,
+            action=action_payload(action, ()),
+            show_in_calendar=show_in_calendar,
         )
-        return _write_entry(author, date, title, body, links, action, key, fingerprint, (), ())
+        return _write_entry(
+            author=author,
+            date=date,
+            title=title,
+            body=body,
+            show_in_calendar=show_in_calendar,
+            links=links,
+            action=action,
+            key=key,
+            fingerprint=fingerprint,
+            rows=(),
+            planting_rows=(),
+        )
     with (
         media_operation(),
         staged_uploads(uploads) as photos,
@@ -175,7 +217,13 @@ def create_entry(
         ):
             raise ValidationError(_("The selected photos exceed the total upload limit."))
         fingerprint = payload_fingerprint(
-            date, body, photos, links, title=title, action=action_payload(action, planting_photos)
+            date,
+            body,
+            photos,
+            links,
+            title=title,
+            action=action_payload(action, planting_photos),
+            show_in_calendar=show_in_calendar,
         )
         # Match retries before decoding against the receipt, not mutable entry fields.
         with transaction.atomic():
@@ -186,7 +234,17 @@ def create_entry(
                 return result
         with published_uploads(photos) as rows, published_uploads(planting_photos) as planting_rows:
             return _write_entry(
-                author, date, title, body, links, action, key, fingerprint, rows, planting_rows
+                author=author,
+                date=date,
+                title=title,
+                body=body,
+                show_in_calendar=show_in_calendar,
+                links=links,
+                action=action,
+                key=key,
+                fingerprint=fingerprint,
+                rows=rows,
+                planting_rows=planting_rows,
             )
 
 
@@ -303,7 +361,16 @@ def _link_key(link):
 
 
 def _edit_fingerprint(
-    pk, date, body, links, remove_photo_ids, expected_updated_at, photos, *, title=""
+    pk,
+    date,
+    body,
+    links,
+    remove_photo_ids,
+    expected_updated_at,
+    photos,
+    *,
+    title="",
+    show_in_calendar=False,
 ):
     payload = {
         "version": 1,
@@ -317,6 +384,9 @@ def _edit_fingerprint(
     }
     if title:
         payload["title"] = title
+    # Hidden entries preserve edit receipts issued before calendar visibility existed.
+    if show_in_calendar:
+        payload["show_in_calendar"] = True
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
@@ -345,6 +415,7 @@ def _write_entry_edit(
     date,
     title,
     body,
+    show_in_calendar,
     links,
     remove_photo_ids,
     rows,
@@ -396,6 +467,7 @@ def _write_entry_edit(
         entry.title = title
         entry.body = body
         entry.search_text = entry_search_text(title, body)
+        entry.show_in_calendar = show_in_calendar
         entry.full_clean()
         entry.save()
 
@@ -424,6 +496,7 @@ def update_entry(
     remove_photo_ids=(),
     expected_updated_at,
     submission_key=None,
+    show_in_calendar=False,
 ):
     """Edit atomically; an identical key/payload/version retry returns the current entry."""
     _outside_transaction(actor)
@@ -462,6 +535,7 @@ def update_entry(
                         expected_updated_at,
                         staged,
                         title=title,
+                        show_in_calendar=show_in_calendar,
                     )
                     with transaction.atomic():
                         entry = _entry_for_editor(actor, pk)
@@ -476,6 +550,7 @@ def update_entry(
                             date=date,
                             title=title,
                             body=body,
+                            show_in_calendar=show_in_calendar,
                             links=links,
                             remove_photo_ids=remove_photo_ids,
                             rows=rows,
@@ -486,7 +561,15 @@ def update_entry(
                         )
             else:
                 fingerprint = _edit_fingerprint(
-                    pk, date, body, links, remove_photo_ids, expected_updated_at, (), title=title
+                    pk,
+                    date,
+                    body,
+                    links,
+                    remove_photo_ids,
+                    expected_updated_at,
+                    (),
+                    title=title,
+                    show_in_calendar=show_in_calendar,
                 )
                 entry = _write_entry_edit(
                     actor=actor,
@@ -494,6 +577,7 @@ def update_entry(
                     date=date,
                     title=title,
                     body=body,
+                    show_in_calendar=show_in_calendar,
                     links=links,
                     remove_photo_ids=remove_photo_ids,
                     rows=[],
