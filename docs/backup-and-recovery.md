@@ -1,8 +1,8 @@
 # Operational backup and recovery
 
 This is the canonical procedure for the backup, verification, restore and cleanup
-commands. The [main README](../README.md#quick-start) links here; keep
-operational instructions on this page rather than maintaining duplicate guides.
+commands. Keep operational instructions on this page rather than maintaining duplicate
+guides; accounts and access are in the [administration guide](administration.md).
 
 This is an **operational backup** for disaster recovery, not a portable export of
 garden data. It contains accounts and password hashes, sessions, garden records,
@@ -133,7 +133,7 @@ database commit may leave an orphan; a successful save must not leave a committe
 photo row pointing at a file that has not yet been published.
 
 Create/edit retries are receipt-based, including photo uploads, and never recreate a
-deleted record; see [Saving changes and retries](usage.md#saving-changes-and-retries).
+deleted record; see [Saving, errors and retries](getting-started.md#saving-errors-and-retries).
 
 Allowed deletion of diary entries, registers, plantings or photos commits database
 changes before removing live file bundles, using the same media-operation lock as

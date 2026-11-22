@@ -1,16 +1,17 @@
 # Contributing
 
 Thanks for considering a contribution. growbook is a private, self-hosted garden
-diary; keep changes inside the scope documented in the [README](README.md#current-features)
+diary; keep changes inside the scope documented in the [user guides](README.md#documentation)
 and agree on a new feature with the maintainer before implementing it. A planned
 feature is not an implemented capability.
 
 ## Before you start
 
-- [README](README.md) — implemented features and deliberate limitations.
-- [`docs/usage.md`](docs/usage.md) — screen behaviour and save retries.
+- [README](README.md) — purpose and documentation index.
+- [`docs/getting-started.md`](docs/getting-started.md) — shared screen behavior and limits;
+  the feature guides document the rest.
 - [`docs/development.md`](docs/development.md) — tests, browser suite, styles,
-  translations, workflows and release images.
+  translations, interface foundations, workflows and release images.
 - [`AGENTS.md`](AGENTS.md) — the conventions this repository holds itself to.
 
 ## Ground rules
@@ -35,7 +36,7 @@ Run tests and application checks only in the Linux development container, as des
 in [Test and check](docs/development.md#test-and-check). The Windows host is for
 editing and PowerShell launchers and never executes application code. Run the
 [browser suite](docs/development.md#browser-tests) when a change affects interactive
-behaviour.
+behavior.
 
 ```sh
 docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q
