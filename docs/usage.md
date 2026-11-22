@@ -460,7 +460,8 @@ Ordinary unassigned costs stay in the purchase year. Assigning a portion to anot
 growing year moves only that portion's growing cost; money spent remains in the
 purchase year. The purchase page shows assigned costs, unassigned costs and the
 balance still available for new allocations. Edit or delete an allocation to change
-its reserved amount or selected group.
+its reserved amount or selected group. Editing keeps the saved amount until you move
+the slider, so correcting the method or the cycles never rounds the reservation.
 
 Plant-count allocation recalculates from each cycle's current **Quantity**, including
 every variety in a batch. Update that existing quantity to the successfully grown

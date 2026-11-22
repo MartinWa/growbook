@@ -289,8 +289,7 @@ def _quantity_initial(expense, record, budget):
     if not budget:
         return quantity
     used = Decimal(record.amount_cents) * quantity / Decimal(budget)
-    places = Decimal("1") if expense.unit == Expense.Unit.ITEMS else Decimal("0.001")
-    return min(max(used.quantize(places, rounding=ROUND_HALF_UP), Decimal("0")), quantity)
+    return min(max(used.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP), Decimal("0")), quantity)
 
 
 def share_percent(expense, value):
@@ -310,6 +309,7 @@ def allocation_preview(request, expense_pk):
     form = AllocationPreviewForm(
         request.POST,
         expense=expense,
+        record=editing,
         minimum_year=expense.purchase_year,
     )
     context = {"expense": expense, "state": "incomplete"}
@@ -501,6 +501,7 @@ def allocation_form(request, expense_pk, pk=None):
         request.POST if request.method == "POST" else None,
         initial=initial,
         expense=expense,
+        record=record,
         minimum_year=expense.purchase_year,
     )
     query = {"allocation": record.pk} if record else None

@@ -190,6 +190,24 @@ def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_
     assert expense.total_cents == 10000
 
 
+def test_draft_for_another_growing_year_loads_that_years_cycle_picker(
+    browser_endpoint, live_server, user, catalog
+):
+    crop = catalog[0]
+    later = create_planting(actor=user, crop=crop, start_year=2027, quantity=10).record
+    expense = create_expense(actor=user, description="Synthetic supplies", total_price="100").record
+    with economy_page(browser_endpoint, live_server, user) as page:
+        page.goto(live_server.url + reverse("economy:allocation-create", args=[expense.pk]))
+        page.locator("#id_growing_year").fill("2027")
+        page.locator("#id_growing_year").press("Tab")
+        picker = page.locator(f'[name=cycle_ids][value="{later.cycle_id}"]')
+        expect(picker).to_have_count(1)
+        picker.check()
+        page.reload()
+        expect(page.locator("#id_growing_year")).to_have_value("2027")
+        expect(picker).to_be_checked()
+
+
 @pytest.mark.parametrize(
     "scope,selected_count", [("selected", 2), ("year", 0), ("year", 1), ("year", 2)]
 )

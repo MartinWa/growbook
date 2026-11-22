@@ -14,13 +14,28 @@ from garden.queries import plantings_in_year
 from .models import Allocation, Expense
 from .services import allocation_uses_quantity
 
+SHARE_STEP = Decimal("5")
+
 
 def _quantity_step(expense):
-    """One whole item, or one percent of the recorded quantity for measured units."""
+    """A range step that can always reach the purchased quantity.
+
+    Whole items step by one. Measured units step by one percent of the purchase when
+    that divides it evenly; otherwise any value is accepted, because a rounded step
+    would leave the purchased quantity itself unreachable.
+    """
     if expense.unit == Expense.Unit.ITEMS:
         return "1"
     step = (expense.purchased_quantity / 100).quantize(Decimal("0.001"))
-    return f"{max(step, Decimal('0.001')):f}"
+    if step <= 0 or expense.purchased_quantity % step:
+        return "any"
+    return f"{step:f}"
+
+
+def _step_value(expense):
+    """The slider step as a number; ``None`` means the browser snaps nothing."""
+    step = _quantity_step(expense)
+    return None if step == "any" else Decimal(step)
 
 
 def amount_field(label, **kwargs):
@@ -233,7 +248,7 @@ class AllocationValuesForm(forms.Form):
         min_value=Decimal("0"),
         max_value=100,
         initial=Decimal("100"),
-        widget=RangeInput(attrs={"min": 0, "max": 100, "step": "5"}),
+        widget=RangeInput(attrs={"min": 0, "max": 100, "step": str(SHARE_STEP)}),
     )
     quantity_used = forms.DecimalField(
         label=_("Quantity used"),
@@ -260,9 +275,12 @@ class AllocationValuesForm(forms.Form):
         widget=forms.RadioSelect,
     )
 
-    def __init__(self, *args, expense=None, year=None, keep=(), minimum_year=None, **kwargs):
+    def __init__(
+        self, *args, expense=None, record=None, year=None, keep=(), minimum_year=None, **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.expense = expense
+        self.record = record
         self.quantity_mode = expense is not None and allocation_uses_quantity(expense)
         if self.quantity_mode:
             self.fields.pop("share")
@@ -334,11 +352,32 @@ class AllocationValuesForm(forms.Form):
 
     def clean(self):
         values = super().clean()
+        self._keep_saved_amount(values)
         if values.get("scope") == Allocation.Scope.YEAR:
             values["cycle_ids"] = []
         elif not values.get("cycle_ids"):
             self.add_error("cycle_ids", _("Choose at least one existing planting cycle."))
         return values
+
+    def _keep_saved_amount(self, values):
+        """An untouched slider keeps the recorded cents instead of its rounded share."""
+        if self.record is None:
+            return
+        field = "quantity_used" if self.quantity_mode else "share"
+        submitted = values.get(field)
+        derived = self.initial.get(field)
+        if submitted is None or derived is None:
+            return
+        step = _step_value(self.expense) if self.quantity_mode else SHARE_STEP
+        submitted, derived = Decimal(submitted), Decimal(derived)
+        # The browser snaps a range value to its step, so an untouched slider reports the
+        # nearest step to the saved share; anything further away was set deliberately.
+        if step is not None and abs(submitted - derived) >= step / 2:
+            return
+        if step is None and submitted != derived:
+            return
+        values[field] = None
+        values["amount"] = (Decimal(self.record.amount_cents) / 100).quantize(Decimal("0.01"))
 
 
 class AllocationPreviewForm(AllocationValuesForm):

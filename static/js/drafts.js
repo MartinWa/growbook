@@ -325,7 +325,7 @@
       updateWarning();
       try {
         (draft.previous || []).forEach(showCopy);
-        if (!retained && kind === "capture" || !retained && kind === "planting") {
+        if (!retained && ["capture", "planting", "allocation"].includes(kind)) {
           // Choice failures cannot replace an uncertain submission's original save key.
           if (!await prepare(draft.fields) && !draft.attempted) { showCopy(draft); return; }
         }

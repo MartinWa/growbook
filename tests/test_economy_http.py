@@ -463,6 +463,18 @@ def test_measured_purchases_step_by_percentage_and_periodized_equipment_keeps_sh
     page = signed_in.get(reverse("economy:allocation-create", args=[measured.pk]), {"year": 2026})
     assert page.context["form"].fields["quantity_used"].widget.attrs["step"] == "0.020"
 
+    fractional = create_expense(
+        actor=user,
+        description="Sulphur",
+        total_price="10",
+        purchased_quantity="1.234",
+        unit="kilograms",
+    ).record
+    page = signed_in.get(reverse("economy:allocation-create", args=[fractional.pk]), {"year": 2026})
+    # A rounded step would leave the purchased quantity itself unreachable.
+    attrs = page.context["form"].fields["quantity_used"].widget.attrs
+    assert attrs["step"] == "any" and attrs["max"] == "1.234"
+
     equipment = create_expense(
         actor=user,
         description="Greenhouse",
@@ -476,6 +488,113 @@ def test_measured_purchases_step_by_percentage_and_periodized_equipment_keeps_sh
     assert "share" in page.context["form"].fields
     assert "quantity_used" not in page.context["form"].fields
     assert page.context["form"]["share"].value() == Decimal("100")
+
+
+def test_editing_keeps_the_saved_amount_until_the_share_is_changed(signed_in, user, planting):
+    expense = create_expense(actor=user, description="Soil", total_price="100").record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="33.33",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    expense.refresh_from_db()
+    path = reverse("economy:allocation-edit", args=[expense.pk, allocation.pk])
+    page = signed_in.get(path, {"year": 2026})
+    assert page.context["form"]["share"].value() == Decimal("33.330")
+
+    # The browser snaps the untouched slider to 35%; the reservation must survive.
+    saved = signed_in.post(
+        path,
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "growing_year": 2026,
+            "share": "35",
+            "scope": "selected",
+            "method": "equal",
+            "cycle_ids": [str(planting.cycle_id)],
+        },
+    )
+    assert saved.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 3333 and allocation.method == "equal"
+
+    expense.refresh_from_db()
+    changed = signed_in.post(
+        path,
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "growing_year": 2026,
+            "share": "40",
+            "scope": "selected",
+            "method": "equal",
+            "cycle_ids": [str(planting.cycle_id)],
+        },
+    )
+    assert changed.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 4000
+
+
+def test_editing_a_counted_allocation_keeps_cents_until_the_quantity_changes(
+    signed_in, user, planting
+):
+    expense = create_expense(
+        actor=user,
+        description="Pots",
+        total_price="100",
+        purchased_quantity="10",
+        unit="items",
+    ).record
+    allocation = create_allocation(
+        actor=user,
+        expense=expense,
+        expected_expense_updated_at=expense.updated_at,
+        growing_year=2026,
+        amount="33.33",
+        cycle_ids=[planting.cycle_id],
+    ).record
+    expense.refresh_from_db()
+    path = reverse("economy:allocation-edit", args=[expense.pk, allocation.pk])
+    page = signed_in.get(path, {"year": 2026})
+    assert page.context["form"]["quantity_used"].value() == Decimal("3.333")
+    assert page.context["share_percent"] == Decimal("33.3")
+
+    payload = {
+        "submission_key": str(uuid4()),
+        "expected_updated_at": allocation.updated_at.isoformat(),
+        "expected_expense_updated_at": expense.updated_at.isoformat(),
+        "growing_year": 2026,
+        "quantity_used": "3",
+        "scope": "selected",
+        "method": "equal",
+        "cycle_ids": [str(planting.cycle_id)],
+    }
+    saved = signed_in.post(path, payload)
+    assert saved.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 3333
+
+    expense.refresh_from_db()
+    changed = signed_in.post(
+        path,
+        {
+            **payload,
+            "submission_key": str(uuid4()),
+            "expected_updated_at": allocation.updated_at.isoformat(),
+            "expected_expense_updated_at": expense.updated_at.isoformat(),
+            "quantity_used": "4",
+        },
+    )
+    assert changed.status_code == 302
+    allocation.refresh_from_db()
+    assert allocation.amount_cents == 4000
 
 
 def test_expense_form_requires_the_purchased_quantity_and_unit(signed_in):

@@ -301,6 +301,25 @@ def test_unknown_or_all_zero_groups_remain_pending_and_reserved(user, catalog, m
     assert not report()["pending_allocations"] and report()["totals"]["allocated"] == 100
 
 
+def test_all_years_counts_future_members_of_a_cycle_that_holds_costs(user, catalog):
+    crop, _, _, red, first, _, _ = catalog
+    quantity(user, first, 10)
+    create_planting(
+        actor=user,
+        crop=crop,
+        variety=red,
+        batch_planting=first,
+        start_year=2028,
+        quantity=90,
+    )
+    expense = create_expense(actor=user, description="Batch soil", total_price="100").record
+    allocate(user, expense, [first], amount="100")
+    row = next(item for item in report(None)["cycle_rows"] if item["cycle"].pk == first.cycle_id)
+    # Costs and plants come from the same members, as they do in the split breakdown.
+    assert row["quantity"] == 100
+    assert row["cost"] == Decimal("100.00") and row["per_plant"] == Decimal("1.00")
+
+
 def test_an_unknown_quantity_is_not_treated_as_zero_when_other_plants_are_known(user, catalog):
     _, _, _, _, first, second, _ = catalog
     quantity(user, first, None)

@@ -201,7 +201,8 @@ def overview(state, year, *, through_year=None, **filters):
     cycles = {}
     referenced = {part.planting.pk for part in growing if part.planting is not None}
     sale_cycles = {sale.cycle_id for sale in growing_sales}
-    for planting in sorted(state.plantings, key=lambda member: member.pk):
+    selected = set()
+    for planting in state.plantings:
         if year is None:
             relevant = planting.start_year <= cutoff
         else:
@@ -210,7 +211,11 @@ def overview(state, year, *, through_year=None, **filters):
                 or planting.pk in referenced
                 or planting.cycle_id in sale_cycles
             )
-        if not relevant or not matches(planting.crop, planting.variety, planting.cycle_id, filters):
+        if relevant and matches(planting.crop, planting.variety, planting.cycle_id, filters):
+            selected.add(planting.cycle_id)
+    for planting in sorted(state.plantings, key=lambda member: member.pk):
+        # A cycle's plant count covers every member, matching the split that shares its cost.
+        if planting.cycle_id not in selected:
             continue
         item = cycles.setdefault(
             planting.cycle_id,

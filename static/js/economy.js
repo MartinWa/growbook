@@ -37,6 +37,21 @@
   form.addEventListener("draft:discarded", scope);
   // The year-filtered cycle picker is swapped in; keep the group's visibility in step.
   form.addEventListener("htmx:afterSwap", scope);
+  // A restored draft can name another growing year than the rendered picker, which would
+  // drop its selected cycles. Load that year's choices before the draft applies them.
+  form.addEventListener("draft:prepare", event => {
+    const yearInput = form.elements.namedItem("growing_year");
+    const year = event.detail.fields.growing_year?.[0];
+    const url = yearInput?.getAttribute("hx-get");
+    if (!year || !url || year === yearInput.value) return;
+    const separator = url.includes("?") ? "&" : "?";
+    event.detail.ready = htmx
+      .ajax("GET", `${url}${separator}growing_year=${encodeURIComponent(year)}`, {
+        target: "#id_cycle_ids_group",
+        swap: "outerHTML",
+      })
+      .then(() => true, () => true);
+  });
   scope();
   const details = form.querySelector("[data-expense-details]");
   if (details) {
