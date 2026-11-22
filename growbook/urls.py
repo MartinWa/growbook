@@ -17,5 +17,6 @@ urlpatterns = [
     path("photos/", include("core.urls")),
     path("garden/", include("garden.urls")),
     path("economy/", include("economy.urls")),
+    path("calendar/", include("planner.urls")),
     path("", include("diary.urls")),
 ]

@@ -7,7 +7,7 @@ from typing import Literal
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
-from garden.models import Planting, PlantingCycle, Variety
+from garden.models import Planting, PlantingCycle, PlantingEvent, Variety
 from garden.services._shared import _current, _identifier, _version
 from garden.services.cycles import (
     evaluation_payload,
@@ -59,6 +59,14 @@ class CycleStatusAction:
 
 
 CaptureAction = NewPlantingAction | PlantingEventAction | CycleStatusAction
+
+
+@dataclass(frozen=True)
+class ActionResult:
+    """What one capture action created, in the order the diary save links it."""
+
+    planting: Planting
+    event: PlantingEvent | None = None
 
 
 def normalize_action(action, observed):
@@ -150,19 +158,19 @@ def execute_action(action, rows):
             if variety is None:
                 raise ValidationError({"crop": _("Choose a crop or a variety.")})
             values["crop_id"] = variety.crop_id
-        return write_planting(None, values, rows)
+        return ActionResult(planting=write_planting(None, values, rows))
     planting = _current(Planting, values.pop("planting_id"))
     if action["kind"] == "event":
-        write_event({"planting_id": planting.pk, **values})
-    else:
-        write_cycle_edit(
-            planting.cycle_id,
-            values["expected_updated_at"],
-            values["status"],
-            values["started_on"],
-            values["completed_on"],
-            values["category_ids"],
-            evaluations=action["evaluations"],
-            versions=action["versions"],
-        )
-    return planting
+        event = write_event({"planting_id": planting.pk, **values})
+        return ActionResult(planting=planting, event=event)
+    write_cycle_edit(
+        planting.cycle_id,
+        values["expected_updated_at"],
+        values["status"],
+        values["started_on"],
+        values["completed_on"],
+        values["category_ids"],
+        evaluations=action["evaluations"],
+        versions=action["versions"],
+    )
+    return ActionResult(planting=planting)

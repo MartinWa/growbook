@@ -406,8 +406,8 @@ class PlantingEvent(ValidatedModel):
 
     planting = models.ForeignKey(Planting, on_delete=models.CASCADE, related_name="events")
     kind = models.CharField(_("Event type"), max_length=30, choices=Kind.choices)
-    planned_date = models.DateField(_("Planned date"), null=True, blank=True)
-    actual_date = models.DateField(_("Actual date"), null=True, blank=True)
+    planned_date = models.DateField(_("Planned date"), null=True, blank=True, db_index=True)
+    actual_date = models.DateField(_("Actual date"), null=True, blank=True, db_index=True)
     note = models.TextField(_("Note"), blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

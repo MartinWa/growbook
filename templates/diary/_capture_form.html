@@ -37,6 +37,11 @@
     <p id="capture-note-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{% translate 'Write a diary note, or leave this blank and add a photo.' %}</p>
     <div id="capture-body-errors" class="field-errors" data-form-field-errors="body">{{ form.body.errors }}</div>
   </div>
+  <div class="field checkbox-field">
+    <label for="{{ form.show_in_calendar.id_for_label }}">{{ form.show_in_calendar }} {{ form.show_in_calendar.label }} <span class="field-requirement">{% translate '(optional)' %}</span></label>
+    <p id="capture-calendar-help" class="{% if quick %}visually-hidden{% else %}field-help{% endif %}">{{ form.show_in_calendar.help_text }}</p>
+    <div id="capture-calendar-errors" class="field-errors" data-form-field-errors="show_in_calendar">{{ form.show_in_calendar.errors }}</div>
+  </div>
   {% include 'components/photo_picker.html' with field=None chooser_id='capture-photo-chooser' %}
   {% include 'diary/_tag_picker.html' %}
   <div class="capture-tools" data-capture-tools>

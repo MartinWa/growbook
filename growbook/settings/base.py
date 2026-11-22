@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "diary.apps.DiaryConfig",
     "garden.apps.GardenConfig",
     "economy.apps.EconomyConfig",
+    "planner.apps.PlannerConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

@@ -80,6 +80,8 @@ and other milestones. Each member of a batch has its own events.
   change the growing year, the cycle status or each other.
 - Repeated event types are allowed. Events can be edited and deleted, with confirmation for
   deletion.
+- Events appear in the [calendar](calendar.md): an event with only a planned date shows as
+  planned on that date, and an event with an actual date moves there and shows as done.
 
 ## Filtering and history
 

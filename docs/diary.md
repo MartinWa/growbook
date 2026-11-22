@@ -18,6 +18,10 @@ retries, unsaved writing and photo limits — is in [Getting started](getting-st
   growing area, crop or variety.
 - **Link to a planting** optionally performs one planting action in the same save; see
   [Planting actions while writing](#planting-actions-while-writing).
+- **Show in calendar** adds the observation to the [calendar](calendar.md). It is off by
+  default, because planting events already appear there. When a ticked observation records
+  a planting event in the same save, the calendar shows one item for both and places it on
+  the event's date.
 - **Save observation** confirms the save, clears the composer and refreshes the list with
   the current filters. A failed save keeps the draft and selected photos.
 
@@ -90,8 +94,9 @@ Open an observation to read it. The author may edit or delete it; an active admi
 may edit or delete any entry; every other active account can read it. **Edit** appears only
 on entries you may change.
 
-- Editing changes the date, title, note, links and photos. A stale form is rejected instead
-  of overwriting a newer change.
+- Editing changes the date, title, note, links, photos and **Show in calendar**. A stale
+  form is rejected instead of overwriting a newer change. Clearing the tick removes the
+  observation's own calendar item; an event it created keeps its place.
 - Deleting requires confirmation and permanently removes the title, note, links and photos,
   including private originals. Linked registers and plantings, and their photos, remain.
 - Photo captions and order are edited from the observation page, where editors also delete

@@ -554,7 +554,7 @@ def test_main_navigation_and_archive_toggle_are_keyboard_accessible(
     navigation = page.get_by_role(
         "navigation", name="Huvudmeny" if language == "sv" else "Main navigation"
     )
-    expect(navigation.locator("a")).to_have_count(5)
+    expect(navigation.locator("a")).to_have_count(6)
     expect(navigation.locator('[aria-current="page"]')).to_have_attribute("href", "/garden/areas/")
     for path, name in (
         ("/garden/varieties/", "Grödor och sorter" if language == "sv" else "Crops and varieties"),
