@@ -1058,3 +1058,73 @@ def test_lost_entry_edit_response_recovers_the_original_version_and_key(page, li
     page.locator('#entry-form button[type="submit"]').click()
     expect(page).to_have_url(live_server.url + entry.get_absolute_url())
     assert drafts(page) == {} and database(lambda: DiaryEntry.objects.count()) == 1
+
+
+def test_calendar_choice_restores_checked_and_unchecked(page):
+    box = page.locator("#id_show_in_calendar")
+    expect(box).not_to_be_checked()
+    box.check()
+    expect(page.locator("[data-draft-notice]")).to_be_hidden()
+    snapshot = next(iter(drafts(page).values()))
+    assert snapshot["fields"]["show_in_calendar"] == ["on"]
+    assert snapshot["unsaved"] is True
+    page.reload()
+    expect(page.locator("#id_show_in_calendar")).to_be_checked()
+    expect(page.locator("[data-draft-status]")).to_contain_text("was restored")
+
+    page.locator("#id_show_in_calendar").uncheck()
+    snapshot = next(iter(drafts(page).values()))
+    assert snapshot["fields"]["show_in_calendar"] == []
+    assert snapshot["unsaved"] is True
+    page.reload()
+    expect(page.locator("#id_show_in_calendar")).not_to_be_checked()
+    discard(page)
+    expect(page.locator("#id_show_in_calendar")).not_to_be_checked()
+
+
+def test_committed_lost_capture_response_retries_the_calendar_choice_once(page):
+    page.locator("#id_body").fill("Synthetic chore")
+    page.locator("#id_show_in_calendar").check()
+    key = token(page)
+
+    def lose_response(route):
+        response = route.fetch()
+        assert response.status == 200
+        route.abort()
+
+    page.route("**/capture/", lose_response)
+    page.locator("#save-entry").click()
+    expect(page.locator("#capture-errors")).to_contain_text("connection failed")
+    assert database(lambda: DiaryEntry.objects.get().show_in_calendar) is True
+    page.reload()
+    expect(page.locator("#id_show_in_calendar")).to_be_checked()
+    assert token(page) == key
+    page.unroute("**/capture/", lose_response)
+    page.locator("#save-entry").click()
+    expect(page.locator("#quick-receipt")).to_contain_text("Observation already saved")
+    assert database(lambda: DiaryEntry.objects.count()) == 1
+    assert drafts(page) == {}
+
+
+def test_entry_edit_restores_an_unchecked_calendar_choice(page, live_server, user):
+    entry = database(
+        lambda: (
+            create_entry(
+                author=user,
+                date=date(2026, 1, 1),
+                body="Saved writing",
+                uploads=[],
+                submission_key=uuid4(),
+                show_in_calendar=True,
+            ).entry
+        )
+    )
+    page.goto(live_server.url + entry.get_absolute_url() + "edit/")
+    expect(page.locator("#id_show_in_calendar")).to_be_checked()
+    page.locator("#id_show_in_calendar").uncheck()
+    snapshot = next(iter(drafts(page).values()))
+    assert snapshot["fields"]["show_in_calendar"] == []
+    assert snapshot["unsaved"] is True
+    page.reload()
+    expect(page.locator("#id_show_in_calendar")).not_to_be_checked()
+    expect(page.locator("[data-draft-status]")).to_contain_text("was restored")
