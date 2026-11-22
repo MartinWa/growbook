@@ -394,58 +394,65 @@ presence, not exact movement dates, lineage or historical layouts.
 
 ## Economy
 
-Open **Economy** from the main menu. The landing page follows one growing year, with
-**Previous year**, **Next year** and **All years** links. **All years** aggregates every
-year and shows each record's year. Four figures summarise the period: **Expenses**
-(cash purchases), **Growing costs** (allocated or periodized costs), **Income** and
-**Result**, the last defined as income minus growing costs. Purchases and their annual
-shares can fall in different years, so income is never combined with cash expenses.
-Below the summary, the five most recent expenses and income records link to the
-purchase page and the sale form, and **View all** opens the records page with the
-selected year kept. A pending panel lists plant-count splits whose amount is reserved
-and purchases with an unallocated balance; it is hidden when nothing is outstanding.
-**Cost per plant** opens the detailed view. The landing page carries no filters and no
-crop, variety or cycle tables.
+Open **Economy** from the main menu. Every economy page shares one toolbar:
+**Overview**, **Records** and **Cost per plant**, the year switcher, and the **Add
+expense** and **Add plant sale** actions. The switcher shows the previous year, the
+selected year and the next year, plus **All years**. **All years** aggregates every
+year; the year in the switcher remains a link and the arrows keep working from it, so a
+single year is always one step away. Year links and **All years** keep the year and
+filters of the page you are on.
 
-**Records** carries the filters. Filter by crop, variety or planting cycle;
-**Compare varieties** adds the variety overview. Use **Apply** to submit filters, or the
-neighbouring year links to retain them while changing year. The expense and income
-lists are paginated at 25 rows each, and paging keeps the selected year and filters.
-Crop and variety totals follow the portions that reach their planting cycles;
-purchases that are not allocated stay unassigned until you assign them.
+**Overview** follows one growing year and shows four figures: **Expenses** (cash
+purchases), **Growing costs** (allocated or periodized costs), **Income** and
+**Result**, the last defined as income minus growing costs. Purchases and their annual
+shares can fall in different years, so income is never combined with cash expenses. A
+pending panel lists plant-count splits whose amount is reserved and purchases with an
+unallocated balance; it is hidden when nothing is outstanding. The overview carries no
+filters, recent lists or crop, variety and cycle tables.
+
+**Records** carries the filters and the expense and income tables. Filter by crop,
+variety or planting cycle; **Compare varieties** adds the variety overview. Use
+**Apply** to submit filters, or the neighbouring year links to retain them while
+changing year. The expense and income tables are paginated at 25 rows each, and paging
+keeps the selected year and filters. Crop and variety totals follow the portions that
+reach their planting cycles; purchases that are not allocated stay unassigned until
+you assign them.
 
 **All years** includes scheduled equipment shares only through the current year, so
 aggregated totals never contain costs that have not happened. A year selected
 explicitly still shows that year's planned estimates. Summaries are grouped by growing
 year, and an allocation can come from a purchase recorded in another year.
 
-**Add expense** requires a description, purchase date and total price. The date
-defaults to today in the garden's timezone and can be set to an earlier year,
-regardless of the year being browsed. The saved date's year becomes the purchase
-year. Saved purchases keep that year: the date can be corrected within it, and a
-different year needs deleting the purchase and entering it again. Open **More purchase
-details** for category, optional purchased quantity and unit, or equipment useful life.
-Litres and kilograms accept up to three decimal places; items are whole numbers.
-Purchased quantity is separate from price. A purchase reaches a crop or variety only
-through the allocations you add after saving.
+**Add expense** requires a description, purchase date, total price, and the purchased
+quantity with its unit. The date defaults to today in the garden's timezone and can be
+set to an earlier year, regardless of the year being browsed. The saved date's year
+becomes the purchase year. Saved purchases keep that year: the date can be corrected
+within it, and a different year needs deleting the purchase and entering it again. Open
+**More purchase details** for category or equipment useful life. Litres and kilograms
+accept up to three decimal places; items are whole numbers. Purchased quantity is
+separate from price. A purchase reaches a crop or variety only through the allocations
+you add after saving.
 
 After saving, open **Allocate expense**. The form shows the purchase year, the
 selected growing year and the amount still available, including amounts reserved for
-pending allocations. Enter exactly one monetary amount, percentage or estimated
-quantity used. The cycle picker lists every cycle grown in the selected growing year,
-including completed ones, and follows the growing year when it changes; when editing,
-already-linked cycles stay selectable. Then choose selected cycles or all cycles in that
-year, and divide the chosen amount before allocating it: **By current plant quantities**
-gives cycles with more plants a larger share, while **Equal division** gives each
-selected cycle the same share and then splits a cycle's share equally between its
-varieties.
+pending allocations. For a counted purchase the slider sets the **quantity used** in the
+recorded unit, so 16 of 50 items stays 16 and is not rounded to a percentage; its share
+of the purchase and its amount follow from that quantity. Periodized equipment, and a
+purchase saved before quantities were required, use the percentage slider instead. The
+cycle picker lists every cycle grown in the selected growing year, including completed
+ones, and follows the growing year when it changes; when editing, already-linked
+cycles stay selectable. Then choose selected cycles or all cycles in that year, and
+divide the chosen amount before allocating it: **By current plant quantities** gives
+cycles with more plants a larger share, while **Equal division** gives each selected
+cycle the same share and then splits a cycle's share equally between its varieties.
 
 For example, assigning 40% of a 100 purchase distributes 40 and leaves 60 available. A
 quantity uses the purchase's recorded unit and price; routine watering or inventory
-logging is unnecessary. Use 100% to charge a whole seed packet even when seeds remain
-unused. For equipment, percentages and quantities apply to the selected year's annual
-share. A live **Estimated allocation** panel shows the estimated amount per cycle, the
-plant counts used and the estimated cost per plant before saving. It is calculated on
+logging is unnecessary. Use the whole purchased quantity to charge a whole seed packet
+even when seeds remain unused. For equipment, shares and quantities apply to the
+selected year's annual share. A live **Estimated allocation** panel shows the estimated
+amount per cycle, the plant counts used and the estimated cost per plant before saving.
+It is calculated on
 the server and updates while you edit; without JavaScript, the saved purchase page
 shows the same estimates instead.
 

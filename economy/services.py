@@ -308,6 +308,11 @@ def edit_expense(
     return _save(actor, "expense", pk, values, submission_key, expected_updated_at, _write_expense)
 
 
+def allocation_uses_quantity(expense):
+    """Counted purchases allocate in whole units; periodized equipment keeps a share."""
+    return expense.purchased_quantity is not None and expense.useful_life_years is None
+
+
 def allocation_amount(expense, growing_year, amount=None, share=None, quantity_used=None):
     """Exactly one of amount, share or quantity, resolved to integer cents."""
     values = {

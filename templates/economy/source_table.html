@@ -1,7 +1,7 @@
 {% load i18n %}
-<div class="economy-table-wrapper" tabindex="0" role="region" aria-labelledby="{{ table_id }}-caption">
+<div class="economy-table-wrapper" tabindex="0" role="region"{% if labelledby %} aria-labelledby="{{ labelledby }}"{% elif caption %} aria-labelledby="{{ table_id }}-caption"{% endif %}>
 <table class="economy-table table">
-  <caption id="{{ table_id }}-caption">{{ caption }}</caption>
+  {% if caption %}<caption id="{{ table_id }}-caption">{{ caption }}</caption>{% endif %}
   <thead><tr><th scope="col">{% if varieties %}{% translate 'Variety' %}{% else %}{% translate 'Crop' %}{% endif %}</th><th scope="col">{% translate 'Expenses' %}</th><th scope="col">{% translate 'Growing costs' %}</th><th scope="col">{% translate 'Income' %}</th><th scope="col">{% translate 'Income minus growing costs' %}</th></tr></thead>
   <tbody>{% for row in rows %}<tr>
     <th scope="row">{% if row.source %}<a href="{{ row.url }}">{{ row.source }}</a>{% elif varieties %}{% translate 'Unknown variety' %}{% else %}{% translate 'Unassigned crop' %}{% endif %}</th>

@@ -1,4 +1,4 @@
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 from django import forms
@@ -74,29 +74,32 @@ def _scope(request):
 
 
 def _navigation(request, route, year, args=()):
-    """Previous, next and *All years* links that keep the current filters."""
+    """Year switcher links that keep the current filters.
+
+    *All years* keeps the neighbouring years reachable, anchored on the current one, so
+    a year view is always one step away.
+    """
     data = request.GET.copy()
     for key in ("all_years", "page_expenses", "page_income"):
         data.pop(key, None)
-    if year is not None:
-        data["year"] = year
-    else:
-        data.pop("year", None)
+    anchor = year if year is not None else timezone.localdate().year
+    data["year"] = anchor
     every_year = data.copy()
     every_year.pop("year", None)
     every_year["all_years"] = 1
     previous_url = next_url = None
-    if year is not None:
-        if year > 1:
-            previous = data.copy()
-            previous["year"] = year - 1
-            previous_url = reverse(route, args=args, query=previous)
-        if year < 9999:
-            following = data.copy()
-            following["year"] = year + 1
-            next_url = reverse(route, args=args, query=following)
+    if anchor > 1:
+        previous = data.copy()
+        previous["year"] = anchor - 1
+        previous_url = reverse(route, args=args, query=previous)
+    if anchor < 9999:
+        following = data.copy()
+        following["year"] = anchor + 1
+        next_url = reverse(route, args=args, query=following)
     return {
         "all_years_url": reverse(route, args=args, query=every_year),
+        "year_url": reverse(route, args=args, query=data),
+        "anchor_year": anchor,
         "previous_url": previous_url,
         "next_url": next_url,
     }
@@ -114,7 +117,6 @@ def economy_list(request):
         "title": _("Economy"),
         "year": year,
         "all_years": all_years,
-        "records_url": queries.records_url(year),
         **landing(load_economy(), year, through_year=_through_year(year)),
         **_navigation(request, "economy:list", year),
     }
@@ -127,18 +129,28 @@ def _page_url(request, name, number):
     return f"{request.path}?{data.urlencode()}"
 
 
+def _reported_year(value):
+    """The year the toolbar should follow while the filter form may still be invalid."""
+    try:
+        return forms.IntegerField(min_value=1, max_value=9999).clean(value)
+    except ValidationError:
+        return timezone.localdate().year
+
+
 @require_GET
 def economy_records(request):
     data = request.GET.copy()
     if data.get("all_years") != "1" and not data.get("year"):
         data["year"] = timezone.localdate().year
     form = EconomyFilterForm(data)
+    year = None if data.get("all_years") == "1" else _reported_year(data.get("year"))
     context = {
         "title": _("Economy records"),
         "form": form,
-        "year": None,
-        "all_years": False,
+        "year": year,
+        "all_years": year is None,
         "show_all": bool(data.get("all")),
+        **_navigation(request, "economy:records", year),
     }
     if form.is_valid():
         year = form.cleaned_data["year"]
@@ -243,7 +255,10 @@ def allocation_cycles(request, expense_pk):
         year = timezone.localdate().year
     record = _edited_allocation(request, expense)
     form = AllocationForm(
-        initial={"growing_year": year}, year=year, minimum_year=expense.purchase_year
+        initial={"growing_year": year},
+        expense=expense,
+        year=year,
+        minimum_year=expense.purchase_year,
     )
     return render(
         request,
@@ -268,12 +283,35 @@ def _form_available(expense, year, record=None):
     return allocation_budget(expense, year) - sum(reserved.values_list("amount_cents", flat=True))
 
 
+def _quantity_initial(expense, record, budget):
+    """The saved amount expressed back in purchased units, clamped to the purchase."""
+    quantity = expense.purchased_quantity
+    if not budget:
+        return quantity
+    used = Decimal(record.amount_cents) * quantity / Decimal(budget)
+    places = Decimal("1") if expense.unit == Expense.Unit.ITEMS else Decimal("0.001")
+    return min(max(used.quantize(places, rounding=ROUND_HALF_UP), Decimal("0")), quantity)
+
+
+def share_percent(expense, value):
+    """The quantity slider position as a percentage of the recorded quantity."""
+    try:
+        used = Decimal(str(value))
+    except InvalidOperation, TypeError:
+        used = expense.purchased_quantity
+    return (used * 100 / expense.purchased_quantity).quantize(Decimal("0.1"))
+
+
 @require_POST
 def allocation_preview(request, expense_pk):
     """Server-side split preview; the post-save display stays the fallback."""
     expense = get_object_or_404(Expense, pk=expense_pk)
     editing = _edited_allocation(request, expense)
-    form = AllocationPreviewForm(request.POST, minimum_year=expense.purchase_year)
+    form = AllocationPreviewForm(
+        request.POST,
+        expense=expense,
+        minimum_year=expense.purchase_year,
+    )
     context = {"expense": expense, "state": "incomplete"}
     if form.is_valid():
         values = form.cleaned_data
@@ -446,11 +484,15 @@ def allocation_form(request, expense_pk, pk=None):
             }
         )
         budget = allocation_budget(expense, record.growing_year)
-        if budget:
+        if services.allocation_uses_quantity(expense):
+            initial["quantity_used"] = _quantity_initial(expense, record, budget)
+        elif budget:
             share = (Decimal(record.amount_cents) * 100 / Decimal(budget)).quantize(
                 Decimal("0.001")
             )
             initial["share"] = min(max(share, Decimal("0")), Decimal("100"))
+    elif services.allocation_uses_quantity(expense):
+        initial["quantity_used"] = expense.purchased_quantity
     else:
         initial["share"] = Decimal("100")
     if request.GET.get("cycle"):
@@ -458,6 +500,7 @@ def allocation_form(request, expense_pk, pk=None):
     form = AllocationForm(
         request.POST if request.method == "POST" else None,
         initial=initial,
+        expense=expense,
         minimum_year=expense.purchase_year,
     )
     query = {"allocation": record.pk} if record else None
@@ -478,21 +521,15 @@ def allocation_form(request, expense_pk, pk=None):
         record,
         expense,
     )
-    percent = form["share"].value()
-    try:
-        percent = Decimal(str(percent)) if percent not in (None, "") else Decimal("100")
-    except InvalidOperation:
-        percent = Decimal("100")
     context.update(
         {
             "purchase_year": expense.purchase_year,
             "preview_url": reverse("economy:allocation-preview", args=[expense.pk], query=query),
         }
     )
-    if expense.purchased_quantity is not None:
-        context["share_quantity"] = (expense.purchased_quantity * percent / 100).quantize(
-            Decimal("0.001")
-        )
+    if form.quantity_mode:
+        context["quantity_mode"] = True
+        context["share_percent"] = share_percent(expense, form["quantity_used"].value())
     context["list_url"] = (
         _back_url(request, year)
         if request.GET.get("next") or request.POST.get("next")

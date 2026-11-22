@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{{ title }} · GrowBook{% endblock %}
 {% block content %}
-<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}"><a href="{{ list_url }}">{% translate 'Back to economy' %}</a><a href="{% url 'garden:planting-list' %}">{% translate 'Plantings' %}</a></nav>
+<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}"><a href="{{ list_url }}">{% translate 'Back to economy' %}</a></nav>
 <section class="panel register-form-panel">
   <h1 id="economy-form-title">{{ title }}</h1>
   {% if expense %}<p class="economy-expense-heading"><span>{{ expense.description }} · {% include 'economy/money.html' with value=expense.total_price %}</span><span>{% translate 'Purchase year' %}: {{ purchase_year }}</span></p>{% endif %}
@@ -22,11 +22,10 @@
     {% if kind == 'allocation' %}
       {% for field in form.hidden_fields %}{{ field }}{% endfor %}
       {% include 'economy/field.html' with field=form.growing_year %}
-      {% include 'economy/share_field.html' with field=form.share %}
+      {% if quantity_mode %}{% include 'economy/share_field.html' with field=form.quantity_used quantity_mode=True %}{% else %}{% include 'economy/share_field.html' with field=form.share %}{% endif %}
       <div class="economy-choice-group">{% include 'economy/field.html' with field=form.scope %}</div>
       <div class="economy-choice-group" data-choice-group="cycles">{% include 'economy/field.html' with field=form.cycle_ids %}</div>
       <div class="economy-choice-group">{% include 'economy/field.html' with field=form.method %}</div>
-      <p class="field-help">{% translate 'All-year groups include new matching cycles automatically. A plant-count split stays pending, with its amount reserved and unassigned, while a quantity is unknown, the group is empty or every quantity is zero. Equal division does not need plant counts.' %}</p>
       <div class="panel economy-section" id="allocation-preview" hx-post="{{ preview_url }}" hx-trigger="input delay:400ms from:closest form, change delay:100ms from:closest form" hx-include="closest form" hx-target="#allocation-preview-body" hx-swap="innerHTML" hx-sync="this:replace">
         <div id="allocation-preview-body">{% include 'economy/allocation_preview.html' with state='incomplete' %}</div>
       </div>
@@ -35,12 +34,12 @@
       {% include 'economy/field.html' with field=form.description %}
       {% include 'economy/field.html' with field=form.purchased_on %}
       {% include 'economy/price_field.html' with field=form.total_price %}
+      {% include 'economy/quantity_field.html' with quantity=form.purchased_quantity unit=form.unit %}
       <details class="form-disclosure" data-expense-details{% if form.details_open %} open{% endif %}>
         <summary>{% translate 'More purchase details' %}</summary>
-        {% for field in form.details_fields %}{% if field.name == 'purchased_quantity' %}{% include 'economy/quantity_field.html' with quantity=field unit=form.unit %}{% elif field.name != 'unit' %}{% include 'economy/field.html' with field=field %}{% endif %}{% endfor %}
+        {% for field in form.details_fields %}{% include 'economy/field.html' with field=field %}{% endfor %}
       </details>
     {% else %}
-      {% if kind == 'sale' %}<p class="field-help">{% translate 'Enter either a unit price or a total sale amount. Record sales of plants, rather than harvested produce.' %}</p>{% endif %}
       {% for field in form %}{% include 'economy/field.html' %}{% endfor %}
     {% endif %}
     <p data-register-status role="status" aria-live="polite"></p>

@@ -1460,17 +1460,91 @@
 }
 
 @layer components {
-  .economy-toolbar,
-  .economy-summary,
-  .economy-records {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: 1.25rem;
-    margin-block: 1.5rem;
+  .economy-toolbar {
+    @apply my-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-lg border border-base-300 bg-base-100 px-3 py-2;
   }
 
-  .economy-toolbar {
-    align-items: start;
+  .economy-tabs {
+    @apply flex flex-wrap items-center gap-1;
+  }
+
+  .economy-tab {
+    @apply inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-secondary no-underline;
+  }
+
+  .economy-tab:hover,
+  .economy-tab:focus-visible {
+    @apply bg-control-hover text-primary;
+  }
+
+  .economy-tab[aria-current="page"] {
+    @apply bg-primary text-primary-content;
+  }
+
+  .economy-toolbar-side {
+    @apply flex flex-wrap items-center gap-x-3 gap-y-2;
+  }
+
+  .economy-year {
+    @apply inline-flex items-center gap-1 rounded-full border border-base-300 px-1;
+  }
+
+  .economy-year-step {
+    @apply inline-flex size-9 items-center justify-center rounded-full text-secondary no-underline;
+  }
+
+  .economy-year-step:hover,
+  .economy-year-step:focus-visible {
+    @apply bg-control-hover text-primary;
+  }
+
+  .economy-year-label {
+    @apply min-w-9 px-1 text-center text-sm font-semibold text-primary tabular-nums no-underline;
+  }
+
+  .economy-year-toggle {
+    @apply inline-flex min-h-11 items-center rounded-full border border-base-300 px-3 text-sm font-medium text-secondary no-underline;
+  }
+
+  .economy-year-toggle:hover,
+  .economy-year-toggle:focus-visible {
+    @apply border-control-border bg-control-hover text-primary;
+  }
+
+  .economy-year-toggle[aria-current="page"] {
+    @apply border-primary bg-primary text-primary-content;
+  }
+
+  .economy-toolbar-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .economy-pending-row {
+    @apply flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-base-300 bg-base-100 px-3 py-2;
+  }
+
+  .economy-pending-name {
+    @apply font-medium;
+  }
+
+  .economy-pending-reason {
+    @apply text-sm text-secondary;
+  }
+
+  .economy-pending-reserved {
+    @apply text-sm;
+  }
+
+  .economy-pending-links {
+    @apply ms-auto inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1;
+  }
+
+  .economy-pending-link {
+    @apply font-medium;
+  }
+
+  .economy-pending-member {
+    @apply text-sm text-base-content/70;
   }
 
   .economy-stats {
@@ -1503,18 +1577,61 @@
     overflow-wrap: anywhere;
   }
 
-  .economy-choices > div > div,
-  .economy-choices label,
-  .economy-amount-choice > legend {
-    margin-block: 0.5rem;
-  }
-
-  .economy-choices label,
   .economy-form .checkbox-field label {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     min-block-size: 3rem;
+  }
+
+  /* Radio choices render as one row of selectable buttons. */
+  .economy-choice-buttons > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .economy-choice-buttons label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-block: 0;
+    min-block-size: 2.75rem;
+    padding-inline: 0.875rem;
+    border: 1px solid var(--color-control-border);
+    border-radius: var(--radius-field);
+    background-color: var(--color-base-100);
+    color: var(--color-secondary);
+    cursor: pointer;
+  }
+
+  .economy-choice-buttons label:hover {
+    background-color: var(--color-control-hover);
+    color: var(--color-base-content);
+  }
+
+  .economy-choice-buttons label:has(input:checked) {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary);
+    color: var(--color-primary-content);
+  }
+
+  .economy-choice-buttons label:has(input:focus-visible) {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+
+  /* The radio stays focusable and announced; the button state shows the choice. */
+  .economy-choice-buttons input[type="radio"] {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: 0;
+    opacity: 0;
+  }
+
+  .economy-choice-buttons input[type="radio"]:focus-visible {
+    outline: none !important;
   }
 
   .economy-row-list {
@@ -1542,12 +1659,19 @@
     @apply my-4 min-w-0 rounded-lg border border-base-300 bg-base-100/60 p-3 sm:p-4;
   }
 
+  /* The group box already separates the fieldset; keep its padding even on both sides. */
+  .economy-choice-group > .field {
+    @apply mb-0;
+  }
+
   .economy-share-controls {
     @apply flex min-w-0 items-center gap-3;
   }
 
   .economy-share-controls output {
     @apply shrink-0 text-sm font-medium tabular-nums;
+    min-inline-size: 3.25rem;
+    text-align: end;
   }
 
   .economy-cycle-options {
@@ -1556,6 +1680,11 @@
 
   .economy-cycle-option {
     @apply flex min-h-11 min-w-0 items-center gap-2 py-1;
+  }
+
+  /* One dense line per cycle; the option keeps the control target without extra margins. */
+  .economy-choices .economy-cycle-option {
+    margin-block: 0;
   }
 
   .economy-cycle-name {
@@ -1653,6 +1782,19 @@
     vertical-align: top;
   }
 
+  .economy-table .economy-amount {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .economy-record-title {
+    @apply flex min-w-0 flex-wrap items-baseline gap-x-2;
+  }
+
+  .economy-row-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
   .economy-table thead {
     position: sticky;
     inset-block-start: 0;
@@ -1696,6 +1838,10 @@
       display: block;
       color: var(--color-secondary);
     }
+
+    .economy-table .economy-amount {
+      text-align: start;
+    }
   }
 }
 
@@ -1708,5 +1854,27 @@
   .btn-outline:not(:is(.btn-disabled, :disabled, [disabled], [aria-disabled="true"])):is(:hover, :active, :focus-visible, [aria-expanded="true"]),
   .btn-outline.archive-toggle[data-pressed="true"]:not(:is(.btn-disabled, :disabled, [disabled], [aria-disabled="true"])) {
     @apply border-control-border bg-control-hover text-base-content;
+  }
+}
+
+/* Compact table row actions; daisyUI sizes buttons and table cells in its utility layer. */
+@layer utilities {
+  .economy-row-actions .btn {
+    height: calc(var(--spacing) * 8);
+    min-height: calc(var(--spacing) * 8);
+    padding-block: 0;
+    padding-inline: calc(var(--spacing) * 2.5);
+    font-size: var(--text-sm);
+  }
+
+  .economy-table .economy-actions-cell {
+    padding-block: var(--spacing);
+  }
+
+  /* Stacked record cards are tapped, not scanned; keep the shared control target. */
+  @container (width < 40rem) {
+    .economy-row-actions .btn {
+      min-height: calc(var(--spacing) * 11);
+    }
   }
 }

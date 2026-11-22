@@ -1,7 +1,7 @@
 {% load i18n %}
 {% if field.is_hidden %}{{ field }}{% elif field.name == 'cycle_ids' %}{% include 'economy/cycle_choices.html' with field=field preview_url='' %}
 {% elif field.name == 'scope' or field.name == 'method' %}
-<fieldset class="field economy-choices" id="{{ field.auto_id }}_group" tabindex="-1" data-field-name="{{ field.name }}" aria-describedby="{{ field.auto_id }}_errors{% if field.help_text %} {{ field.auto_id }}_helptext{% endif %}">
+<fieldset class="field economy-choices economy-choice-buttons" id="{{ field.auto_id }}_group" tabindex="-1" data-field-name="{{ field.name }}" aria-describedby="{{ field.auto_id }}_errors{% if field.help_text %} {{ field.auto_id }}_helptext{% endif %}">
   <legend>{{ field.label }} <span class="field-requirement">{% if field.field.required %}{% translate '(required)' %}{% else %}{% translate '(optional)' %}{% endif %}</span></legend>
   {{ field }}
   {% if field.help_text %}<p id="{{ field.auto_id }}_helptext" class="field-help">{{ field.help_text }}</p>{% endif %}

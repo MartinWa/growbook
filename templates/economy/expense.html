@@ -3,7 +3,7 @@
 {% block title %}{{ expense.description }} · {% translate 'Economy' %} · GrowBook{% endblock %}
 {% block page_class %}page register-page economy-page{% endblock %}
 {% block content %}
-<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}"><a href="{{ list_url }}">{% translate 'Back to economy' %}</a><a href="{% url 'garden:planting-list' %}?year={{ year }}">{% translate 'Plantings' %}</a></nav>
+<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}"><a href="{{ list_url }}">{% translate 'Back to economy' %}</a></nav>
 <section class="panel">
   <h1>{{ expense.description }}</h1>
   <dl class="record-fields">
@@ -14,7 +14,7 @@
     {% if expense.purchased_quantity %}<dt>{% translate 'Purchased quantity' %}</dt><dd>{{ expense.purchased_quantity|floatformat:'-3' }} {{ expense.get_unit_display }}</dd>{% endif %}
     {% if expense.useful_life_years %}<dt>{% translate 'Useful life (whole years)' %}</dt><dd>{{ expense.useful_life_years }} · {{ expense.purchase_year }}–{{ last_year }}</dd>{% endif %}
   </dl>
-  <div class="form-actions"><a class="btn btn-outline" href="{% url 'economy:expense-edit' expense.pk %}?year={{ year }}&amp;next={{ request.get_full_path|urlencode }}">{% translate 'Edit expense' %}</a><a href="{% url 'economy:expense-delete' expense.pk %}?year={{ year }}&amp;next={{ list_url|urlencode }}">{% translate 'Delete expense' %}</a></div>
+  <div class="form-actions"><a class="btn btn-outline" href="{% url 'economy:expense-edit' expense.pk %}?year={{ year }}&amp;next={{ request.get_full_path|urlencode }}">{% translate 'Edit expense' %}</a><a class="btn btn-outline" href="{% url 'economy:expense-delete' expense.pk %}?year={{ year }}&amp;next={{ list_url|urlencode }}">{% translate 'Delete expense' %}</a>{% if can_allocate %}<a class="btn btn-primary ms-auto" href="{% url 'economy:allocation-create' expense.pk %}?year={{ year }}">{% translate 'Allocate expense' %}</a>{% endif %}</div>
 </section>
 <section class="panel economy-section">
   <h2>{% translate 'Growing costs' %} · {{ year }}</h2>
@@ -29,10 +29,7 @@
     <div><dt>{% translate 'Years remaining after the selected year' %}</dt><dd>{{ remaining_years }}</dd></div>
     {% endif %}
   </dl>
-  <p class="field-help">{% translate 'Unallocated costs include pending reserved amounts. The available balance excludes reservations.' %}</p>
-  {% if not expense.useful_life_years %}<p class="field-help">{% translate 'Unassigned balances stay in the purchase year. An allocation moves only its chosen portion to its growing year.' %}</p>{% endif %}
-</section>
-{% if schedule %}<section class="economy-section"><h2>{% translate 'Equipment period' %}</h2>
+</section>{% if schedule %}<section class="economy-section"><h2>{% translate 'Equipment period' %}</h2>
   <p class="field-help">{% translate 'Consecutive calendar years count even when the equipment is unused. The full purchase cost is not added to these annual growing costs.' %}</p>
   <div class="economy-table-wrapper" tabindex="0" role="region" aria-labelledby="equipment-caption"><table class="economy-table table">
     <caption id="equipment-caption">{% translate 'Annual equipment costs and allocations' %}</caption>
@@ -46,8 +43,7 @@
     </tr>{% endfor %}</tbody>
   </table></div>
 </section>{% endif %}
-<section class="economy-section"><div class="planting-section-heading"><h2>{% translate 'Planting allocations' %}</h2>{% if can_allocate %}<a class="btn btn-primary" href="{% url 'economy:allocation-create' expense.pk %}?year={{ year }}">{% translate 'Allocate expense' %}</a>{% endif %}</div>
-  <p class="field-help">{% translate 'Estimates use current recorded plant quantities, including plants later sold, and can change when those quantities are corrected.' %}</p>
+<section class="economy-section"><h2>{% translate 'Planting allocations' %}</h2>
   {% for estimate in allocations %}<article class="panel economy-section" id="allocation-{{ estimate.allocation.pk }}">
     <h3>{{ estimate.allocation.growing_year }} · {{ estimate.allocation.get_scope_display }}</h3>
     <p>{{ estimate.allocation.get_method_display }} · {% translate 'Chosen amount' %}: {% include 'economy/money.html' with value=estimate.allocation.amount %}</p>
@@ -62,7 +58,7 @@
         <td data-label="{% translate 'Estimated cost per plant' %}">{% include 'economy/money.html' with value=group.per_plant %}</td>
       </tr>{% endfor %}</tbody>
     </table></div>{% endif %}
-    <div class="related-actions"><a href="{% url 'economy:allocation-edit' expense.pk estimate.allocation.pk %}?year={{ estimate.allocation.growing_year }}">{% translate 'Edit allocation' %}<span class="visually-hidden">: {{ estimate.allocation.growing_year }} {{ expense.description }}</span></a><a href="{% url 'economy:allocation-delete' estimate.allocation.pk %}?year={{ estimate.allocation.growing_year }}">{% translate 'Delete allocation' %}<span class="visually-hidden">: {{ estimate.allocation.growing_year }} {{ expense.description }}</span></a></div>
+    <div class="related-actions"><a class="btn btn-outline" href="{% url 'economy:allocation-edit' expense.pk estimate.allocation.pk %}?year={{ estimate.allocation.growing_year }}">{% translate 'Edit allocation' %}<span class="visually-hidden">: {{ estimate.allocation.growing_year }} {{ expense.description }}</span></a><a class="btn btn-outline" href="{% url 'economy:allocation-delete' estimate.allocation.pk %}?year={{ estimate.allocation.growing_year }}">{% translate 'Delete allocation' %}<span class="visually-hidden">: {{ estimate.allocation.growing_year }} {{ expense.description }}</span></a></div>
   </article>{% empty %}<p>{% translate 'No planting allocations yet. The cost remains available to assign later.' %}</p>{% endfor %}
 </section>
 {% endblock %}

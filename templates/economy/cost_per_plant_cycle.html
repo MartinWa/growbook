@@ -3,14 +3,8 @@
 {% block title %}{% translate 'Cost per plant' %} · GrowBook{% endblock %}
 {% block page_class %}page register-page economy-page{% endblock %}
 {% block content %}
-<nav class="year-navigation" aria-label="{% translate 'Economy navigation' %}">
-  <a href="{% url 'economy:cost-per-plant' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}">{% translate 'Cost per plant' %}</a>
-  <a href="{{ cycle.get_absolute_url }}">{% translate 'Open cycle' %}</a>
-  <a href="{% url 'economy:sale-create' %}?cycle={{ cycle.pk }}&amp;next={{ request.get_full_path|urlencode }}">{% translate 'Add plant sale' %}</a>
-  <a href="{{ all_years_url }}"{% if all_years %} aria-current="true"{% endif %}>{% translate 'All years' %}</a>
-  {% if previous_url %}<a href="{{ previous_url }}" rel="prev">← {% translate 'Previous year' %}</a>{% endif %}
-  {% if next_url %}<a href="{{ next_url }}" rel="next">{% translate 'Next year' %} →</a>{% endif %}
-</nav>
+{% include 'components/economy_navigation.html' with active='cost' %}
+<div class="related-actions"><a href="{{ cycle.get_absolute_url }}">{% translate 'Open cycle' %}</a><a href="{% url 'economy:sale-create' %}?cycle={{ cycle.pk }}&amp;next={{ request.get_full_path|urlencode }}">{% translate 'Add plant sale' %}</a></div>
 <section class="panel">
   <h1>{{ row.label|default:cycle }}</h1>
   {% if not row %}<p class="field-help">{% translate 'No allocated costs or plantings for this cycle in the selected period.' %}</p>{% endif %}

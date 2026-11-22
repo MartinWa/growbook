@@ -272,11 +272,11 @@ def _sale_order(sale):
 
 
 def landing(state, year, *, through_year=None):
-    """Short recent lists, pending reservations and unallocated balances."""
+    """Pending reservations and unallocated balances for the landing page."""
     data = overview(state, year, through_year=through_year)
     by_expense = {estimate.expense.pk: estimate for estimate in state.estimates}
-    expenses = sorted(data["expense_rows"], key=_expense_order, reverse=True)
-    sales = sorted(data["sales"], key=_sale_order, reverse=True)
+    expenses = data["expense_rows"]
+    sales = data["sales"]
     groups = {}
     for estimate in sorted(
         data["pending_allocations"],
@@ -295,8 +295,6 @@ def landing(state, year, *, through_year=None):
     ]
     return {
         **data,
-        "recent_expenses": expenses[:5],
-        "recent_sales": sales[:5],
         "pending_groups": [
             {"year": growing_year, "estimates": estimates}
             for growing_year, estimates in groups.items()
@@ -307,10 +305,14 @@ def landing(state, year, *, through_year=None):
 
 
 def cycle_index(state, year, *, through_year=None):
-    """Planting cycles with their growing cost and cost per plant."""
+    """Cycles that carry growing costs or plant-sale income, with cost per plant."""
     data = overview(state, year, through_year=through_year)
     return {
-        "cycle_rows": data["cycle_rows"],
+        "cycle_rows": [
+            row
+            for row in data["cycle_rows"]
+            if row["cost_cents"] or row["income_cents"] or row["pending"]
+        ],
         "totals": data["totals"],
         "crop_rows": data["crop_rows"],
         "variety_rows": data["variety_rows"],

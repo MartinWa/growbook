@@ -12,6 +12,15 @@ from garden.models import Crop, PlantingCycle, Variety
 from garden.queries import plantings_in_year
 
 from .models import Allocation, Expense
+from .services import allocation_uses_quantity
+
+
+def _quantity_step(expense):
+    """One whole item, or one percent of the recorded quantity for measured units."""
+    if expense.unit == Expense.Unit.ITEMS:
+        return "1"
+    step = (expense.purchased_quantity / 100).quantize(Decimal("0.001"))
+    return f"{max(step, Decimal('0.001')):f}"
 
 
 def amount_field(label, **kwargs):
@@ -157,7 +166,6 @@ class ExpenseForm(SaveForm):
     )
     purchased_quantity = forms.DecimalField(
         label=_("Quantity"),
-        required=False,
         max_digits=14,
         decimal_places=3,
         min_value=Decimal("0.001"),
@@ -166,7 +174,6 @@ class ExpenseForm(SaveForm):
     )
     unit = forms.ChoiceField(
         label=_("Quantity unit"),
-        required=False,
         choices=[("", _("Choose a unit")), *Expense.Unit.choices],
     )
     useful_life_years = forms.IntegerField(
@@ -195,10 +202,6 @@ class ExpenseForm(SaveForm):
         values = super().clean()
         if not values.get("category"):
             values["category"] = Expense.Category.OTHER
-        if (values.get("purchased_quantity") is None) != (not values.get("unit")):
-            self.add_error(
-                "unit", _("Enter both the purchased quantity and its unit, or leave both blank.")
-            )
         if values.get("useful_life_years") and values.get("category") != Expense.Category.EQUIPMENT:
             self.add_error(
                 "useful_life_years", _("Choose Equipment to spread a cost across years.")
@@ -207,15 +210,7 @@ class ExpenseForm(SaveForm):
 
     @property
     def details_fields(self):
-        return [
-            self[name]
-            for name in (
-                "category",
-                "purchased_quantity",
-                "unit",
-                "useful_life_years",
-            )
-        ]
+        return [self[name] for name in ("category", "useful_life_years")]
 
     @property
     def details_open(self):
@@ -228,7 +223,7 @@ class ExpenseForm(SaveForm):
 
 
 class AllocationValuesForm(forms.Form):
-    """Share, group and split choices shared by the saved form and its preview."""
+    """Share or quantity, group and split choices shared by the saved form and its preview."""
 
     growing_year = forms.IntegerField(label=_("Growing year"), min_value=1, max_value=9999)
     share = forms.DecimalField(
@@ -238,7 +233,14 @@ class AllocationValuesForm(forms.Form):
         min_value=Decimal("0"),
         max_value=100,
         initial=Decimal("100"),
-        widget=RangeInput(attrs={"min": 0, "max": 100, "step": "0.1"}),
+        widget=RangeInput(attrs={"min": 0, "max": 100, "step": "5"}),
+    )
+    quantity_used = forms.DecimalField(
+        label=_("Quantity used"),
+        max_digits=14,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        widget=RangeInput(attrs={"min": 0, "step": "1"}),
     )
     scope = forms.ChoiceField(
         label=_("Planting group"),
@@ -256,15 +258,26 @@ class AllocationValuesForm(forms.Form):
         choices=Allocation.Method.choices,
         initial=Allocation.Method.PLANTS,
         widget=forms.RadioSelect,
-        help_text=_(
-            "By current plant quantities gives cycles with more plants a larger share. "
-            "Equal division gives each selected cycle the same share, then splits a cycle's "
-            "share equally between its varieties."
-        ),
     )
 
-    def __init__(self, *args, year=None, keep=(), minimum_year=None, **kwargs):
+    def __init__(self, *args, expense=None, year=None, keep=(), minimum_year=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.expense = expense
+        self.quantity_mode = expense is not None and allocation_uses_quantity(expense)
+        if self.quantity_mode:
+            self.fields.pop("share")
+            quantity = expense.purchased_quantity
+            field = self.fields["quantity_used"]
+            field.max_value = quantity
+            field.widget.attrs.update(
+                {
+                    "max": f"{quantity:f}",
+                    "min": 0,
+                    "step": _quantity_step(expense),
+                }
+            )
+        else:
+            self.fields.pop("quantity_used")
         self.minimum_year = minimum_year
         if minimum_year is not None:
             self.fields["growing_year"].widget.attrs["min"] = minimum_year
@@ -313,6 +326,12 @@ class AllocationValuesForm(forms.Form):
             raise forms.ValidationError(_("Choose the purchase year or a later growing year."))
         return value
 
+    def clean_quantity_used(self):
+        value = self.cleaned_data["quantity_used"]
+        if self.expense.unit == Expense.Unit.ITEMS and value != value.to_integral_value():
+            raise forms.ValidationError(_("Items must be a whole number."))
+        return value
+
     def clean(self):
         values = super().clean()
         if values.get("scope") == Allocation.Scope.YEAR:
@@ -343,19 +362,11 @@ class SaleForm(SaveForm):
     cycle = CycleChoiceField(
         label=_("Planting cycle"),
         required=False,
-        help_text=_(
-            "A cycle supplies its crop, growing year and, when possible, variety. "
-            "Selling plants does not reduce its recorded quantity."
-        ),
     )
     variety = RecordIDChoiceField(
         label=_("Variety"),
         queryset=Variety.objects.none(),
         required=False,
-        help_text=_(
-            "Choose a variety when no cycle is selected, "
-            "or to identify a variety within a shared cycle."
-        ),
     )
 
     def __init__(self, *args, record=None, **kwargs):

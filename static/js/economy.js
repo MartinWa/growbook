@@ -6,15 +6,25 @@
   if (share) {
     const input = share.querySelector('input[type="range"]');
     const output = share.querySelector("[data-share-output]");
-    const quantity = Number(share.dataset.quantity || "");
-    const derived = share.querySelector("[data-share-quantity]");
+    const valueOut = share.querySelector("[data-share-value]");
+    const percentOut = share.querySelector("[data-share-percent]");
+    // The server sends unlocalized numbers so every locale parses the same way.
+    const purchased = Number(share.dataset.quantity ?? "");
+    const measured = Number.isFinite(purchased) && purchased > 0;
     const format = new Intl.NumberFormat(document.documentElement.lang, {maximumFractionDigits: 3});
     const updateShare = () => {
-      const percent = Number(input.value);
-      output.textContent = `${format.format(percent)} %`;
-      if (derived) derived.textContent = `${format.format(quantity * percent / 100)} ${share.dataset.unit}`;
+      const value = Number(input.value);
+      if (valueOut) valueOut.textContent = format.format(value);
+      else if (output) output.textContent = `${format.format(value)} %`;
+      if (percentOut && measured) {
+        const percent = Math.round((value / purchased) * 1000) / 10;
+        percentOut.textContent = `${format.format(percent)} %`;
+      }
     };
     input.addEventListener("input", updateShare);
+    // A restored draft or a rejected submission can change the value without an input event.
+    share.closest("form")?.addEventListener("draft:restored", updateShare);
+    share.closest("form")?.addEventListener("draft:discarded", updateShare);
     updateShare();
   }
   if (!form) return;

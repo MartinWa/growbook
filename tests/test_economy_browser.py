@@ -79,6 +79,16 @@ def set_share(page, value):
     )
 
 
+def set_quantity(page, value):
+    page.locator("#id_quantity_used").evaluate(
+        "(input, value) => {"
+        "input.value = value;"
+        "input.dispatchEvent(new Event('input', {bubbles: true}));"
+        "}",
+        value,
+    )
+
+
 @pytest.mark.parametrize("language", ["en", "sv"])
 def test_minimal_purchase_currency_label_and_retry_after_a_committed_but_uncertain_save(
     browser_endpoint, live_server, user, language, monkeypatch
@@ -87,9 +97,11 @@ def test_minimal_purchase_currency_label_and_retry_after_a_committed_but_uncerta
     with economy_page(browser_endpoint, live_server, user, language) as page:
         page.goto(live_server.url + path + "?year=2028")
         expect(page.locator("#id_purchased_on")).to_have_value("2026-05-09")
-        expect(page.locator("#id_purchased_quantity")).to_be_hidden()
+        expect(page.locator("#id_purchased_quantity")).to_be_visible()
         page.locator("#id_description").fill("Synthetic seed packet")
         page.locator("#id_total_price").fill("12,34" if language == "sv" else "12.34")
+        page.locator("#id_purchased_quantity").fill("1")
+        page.locator("#id_unit").select_option("items")
         key = page.locator("#id_submission_key").input_value()
         expect(page.locator("main")).to_contain_text("SEK")
         expect(page.locator("[data-currency-form]")).to_have_count(0)
@@ -125,7 +137,7 @@ def test_minimal_purchase_currency_label_and_retry_after_a_committed_but_uncerta
         assert page.evaluate("Object.keys(sessionStorage).every(key => !key.includes(':expense:'))")
     expense = Expense.objects.get()
     assert expense.total_cents == 1234 and expense.purchase_year == 2026
-    assert expense.purchased_quantity is None and EconomySubmission.objects.count() == 1
+    assert expense.purchased_quantity == Decimal("1.000") and EconomySubmission.objects.count() == 1
 
 
 def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_it(
@@ -151,11 +163,11 @@ def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_
             page.locator(f'[name=cycle_ids][value="{member.cycle_id}"]').check()
         save(page)
         expect(page).to_have_url(re.compile(r"/economy/expenses/\d+/\?year=2026#allocation-"))
-        expect(page.locator("main")).to_contain_text("Pending: set the missing plant quantities")
+        expect(page.locator("main")).to_contain_text("Pending: plant quantities are missing.")
         money_text(page.locator("[data-available-balance]"), "20.00")
 
         page.get_by_role("link", name="Allocate expense", exact=True).click()
-        set_share(page, "20.1")
+        set_share(page, "25")
         page.locator("[name=scope][value=year]").check()
         expect(page.locator("#id_cycle_ids_group")).to_be_hidden()
         save(page)
@@ -171,9 +183,8 @@ def test_pending_group_reserves_only_its_amount_and_quantity_edits_redistribute_
             page.goto(live_server.url + reverse("economy:cost-per-plant", query={"year": 2026}))
             row = page.locator(f'tr[data-cycle="{second.cycle_id}"]')
             money_text(row.locator("td").nth(1), "40.00" if count == "50" else "80.00")
-        expect(
-            page.locator(f'tr[data-cycle="{first.cycle_id}"]').locator("td").nth(2)
-        ).to_have_text("Unavailable")
+        # A cycle without plants or growing costs is no longer listed in the index.
+        expect(page.locator(f'tr[data-cycle="{first.cycle_id}"]')).to_have_count(0)
     assert Allocation.objects.get().amount_cents == 8000
     expense.refresh_from_db()
     assert expense.total_cents == 10000
@@ -235,6 +246,8 @@ def test_equipment_schedule_editing_keyboard_tables_and_confirmed_deletion(
         description="Synthetic seed trays",
         total_price="900",
         category="equipment",
+        purchased_quantity="1",
+        unit="items",
         useful_life_years=3,
     ).record
     with economy_page(browser_endpoint, live_server, user, language) as page:
@@ -363,7 +376,7 @@ def test_native_forms_keep_invalid_values_and_support_quantities_allocations_and
         expect(page).to_have_url(re.compile(r"/economy/expenses/\d+/"))
         money_text(page.locator(".record-fields"), "100.50")
         page.get_by_role("link", name="Allocate expense", exact=True).click()
-        set_share(page, "50")
+        set_quantity(page, "10.25")
         page.locator("[name=scope][value=year]").check()
         save(page)
         expect(page).to_have_url(re.compile(r"#allocation-"))

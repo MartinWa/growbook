@@ -1,0 +1,17 @@
+{% load i18n %}
+<nav class="economy-toolbar" aria-label="{% translate 'Economy navigation' %}">
+  <div class="economy-tabs">
+    <a class="economy-tab" href="{% url 'economy:list' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}"{% if active == 'overview' %} aria-current="page"{% endif %}>{% translate 'Overview' %}</a>
+    <a class="economy-tab" href="{% url 'economy:records' %}?all=1{% if all_years %}&amp;all_years=1{% elif year %}&amp;year={{ year }}{% endif %}"{% if active == 'records' %} aria-current="page"{% endif %}>{% translate 'Records' %}</a>
+    <a class="economy-tab" href="{% url 'economy:cost-per-plant' %}{% if all_years %}?all_years=1{% elif year %}?year={{ year }}{% endif %}"{% if active == 'cost' %} aria-current="page"{% endif %}>{% translate 'Cost per plant' %}</a>
+  </div>
+  <div class="economy-toolbar-side">
+    <div class="economy-year" role="group" aria-label="{% translate 'Growing year' %}">
+      {% if previous_url %}<a class="economy-year-step" href="{{ previous_url }}" rel="prev" aria-label="{% translate 'Previous year' %}">←</a>{% endif %}
+      <a class="economy-year-label" href="{{ year_url }}"{% if not all_years %} aria-current="true"{% endif %}>{{ anchor_year }}</a>
+      {% if next_url %}<a class="economy-year-step" href="{{ next_url }}" rel="next" aria-label="{% translate 'Next year' %}">→</a>{% endif %}
+    </div>
+    <a class="economy-year-toggle" href="{{ all_years_url }}"{% if all_years %} aria-current="page"{% endif %}>{% translate 'All years' %}</a>
+    {% if show_actions %}<div class="economy-toolbar-actions"><a class="btn btn-primary" href="{% url 'economy:expense-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'Add expense' %}</a><a class="btn btn-outline" href="{% url 'economy:sale-create' %}?next={{ request.get_full_path|urlencode }}">{% translate 'Add plant sale' %}</a></div>{% endif %}
+  </div>
+</nav>
