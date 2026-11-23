@@ -1,0 +1,24 @@
+{% load i18n %}
+<div class="filter-panel" id="calendar-filter-panel">
+  <form id="calendar-filter-form" data-filter-form method="get" action="{% url 'planner:month' year month %}" role="group" aria-label="{% translate 'Filters' %}">
+    <div class="filter-fields">
+      {% for field in form %}
+      <div class="field{% if field.name == 'type' %} filter-toggles{% endif %}">
+        {{ field.label_tag }}{{ field }}
+        <div id="{{ field.auto_id }}_errors" class="field-errors" data-filter-field-errors="{{ field.name }}">{{ field.errors }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="filter-actions">
+      <div class="form-actions">
+        <a class="btn btn-outline" href="{{ clear_filters_url }}" data-filter-link>{% translate 'Clear filters' %}</a>
+        <button type="submit" class="btn btn-primary" data-filter-submit>{% translate 'Filter' %}</button>
+        <button type="submit" class="btn btn-outline" data-filter-retry hidden>{% translate 'Retry' %}</button>
+      </div>
+      <details class="filter-help">
+        <summary>{% translate 'How filters work' %}</summary>
+        <p class="field-help">{% translate 'Filters combine and match the diary: a planting match also includes its crop, variety and area, and an area filter includes its subareas.' %}</p>
+      </details>
+    </div>
+  </form>
+</div>

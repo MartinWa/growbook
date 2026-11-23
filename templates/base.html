@@ -25,6 +25,7 @@
   <script src="{% static 'js/capture-actions.js' %}" defer></script>
   <script src="{% static 'js/economy.js' %}" defer></script>
   <script src="{% static 'js/drafts.js' %}" defer></script>
+  <script src="{% static 'js/calendar.js' %}" defer></script>
 </head>
 <body hx-history="false" class="flex min-h-screen flex-col" data-draft-user="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"
       data-draft-restored="{% translate 'Your unsaved writing was restored in this tab. Review it before saving.' %}"

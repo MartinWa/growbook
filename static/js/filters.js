@@ -20,9 +20,22 @@
   let debounce;
   let retryURL;
   function setFields(url) {
+    const checkboxGroups = new Map();
+    function isGrouped(name) {
+      if (!checkboxGroups.has(name)) {
+        checkboxGroups.set(name, form.querySelectorAll(`input[type=checkbox][name="${CSS.escape(name)}"]`).length > 1);
+      }
+      return checkboxGroups.get(name);
+    }
     for (const field of form.querySelectorAll("input[name], select[name]")) {
-      if (field.type === "checkbox") field.checked = url.searchParams.has(field.name);
-      else field.value = url.searchParams.get(field.name) || "";
+      if (field.type === "checkbox") {
+        // A repeated name is a set of toggles; a single checkbox is one boolean.
+        field.checked = isGrouped(field.name)
+          ? url.searchParams.getAll(field.name).includes(field.value)
+          : url.searchParams.has(field.name);
+      } else {
+        field.value = url.searchParams.get(field.name) || "";
+      }
     }
   }
   function filterState(url) {

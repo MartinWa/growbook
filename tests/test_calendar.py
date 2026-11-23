@@ -25,6 +25,8 @@ from planner.queries import (
     month_bounds,
     month_context,
     month_items,
+    parse_day,
+    parse_item,
     previous_year_items,
     weekday_names,
 )
@@ -97,16 +99,19 @@ def test_planned_and_done_events_move_to_their_actual_date(user, garden):
         (planned.pk, date(2026, 5, 10), True),
         (done.pk, date(2026, 5, 20), False),
     ]
-    assert items[0].state_label == "Planerad"
-    assert items[1].state_label == "Klart"
+    # A localized request elsewhere leaves the active language set; state it here.
+    with translation.override("sv"):
+        assert items[0].state_label == "Planerad"
+        assert items[1].state_label == "Klart"
 
 
 def test_event_with_only_a_planned_date_is_planned(user, garden):
     record = make_event(user, garden, planned=date(2026, 5, 10))
     item = month_items(2026, 5)[0]
     assert item.event == record
-    assert "Sådd" in item.title
-    assert "Planerad" in item.meta
+    with translation.override("sv"):
+        assert "Sådd" in item.title
+        assert "Planerad" in item.meta
 
 
 def test_entry_and_event_render_once_on_the_event_date(user, garden):
@@ -164,6 +169,81 @@ def test_entry_alone_when_its_event_is_in_another_month(user, garden):
     assert [(item.kind, item.day) for item in may] == [("entry", date(2026, 5, 9))]
     assert may[0].entry == entry
     assert [(item.kind, item.day) for item in june] == [("event", date(2026, 6, 1))]
+
+
+def tag_entry(user, entry, *plantings):
+    return update_entry(
+        actor=user,
+        pk=entry.pk,
+        date=entry.date,
+        body=entry.body,
+        show_in_calendar=entry.show_in_calendar,
+        links=[("planting", planting.pk) for planting in plantings],
+        expected_updated_at=entry.updated_at,
+    )
+
+
+def test_tagged_entry_pairs_with_the_event_of_its_planting_on_the_same_day(user, garden):
+    record = make_event(user, garden, actual=date(2026, 5, 9))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    entry = tag_entry(user, entry, garden.planting)
+    items = month_items(2026, 5)
+    assert len(items) == 1
+    assert items[0].kind == "combined"
+    assert items[0].event == record
+    assert items[0].entry == entry
+    assert items[0].day == date(2026, 5, 9)
+
+
+def test_pairing_keeps_an_event_on_another_day_separate(user, garden):
+    record = make_event(user, garden, actual=date(2026, 5, 10))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    entry = tag_entry(user, entry, garden.planting)
+    items = month_items(2026, 5)
+    assert [(item.kind, item.day) for item in items] == [
+        ("entry", date(2026, 5, 9)),
+        ("event", date(2026, 5, 10)),
+    ]
+    assert items[1].event == record
+    assert items[0].event is None
+    assert items[0].entry == entry
+
+
+def test_ambiguous_events_are_not_paired(user, garden):
+    make_event(user, garden, kind="sowing", actual=date(2026, 5, 9))
+    make_event(user, garden, kind="other", actual=date(2026, 5, 9))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    entry = tag_entry(user, entry, garden.planting)
+    items = month_items(2026, 5)
+    assert sorted(item.kind for item in items) == ["entry", "event", "event"]
+    assert [item.entry for item in items if item.kind == "entry"] == [entry]
+
+
+def test_one_event_pairs_with_only_one_entry(user, garden):
+    make_event(user, garden, actual=date(2026, 5, 9))
+    first = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    second = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    first = tag_entry(user, first, garden.planting)
+    second = tag_entry(user, second, garden.planting)
+    items = month_items(2026, 5)
+    assert sorted(item.kind for item in items) == ["combined", "entry"]
+    combined = next(item for item in items if item.kind == "combined")
+    alone = next(item for item in items if item.kind == "entry")
+    assert (combined.entry, alone.entry) == (first, second)
+
+
+def test_a_second_planting_link_does_not_pair_the_entry(user, garden):
+    other_crop = create_crop(actor=user, name="Synthetic bean").record
+    other = create_planting(actor=user, crop=other_crop, start_year=2026).record
+    make_event(user, garden, actual=date(2026, 5, 9))
+    create_planting_event(actor=user, planting=other, kind="sowing", actual_date=date(2026, 5, 9))
+    tag_entry(
+        user,
+        make_entry(user, day=date(2026, 5, 9), show_in_calendar=True),
+        garden.planting,
+        other,
+    )
+    assert sorted(item.kind for item in month_items(2026, 5)) == ["entry", "event", "event"]
 
 
 def test_hidden_entry_is_absent_from_the_month(user):
@@ -350,7 +430,81 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
     make_event(user, garden, planned=date(2026, 5, 10))
     make_event(user, garden, actual=date(2026, 5, 12))
     for day in (3, 9, 20):
-        make_entry(user, day=date(2026, 5, day), show_in_calendar=True)
-    with django_assert_num_queries(2):
+        tag_entry(
+            user,
+            make_entry(user, day=date(2026, 5, day), show_in_calendar=True),
+            garden.planting,
+        )
+    with django_assert_num_queries(3):
         items = month_items(2026, 5)
     assert len(items) == 5
+
+
+def test_a_recorded_link_wins_over_an_inferred_pair(user, garden):
+    older = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True, title="Older note")
+    older = tag_entry(user, older, garden.planting)
+    newer = make_entry(
+        user,
+        day=date(2026, 5, 9),
+        show_in_calendar=True,
+        title="Newer note",
+        action=PlantingEventAction(planting=garden.planting.pk, kind="sowing"),
+    )
+    items = month_items(2026, 5)
+    assert sorted((item.kind, (item.entry or item.event).pk) for item in items) == [
+        ("combined", newer.pk),
+        ("entry", older.pk),
+    ]
+
+
+def test_a_claimed_event_does_not_make_a_pair_unambiguous(user, garden):
+    linked = make_entry(
+        user,
+        day=date(2026, 5, 9),
+        show_in_calendar=True,
+        action=PlantingEventAction(planting=garden.planting.pk, kind="sowing"),
+    )
+    second = make_event(user, garden, kind="other", actual=date(2026, 5, 9))
+    tagged = tag_entry(
+        user, make_entry(user, day=date(2026, 5, 9), show_in_calendar=True), garden.planting
+    )
+    items = month_items(2026, 5)
+    assert sorted(item.kind for item in items) == ["combined", "entry", "event"]
+    assert sorted(value.pk for value in items if value.kind == "entry") == [tagged.pk]
+    assert [value.event for value in items if value.kind == "event"] == [second]
+    assert [value.entry for value in items if value.kind == "combined"] == [linked]
+
+
+def test_two_planting_links_with_one_event_do_not_pair(user, garden):
+    other_crop = create_crop(actor=user, name="Synthetic bean").record
+    other = create_planting(actor=user, crop=other_crop, start_year=2026).record
+    make_event(user, garden, actual=date(2026, 5, 9))
+    tag_entry(
+        user,
+        make_entry(user, day=date(2026, 5, 9), show_in_calendar=True),
+        garden.planting,
+        other,
+    )
+    assert sorted(item.kind for item in month_items(2026, 5)) == ["entry", "event"]
+
+
+def test_an_address_rejects_non_ascii_digits():
+    assert parse_item("entry-²") is None
+    assert parse_item("event-+1") is None
+    assert parse_item("event-1_0") is None
+    assert parse_item("entry-0") is None
+    assert parse_item("entry-7") == ("entry", 7)
+    assert parse_day("²", 2026, 5) is None
+    assert parse_day("+9", 2026, 5) is None
+    assert parse_day("0", 2026, 5) is None
+    assert parse_day("9", 2026, 5) == date(2026, 5, 9)
+
+
+def test_an_address_rejects_numbers_beyond_any_record():
+    # More digits than int() accepts would raise instead of returning "not an address".
+    huge = "9" * 5000
+    assert parse_item(f"entry-{huge}") is None
+    assert parse_day(huge, 2026, 5) is None
+    assert parse_item("entry-" + "9" * 19) is None
+    assert parse_item("entry-999999999999999999") == ("entry", 999999999999999999)
+    assert parse_day("999999999", 2026, 5) is None

@@ -1,0 +1,54 @@
+{% load i18n %}
+<div id="{{ results_id }}">
+  <nav class="month-navigation" aria-label="{% translate 'Month navigation' %}">
+    {% if previous %}<a class="btn btn-ghost" rel="prev" href="{{ previous.url }}{% querystring item=None day=None %}">← <span>{{ previous.label }}</span></a>{% endif %}
+    <a class="btn btn-ghost" href="{% url 'planner:current' %}{% querystring item=None day=None %}">{% translate 'Current month' %}</a>
+    {% if following %}<a class="btn btn-ghost" rel="next" href="{{ following.url }}{% querystring item=None day=None %}"><span>{{ following.label }}</span> →</a>{% endif %}
+  </nav>
+  <div class="calendar-columns">
+    <div class="calendar-main">
+      {% include 'components/filter_chips.html' %}
+      <table class="calendar-grid">
+        <caption class="calendar-caption" data-result-focus tabindex="-1">{{ month_label }}</caption>
+        <thead>
+          <tr>{% for name in weekdays %}<th scope="col">{{ name }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for week in weeks %}
+          <tr>
+            {% for value in week %}
+            <td class="calendar-day{% if not value.in_month %} is-outside{% endif %}{% if value.is_today %} is-today{% endif %}" data-date="{{ value.day|date:'Y-m-d' }}">
+              <h2 class="calendar-day-label">
+                <time datetime="{{ value.day|date:'Y-m-d' }}"{% if value.is_today %} aria-current="date"{% endif %}><span class="calendar-day-number">{{ value.day|date:'j' }}</span><span class="calendar-day-date">{{ value.day|date:'DATE_FORMAT' }}</span></time>
+                {% if value.is_today %}<span class="calendar-day-today">{% translate 'Today' %}</span>{% endif %}
+              </h2>
+              {% if value.items %}
+              <ul class="calendar-items">
+                {% for item in value.items|slice:cell_limit %}<li>{% include 'planner/_item.html' with item=item panel_link=True %}</li>{% endfor %}
+              </ul>
+              {% if value.items|length > cell_limit %}
+              <a class="calendar-more" id="calendar-more-{{ value.day|date:'j' }}" data-calendar-open href="{% querystring day=value.day.day item=None %}">{% blocktranslate with number=value.items|length|add:"-3" %}+{{ number }} more{% endblocktranslate %}</a>
+              {% endif %}
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not has_items %}<p class="calendar-empty muted">{% if active_filters %}{% translate 'No calendar items match these filters.' %}{% else %}{% translate 'No calendar items this month.' %}{% endif %}</p>{% endif %}
+    </div>
+    <aside class="calendar-side" aria-labelledby="calendar-side-title">
+      <h2 id="calendar-side-title" class="calendar-side-title">{% translate 'This time last year' %}</h2>
+      {% if previous_year_label %}<p class="calendar-side-period">{{ previous_year_label }}</p>{% endif %}
+      {% if previous_year_items %}
+      <ul class="calendar-year-items">
+        {% for item in previous_year_items %}<li>{% include 'planner/_item.html' with item=item panel_link=False %}</li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="field-help">{% translate 'Nothing recorded in this month a year ago.' %}</p>
+      {% endif %}
+    </aside>
+  </div>
+  {% include 'planner/_panel.html' %}
+</div>
