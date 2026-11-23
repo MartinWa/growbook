@@ -56,11 +56,16 @@ def entry_label(entry):
 ITEM_SEPARATOR = "-"
 ITEM_KINDS = ("event", "entry")
 CELL_LIMIT = 3
+# A day is at most two digits and a 64-bit primary key at most nineteen; a longer run of
+# digits is not an address, and Python's own int() rejects more than 4,300 of them.
+MAX_ADDRESS_DIGITS = 18
 
 
 def _positive_int(value):
     """Parse ASCII digits only; ``int()`` alone accepts signs, spaces and underscores."""
     if not isinstance(value, str) or not value.isascii() or not value.isdigit():
+        return None
+    if len(value) > MAX_ADDRESS_DIGITS:
         return None
     number = int(value)
     return number if number > 0 else None

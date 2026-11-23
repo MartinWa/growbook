@@ -498,3 +498,13 @@ def test_an_address_rejects_non_ascii_digits():
     assert parse_day("+9", 2026, 5) is None
     assert parse_day("0", 2026, 5) is None
     assert parse_day("9", 2026, 5) == date(2026, 5, 9)
+
+
+def test_an_address_rejects_numbers_beyond_any_record():
+    # More digits than int() accepts would raise instead of returning "not an address".
+    huge = "9" * 5000
+    assert parse_item(f"entry-{huge}") is None
+    assert parse_day(huge, 2026, 5) is None
+    assert parse_item("entry-" + "9" * 19) is None
+    assert parse_item("entry-999999999999999999") == ("entry", 999999999999999999)
+    assert parse_day("999999999", 2026, 5) is None

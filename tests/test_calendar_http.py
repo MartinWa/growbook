@@ -500,7 +500,15 @@ def test_blank_selections_are_not_filters(client, user):
 
 def test_malformed_addresses_are_not_found(client, user):
     client.force_login(user)
-    for query in ("day=%C2%B2", "item=entry-%C2%B2", "item=event-1_0", "day=00"):
+    huge = "9" * 5000
+    for query in (
+        "day=%C2%B2",
+        "item=entry-%C2%B2",
+        "item=event-1_0",
+        "day=00",
+        f"day={huge}",
+        f"item=entry-{huge}",
+    ):
         assert client.get(f"{month_url()}?{query}").status_code == 404
 
 
