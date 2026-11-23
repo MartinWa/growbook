@@ -13,7 +13,8 @@
   const tags = "link_areas link_crops link_varieties link_plantings".split(" ");
   const fields = {
     capture: ["date", "title", "body", "show_in_calendar", "date_overrides", "default_date", "planting_action", "action_planting", ...tags,
-      ...planting.map(name => `planting-${name}`), ...event.map(name => `event-${name}`), ...cycle.map(name => `cycle-${name}`)],
+      ...planting.map(name => `planting-${name}`), ...event.map(name => `event-${name}`), ...event.map(name => `first_event-${name}`),
+      ...cycle.map(name => `cycle-${name}`)],
     entry: ["date", "title", "body", "show_in_calendar", "remove_photos", ...tags],
     crop: ["name", "notes", "category"],
     variety: ["crop", "name", "description", "source", "experiences"],

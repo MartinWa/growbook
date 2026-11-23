@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from django.utils import translation
 
-from diary.actions import PlantingEventAction
+from diary.actions import NewPlantingAction, PlantingEventAction
 from diary.models import DiaryEntry
 from diary.queries import filter_entries
 from diary.services import create_entry, delete_entry, payload_fingerprint, update_entry
@@ -446,6 +446,17 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
     with django_assert_num_queries(5):
         items = month_items(2026, 5)
     assert len(items) == 8
+
+
+def test_a_first_event_from_a_new_planting_is_one_calendar_item(user, garden):
+    make_entry(
+        user,
+        title="New sowing",
+        show_in_calendar=True,
+        action=NewPlantingAction(crop=garden.crop.pk, event_kind="sowing"),
+    )
+    items = month_items(2026, 5)
+    assert [item.kind for item in items] == ["combined"]
 
 
 def test_a_recorded_link_wins_over_an_inferred_pair(user, garden):

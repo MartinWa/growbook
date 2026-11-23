@@ -30,6 +30,7 @@
     follow(form.elements.namedItem("planting-started_on"));
     follow(form.elements.namedItem("planting-completed_on"));
     follow(form.elements.namedItem("event-actual_date"));
+    follow(form.elements.namedItem("first_event-actual_date"));
   }
   function cycleDefaults() {
     for (const name of ["cycle-started_on", "cycle-completed_on"]) {

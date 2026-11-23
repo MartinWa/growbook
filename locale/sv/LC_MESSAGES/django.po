@@ -2649,3 +2649,12 @@ msgstr "Uppgiften ändrades medan formuläret var öppet. Ladda om den innan du 
 
 msgid "This task no longer exists. Reload the calendar."
 msgstr "Uppgiften finns inte längre. Ladda om kalendern."
+
+msgid "First event"
+msgstr "Första händelse"
+
+msgid "No first event"
+msgstr "Ingen första händelse"
+
+msgid "Optionally record the first event for this planting. The observation date is used when no actual date is chosen."
+msgstr "Du kan ange den första händelsen för planteringen. Observationsdatumet används när inget faktiskt datum väljs."
