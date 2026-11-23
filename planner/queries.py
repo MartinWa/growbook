@@ -16,10 +16,15 @@ from diary.models import DiaryEntry, DiaryLink
 from garden.models import GrowingArea, PlantingEvent
 from garden.queries import descendant_ids
 
+from .models import MonthNote, PlannedTask, TaskLink
+
 FIRST_YEAR = 2000
 EXCERPT_LENGTH = 80
 # Only planting links can pair an entry with an event; prefetch nothing else.
 ENTRY_LINKS = Prefetch("links", queryset=DiaryLink.objects.filter(planting__isnull=False))
+TASK_LINKS = Prefetch(
+    "links", queryset=TaskLink.objects.select_related("area", "crop", "variety", "planting")
+)
 
 
 def year_range(today=None):
@@ -40,6 +45,19 @@ def month_bounds(year, month):
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
 
 
+def task_label(task):
+    """Title, then the first note line, then the planned date for a text-only task."""
+    if task.title:
+        return task.title
+    lines = task.note.strip().splitlines()
+    excerpt = lines[0].strip() if lines else ""
+    if not excerpt:
+        return date_format(task.planned_date, "DATE_FORMAT")
+    if len(excerpt) > EXCERPT_LENGTH:
+        return excerpt[: EXCERPT_LENGTH - 1].rstrip() + "…"
+    return excerpt
+
+
 def entry_label(entry):
     """Title, then the first note line, then the localized date for a photo-only entry."""
     if entry.title:
@@ -54,7 +72,7 @@ def entry_label(entry):
 
 
 ITEM_SEPARATOR = "-"
-ITEM_KINDS = ("event", "entry")
+ITEM_KINDS = ("event", "entry", "task")
 CELL_LIMIT = 3
 # A day is at most two digits and a 64-bit primary key at most nineteen; a longer run of
 # digits is not an address, and Python's own int() rejects more than 4,300 of them.
@@ -92,40 +110,53 @@ def parse_day(value, year, month):
 
 @dataclass(frozen=True)
 class CalendarItem:
-    """One rendered label: an event, an entry, or the pair a save created together."""
+    """One rendered label: a task, an event, an entry, or the pair a save created together."""
 
     day: date
     event: PlantingEvent | None = None
     entry: DiaryEntry | None = None
+    task: PlannedTask | None = None
 
     @property
     def pk(self):
-        return self.event.pk if self.event is not None else self.entry.pk
+        for record in (self.task, self.event, self.entry):
+            if record is not None:
+                return record.pk
+        raise ValueError("A calendar item needs one record.")
 
     @property
     def kind(self):
+        if self.task is not None:
+            return "task"
         if self.event is not None and self.entry is not None:
             return "combined"
         return "event" if self.event is not None else "entry"
 
     @property
     def planned(self):
+        if self.task is not None:
+            return self.task.completed_on is None
         return self.event is not None and self.event.actual_date is None
 
     @property
     def state_label(self):
-        if self.event is None:
+        if self.task is None and self.event is None:
             return ""
         return _("Planned") if self.planned else _("Done")
 
     @property
     def title(self):
+        if self.task is not None:
+            return task_label(self.task)
         if self.entry is not None:
             return entry_label(self.entry)
         return str(self.event.get_kind_display())
 
     @property
     def context(self):
+        if self.task is not None:
+            link = next(iter(self.task.links.all()), None)
+            return f"{link.target}" if link is not None else ""
         if self.event is None:
             return ""
         planting = self.event.planting
@@ -139,7 +170,9 @@ class CalendarItem:
         """Type and state as text, never colour alone."""
         type_label = ""
         context = self.context
-        if self.entry is not None:
+        if self.task is not None:
+            type_label = _("Task")
+        elif self.entry is not None:
             type_label = _("Diary")
             if self.event is not None:
                 context = f"{self.event.get_kind_display()} · {context}"
@@ -155,12 +188,18 @@ class CalendarItem:
         return self.event.get_absolute_url() if self.event is not None else ""
 
     @property
+    def task_url(self):
+        return self.task.get_absolute_url() if self.task is not None else ""
+
+    @property
     def primary_url(self):
-        return self.entry_url or self.event_url
+        return self.entry_url or self.event_url or self.task_url
 
     @property
     def item_param(self):
         """The ``?item=`` address of this label; a combined item is led by its entry."""
+        if self.task is not None:
+            return f"task{ITEM_SEPARATOR}{self.task.pk}"
         if self.entry is not None:
             return f"entry{ITEM_SEPARATOR}{self.entry.pk}"
         return f"event{ITEM_SEPARATOR}{self.event.pk}"
@@ -178,8 +217,16 @@ class CalendarItem:
         return self.event.note.strip() if self.event is not None else ""
 
     @property
+    def task_note(self):
+        return self.task.note.strip() if self.task is not None else ""
+
+    @property
+    def task_planned_date(self):
+        return self.task.planned_date if self.task is not None else None
+
+    @property
     def sort_key(self):
-        kinds = {"combined": 0, "event": 1, "entry": 2}
+        kinds = {"combined": 0, "event": 1, "entry": 2, "task": 3}
         return (self.day, not self.planned, kinds[self.kind], self.title.casefold(), self.pk)
 
 
@@ -234,6 +281,29 @@ def entry_queryset(*, area=None, crop=None, variety=None, planting=None):
     return entries.distinct()
 
 
+def task_queryset(*, area=None, crop=None, variety=None, planting=None):
+    """Tasks filtered through their links, like diary entries."""
+    tasks = PlannedTask.objects.all()
+    if area is not None:
+        area_ids = _area_ids(area)
+        tasks = tasks.filter(
+            Q(links__area_id__in=area_ids) | Q(links__planting__area_id__in=area_ids)
+        )
+    if crop is not None:
+        tasks = tasks.filter(
+            Q(links__crop_id=crop.pk)
+            | Q(links__variety__crop_id=crop.pk)
+            | Q(links__planting__crop_id=crop.pk)
+        )
+    if variety is not None:
+        tasks = tasks.filter(
+            Q(links__variety_id=variety.pk) | Q(links__planting__variety_id=variety.pk)
+        )
+    if planting is not None:
+        tasks = tasks.filter(links__planting_id=planting.pk)
+    return tasks.distinct()
+
+
 def _pair(items, event_item, entry, show_events):
     """One label for one save: the entry leads and the event keeps its link."""
     event = event_item.event
@@ -267,7 +337,8 @@ def month_items(year, month, *, area=None, crop=None, variety=None, planting=Non
     filters = {"area": area, "crop": crop, "variety": variety, "planting": planting}
     show_events = kinds is None or "event" in kinds
     show_entries = kinds is None or "entry" in kinds
-    if not (show_events or show_entries):
+    show_tasks = kinds is None or "task" in kinds
+    if not (show_events or show_entries or show_tasks):
         return []
     events = event_queryset(**filters).filter(
         Q(actual_date__range=(start, end))
@@ -308,6 +379,17 @@ def month_items(year, month, *, area=None, crop=None, variety=None, planting=Non
                 continue
             claimed.add(event.pk)
             _pair(items, by_event[event.pk], entry, show_events)
+    if show_tasks:
+        # A completed task moves to the day it was done and does not appear twice.
+        for task in (
+            task_queryset(**filters)
+            .filter(
+                Q(completed_on__range=(start, end))
+                | Q(completed_on__isnull=True, planned_date__range=(start, end))
+            )
+            .prefetch_related(TASK_LINKS)
+        ):
+            items[("task", task.pk)] = CalendarItem(day=task.display_day, task=task)
     return sorted(items.values(), key=lambda item: item.sort_key)
 
 
@@ -317,6 +399,8 @@ def find_item(items, kind, pk):
         if kind == "entry" and item.entry is not None and item.entry.pk == pk:
             return item
         if kind == "event" and item.event is not None and item.event.pk == pk:
+            return item
+        if kind == "task" and item.task is not None and item.task.pk == pk:
             return item
     return None
 
@@ -421,5 +505,7 @@ def month_context(year, month, *, today=None, filters=None, address=None, day=No
         "previous_year_label": date_format(date(year - 1, month, 1), "F Y")
         if year - 1 >= FIRST_YEAR
         else "",
+        "month_note": MonthNote.objects.filter(year=year, month=month).first(),
+        "new_task_date": today if (today.year, today.month) == (year, month) else start,
         "panel": _panel(year, month, items, address, day),
     }

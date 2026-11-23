@@ -183,3 +183,47 @@ def test_a_dismissed_panel_does_not_return_after_a_language_change(
         expect(page).to_have_url(re.compile(r"/calendar/2026/5/$"))
         assert "item=" not in page.url
         expect(page.locator("dialog[data-calendar-panel]")).to_have_count(0)
+
+
+def test_a_task_can_be_added_and_ticked_off_from_the_month(browser_endpoint, live_server, user):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        page.get_by_role("link", name="New task").click()
+        page.locator("input[name=planned_date]").fill("2026-05-14")
+        page.locator("input[name=title]").fill("Synthetic browser task")
+        page.get_by_role("button", name="Save task").click()
+        expect(page).to_have_url(re.compile(r"/calendar/2026/5/\?item=task-\d+$"))
+        panel = page.locator("dialog[data-calendar-panel]")
+        expect(panel).to_be_visible()
+        expect(page.locator("#calendar-panel-title")).to_have_text("Synthetic browser task")
+        expect(panel).to_contain_text("Planned for May 14, 2026")
+        task_id = re.search(r"item=task-(\d+)", page.url).group(1)
+        panel.get_by_role("button", name="Mark done").click()
+        done_day = page.locator('.calendar-day[data-date="2026-05-09"]')
+        expect(done_day).to_contain_text("Done")
+        expect(done_day.locator(f"#calendar-item-task-{task_id}")).to_have_count(1)
+
+
+def test_a_task_panel_states_its_controls_and_keeps_focus_order(
+    browser_endpoint, live_server, user
+):
+    from planner import services
+
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 12), title="Synthetic focus task"
+    ).task
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        link = page.locator(f"#calendar-item-task-{task.pk}")
+        link.focus()
+        page.keyboard.press("Enter")
+        panel = page.locator("dialog[data-calendar-panel]")
+        expect(panel).to_be_visible()
+        expect(page.locator("#calendar-panel-title")).to_be_focused()
+        page.keyboard.press("Tab")
+        expect(page.locator("[data-calendar-close]")).to_be_focused()
+        page.keyboard.press("Escape")
+        expect(panel).to_be_hidden()
+        expect(link).to_be_focused()

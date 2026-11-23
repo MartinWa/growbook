@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete task' %} · GrowBook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete task' %}: {{ task }}</h1>
+  <p>{% translate 'This permanently removes the task. Linked records and diary entries are kept.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert">{% include 'planner/form_errors.html' %}</div>
+    {{ form.expected_updated_at }}
+    <p>{{ form.confirm }} {{ form.confirm.label_tag }}</p>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-error">{% translate 'Delete task' %}</button>
+      <a href="{{ cancel_url }}">{% translate 'Cancel' %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

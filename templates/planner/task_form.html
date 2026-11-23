@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ title }} · GrowBook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{{ title }}</h1>
+  <p class="field-help">{% translate 'A completed task moves to the day it was done. The planned date stays visible when the task is opened.' %}</p>
+  <form id="task-form" method="post" action="{{ action }}" data-task-form>
+    {% csrf_token %}
+    <div id="task-errors" role="alert" tabindex="-1">{% include 'planner/form_errors.html' %}</div>
+    {% for field in form %}{% include 'components/field.html' %}{% endfor %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% translate 'Save task' %}</button>
+      <a href="{{ cancel_url }}">{% translate 'Cancel' %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

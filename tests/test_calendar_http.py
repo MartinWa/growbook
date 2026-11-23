@@ -269,8 +269,9 @@ def test_the_month_page_needs_no_per_item_queries(client, user, garden, django_a
     for day in (3, 9, 20):
         make_entry(user, day=date(2026, 5, day), show_in_calendar=True)
     client.force_login(user)
-    # Session, user, events, entries, their links and one query per filter choice.
-    with django_assert_num_queries(12):
+    # Session, user, events, entries and tasks with their links, the month note
+    # and one query per filter choice.
+    with django_assert_num_queries(15):
         response = client.get(month_url())
     assert response.status_code == 200
 

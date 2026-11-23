@@ -30,6 +30,7 @@ from planner.queries import (
     previous_year_items,
     weekday_names,
 )
+from planner.services import create_task
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -75,6 +76,10 @@ def make_entry(
         show_in_calendar=show_in_calendar,
         action=action,
     ).entry
+
+
+def make_task(user, *, day=date(2026, 5, 10), title="Synthetic task", links=()):
+    return create_task(actor=user, planned_date=day, title=title, links=links).task
 
 
 def test_month_bounds_include_the_leap_day():
@@ -435,9 +440,12 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
             make_entry(user, day=date(2026, 5, day), show_in_calendar=True),
             garden.planting,
         )
-    with django_assert_num_queries(3):
+    for day in (4, 11, 21):
+        make_task(user, day=date(2026, 5, day), links=(("planting", garden.planting.pk),))
+    # Events, entries, tasks, and one link query for entries and one for tasks.
+    with django_assert_num_queries(5):
         items = month_items(2026, 5)
-    assert len(items) == 5
+    assert len(items) == 8
 
 
 def test_a_recorded_link_wins_over_an_inferred_pair(user, garden):

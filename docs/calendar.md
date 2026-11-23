@@ -14,6 +14,11 @@ behavior — saving, retries, navigation between pages — is in
 - **Diary observations** appear only when **Show in calendar** was ticked while writing or
   editing them. The tick is optional: an observation does not need to appear just because
   it has a date.
+- **Planned tasks** are the calendar's own small notes for work ahead. A task with no
+  completion date sits on its planned date and shows as planned. **Mark done** records the
+  day it was done and moves it there; **Reopen task** puts it back on the planned date. A
+  task may link one growing area, crop, variety or planting, and the link is what the area,
+  crop, variety and planting filters match.
 - **One item for one save.** When an observation records a planting event, the calendar
   shows a single item that opens both the observation and the event. The item sits on the
   event's date, so it follows the event when the two dates differ; the observation is
@@ -45,8 +50,10 @@ behavior — saving, retries, navigation between pages — is in
 
 Selecting a label opens a panel with its full title, its date, what kind of item it is, its
 note and links to the records it belongs to. A combined item links both the observation
-and the planting event; an event links to its planting. **Escape** or the close button
-closes the panel and returns focus to the label you opened.
+and the planting event; an event links to its planting. A task shows its planned date when
+it was completed on another day, and carries **Mark done** or **Reopen task**, **Edit task**
+and **Delete task**. **Escape** or the close button closes the panel and returns focus to
+the label you opened.
 
 A day shows up to three labels. **+N more** opens the same panel listing everything on
 that day, and each label there opens its own panel. The open item and the open day are
@@ -68,14 +75,35 @@ month** keep the filters, so a filtered month can be walked through. Back return
 previous view with its filters and controls intact. A filter or address the calendar
 cannot read is not found rather than silently ignored.
 
+## Writing a task
+
+**New task** in the heading opens a form with a date, an optional title, an optional note
+and an optional linked record. One of the title or the note is required. **Edit task** in
+the panel changes the same fields, and **Delete task** asks for confirmation. A completed
+task keeps its completion day when it is edited.
+
+Every save carries a save key and a version, so an interrupted save can be retried without
+creating a second task, and a form opened in one tab cannot overwrite a change saved in
+another. A retried save that is no longer current changes nothing and explains why.
+
 ## This time last year
 
-The side column lists the same month one year earlier: planting events, observations and
-any paired items, each linking to its record. It follows the active filters. Nothing is
-copied into the current year automatically.
+The side column lists the same month one year earlier: planting events, observations,
+tasks and any paired items, each linking to its record. It follows the active filters,
+and a task appears on the day it was completed. **Add to this year** opens the same task
+form with the previous year's title, note, link and day; the date is always yours to
+choose, and saving creates an ordinary task in the shown month. Nothing is copied into
+the current year automatically.
 
-## Read-only
+## Month note
 
-The calendar only reads existing records. Planned work is written where it belongs: as a
-planting event in [Plantings](plantings.md), or as a diary observation with **Show in
-calendar** ticked.
+Below **This time last year** is one shared note for the shown month. It is saved with
+**Save note** and is visible to everyone who reads that month. A note saved in two tabs,
+or a first note that appears while the form is open, is not overwritten: the save explains
+that the note changed and keeps the text you wrote so it can be retried.
+
+## Read-only records
+
+Planting events and diary observations are written where they belong: in
+[Plantings](plantings.md) and [Diary](diary.md). The calendar edits only its own tasks and
+notes, and the panel links every other item to its record.

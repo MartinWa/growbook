@@ -1,0 +1,280 @@
+"""Calendar task and month-note writes over HTTP: forms, receipts and permissions."""
+
+from datetime import date
+from types import SimpleNamespace
+from uuid import uuid4
+
+import pytest
+from django.urls import reverse
+
+from core import receipts
+from garden.services import create_area, create_crop, create_planting, create_planting_event
+from planner import services
+from planner.models import MonthNote, PlannedTask
+
+pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.fixture
+def garden(user):
+    crop = create_crop(actor=user, name="Synthetic tomato").record
+    area = create_area(actor=user, name="Synthetic bed").record
+    planting = create_planting(
+        actor=user, crop=crop, start_year=2026, area=area, label="Synthetic batch"
+    ).record
+    return SimpleNamespace(crop=crop, area=area, planting=planting)
+
+
+def task_payload(**changes):
+    values = {
+        "submission_key": str(uuid4()),
+        "planned_date": "2026-05-12",
+        "title": "Synthetic task",
+        "note": "",
+    }
+    return {**values, **changes}
+
+
+def test_new_and_edit_forms_need_a_signed_in_member(client, db):
+    new_url = reverse("planner:task-new", args=[2026, 5])
+    response = client.get(new_url)
+    assert response.status_code == 302 and "/login/" in response["Location"]
+    assert client.post(new_url, task_payload()).status_code == 302
+
+
+def test_a_new_task_is_created_and_opened_in_its_month(client, user):
+    client.force_login(user)
+    url = reverse("planner:task-new", args=[2026, 5])
+    response = client.post(url, task_payload())
+    task = PlannedTask.objects.get()
+    assert response.status_code == 302
+    assert response["Location"] == f"/calendar/2026/5/?item=task-{task.pk}"
+    page = client.get(response["Location"])
+    assert page.status_code == 200
+    assert b"Synthetic task" in page.content
+
+
+def test_a_retried_new_task_returns_the_same_task(client, user):
+    client.force_login(user)
+    url = reverse("planner:task-new", args=[2026, 5])
+    payload = task_payload()
+    first = client.post(url, payload)
+    second = client.post(url, payload)
+    assert first.status_code == second.status_code == 302
+    assert first["Location"] == second["Location"]
+    assert PlannedTask.objects.count() == 1
+
+
+def test_a_task_form_needs_a_title_or_a_note(client, user):
+    client.force_login(user)
+    response = client.post(
+        reverse("planner:task-new", args=[2026, 5]), task_payload(title="", note="")
+    )
+    assert response.status_code == 422
+    assert PlannedTask.objects.count() == 0
+
+
+def test_the_month_page_offers_the_new_task_link_and_the_note_form(client, user):
+    client.force_login(user)
+    response = client.get(reverse("planner:month", args=[2026, 5]) + "?area=")
+    assert response.status_code == 200
+    assert reverse("planner:task-new", args=[2026, 5]).encode() in response.content
+    assert b'name="body"' in response.content
+    assert reverse("planner:note", args=[2026, 5]).encode() in response.content
+
+
+def test_a_previous_year_item_prefills_the_new_task_form(client, user, garden):
+    event = create_planting_event(
+        actor=user, planting=garden.planting, kind="sowing", actual_date=date(2025, 5, 4)
+    ).record
+    client.force_login(user)
+    page = client.get(reverse("planner:month", args=[2026, 5]))
+    assert f"?from=event-{event.pk}".encode() in page.content
+    response = client.get(reverse("planner:task-new", args=[2026, 5]) + f"?from=event-{event.pk}")
+    assert response.status_code == 200
+    assert b'value="2026-05-04"' in response.content
+    assert b"Synthetic batch" in response.content
+
+
+def test_an_unknown_previous_year_item_is_not_found(client, user):
+    client.force_login(user)
+    response = client.get(reverse("planner:task-new", args=[2026, 5]) + "?from=event-999")
+    assert response.status_code == 404
+
+
+def test_editing_a_task_rejects_a_stale_version(client, user):
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+    version = task.updated_at
+    services.edit_task(
+        actor=user,
+        pk=task.pk,
+        planned_date=date(2026, 5, 10),
+        title="Later title",
+        expected_updated_at=version,
+        submission_key=receipts.submission_key(None),
+    )
+    client.force_login(user)
+    url = reverse("planner:task-edit", args=[task.pk])
+    payload = {
+        "submission_key": str(uuid4()),
+        "planned_date": "2026-05-10",
+        "title": "Stale title",
+        "expected_updated_at": version.isoformat(),
+    }
+    response = client.post(url, payload)
+    assert response.status_code == 409
+    task.refresh_from_db()
+    assert task.title == "Later title"
+    fresh = {
+        **payload,
+        "expected_updated_at": task.updated_at.isoformat(),
+        "submission_key": str(uuid4()),
+    }
+    assert client.post(url, fresh).status_code == 302
+    task.refresh_from_db()
+    assert task.title == "Stale title"
+
+
+def test_the_panel_completes_and_reopens_a_task(client, user):
+    client.force_login(user)
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+    panel = client.get(reverse("planner:month", args=[2026, 5]) + f"?item=task-{task.pk}")
+    assert reverse("planner:task-complete", args=[task.pk]).encode() in panel.content
+    response = client.post(
+        reverse("planner:task-complete", args=[task.pk]),
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": task.updated_at.isoformat(),
+            "completed_on": "2026-05-12",
+        },
+    )
+    assert response.status_code == 302
+    task.refresh_from_db()
+    assert task.completed_on == date(2026, 5, 12)
+    panel = client.get(reverse("planner:month", args=[2026, 5]) + f"?item=task-{task.pk}")
+    assert reverse("planner:task-reopen", args=[task.pk]).encode() in panel.content
+    response = client.post(
+        reverse("planner:task-reopen", args=[task.pk]),
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": task.updated_at.isoformat(),
+        },
+    )
+    assert response.status_code == 302
+    task.refresh_from_db()
+    assert task.completed_on is None
+
+
+def test_a_stale_panel_action_changes_nothing(client, user):
+    client.force_login(user)
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+    version = task.updated_at
+    services.edit_task(
+        actor=user,
+        pk=task.pk,
+        planned_date=date(2026, 5, 10),
+        title="Later title",
+        expected_updated_at=version,
+        submission_key=receipts.submission_key(None),
+    )
+    response = client.post(
+        reverse("planner:task-complete", args=[task.pk]),
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": version.isoformat(),
+            "completed_on": "2026-05-12",
+        },
+    )
+    assert response.status_code == 302
+    task.refresh_from_db()
+    assert task.completed_on is None
+
+
+def test_deleting_a_task_needs_confirmation(client, user):
+    client.force_login(user)
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+    url = reverse("planner:task-delete", args=[task.pk])
+    assert client.get(url).status_code == 200
+    refused = client.post(url, {"expected_updated_at": task.updated_at.isoformat()})
+    assert refused.status_code == 422
+    assert PlannedTask.objects.filter(pk=task.pk).exists()
+    accepted = client.post(
+        url,
+        {"expected_updated_at": task.updated_at.isoformat(), "confirm": "on"},
+    )
+    assert accepted.status_code == 302
+    assert not PlannedTask.objects.filter(pk=task.pk).exists()
+
+
+def test_the_month_note_is_saved_and_a_stale_save_keeps_the_text(client, user):
+    client.force_login(user)
+    url = reverse("planner:note", args=[2026, 5])
+    response = client.post(
+        url,
+        {"submission_key": str(uuid4()), "body": "Synthetic note"},
+    )
+    assert response.status_code == 302
+    note = MonthNote.objects.get(year=2026, month=5)
+    assert note.body == "Synthetic note"
+    stale = client.post(
+        url,
+        {
+            "submission_key": str(uuid4()),
+            "body": "Stale text",
+            "expected_updated_at": "2026-05-01T10:00:00+00:00",
+        },
+    )
+    assert stale.status_code == 409
+    assert b"Stale text" in stale.content
+    note.refresh_from_db()
+    assert note.body == "Synthetic note"
+
+
+def test_a_note_retry_is_idempotent(client, user):
+    client.force_login(user)
+    url = reverse("planner:note", args=[2026, 5])
+    payload = {"submission_key": str(uuid4()), "body": "Synthetic note"}
+    assert client.post(url, payload).status_code == 302
+    assert client.post(url, payload).status_code == 302
+    assert MonthNote.objects.count() == 1
+
+
+def test_an_out_of_range_month_has_no_task_form(client, user):
+    client.force_login(user)
+    assert client.get(reverse("planner:task-new", args=[1999, 5])).status_code == 404
+    assert (
+        client.post(
+            reverse("planner:note", args=[1999, 5]),
+            {"submission_key": str(uuid4()), "body": "Synthetic note"},
+        ).status_code
+        == 404
+    )
+
+
+def test_an_inactive_account_cannot_write(client, user):
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+    user.is_active = False
+    user.save(update_fields=["is_active"])
+    client.force_login(user)
+    response = client.post(
+        reverse("planner:task-complete", args=[task.pk]),
+        {
+            "submission_key": str(uuid4()),
+            "expected_updated_at": task.updated_at.isoformat(),
+            "completed_on": "2026-05-12",
+        },
+    )
+    # A deactivated account is signed out rather than served the write.
+    assert response.status_code == 302 and "/login/" in response["Location"]
+    task.refresh_from_db()
+    assert task.completed_on is None

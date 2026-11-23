@@ -1919,6 +1919,38 @@
     @apply bg-base-200/70;
   }
 
+  .calendar-add {
+    @apply mt-1 inline-block text-xs font-medium text-secondary underline underline-offset-2;
+  }
+
+  .calendar-add:hover {
+    @apply bg-base-200/70;
+  }
+
+  .calendar-note {
+    @apply mt-4 border-t border-base-300 pt-3;
+  }
+
+  .calendar-note > summary {
+    @apply cursor-pointer text-lg font-semibold;
+  }
+
+  .calendar-note-text {
+    @apply mt-2 text-sm;
+  }
+
+  .calendar-note-form {
+    @apply mt-2;
+  }
+
+  .calendar-note-form textarea {
+    @apply w-full;
+  }
+
+  .calendar-panel-links form {
+    @apply contents;
+  }
+
   .calendar-grid {
     @apply w-full border-collapse overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-notebook;
     table-layout: fixed;
