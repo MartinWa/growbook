@@ -108,8 +108,10 @@ def test_month_page_includes_the_leap_day_and_its_items(client, user, garden):
     response = client.get(month_url(2024, 2))
     assert response.status_code == 200
     assert 'data-date="2024-02-29"' in response.text
-    assert f'href="{record.get_absolute_url()}"' in response.text
+    assert f"item=event-{record.pk}" in response.text
     assert '<caption class="calendar-caption">februari 2024</caption>' in response.text
+    panel = client.get(f"{month_url(2024, 2)}?item=event-{record.pk}")
+    assert f'href="{record.get_absolute_url()}"' in panel.text
 
 
 def test_today_is_marked_with_aria_current(client, user):
@@ -164,9 +166,11 @@ def test_entry_and_event_render_once_with_both_links(client, user, garden):
     response = client.get(month_url())
     assert response.status_code == 200
     assert response.text.count("Synthetic combined observation") == 1
-    assert f'href="{entry.get_absolute_url()}"' in response.text
-    assert f"#event-{entry.event_id}" in response.text
-    assert "Odlingshändelse" in response.text
+    assert f"item=entry-{entry.pk}" in response.text
+    panel = client.get(f"{month_url()}?item=entry-{entry.pk}")
+    assert f'href="{entry.get_absolute_url()}"' in panel.text
+    assert f"#event-{entry.event_id}" in panel.text
+    assert "Odlingshändelse" in panel.text
 
 
 def test_untitled_photo_only_entry_shows_its_localized_date(client, user, image_upload):
@@ -265,8 +269,8 @@ def test_the_month_page_needs_no_per_item_queries(client, user, garden, django_a
     for day in (3, 9, 20):
         make_entry(user, day=date(2026, 5, day), show_in_calendar=True)
     client.force_login(user)
-    # Session, user, events, entries and their planting links: no per-item query.
-    with django_assert_num_queries(5):
+    # Session, user, events, entries, their links and one query per filter choice.
+    with django_assert_num_queries(12):
         response = client.get(month_url())
     assert response.status_code == 200
 
@@ -285,4 +289,174 @@ def test_divergent_event_date_wins_on_the_page(client, user, garden):
     days = re.findall(r'data-date="(\d{4}-\d{2}-\d{2})"', response.text)
     assert days.count("2026-05-09") == 1
     assert days.count("2026-05-12") == 1
-    assert response.text.count(entry.get_absolute_url()) == 1
+    cell = re.search(
+        r'<td class="calendar-day[^"]*" data-date="2026-05-12">(.*?)</td>', response.text, re.S
+    )
+    assert f"item=entry-{entry.pk}" in cell.group(1)
+    panel = client.get(f"{month_url()}?item=entry-{entry.pk}")
+    assert f'href="{entry.get_absolute_url()}"' in panel.text
+
+
+def item_id(kind, pk):
+    return f'calendar-item-{kind}-{pk}"'
+
+
+def test_filters_narrow_the_month_and_survive_navigation(client, user, garden):
+    other_crop = create_crop(actor=user, name="Synthetic bean").record
+    other_area = create_area(actor=user, name="Synthetic far bed").record
+    other = create_planting(actor=user, crop=other_crop, start_year=2026, area=other_area).record
+    inside = make_event(user, garden, planned=date(2026, 5, 10))
+    outside = create_planting_event(
+        actor=user, planting=other, kind="sowing", planned_date=date(2026, 5, 11)
+    ).record
+    client.force_login(user)
+    filtered = client.get(f"{month_url()}?area={garden.area.pk}")
+    assert filtered.status_code == 200
+    assert item_id("event", inside.pk) in filtered.text
+    assert item_id("event", outside.pk) not in filtered.text
+    previous = client.get(
+        f"{month_url(2026, 6)}?area={garden.area.pk}&planting={garden.planting.pk}"
+    )
+    assert f"/calendar/2026/5/?area={garden.area.pk}&amp;planting={garden.planting.pk}" in (
+        previous.text
+    )
+    assert "item=" not in re.search(r'rel="prev" href="([^"]+)"', previous.text).group(1)
+
+
+def test_type_toggles_hide_one_source(client, user, garden):
+    event = make_event(user, garden, planned=date(2026, 5, 10))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    client.force_login(user)
+    events_only = client.get(f"{month_url()}?type=event")
+    assert item_id("event", event.pk) in events_only.text
+    assert item_id("entry", entry.pk) not in events_only.text
+    entries_only = client.get(f"{month_url()}?type=entry")
+    assert item_id("entry", entry.pk) in entries_only.text
+    assert item_id("event", event.pk) not in entries_only.text
+    combined = client.get(f"{month_url()}?type=event&type=entry")
+    assert item_id("event", event.pk) in combined.text
+    assert item_id("entry", entry.pk) in combined.text
+
+
+def test_invalid_filters_are_not_found(client, user, garden):
+    client.force_login(user)
+    assert client.get(f"{month_url()}?area=999999").status_code == 404
+    assert client.get(f"{month_url()}?type=bogus").status_code == 404
+    assert client.get(f"{month_url()}?planting=not-a-number").status_code == 404
+
+
+def test_an_opened_item_shows_its_note_and_links(client, user, garden):
+    entry = make_entry(
+        user,
+        day=date(2026, 5, 9),
+        title="Synthetic panel observation",
+        body="Synthetic panel note",
+        show_in_calendar=True,
+    )
+    client.force_login(user)
+    response = client.get(f"{month_url()}?item=entry-{entry.pk}")
+    assert response.status_code == 200
+    assert re.search(r"<dialog[^>]*data-calendar-panel[^>]*\bopen\b", response.text)
+    assert 'data-return-focus="calendar-item-entry-' + str(entry.pk) + '"' in response.text
+    assert 'data-close-url="/calendar/2026/5/"' in response.text
+    assert response.text.count("Synthetic panel observation") == 2
+    assert "Synthetic panel note" in response.text
+    assert f'href="{entry.get_absolute_url()}"' in response.text
+    assert 'class="calendar-item-title"' in response.text
+
+
+def test_an_opened_item_outranks_an_opened_day(client, user, garden):
+    event = make_event(user, garden, planned=date(2026, 5, 10))
+    client.force_login(user)
+    response = client.get(f"{month_url()}?item=event-{event.pk}&day=10")
+    assert response.status_code == 200
+    assert "Everything on this day" not in response.text
+    assert 'data-return-focus="calendar-item-event-' + str(event.pk) + '"' in response.text
+
+
+def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
+    records = [
+        make_event(user, garden, kind=kind, planned=date(2026, 5, 10))
+        for kind in ("sowing", "transplant", "replanting", "harvest_start")
+    ]
+    client.force_login(user)
+    month = client.get(month_url())
+    cell = re.search(r'data-date="2026-05-10">(.*?)</td>', month.text, re.S).group(1)
+    assert cell.count('class="calendar-item-title"') == 3
+    assert "+1 more" in cell
+    day = client.get(f"{month_url()}?day=10")
+    assert day.status_code == 200
+    for record in records:
+        assert item_id("event", record.pk) in day.text
+
+
+def test_a_day_without_items_and_unknown_addresses_are_not_found(client, user, garden):
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=False)
+    client.force_login(user)
+    assert client.get(f"{month_url()}?day=32").status_code == 404
+    assert client.get(f"{month_url(2026, 4)}?day=31").status_code == 404
+    assert client.get(f"{month_url()}?item=nonsense").status_code == 404
+    assert client.get(f"{month_url()}?item=event-999999").status_code == 404
+    assert client.get(f"{month_url()}?item=entry-{entry.pk}").status_code == 404
+
+
+def test_a_day_without_items_says_so(client, user):
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    response = client.get(f"{month_url()}?day=10")
+    assert response.status_code == 200
+    assert "Nothing on this day with the current filters." in response.text
+
+
+def test_previous_year_items_link_their_records(client, user, garden):
+    last_year = make_event(user, garden, planned=date(2025, 5, 10))
+    client.force_login(user)
+    response = client.get(month_url())
+    assert response.status_code == 200
+    side = re.search(r'<aside class="calendar-side".*?</aside>', response.text, re.S).group(0)
+    assert f'href="{last_year.get_absolute_url()}"' in side
+
+
+def test_the_htmx_request_returns_only_the_results(client, user, garden):
+    make_event(user, garden, planned=date(2026, 5, 10))
+    client.force_login(user)
+    partial = client.get(
+        month_url(), headers={"HX-Request": "true", "HX-Target": "calendar-results"}
+    )
+    assert partial.status_code == 200
+    assert "<html" not in partial.text
+    assert 'id="calendar-results"' in partial.text
+    assert 'class="calendar-grid"' in partial.text
+    other = client.get(month_url(), headers={"HX-Request": "true", "HX-Target": "somewhere"})
+    assert "<html" in other.text
+
+
+def test_filters_plus_an_item_still_render_the_panel(client, user, garden):
+    entry = make_entry(
+        user, day=date(2026, 5, 9), body="Synthetic filtered note", show_in_calendar=True
+    )
+    client.force_login(user)
+    response = client.get(f"{month_url()}?crop={garden.crop.pk}&item=entry-{entry.pk}")
+    assert response.status_code == 200
+    assert "Synthetic filtered note" in response.text
+    cell = re.search(r'data-date="2026-05-09">(.*?)</td>', response.text, re.S).group(1)
+    assert "calendar-item" not in cell
+
+
+def test_the_current_month_redirect_keeps_the_filters(client, user):
+    client.force_login(user)
+    today = timezone.localdate()
+    response = client.get(f"{reverse('planner:current')}?type=entry&item=entry-3&day=9")
+    assert response.status_code == 302
+    assert response.url == (
+        f"{reverse('planner:month', args=[today.year, today.month])}?type=entry"
+    )
+
+
+def test_an_empty_filtered_month_says_so(client, user, garden):
+    make_event(user, garden, planned=date(2026, 5, 10))
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    response = client.get(f"{month_url()}?type=entry")
+    assert response.status_code == 200
+    assert "No calendar items match these filters." in response.text

@@ -97,16 +97,19 @@ def test_planned_and_done_events_move_to_their_actual_date(user, garden):
         (planned.pk, date(2026, 5, 10), True),
         (done.pk, date(2026, 5, 20), False),
     ]
-    assert items[0].state_label == "Planerad"
-    assert items[1].state_label == "Klart"
+    # A localized request elsewhere leaves the active language set; state it here.
+    with translation.override("sv"):
+        assert items[0].state_label == "Planerad"
+        assert items[1].state_label == "Klart"
 
 
 def test_event_with_only_a_planned_date_is_planned(user, garden):
     record = make_event(user, garden, planned=date(2026, 5, 10))
     item = month_items(2026, 5)[0]
     assert item.event == record
-    assert "Sådd" in item.title
-    assert "Planerad" in item.meta
+    with translation.override("sv"):
+        assert "Sådd" in item.title
+        assert "Planerad" in item.meta
 
 
 def test_entry_and_event_render_once_on_the_event_date(user, garden):

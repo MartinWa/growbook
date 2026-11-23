@@ -2455,3 +2455,53 @@ msgid ""
 msgstr ""
 "Odlingshändelser visas automatiskt i kalendern. Markera detta för att visa "
 "en anteckning som inte har någon odlingshändelse."
+
+msgid "Filters"
+msgstr "Filter"
+
+msgid "Item type"
+msgstr "Posttyp"
+
+msgid "This time last year"
+msgstr "Samma tid i fjol"
+
+msgid "Nothing recorded in this month a year ago."
+msgstr "Inget registrerat den här månaden i fjol."
+
+msgid "+{{ number }} more"
+msgstr "+{{ number }} till"
+
+msgid "Everything on this day"
+msgstr "Allt den här dagen"
+
+msgid "Nothing on this day with the current filters."
+msgstr "Inget den här dagen med nuvarande filter."
+
+msgid "Close"
+msgstr "Stäng"
+
+msgid "Record links"
+msgstr "Länkar till poster"
+
+msgid "Open observation"
+msgstr "Öppna observation"
+
+msgid "Open planting event"
+msgstr "Öppna odlingshändelse"
+
+msgid ""
+"Filters combine and match the diary: a planting match also includes its "
+"crop, variety and area, and an area filter includes its subareas."
+msgstr ""
+"Filtren kombineras och fungerar som i dagboken: en plantering omfattar även "
+"dess gröda, sort och yta, och ett ytfilter omfattar även underytor."
+
+msgid ""
+"Your session expired. Log in in another tab, then retry without closing this "
+"page."
+msgstr ""
+"Din session har gått ut. Logga in på en annan flik och försök igen utan att "
+"stänga sidan."
+
+msgid "No calendar items match these filters."
+msgstr "Inga kalenderposter matchar dessa filter."

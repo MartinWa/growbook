@@ -1,9 +1,10 @@
 # Calendar
 
 The calendar shows one month at a time: planting events and the observations you chose
-to show, so planned work and what actually happened sit on the same page. It is
-read-only: opening an item leads to the record that owns it. Shared behavior — saving,
-retries, navigation between pages — is in [Getting started](getting-started.md).
+to show, so planned work and what actually happened sit on the same page. Selecting an
+item opens a small panel; the records themselves are edited where they belong. Shared
+behavior — saving, retries, navigation between pages — is in
+[Getting started](getting-started.md).
 
 ## What appears
 
@@ -37,6 +38,39 @@ retries, navigation between pages — is in [Getting started](getting-started.md
   on narrow screens it becomes a list of the days that have something on them.
 - **2000** is the earliest year, and **next year** the latest. A month outside that range
   is not found rather than an empty page, so old links fail visibly.
+
+## Opening an item
+
+Selecting a label opens a panel with its full title, its date, what kind of item it is, its
+note and links to the records it belongs to. A combined item links both the observation
+and the planting event; an event links to its planting. **Escape** or the close button
+closes the panel and returns focus to the label you opened.
+
+A day shows up to three labels. **+N more** opens the same panel listing everything on
+that day, and each label there opens its own panel. The open item and the open day are
+both in the address, so a link to one can be shared. Opening a specific item wins over an
+opened day, and changing the month or a filter closes both.
+
+Without JavaScript the panel is part of the page, the close control is an ordinary link,
+and every item still reaches its record.
+
+## Filters
+
+**Filters** narrows the month by item type, growing area, crop, variety and planting. The
+filters combine, and they mean the same as in the diary: a planting match also includes
+its crop, variety and area, and an area filter includes its subareas. The chosen filters
+appear as chips that remove them one at a time, with **Clear filters** to start over.
+
+Changing a filter stays in the same month, and **Previous**, **Next** and **Current
+month** keep the filters, so a filtered month can be walked through. Back returns to the
+previous view with its filters and controls intact. A filter or address the calendar
+cannot read is not found rather than silently ignored.
+
+## This time last year
+
+The side column lists the same month one year earlier: planting events, observations and
+any paired items, each linking to its record. It follows the active filters. Nothing is
+copied into the current year automatically.
 
 ## Read-only
 

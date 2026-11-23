@@ -21,7 +21,8 @@ retries, unsaved writing and photo limits — is in [Getting started](getting-st
 - **Show in calendar** adds the observation to the [calendar](calendar.md). It is off by
   default, because planting events already appear there. When a ticked observation records
   a planting event in the same save, the calendar shows one item for both and places it on
-  the event's date.
+  the event's date. An observation tagged with a planting but not linked to an event is
+  shown with that planting's single event on the observation's own date.
 - **Save observation** confirms the save, clears the composer and refreshes the list with
   the current filters. A failed save keeps the draft and selected photos.
 

@@ -53,6 +53,32 @@ def entry_label(entry):
     return excerpt
 
 
+ITEM_SEPARATOR = "-"
+ITEM_KINDS = ("event", "entry")
+CELL_LIMIT = 3
+
+
+def parse_item(value):
+    """Return ``(kind, pk)`` for an ``item=`` address, or None when it is not one."""
+    if not isinstance(value, str):
+        return None
+    kind, separator, number = value.partition(ITEM_SEPARATOR)
+    if not separator or kind not in ITEM_KINDS or not number.isdigit():
+        return None
+    pk = int(number)
+    return (kind, pk) if pk > 0 else None
+
+
+def parse_day(value, year, month):
+    """Return the day of the month named by ``day=``, or None when it is not one."""
+    if not isinstance(value, str) or not value.isdigit():
+        return None
+    number = int(value)
+    if not 1 <= number <= calendar.monthrange(year, month)[1]:
+        return None
+    return date(year, month, number)
+
+
 @dataclass(frozen=True)
 class CalendarItem:
     """One rendered label: an event, an entry, or the pair a save created together."""
@@ -120,6 +146,25 @@ class CalendarItem:
     @property
     def primary_url(self):
         return self.entry_url or self.event_url
+
+    @property
+    def item_param(self):
+        """The ``?item=`` address of this label; a combined item is led by its entry."""
+        if self.entry is not None:
+            return f"entry{ITEM_SEPARATOR}{self.entry.pk}"
+        return f"event{ITEM_SEPARATOR}{self.event.pk}"
+
+    @property
+    def element_id(self):
+        return f"calendar-item-{self.item_param}"
+
+    @property
+    def entry_note(self):
+        return self.entry.body.strip() if self.entry is not None else ""
+
+    @property
+    def event_note(self):
+        return self.event.note.strip() if self.event is not None else ""
 
     @property
     def sort_key(self):
@@ -243,6 +288,16 @@ def month_items(year, month, *, area=None, crop=None, variety=None, planting=Non
     return sorted(items.values(), key=lambda item: item.sort_key)
 
 
+def find_item(year, month, kind, pk, items=None):
+    """The month label an ``item=`` address names, independent of the active filters."""
+    for item in items if items is not None else month_items(year, month):
+        if kind == "entry" and item.entry is not None and item.entry.pk == pk:
+            return item
+        if kind == "event" and item.event is not None and item.event.pk == pk:
+            return item
+    return None
+
+
 def previous_year_items(year, month, **filters):
     """The same month one year earlier, bounded like month navigation."""
     previous = year - 1
@@ -274,22 +329,45 @@ def weekday_names():
     return [date_format(base + timedelta(days=offset), "D") for offset in range(7)]
 
 
-def month_context(year, month, *, today=None):
+def _panel(items, item=None, day=None):
+    """One opened item outranks one opened day, and both are rendered server-side."""
+    if item is not None:
+        return {
+            "kind": "item",
+            "item": item,
+            "date_value": item.day,
+            "date_label": date_format(item.day, "l j F Y"),
+            "return_focus": item.element_id,
+        }
+    if day is not None:
+        return {
+            "kind": "day",
+            "day": day,
+            "date_value": day,
+            "items": [value for value in items if value.day == day],
+            "date_label": date_format(day, "l j F Y"),
+            "return_focus": f"calendar-more-{day.day}",
+        }
+    return None
+
+
+def month_context(year, month, *, today=None, filters=None, item=None, day=None):
     today = today or timezone.localdate()
+    filters = filters or {}
     start, _ = month_bounds(year, month)
-    items = month_items(year, month)
+    items = month_items(year, month, **filters)
     by_day = defaultdict(list)
-    for item in items:
-        by_day[item.day].append(item)
+    for value in items:
+        by_day[value.day].append(value)
     weeks = [
         [
             CalendarDay(
-                day=day,
-                in_month=day.year == year and day.month == month,
-                is_today=day == today,
-                items=by_day.get(day, []),
+                day=date_value,
+                in_month=date_value.year == year and date_value.month == month,
+                is_today=date_value == today,
+                items=by_day.get(date_value, []),
             )
-            for day in week
+            for date_value in week
         ]
         for week in calendar.Calendar(first_weekday()).monthdatescalendar(year, month)
     ]
@@ -303,6 +381,12 @@ def month_context(year, month, *, today=None):
         "weeks": weeks,
         "items": items,
         "has_items": bool(items),
+        "cell_limit": CELL_LIMIT,
         "previous": _navigation(*previous, today=today),
         "following": _navigation(*following, today=today),
+        "previous_year_items": previous_year_items(year, month, **filters),
+        "previous_year_label": date_format(date(year - 1, month, 1), "F Y")
+        if year - 1 >= FIRST_YEAR
+        else "",
+        "panel": _panel(items, item, day),
     }
