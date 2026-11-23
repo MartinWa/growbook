@@ -122,13 +122,12 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ needs.guard.outputs.version }}
-          # Cache layers only match their own architecture, so each platform writes
-          # (and mostly reads) its own scope. ci-production is amd64-only: it keeps the
-          # amd64 release build warm and never matches an arm64 layer.
-          cache-from: |
-            type=gha,scope=release-${{ matrix.suffix }}
-            type=gha,scope=ci-production
-          cache-to: type=gha,scope=release-${{ matrix.suffix }},mode=max
+          # Layers only match their own architecture, so each platform reads its own
+          # scope. A release run only restores: GitHub scopes an Actions cache to the ref
+          # that wrote it, and a run restores the default branch but not another tag, so
+          # a cache written here would be invisible to the next release. The scopes are
+          # written by the CI container jobs on main instead.
+          cache-from: type=gha,scope=ci-production-${{ matrix.suffix }}
           github-token: ""
       - name: Check the image and generate its SBOM
         shell: bash
