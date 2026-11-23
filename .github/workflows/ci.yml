@@ -181,8 +181,43 @@ jobs:
           provenance: false
           tags: growbook:ci
           no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha,scope=ci-production
-          cache-to: type=gha,scope=ci-production,mode=max
+          cache-from: type=gha,scope=ci-production-amd64
+          cache-to: type=gha,scope=ci-production-amd64,mode=max
+          github-token: ""
+      - name: Check the production image as its runtime user
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true --tmpfs /tmp \
+            growbook:ci python tools/check_image.py
+      - name: Audit production image
+        run: bash tools/audit_image.sh growbook:ci
+
+  container-arm64:
+    # aarch64 is built natively rather than emulated, so this leg proves the arm64 image
+    # installs, decodes HEIC and passes the runtime checks on its own architecture. The
+    # release workflow restores this leg's cache scope for its arm64 build; a cache is
+    # scoped to the ref that wrote it, so main is the only place a release tag can read it.
+    name: Container (Linux arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build production image without publishing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          push: false
+          provenance: false
+          tags: growbook:ci
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha,scope=ci-production-arm64
+          cache-to: type=gha,scope=ci-production-arm64,mode=max
           github-token: ""
       - name: Check the production image as its runtime user
         run: |

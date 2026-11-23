@@ -713,16 +713,40 @@ def test_release_workflow_builds_checks_and_publishes_each_platform():
     assert "contents: write" in workflow
     assert "ref: ${{ github.sha }}" in workflow
     assert "TAG_CREATED: ${{ github.event.created }}" in workflow
-    assert "org.opencontainers.image.version=${{ steps.release.outputs.version }}" in workflow
-    assert "GROWBOOK_VERSION=${{ steps.release.outputs.version }}" in workflow
-    for platform in ("linux/amd64", "linux/arm64"):
-        assert f"platforms: {platform}" in workflow
-    assert "platforms: arm64" in workflow
-    assert workflow.count("push-by-digest=true") == 2
-    assert workflow.count("run: bash tools/check_release_image.sh") == 2
+    assert "org.opencontainers.image.version=${{ needs.guard.outputs.version }}" in workflow
+    assert "GROWBOOK_VERSION=${{ needs.guard.outputs.version }}" in workflow
+    # One guard validates the source, waits for CI and refuses an existing version before
+    # either platform spends build minutes.
+    assert "run: python3 tools/publish_release.py --check" in workflow
+    assert workflow.index("run: python3 tools/publish_release.py --check") < workflow.index(
+        "name: Build ${{ matrix.platform }}"
+    )
+    # Each platform is built, checked and audited on a runner of its own architecture.
+    for platform, runner, suffix in (
+        ("linux/amd64", "ubuntu-24.04", "amd64"),
+        ("linux/arm64", "ubuntu-24.04-arm", "arm64"),
+    ):
+        assert f"platform: {platform}" in workflow
+        assert f"runner: {runner}" in workflow
+        assert f"suffix: {suffix}" in workflow
+    assert "platforms: ${{ matrix.platform }}" in workflow
+    assert "runs-on: ${{ matrix.runner }}" in workflow
+    assert "qemu" not in workflow.lower()
+    assert workflow.count("push-by-digest=true") == 1
+    assert workflow.count("run: bash tools/check_release_image.sh") == 1
     assert "sbom-amd64.spdx.json" in workflow
     assert "sbom-arm64.spdx.json" in workflow
-    assert "run: python3 tools/publish_release.py --check" in workflow
+    # An Actions cache is scoped to the ref that wrote it and a run restores the default
+    # branch, not another tag. A release therefore only reads the per-architecture scopes
+    # the CI container jobs write on main; writing here would never be reused.
+    assert "cache-from: type=gha,scope=ci-production-${{ matrix.suffix }}" in workflow
+    assert "cache-to" not in workflow
+    assert "release-amd64" not in workflow
+    # Each platform hands its digest and SBOM to the publishing job through an artifact.
+    assert "name: release-${{ matrix.suffix }}" in workflow
+    assert "pattern: release-*" in workflow
+    assert "merge-multiple: true" in workflow
+    assert 'if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]' in workflow
     # Each platform is checked before the index composed from it is published.
     assert workflow.index("run: bash tools/check_release_image.sh") < workflow.index(
         "- name: Publish the tested index"
@@ -754,6 +778,19 @@ def test_release_workflow_builds_checks_and_publishes_each_platform():
     assert workflow.index("- name: Check the package can be pulled anonymously") > workflow.index(
         "- name: Update latest for the current stable release"
     )
+
+
+def test_ci_builds_and_audits_a_production_image_on_each_architecture():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    for runner, suffix in (("ubuntu-24.04", "amd64"), ("ubuntu-24.04-arm", "arm64")):
+        assert f"runs-on: {runner}" in workflow
+        # The release workflow reads exactly these scopes; neither may be dropped or
+        # renamed without updating release.yml and its test.
+        assert f"cache-from: type=gha,scope=ci-production-{suffix}" in workflow
+        assert f"cache-to: type=gha,scope=ci-production-{suffix},mode=max" in workflow
+    assert workflow.count("run: bash tools/audit_image.sh growbook:ci") == 2
+    assert workflow.count("growbook:ci python tools/check_image.py") == 2
+    assert "type=gha,scope=ci-production\n" not in workflow
 
 
 def test_release_check_runs_inside_each_platform_image():

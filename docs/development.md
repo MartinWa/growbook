@@ -289,14 +289,20 @@ container job validates workflow syntax and the Compose files (the default file,
 optional host-port override and the development file), builds the production image, and
 runs [`tools/check_image.py`](../tools/check_image.py) with disposable storage: migrations,
 deployment settings, non-root execution, refusal without operator configuration, and the
-persisted WAL journal mode.
+persisted WAL journal mode. A second container job does the same build, runtime check and
+Trivy audit on an arm64 runner (named **Container (Linux arm64)**, `ubuntu-24.04-arm`), so
+aarch64 is exercised on every run instead of only at release time, and its cache
+(`ci-production-arm64`) is what the arm64 release build restores from `main`. Add
+**Container (Linux arm64)** to the `main` ruleset so an aarch64-only break cannot reach a
+tag; the release guard waits for the whole CI run, so a skipped or failing arm64 leg blocks
+publishing either way.
 
 The application check job is named **Checks (Linux)**. GitHub required status checks match
 job names exactly; keep the `main` ruleset aligned when renaming a required job.
 
-Weekly scheduled and manually dispatched CI runs build both images without the build cache,
-refreshing Debian package upgrades and installed system dependencies. Pull requests and
-pushes to `main` reuse the cache. A passing scheduled build refreshes CI caches; it does not
+Weekly scheduled and manually dispatched CI runs build every image variant without the
+build cache, refreshing Debian package upgrades and installed system dependencies. Pull
+requests and pushes to `main` reuse the cache. A passing scheduled build refreshes CI caches; it does not
 publish an image or update a running installation. Translation compilation uses a separate
 production build stage, so catalog changes preserve cached application dependencies and
 Chromium installation layers.
@@ -401,21 +407,37 @@ afterwards is safe because an existing image version is never overwritten. A tra
 GitHub API error during the wait is retried; a lookup that keeps failing stops the run
 before anything is published.
 
-The workflow builds each platform separately by digest, then runs
+The workflow builds each platform separately by digest on a runner of that architecture
+(`ubuntu-24.04` for amd64, `ubuntu-24.04-arm` for arm64), then runs
 [`tools/check_release_image.sh`](../tools/check_release_image.sh) per platform: it pulls the
 digest, runs [`tools/check_image.py`](../tools/check_image.py) inside the container (non-root
 runtime, no development tooling, stamped version, HEIC decoding, deployment checks, refusal
 without operator configuration, startup migration and the persisted WAL journal mode) and
 audits the platform with [`tools/audit_image.sh`](../tools/audit_image.sh) while writing its
-SBOM. The published `X.Y.Z` index is composed from those two checked digests, provenance is
-attested against the index and each platform SBOM against its own manifest digest. Only
-after those steps succeed does the workflow create or publish the GitHub Release with
-generated notes, preserving an existing release's notes. If the version is the highest
-published stable version and GitHub identifies it as the current release, `:latest` moves to
-the tested index. Existing image version tags are not overwritten; prereleases and older
-releases do not update `:latest`. A rerun after the image has been pushed stops at the
-no-overwrite guard and requires investigation. There is no automatic deployment; use version
-tags or digests for reproducible deployments.
+SBOM.
+
+The two platform builds run in parallel and hand their digest and SBOM to a publishing job
+through a short-lived workflow artifact.
+
+The release builds only read cache. GitHub scopes an Actions cache to the ref that wrote it:
+a run can restore the default branch, but not caches written under another tag, so a cache
+written during one release cannot be restored by the next. The CI container jobs on `main`
+therefore build the production image for both architectures and write `ci-production-amd64`
+and `ci-production-arm64` with `mode=max`, and each release leg restores its own scope. A
+tagged commit whose CI has passed brings a cache built from exactly that commit. Builds stay
+short until a pinned input (the SQLite, libde265 or libheif source) changes, which
+invalidates the compiled layers for both architectures and makes the next build a full
+compile; an arm64 image is never built under emulation, in CI or in a release.
+
+The publishing job then composes the `X.Y.Z` index from the two checked digests, attests
+provenance against the index and each platform SBOM against its own manifest digest, and
+only then creates or publishes the GitHub Release with generated notes, preserving an
+existing release's notes. If the version is the highest published stable version and GitHub
+identifies it as the current release, `:latest` moves to the tested index. Existing image
+version tags are not overwritten; prereleases and older releases do not update `:latest`.
+A rerun after the image has been pushed stops at the no-overwrite guard and requires
+investigation. There is no automatic deployment; use version tags or digests for
+reproducible deployments.
 
 The server applies pending migrations at startup by default. Set
 `GROWBOOK_MIGRATE_ON_START=false` to run migrations separately; see
@@ -428,9 +450,9 @@ settings before the first release is recommended to anyone; later releases inher
 workflow's last step requests an anonymous pull token and emits a warning naming that manual
 step, so a release never claims public pullability it does not have.
 
-The arm64 image runs under QEMU on the release runner, so that platform is slower to build
-and its first build is the first time it is exercised. Verify an actual arm64 host boots a
-released digest before relying on it.
+The arm64 image is built, checked and audited natively on an arm64 runner, in CI and in the
+release workflow, so a released digest reflects a real aarch64 build. Verify an actual arm64
+host boots a released digest before relying on it.
 
 Before recommending a published image, verify anonymous pulls and its attestation. Keep
 deployment configuration private and pin the published digest rather than a moving tag.
