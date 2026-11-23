@@ -166,6 +166,81 @@ def test_entry_alone_when_its_event_is_in_another_month(user, garden):
     assert [(item.kind, item.day) for item in june] == [("event", date(2026, 6, 1))]
 
 
+def tag_entry(user, entry, *plantings):
+    return update_entry(
+        actor=user,
+        pk=entry.pk,
+        date=entry.date,
+        body=entry.body,
+        show_in_calendar=entry.show_in_calendar,
+        links=[("planting", planting.pk) for planting in plantings],
+        expected_updated_at=entry.updated_at,
+    )
+
+
+def test_tagged_entry_pairs_with_the_event_of_its_planting_on_the_same_day(user, garden):
+    record = make_event(user, garden, actual=date(2026, 5, 9))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    entry = tag_entry(user, entry, garden.planting)
+    items = month_items(2026, 5)
+    assert len(items) == 1
+    assert items[0].kind == "combined"
+    assert items[0].event == record
+    assert items[0].entry == entry
+    assert items[0].day == date(2026, 5, 9)
+
+
+def test_pairing_keeps_an_event_on_another_day_separate(user, garden):
+    record = make_event(user, garden, actual=date(2026, 5, 10))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    entry = tag_entry(user, entry, garden.planting)
+    items = month_items(2026, 5)
+    assert [(item.kind, item.day) for item in items] == [
+        ("entry", date(2026, 5, 9)),
+        ("event", date(2026, 5, 10)),
+    ]
+    assert items[1].event == record
+    assert items[0].event is None
+    assert items[0].entry == entry
+
+
+def test_ambiguous_events_are_not_paired(user, garden):
+    make_event(user, garden, kind="sowing", actual=date(2026, 5, 9))
+    make_event(user, garden, kind="other", actual=date(2026, 5, 9))
+    entry = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    entry = tag_entry(user, entry, garden.planting)
+    items = month_items(2026, 5)
+    assert sorted(item.kind for item in items) == ["entry", "event", "event"]
+    assert [item.entry for item in items if item.kind == "entry"] == [entry]
+
+
+def test_one_event_pairs_with_only_one_entry(user, garden):
+    make_event(user, garden, actual=date(2026, 5, 9))
+    first = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    second = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True)
+    first = tag_entry(user, first, garden.planting)
+    second = tag_entry(user, second, garden.planting)
+    items = month_items(2026, 5)
+    assert sorted(item.kind for item in items) == ["combined", "entry"]
+    combined = next(item for item in items if item.kind == "combined")
+    alone = next(item for item in items if item.kind == "entry")
+    assert (combined.entry, alone.entry) == (first, second)
+
+
+def test_a_second_planting_link_does_not_pair_the_entry(user, garden):
+    other_crop = create_crop(actor=user, name="Synthetic bean").record
+    other = create_planting(actor=user, crop=other_crop, start_year=2026).record
+    make_event(user, garden, actual=date(2026, 5, 9))
+    create_planting_event(actor=user, planting=other, kind="sowing", actual_date=date(2026, 5, 9))
+    tag_entry(
+        user,
+        make_entry(user, day=date(2026, 5, 9), show_in_calendar=True),
+        garden.planting,
+        other,
+    )
+    assert sorted(item.kind for item in month_items(2026, 5)) == ["entry", "event", "event"]
+
+
 def test_hidden_entry_is_absent_from_the_month(user):
     make_entry(user, show_in_calendar=False)
     assert month_items(2026, 5) == []
@@ -350,7 +425,11 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
     make_event(user, garden, planned=date(2026, 5, 10))
     make_event(user, garden, actual=date(2026, 5, 12))
     for day in (3, 9, 20):
-        make_entry(user, day=date(2026, 5, day), show_in_calendar=True)
-    with django_assert_num_queries(2):
+        tag_entry(
+            user,
+            make_entry(user, day=date(2026, 5, day), show_in_calendar=True),
+            garden.planting,
+        )
+    with django_assert_num_queries(3):
         items = month_items(2026, 5)
     assert len(items) == 5

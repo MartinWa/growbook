@@ -5,19 +5,21 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import gettext as _
 
 from core.weeks import first_weekday
-from diary.models import DiaryEntry
+from diary.models import DiaryEntry, DiaryLink
 from garden.models import GrowingArea, PlantingEvent
 from garden.queries import descendant_ids
 
 FIRST_YEAR = 2000
 EXCERPT_LENGTH = 80
+# Only planting links can pair an entry with an event; prefetch nothing else.
+ENTRY_LINKS = Prefetch("links", queryset=DiaryLink.objects.filter(planting__isnull=False))
 
 
 def year_range(today=None):
@@ -176,36 +178,77 @@ def entry_queryset(*, area=None, crop=None, variety=None, planting=None):
     return entries.distinct()
 
 
-def month_items(year, month, *, area=None, crop=None, variety=None, planting=None):
+def _linked_event(entry, event_items, by_planting, claimed):
+    """The event this entry belongs with, or None when the pairing is ambiguous.
+
+    A save that created the event recorded it on the entry. Entries written before
+    that link existed, or events recorded on the plantings page, are paired read-only
+    when exactly one event of a planting the entry links to falls on its date.
+    """
+    if entry.event_id is not None:
+        item = event_items.get(entry.event_id)
+        return item.event if item is not None else None
+    candidates = {
+        event.pk: event
+        for link in entry.links.all()
+        if link.planting_id is not None
+        for event in by_planting.get((link.planting_id, entry.date), ())
+        if event.pk not in claimed
+    }
+    if len(candidates) == 1:
+        return next(iter(candidates.values()))
+    return None
+
+
+def month_items(year, month, *, area=None, crop=None, variety=None, planting=None, kinds=None):
     """Every label for one month, with an entry and its event rendered once."""
     start, end = month_bounds(year, month)
     filters = {"area": area, "crop": crop, "variety": variety, "planting": planting}
+    show_events = kinds is None or "event" in kinds
+    show_entries = kinds is None or "entry" in kinds
+    if not (show_events or show_entries):
+        return []
     events = event_queryset(**filters).filter(
         Q(actual_date__range=(start, end))
         | Q(actual_date__isnull=True, planned_date__range=(start, end))
     )
-    items = {}
+    by_event = {}
+    by_planting = defaultdict(list)
     for event in events:
-        items[("event", event.pk)] = CalendarItem(
-            day=event.actual_date or event.planned_date, event=event
+        day = event.actual_date or event.planned_date
+        by_event[event.pk] = CalendarItem(day=day, event=event)
+        by_planting[(event.planting_id, day)].append(event)
+    items = {("event", pk): item for pk, item in by_event.items()} if show_events else {}
+    if show_entries:
+        entries = (
+            entry_queryset(**filters)
+            .filter(show_in_calendar=True, date__range=(start, end))
+            .prefetch_related(ENTRY_LINKS)
+            .order_by("date", "created_at", "pk")
         )
-    entries = entry_queryset(**filters).filter(show_in_calendar=True, date__range=(start, end))
-    for entry in entries:
-        key = ("event", entry.event_id)
-        if entry.event_id is not None and key in items:
-            current = items[key]
-            items[key] = CalendarItem(day=current.day, event=current.event, entry=entry)
-        else:
-            items[("entry", entry.pk)] = CalendarItem(day=entry.date, entry=entry)
+        claimed = set()
+        for entry in entries:
+            event = _linked_event(entry, by_event, by_planting, claimed)
+            if event is None:
+                items[("entry", entry.pk)] = CalendarItem(day=entry.date, entry=entry)
+                continue
+            claimed.add(event.pk)
+            day = by_event[event.pk].day
+            if show_events:
+                # One item for one save: the entry leads, the event stays linked.
+                items.pop(("event", event.pk), None)
+                items[("event", event.pk)] = CalendarItem(day=day, event=event, entry=entry)
+            else:
+                items[("entry", entry.pk)] = CalendarItem(day=day, entry=entry)
     return sorted(items.values(), key=lambda item: item.sort_key)
 
 
-def previous_year_items(year, month):
+def previous_year_items(year, month, **filters):
     """The same month one year earlier, bounded like month navigation."""
     previous = year - 1
     if previous < FIRST_YEAR:
         return []
-    return month_items(previous, month)
+    return month_items(previous, month, **filters)
 
 
 def _shift(year, month, delta):

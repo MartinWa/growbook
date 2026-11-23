@@ -263,9 +263,10 @@ def test_the_month_page_needs_no_per_item_queries(client, user, garden, django_a
     make_event(user, garden, planned=date(2026, 5, 10))
     make_event(user, garden, actual=date(2026, 5, 12))
     for day in (3, 9, 20):
-        make_entry(user, day=date(2026, 5, day))
+        make_entry(user, day=date(2026, 5, day), show_in_calendar=True)
     client.force_login(user)
-    with django_assert_num_queries(4):
+    # Session, user, events, entries and their planting links: no per-item query.
+    with django_assert_num_queries(5):
         response = client.get(month_url())
     assert response.status_code == 200
 

@@ -19,6 +19,11 @@ retries, navigation between pages — is in [Getting started](getting-started.md
   placed on its own date only when the linked event falls outside the shown month.
   Clearing **Show in calendar** later keeps the event and removes only the observation's
   own label.
+- **One item for one planting on one day.** An observation tagged with a planting is shown
+  together with a single event of that planting on the observation's own date, even when
+  the observation was written before the calendar existed. Only one clear match is paired;
+  when the planting has several events that day, or the observation links several
+  plantings, the records stay separate rather than guessing which event was meant.
 - **Photo-only observations without a title** are labelled with their localized date, so
   they still have a name in the month.
 - **Today** is marked, and month and weekday names follow the interface language.
