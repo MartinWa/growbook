@@ -24,25 +24,25 @@ def _active_filters(request, form, year, month):
     base = reverse("planner:month", args=[year, month])
     chips = []
     for name in FILTER_FIELDS:
-        chosen = request.GET.getlist(name)
+        # An empty select still submits its name when a form is sent without JavaScript.
+        chosen = [value for value in request.GET.getlist(name) if value]
         if not chosen:
             continue
         field = form.fields[name]
         if name == "type":
-            display = ", ".join(
-                str(dict(field.choices).get(value, value)) for value in chosen if value
-            )
+            display = ", ".join(str(dict(field.choices).get(value, value)) for value in chosen)
         else:
             selected = form.cleaned_data.get(name)
             display = field.label_from_instance(selected) if selected is not None else chosen[0]
         remaining = request.GET.copy()
         for key in (name, "item", "day"):
             remaining.pop(key, None)
+        query = remaining.urlencode()
         chips.append(
             {
                 "label": field.label,
                 "value": _trim(display),
-                "url": f"{base}?{remaining.urlencode()}",
+                "url": f"{base}?{query}" if query else base,
             }
         )
     return chips
@@ -68,13 +68,10 @@ def month_view(request, year, month):
     form = CalendarFilterForm(request.GET)
     if not form.is_valid():
         raise Http404
-    item = None
+    address = None
     if request.GET.get("item"):
         address = queries.parse_item(request.GET["item"])
         if address is None:
-            raise Http404
-        item = queries.find_item(year, month, *address)
-        if item is None:
             raise Http404
     day = None
     if request.GET.get("day"):
@@ -82,8 +79,10 @@ def month_view(request, year, month):
         if day is None:
             raise Http404
     context = queries.month_context(
-        year, month, today=today, filters=form.values, item=item, day=day
+        year, month, today=today, filters=form.values, address=address, day=day
     )
+    if address is not None and context["panel"] is None:
+        raise Http404
     close_query = request.GET.copy()
     for key in ("item", "day"):
         close_query.pop(key, None)

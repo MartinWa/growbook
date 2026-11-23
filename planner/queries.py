@@ -58,23 +58,29 @@ ITEM_KINDS = ("event", "entry")
 CELL_LIMIT = 3
 
 
+def _positive_int(value):
+    """Parse ASCII digits only; ``int()`` alone accepts signs, spaces and underscores."""
+    if not isinstance(value, str) or not value.isascii() or not value.isdigit():
+        return None
+    number = int(value)
+    return number if number > 0 else None
+
+
 def parse_item(value):
     """Return ``(kind, pk)`` for an ``item=`` address, or None when it is not one."""
     if not isinstance(value, str):
         return None
     kind, separator, number = value.partition(ITEM_SEPARATOR)
-    if not separator or kind not in ITEM_KINDS or not number.isdigit():
+    if not separator or kind not in ITEM_KINDS:
         return None
-    pk = int(number)
-    return (kind, pk) if pk > 0 else None
+    pk = _positive_int(number)
+    return (kind, pk) if pk is not None else None
 
 
 def parse_day(value, year, month):
     """Return the day of the month named by ``day=``, or None when it is not one."""
-    if not isinstance(value, str) or not value.isdigit():
-        return None
-    number = int(value)
-    if not 1 <= number <= calendar.monthrange(year, month)[1]:
+    number = _positive_int(value)
+    if number is None or number > calendar.monthrange(year, month)[1]:
         return None
     return date(year, month, number)
 
@@ -223,26 +229,31 @@ def entry_queryset(*, area=None, crop=None, variety=None, planting=None):
     return entries.distinct()
 
 
-def _linked_event(entry, event_items, by_planting, claimed):
-    """The event this entry belongs with, or None when the pairing is ambiguous.
+def _pair(items, event_item, entry, show_events):
+    """One label for one save: the entry leads and the event keeps its link."""
+    event = event_item.event
+    items.pop(("event", event.pk), None)
+    if show_events:
+        items[("event", event.pk)] = CalendarItem(day=event_item.day, event=event, entry=entry)
+    else:
+        items[("entry", entry.pk)] = CalendarItem(day=event_item.day, entry=entry)
 
-    A save that created the event recorded it on the entry. Entries written before
-    that link existed, or events recorded on the plantings page, are paired read-only
-    when exactly one event of a planting the entry links to falls on its date.
+
+def _inferred_event(entry, by_planting, claimed):
+    """The one event an unlinked entry belongs with, or None when that is a guess.
+
+    Entries written before the link existed, and events recorded on the plantings
+    page, are paired read-only. Between two plantings and between two events on the
+    same day the pairing would be a guess, so those records stay separate.
     """
-    if entry.event_id is not None:
-        item = event_items.get(entry.event_id)
-        return item.event if item is not None else None
-    candidates = {
-        event.pk: event
-        for link in entry.links.all()
-        if link.planting_id is not None
-        for event in by_planting.get((link.planting_id, entry.date), ())
-        if event.pk not in claimed
-    }
-    if len(candidates) == 1:
-        return next(iter(candidates.values()))
-    return None
+    planting_ids = {link.planting_id for link in entry.links.all() if link.planting_id is not None}
+    if len(planting_ids) != 1:
+        return None
+    candidates = by_planting.get((planting_ids.pop(), entry.date), ())
+    if len(candidates) != 1:
+        return None
+    event = candidates[0]
+    return None if event.pk in claimed else event
 
 
 def month_items(year, month, *, area=None, crop=None, variety=None, planting=None, kinds=None):
@@ -272,25 +283,32 @@ def month_items(year, month, *, area=None, crop=None, variety=None, planting=Non
             .order_by("date", "created_at", "pk")
         )
         claimed = set()
+        inferred = []
+        # Recorded links first, so an inference can never take an event from its own save.
         for entry in entries:
-            event = _linked_event(entry, by_event, by_planting, claimed)
+            if entry.event_id is None:
+                inferred.append(entry)
+                continue
+            claimed.add(entry.event_id)
+            item = by_event.get(entry.event_id)
+            if item is None:
+                # The event is outside the month or filtered out: the entry keeps its date.
+                items[("entry", entry.pk)] = CalendarItem(day=entry.date, entry=entry)
+            else:
+                _pair(items, item, entry, show_events)
+        for entry in inferred:
+            event = _inferred_event(entry, by_planting, claimed)
             if event is None:
                 items[("entry", entry.pk)] = CalendarItem(day=entry.date, entry=entry)
                 continue
             claimed.add(event.pk)
-            day = by_event[event.pk].day
-            if show_events:
-                # One item for one save: the entry leads, the event stays linked.
-                items.pop(("event", event.pk), None)
-                items[("event", event.pk)] = CalendarItem(day=day, event=event, entry=entry)
-            else:
-                items[("entry", entry.pk)] = CalendarItem(day=day, entry=entry)
+            _pair(items, by_event[event.pk], entry, show_events)
     return sorted(items.values(), key=lambda item: item.sort_key)
 
 
-def find_item(year, month, kind, pk, items=None):
-    """The month label an ``item=`` address names, independent of the active filters."""
-    for item in items if items is not None else month_items(year, month):
+def find_item(items, kind, pk):
+    """The month label an ``item=`` address names within one set of labels."""
+    for item in items:
         if kind == "entry" and item.entry is not None and item.entry.pk == pk:
             return item
         if kind == "event" and item.event is not None and item.event.pk == pk:
@@ -329,9 +347,19 @@ def weekday_names():
     return [date_format(base + timedelta(days=offset), "D") for offset in range(7)]
 
 
-def _panel(items, item=None, day=None):
-    """One opened item outranks one opened day, and both are rendered server-side."""
-    if item is not None:
+def _panel(year, month, items, address=None, day=None):
+    """One opened item outranks one opened day, and both are rendered server-side.
+
+    The shown month is resolved first, so a panel agrees with the label that was
+    selected. A shared link whose item the filters hide still opens, from the
+    unfiltered month, rather than appearing to show nothing.
+    """
+    if address is not None:
+        item = find_item(items, *address)
+        if item is None:
+            item = find_item(month_items(year, month), *address)
+        if item is None:
+            return None
         return {
             "kind": "item",
             "item": item,
@@ -351,7 +379,7 @@ def _panel(items, item=None, day=None):
     return None
 
 
-def month_context(year, month, *, today=None, filters=None, item=None, day=None):
+def month_context(year, month, *, today=None, filters=None, address=None, day=None):
     today = today or timezone.localdate()
     filters = filters or {}
     start, _ = month_bounds(year, month)
@@ -388,5 +416,5 @@ def month_context(year, month, *, today=None, filters=None, item=None, day=None)
         "previous_year_label": date_format(date(year - 1, month, 1), "F Y")
         if year - 1 >= FIRST_YEAR
         else "",
-        "panel": _panel(items, item, day),
+        "panel": _panel(year, month, items, address, day),
     }

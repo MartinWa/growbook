@@ -2468,8 +2468,8 @@ msgstr "Samma tid i fjol"
 msgid "Nothing recorded in this month a year ago."
 msgstr "Inget registrerat den här månaden i fjol."
 
-msgid "+{{ number }} more"
-msgstr "+{{ number }} till"
+msgid "+%(number)s more"
+msgstr "+%(number)s till"
 
 msgid "Everything on this day"
 msgstr "Allt den här dagen"

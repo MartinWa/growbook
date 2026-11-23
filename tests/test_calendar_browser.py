@@ -153,3 +153,33 @@ def test_the_month_stacks_on_a_narrow_screen(browser_endpoint, live_server, user
         page.goto(live_server.url + month_url())
         expect(page.locator(".calendar-grid thead")).to_be_visible()
         expect(page.locator(".calendar-grid caption")).to_be_visible()
+
+
+def test_removing_a_filter_chip_keeps_focus_in_the_results(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url() + "?type=event")
+        page.get_by_role("link", name=re.compile("Remove filter: Item type")).click()
+        expect(page).to_have_url(re.compile(r"/calendar/2026/5/$"))
+        expect(page.locator("caption[data-result-focus]")).to_be_focused()
+
+
+def test_a_dismissed_panel_does_not_return_after_a_language_change(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        page.locator(f"#calendar-item-entry-{garden.entry.pk}").click()
+        panel = page.locator("dialog[data-calendar-panel]")
+        expect(panel).to_be_visible()
+        page.keyboard.press("Escape")
+        expect(panel).to_be_hidden()
+        page.locator("#account-menu > summary").click()
+        # Choosing a language submits the form and returns to the page it names.
+        page.locator("#language").select_option("sv")
+        expect(page).to_have_url(re.compile(r"/calendar/2026/5/$"))
+        assert "item=" not in page.url
+        expect(page.locator("dialog[data-calendar-panel]")).to_have_count(0)

@@ -84,13 +84,13 @@ def test_month_uses_localized_month_and_weekday_names(client, user, garden):
     client.force_login(user)
     swedish = client.get(month_url())
     assert swedish.status_code == 200
-    assert '<caption class="calendar-caption">maj 2026</caption>' in swedish.text
+    assert 'data-result-focus tabindex="-1">maj 2026</caption>' in swedish.text
     assert heading_names(swedish) == WEEKDAYS_SV
     assert "10 maj 2026" in swedish.text
 
     client.cookies["django_language"] = "en"
     english = client.get(month_url())
-    assert '<caption class="calendar-caption">May 2026</caption>' in english.text
+    assert 'tabindex="-1">May 2026</caption>' in english.text
     assert heading_names(english) == WEEKDAYS_EN
     assert "May 10, 2026" in english.text
 
@@ -109,7 +109,7 @@ def test_month_page_includes_the_leap_day_and_its_items(client, user, garden):
     assert response.status_code == 200
     assert 'data-date="2024-02-29"' in response.text
     assert f"item=event-{record.pk}" in response.text
-    assert '<caption class="calendar-caption">februari 2024</caption>' in response.text
+    assert 'tabindex="-1">februari 2024</caption>' in response.text
     panel = client.get(f"{month_url(2024, 2)}?item=event-{record.pk}")
     assert f'href="{record.get_absolute_url()}"' in panel.text
 
@@ -380,6 +380,7 @@ def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
         for kind in ("sowing", "transplant", "replanting", "harvest_start")
     ]
     client.force_login(user)
+    client.cookies["django_language"] = "en"
     month = client.get(month_url())
     cell = re.search(r'data-date="2026-05-10">(.*?)</td>', month.text, re.S).group(1)
     assert cell.count('class="calendar-item-title"') == 3
@@ -460,3 +461,53 @@ def test_an_empty_filtered_month_says_so(client, user, garden):
     response = client.get(f"{month_url()}?type=entry")
     assert response.status_code == 200
     assert "No calendar items match these filters." in response.text
+
+
+def test_the_panel_prefers_the_label_the_filters_show(client, user, garden):
+    outside = create_area(actor=user, name="Synthetic drying shed").record
+    entry = create_entry(
+        author=user,
+        date=date(2026, 5, 9),
+        title="Synthetic shed note",
+        body="Synthetic shed detail",
+        uploads=(),
+        submission_key=uuid4(),
+        show_in_calendar=True,
+        links=[("area", outside.pk)],
+        action=PlantingEventAction(
+            planting=garden.planting.pk, kind="sowing", actual_date=date(2026, 5, 12)
+        ),
+    ).entry
+    client.force_login(user)
+    filtered = client.get(f"{month_url()}?area={outside.pk}")
+    cell = re.search(r'data-date="2026-05-09">(.*?)</td>', filtered.text, re.S).group(1)
+    assert f"item=entry-{entry.pk}" in cell
+    panel = client.get(f"{month_url()}?area={outside.pk}&item=entry-{entry.pk}")
+    assert panel.status_code == 200
+    assert 'data-date="2026-05-09"' in panel.text.split("<dialog")[1]
+    assert "Open planting event" not in panel.text
+    assert f"area={outside.pk}" in panel.text
+
+
+def test_blank_selections_are_not_filters(client, user):
+    client.force_login(user)
+    client.cookies["django_language"] = "en"
+    response = client.get(f"{month_url()}?area=&type=&crop=&variety=&planting=")
+    assert response.status_code == 200
+    assert 'class="filter-chip"' not in response.text
+    assert "No calendar items this month." in response.text
+
+
+def test_malformed_addresses_are_not_found(client, user):
+    client.force_login(user)
+    for query in ("day=%C2%B2", "item=entry-%C2%B2", "item=event-1_0", "day=00"):
+        assert client.get(f"{month_url()}?{query}").status_code == 404
+
+
+def test_the_overflow_label_is_translated(client, user, garden):
+    for kind in ("sowing", "transplant", "replanting", "harvest_start"):
+        make_event(user, garden, kind=kind, planned=date(2026, 5, 10))
+    client.force_login(user)
+    assert "+1 till" in client.get(month_url()).text
+    client.cookies["django_language"] = "en"
+    assert "+1 more" in client.get(month_url()).text

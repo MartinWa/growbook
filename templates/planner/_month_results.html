@@ -9,7 +9,7 @@
     <div class="calendar-main">
       {% include 'components/filter_chips.html' %}
       <table class="calendar-grid">
-        <caption class="calendar-caption">{{ month_label }}</caption>
+        <caption class="calendar-caption" data-result-focus tabindex="-1">{{ month_label }}</caption>
         <thead>
           <tr>{% for name in weekdays %}<th scope="col">{{ name }}</th>{% endfor %}</tr>
         </thead>

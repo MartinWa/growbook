@@ -22,9 +22,11 @@ behavior — saving, retries, navigation between pages — is in
   own label.
 - **One item for one planting on one day.** An observation tagged with a planting is shown
   together with a single event of that planting on the observation's own date, even when
-  the observation was written before the calendar existed. Only one clear match is paired;
+  the observation was written before the calendar existed. Only one clear match is paired:
   when the planting has several events that day, or the observation links several
-  plantings, the records stay separate rather than guessing which event was meant.
+  plantings, the records stay separate rather than guessing which event was meant. An
+  observation that recorded the event itself always keeps it, and an event paired with
+  one observation is never paired with a second.
 - **Photo-only observations without a title** are labelled with their localized date, so
   they still have a name in the month.
 - **Today** is marked, and month and weekday names follow the interface language.

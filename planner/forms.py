@@ -14,8 +14,15 @@ TYPE_CHOICES = (
 )
 
 
+class ChoiceToggleField(forms.MultipleChoiceField):
+    """Blank query values mean no toggle; only real choices count as selections."""
+
+    def clean(self, value):
+        return super().clean([item for item in (value or []) if item])
+
+
 class CalendarFilterForm(forms.Form):
-    type = forms.MultipleChoiceField(
+    type = ChoiceToggleField(
         label=_("Item type"),
         choices=TYPE_CHOICES,
         required=False,

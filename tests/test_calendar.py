@@ -25,6 +25,8 @@ from planner.queries import (
     month_bounds,
     month_context,
     month_items,
+    parse_day,
+    parse_item,
     previous_year_items,
     weekday_names,
 )
@@ -436,3 +438,63 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
     with django_assert_num_queries(3):
         items = month_items(2026, 5)
     assert len(items) == 5
+
+
+def test_a_recorded_link_wins_over_an_inferred_pair(user, garden):
+    older = make_entry(user, day=date(2026, 5, 9), show_in_calendar=True, title="Older note")
+    older = tag_entry(user, older, garden.planting)
+    newer = make_entry(
+        user,
+        day=date(2026, 5, 9),
+        show_in_calendar=True,
+        title="Newer note",
+        action=PlantingEventAction(planting=garden.planting.pk, kind="sowing"),
+    )
+    items = month_items(2026, 5)
+    assert sorted((item.kind, (item.entry or item.event).pk) for item in items) == [
+        ("combined", newer.pk),
+        ("entry", older.pk),
+    ]
+
+
+def test_a_claimed_event_does_not_make_a_pair_unambiguous(user, garden):
+    linked = make_entry(
+        user,
+        day=date(2026, 5, 9),
+        show_in_calendar=True,
+        action=PlantingEventAction(planting=garden.planting.pk, kind="sowing"),
+    )
+    second = make_event(user, garden, kind="other", actual=date(2026, 5, 9))
+    tagged = tag_entry(
+        user, make_entry(user, day=date(2026, 5, 9), show_in_calendar=True), garden.planting
+    )
+    items = month_items(2026, 5)
+    assert sorted(item.kind for item in items) == ["combined", "entry", "event"]
+    assert sorted(value.pk for value in items if value.kind == "entry") == [tagged.pk]
+    assert [value.event for value in items if value.kind == "event"] == [second]
+    assert [value.entry for value in items if value.kind == "combined"] == [linked]
+
+
+def test_two_planting_links_with_one_event_do_not_pair(user, garden):
+    other_crop = create_crop(actor=user, name="Synthetic bean").record
+    other = create_planting(actor=user, crop=other_crop, start_year=2026).record
+    make_event(user, garden, actual=date(2026, 5, 9))
+    tag_entry(
+        user,
+        make_entry(user, day=date(2026, 5, 9), show_in_calendar=True),
+        garden.planting,
+        other,
+    )
+    assert sorted(item.kind for item in month_items(2026, 5)) == ["entry", "event"]
+
+
+def test_an_address_rejects_non_ascii_digits():
+    assert parse_item("entry-²") is None
+    assert parse_item("event-+1") is None
+    assert parse_item("event-1_0") is None
+    assert parse_item("entry-0") is None
+    assert parse_item("entry-7") == ("entry", 7)
+    assert parse_day("²", 2026, 5) is None
+    assert parse_day("+9", 2026, 5) is None
+    assert parse_day("0", 2026, 5) is None
+    assert parse_day("9", 2026, 5) == date(2026, 5, 9)

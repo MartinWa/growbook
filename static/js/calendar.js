@@ -2,6 +2,12 @@
 (() => {
   "use strict";
 
+  function rememberCloseURL(url) {
+    // The language form posts its target, so a dismissed panel must not come back.
+    const languageNext = document.querySelector("[data-language-form] input[name=next]");
+    if (languageNext) languageNext.value = url;
+  }
+
   function returnTarget(dialog) {
     const id = dialog.dataset.returnFocus;
     const target = id ? document.getElementById(id) : null;
@@ -14,12 +20,15 @@
   function initialize(dialog) {
     if (dialog.dataset.calendarReady) return;
     dialog.dataset.calendarReady = "true";
-    const closeURL = dialog.dataset.closeUrl;
+    const url = dialog.dataset.closeUrl;
     let finished = false;
     function finish() {
       if (finished) return;
       finished = true;
-      if (closeURL) history.replaceState(null, "", closeURL);
+      if (url) {
+        history.replaceState(null, "", url);
+        rememberCloseURL(url);
+      }
       returnTarget(dialog)?.focus();
     }
     function close() {
