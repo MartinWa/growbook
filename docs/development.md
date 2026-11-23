@@ -421,7 +421,7 @@ through a short-lived workflow artifact.
 
 The release builds only read cache. GitHub scopes an Actions cache to the ref that wrote it:
 a run can restore the default branch, but not caches written under another tag, so a cache
-written during one release is invisible to the next. The CI container jobs on `main`
+written during one release cannot be restored by the next. The CI container jobs on `main`
 therefore build the production image for both architectures and write `ci-production-amd64`
 and `ci-production-arm64` with `mode=max`, and each release leg restores its own scope. A
 tagged commit whose CI has passed brings a cache built from exactly that commit. Builds stay

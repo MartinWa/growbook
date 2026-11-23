@@ -125,8 +125,8 @@ jobs:
           # Layers only match their own architecture, so each platform reads its own
           # scope. A release run only restores: GitHub scopes an Actions cache to the ref
           # that wrote it, and a run restores the default branch but not another tag, so
-          # a cache written here would be invisible to the next release. The scopes are
-          # written by the CI container jobs on main instead.
+          # a cache written here would never be restored by the next release. The scopes
+          # are written by the CI container jobs on main instead.
           cache-from: type=gha,scope=ci-production-${{ matrix.suffix }}
           github-token: ""
       - name: Check the image and generate its SBOM
