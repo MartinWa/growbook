@@ -8,6 +8,7 @@ from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.media import media_operation
 from core.models import Photo
 from core.photo_storage import (
@@ -26,9 +27,7 @@ from ._shared import (
     _current,
     _fingerprint,
     _identifier,
-    _key,
     _outside_transaction,
-    _version,
 )
 
 
@@ -177,7 +176,7 @@ def _write_record(
 def _save(actor, model, kind, pk, values, uploads, submission_key, expected_updated_at):
     _outside_transaction(actor)
     if pk is not None:
-        _version(expected_updated_at)
+        receipts.version_token(expected_updated_at)
     values = dict(values)
     values["name"] = normalize_name(values["name"])[0]
     for field, value in values.items():
@@ -197,7 +196,7 @@ def _save(actor, model, kind, pk, values, uploads, submission_key, expected_upda
             raise ValidationError({field: _("Enter a positive whole number, or leave it blank.")})
     if pk is not None:
         pk = _identifier(pk, "id")
-    key = _key(submission_key)
+    key = receipts.submission_key(submission_key)
     uploads = list(uploads)
     if kind == "category" and len(uploads) > 1:
         raise ValidationError({"photos": _("A category can have only one image.")})
@@ -463,7 +462,7 @@ def _delete_rows(actor, model, pk, expected_updated_at, folders):
 
 def _delete(actor, model, pk, expected_updated_at):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     if model is Crop:
         return _delete_rows(actor, model, pk, expected_updated_at, [])
     with media_operation():

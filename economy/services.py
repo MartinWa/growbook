@@ -1,16 +1,15 @@
 """Explicit economy writes with serialized budget validation and immutable receipts."""
 
-import hashlib
-import json
 from dataclasses import dataclass
 from datetime import date, datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, transaction
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.models import User
 from core.writes import validated_write
 from garden.models import Crop, PlantingCycle, Variety
@@ -36,11 +35,6 @@ def _outside_transaction(actor):
         raise RuntimeError("Call economy operations outside any existing transaction.")
     if not actor.is_authenticated or not actor.is_active or not actor.pk:
         raise PermissionDenied
-
-
-def _version(value):
-    if not isinstance(value, datetime) or timezone.is_naive(value):
-        raise ValidationError(_("Reload the edit form before saving."))
 
 
 def _id(value, field, *, optional=False, cycle=False):
@@ -75,20 +69,6 @@ def _year(value):
     return value
 
 
-def _canonical(value):
-    if isinstance(value, dict):
-        return {key: _canonical(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_canonical(item) for item in value]
-    if isinstance(value, (date, UUID)):
-        return str(value)
-    from decimal import Decimal
-
-    if isinstance(value, Decimal):
-        return str(value.normalize())
-    return value
-
-
 def _current(model, pk, expected_updated_at):
     try:
         record = model.objects.get(pk=pk)
@@ -105,38 +85,33 @@ def _save(actor, kind, pk, values, submission_key, expected_updated_at, writer):
     _outside_transaction(actor)
     if pk is not None:
         pk = _id(pk, "id")
-        _version(expected_updated_at)
-    try:
-        key = UUID(str(submission_key)) if submission_key is not None else uuid4()
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValidationError(_("The save key is invalid. Reload the form.")) from exc
-    fingerprint = hashlib.sha256(
-        json.dumps(
-            _canonical({"kind": kind, "pk": pk, "version": expected_updated_at, "values": values}),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode()
-    ).hexdigest()
+        receipts.version_token(expected_updated_at)
+    key = receipts.submission_key(submission_key)
+    fingerprint = receipts.fingerprint(
+        receipts.canonical(
+            {
+                "kind": kind,
+                "pk": pk,
+                "version": expected_updated_at,
+                "values": values,
+            }
+        )
+    )
     with transaction.atomic(), validated_write():
         if not User.objects.filter(pk=actor.pk, is_active=True).exists():
             raise PermissionDenied
         receipt = EconomySubmission.objects.select_related(kind).filter(pk=key).first()
-        if receipt is not None:
-            if (
-                receipt.author_id != actor.pk
-                or receipt.kind != kind
-                or receipt.payload_sha256 != fingerprint
-            ):
-                raise EconomyConflict(
-                    _(
-                        "This save key was already used with different content. "
-                        "Nothing was overwritten."
-                    )
-                )
-            record = getattr(receipt, kind)
-            if record is None:
-                raise EconomyConflict(_("This record was deleted. It was not recreated."))
+        record = receipts.accepted_target(
+            receipt,
+            actor.pk,
+            digest=fingerprint,
+            kind=kind,
+            conflict=EconomyConflict(
+                _("This save key was already used with different content. Nothing was overwritten.")
+            ),
+            deleted=EconomyConflict(_("This record was deleted. It was not recreated.")),
+        )
+        if record is not None:
             return EconomyResult(record, True)
         record = writer(pk, values, expected_updated_at)
         receipt = EconomySubmission(
@@ -445,7 +420,7 @@ def _allocation_values(
     method,
     cycle_ids,
 ):
-    _version(expected_expense_updated_at)
+    receipts.version_token(expected_expense_updated_at)
     ids = sorted({_id(value, "cycle_ids", cycle=True) for value in cycle_ids}, key=str)
     return {
         "expense_id": _id(expense, "expense"),
@@ -626,9 +601,9 @@ def edit_sale(
 
 def _delete(actor, model, pk, expected_updated_at, expected_expense_updated_at=None):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     if model is Allocation:
-        _version(expected_expense_updated_at)
+        receipts.version_token(expected_expense_updated_at)
     with transaction.atomic(), validated_write():
         if not User.objects.filter(pk=actor.pk, is_active=True).exists():
             raise PermissionDenied

@@ -7,8 +7,9 @@ from typing import Literal
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
+from core.receipts import version_token
 from garden.models import Planting, PlantingCycle, PlantingEvent, Variety
-from garden.services._shared import _current, _identifier, _version
+from garden.services._shared import _current, _identifier
 from garden.services.cycles import (
     evaluation_payload,
     normalize_category_ids,
@@ -112,7 +113,7 @@ def normalize_action(action, observed):
             },
         }
     if isinstance(action, CycleStatusAction):
-        _version(action.expected_updated_at)
+        version_token(action.expected_updated_at)
         evaluations, versions = normalize_evaluations(
             action.evaluations, action.expected_member_versions
         )
