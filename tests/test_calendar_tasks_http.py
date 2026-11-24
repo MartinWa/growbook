@@ -335,3 +335,33 @@ def test_the_note_form_addresses_the_month_not_an_opened_item(client, user):
     reopened = client.get(saved["Location"])
     assert b"<dialog" not in reopened.content
     assert MonthNote.objects.get().body == "Synthetic note"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "area-²",
+        "area-" + "9" * 4301,
+        "area-0",
+        "area-99999999999999999999",
+        "area-1x",
+        "elsewhere-1",
+    ],
+)
+def test_a_malformed_link_address_is_a_form_error(value):
+    from django import forms as django_forms
+
+    from planner.forms import parse_link
+
+    with pytest.raises(django_forms.ValidationError):
+        parse_link(value)
+
+
+def test_a_malformed_link_address_is_unprocessable_not_a_server_error(client, user):
+    client.force_login(user)
+    response = client.post(
+        reverse("planner:task-new", args=[2026, 5]),
+        task_payload(link="area-²"),
+    )
+    assert response.status_code == 422
+    assert PlannedTask.objects.count() == 0

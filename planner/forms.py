@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.forms import AreaPathChoiceField, VersionField, describe_fields
 from diary.forms import PlantingFilterField
+from garden.forms import clean_record_id
 from garden.models import Crop, GrowingArea, Planting, Variety
 from garden.queries import area_paths
 
@@ -70,9 +71,12 @@ def parse_link(value):
     if not value:
         return ()
     field, _separator, number = value.partition("-")
-    if field not in {name for name, _label in LINK_GROUPS} or not number.isdigit():
+    if field not in {name for name, _label in LINK_GROUPS}:
         raise forms.ValidationError(_("Choose a valid record to link."))
-    return (field, int(number))
+    try:
+        return (field, clean_record_id(number))
+    except forms.ValidationError as exc:
+        raise forms.ValidationError(_("Choose a valid record to link.")) from exc
 
 
 class ChoiceToggleField(forms.MultipleChoiceField):
