@@ -13,6 +13,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from core.forms import DeleteForm, form_error, valid_post
+from diary.models import DiaryLink
 
 from . import queries, services
 from .forms import CalendarFilterForm, MonthNoteForm, TaskActionForm, TaskForm, parse_link
@@ -213,9 +214,9 @@ def _source_task_values(item, year, month):
     else:
         title = item.entry.title
         note = item.entry.body.strip()
-        # The calendar prefetch contains only planting links for event pairing.
-        # A fresh query sees the observation's area, crop and variety links too.
-        entry_links = list(item.entry.links.filter())
+        # The calendar prefetches planting links only, and that cached queryset is
+        # what ``entry.links`` returns, so ask the table for every link kind.
+        entry_links = list(DiaryLink.objects.filter(entry=item.entry))
         first = next((link for link in entry_links if link.planting_id is not None), None)
         if first is None and len(entry_links) == 1:
             first = entry_links[0]
