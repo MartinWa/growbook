@@ -5,7 +5,7 @@ from datetime import date
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import OperationalError
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -185,6 +185,17 @@ def _task_initial(record=None, *, planned_date=None, title="", note="", link=())
     return initial
 
 
+def _link_address(link):
+    """A task or diary link in the task form's address format."""
+    if link is None:
+        return ()
+    return next(
+        (field, getattr(link, f"{field}_id"))
+        for field in ("area", "crop", "variety", "planting")
+        if getattr(link, f"{field}_id") is not None
+    )
+
+
 def _source_task_values(item, year, month):
     """Prefill a new task from a previous-year item, always asking for a date."""
     day = min(item.day.day, queries.month_bounds(year, month)[1].day)
@@ -193,12 +204,7 @@ def _source_task_values(item, year, month):
         title = item.task.title
         note = item.task.note
         first = next(iter(item.task.links.all()), None)
-        if first is not None:
-            link = next(
-                (field, getattr(first, f"{field}_id"))
-                for field in ("area", "crop", "variety", "planting")
-                if getattr(first, f"{field}_id") is not None
-            )
+        link = _link_address(first)
     elif item.event is not None:
         planting = item.event.planting
         title = f"{item.event.get_kind_display()}: {planting.label or planting.crop}"
@@ -207,11 +213,13 @@ def _source_task_values(item, year, month):
     else:
         title = item.entry.title
         note = item.entry.body.strip()
-        first = next(
-            (link for link in item.entry.links.all() if link.planting_id is not None), None
-        )
-        if first is not None:
-            link = ("planting", first.planting_id)
+        # The calendar prefetch contains only planting links for event pairing.
+        # A fresh query sees the observation's area, crop and variety links too.
+        entry_links = list(item.entry.links.filter())
+        first = next((link for link in entry_links if link.planting_id is not None), None)
+        if first is None and len(entry_links) == 1:
+            first = entry_links[0]
+        link = _link_address(first)
     return _task_initial(planned_date=date(year, month, day), title=title, note=note, link=link)
 
 
@@ -247,7 +255,7 @@ def task_new(request, year, month):
             current_link = parse_link(initial["link"])
     form = TaskForm(
         request.POST if request.method == "POST" else None,
-        initial=None if request.method == "POST" else initial,
+        initial=initial,
         current_link=current_link,
     )
     context = {
@@ -299,7 +307,14 @@ def _task_write(request, form, context, *, record):
         else:
             saved = _("Task already saved.") if result.replayed else _("Task saved.")
             messages.success(request, saved)
+            if request.headers.get("HX-Request") == "true":
+                response = HttpResponse(status=204)
+                response["HX-Redirect"] = _task_url(result.task)
+                response["X-Growbook-Saved-Key"] = str(values["submission_key"])
+                return response
             return redirect(_task_url(result.task))
+    if request.headers.get("HX-Request") == "true":
+        return render(request, "planner/form_errors.html", {"form": form}, status=status)
     return render(request, "planner/task_form.html", context, status=status)
 
 
@@ -307,13 +322,7 @@ def _task_write(request, form, context, *, record):
 def task_edit(request, pk):
     record = get_object_or_404(PlannedTask, pk=pk)
     first = next(iter(record.links.all()), None)
-    current_link = ()
-    if first is not None:
-        current_link = next(
-            (field, getattr(first, f"{field}_id"))
-            for field in ("area", "crop", "variety", "planting")
-            if getattr(first, f"{field}_id") is not None
-        )
+    current_link = _link_address(first)
     form = TaskForm(
         request.POST if request.method == "POST" else None,
         initial=_task_initial(record),
@@ -412,9 +421,13 @@ def task_delete(request, pk):
     return render(request, "planner/task_delete.html", context)
 
 
-@require_POST
+@require_http_methods(["GET", "POST"])
 def note_save(request, year, month):
     _valid_month(year, month)
+    month_url = reverse("planner:month", args=[year, month], query=request.GET)
+    # Failed POSTs render the month here; relative item and language links use GET.
+    if request.method == "GET":
+        return redirect(month_url)
     form = MonthNoteForm(request.POST, prefix="note")
     status = 422
     if valid_post(request, form):
@@ -444,7 +457,5 @@ def note_save(request, year, month):
         else:
             saved = _("Note already saved.") if result.replayed else _("Note saved.")
             messages.success(request, saved)
-            query = request.GET.urlencode()
-            url = reverse("planner:month", args=[year, month])
-            return redirect(f"{url}?{query}" if query else url)
+            return redirect(month_url)
     return _month_page(request, year, month, note_form=form, status=status)

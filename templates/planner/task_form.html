@@ -5,10 +5,19 @@
 <section class="panel register-form-panel">
   <h1>{{ title }}</h1>
   <p class="field-help">{% translate 'A completed task moves to the day it was done. The planned date stays visible when the task is opened.' %}</p>
-  <form id="task-form" method="post" action="{{ action }}" data-task-form>
+  <form id="task-form" method="post" action="{{ action }}"
+        hx-post="{{ action }}" hx-target="#task-errors" hx-swap="innerHTML" hx-sync="this:drop"
+        data-register-form data-draft-kind="task" data-draft-bound="{{ form.is_bound|yesno:'true,false' }}"
+        data-uploading="{% translate 'Saving…' %}" data-processing="{% translate 'Saving…' %}"
+        data-network-error="{% translate 'The connection failed. Keep this form open and retry the same submission.' %}"
+        data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}"
+        data-generic-error="{% translate 'The save failed. Keep this form open and retry.' %}">
     {% csrf_token %}
+    {% include 'components/draft_notice.html' %}
     <div id="task-errors" role="alert" tabindex="-1">{% include 'planner/form_errors.html' %}</div>
     {% for field in form %}{% include 'components/field.html' %}{% endfor %}
+    <p data-register-status role="status" aria-live="polite"></p>
+    <progress data-register-progress max="100" value="0" hidden aria-label="{% translate 'Saving…' %}"></progress>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{% translate 'Save task' %}</button>
       <a href="{{ cancel_url }}">{% translate 'Cancel' %}</a>

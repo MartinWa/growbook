@@ -60,8 +60,8 @@ reload, an accidental navigation or a failed save, the writing is restored and a
 asks you to review it.
 
 - Recovery covers diary capture and editing, crop, variety, growing-area, planting, event,
-  cycle evaluation and economy forms. It lasts for the tab's session and is not shared
-  between tabs, devices or accounts; signing out clears it.
+  cycle evaluation, calendar task and economy forms. It lasts for the tab's session and
+  is not shared between tabs, devices or accounts; signing out clears it.
 - **Selected photos are never stored.** After recovery, select them again, or use **Save
   without missing photos** to acknowledge the omission. That button does not submit; save
   afterwards.

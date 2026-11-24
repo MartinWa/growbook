@@ -86,6 +86,9 @@ Every save carries a save key and a version, so an interrupted save can be retri
 creating a second task, and a form opened in one tab cannot overwrite a change saved in
 another. A retried save that is no longer current changes nothing and explains why.
 
+Task forms recover unsaved writing after reloads and language changes as described in
+[Unsaved writing](getting-started.md#unsaved-writing).
+
 ## This time last year
 
 The side column lists the same month one year earlier: planting events, observations,
@@ -94,6 +97,9 @@ and a task appears on the day it was completed. **Add to this year** opens the s
 form with the previous year's title, note, link and day; the date is always yours to
 choose, and saving creates an ordinary task in the shown month. Nothing is copied into
 the current year automatically.
+
+An observation copies its planting link, or its sole area, crop or variety link. Several
+non-planting tags leave the task unlinked so you can choose the record yourself.
 
 ## Month note
 

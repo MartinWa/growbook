@@ -2,17 +2,28 @@
 
 import re
 from datetime import date
+from html import unescape
 from types import SimpleNamespace
+from urllib.parse import urljoin
 from uuid import uuid4
 
 import pytest
+from django.db import OperationalError
 from django.urls import reverse
 from django.utils import timezone
 
 from core import receipts
-from garden.services import create_area, create_crop, create_planting, create_planting_event
+from diary.services import create_entry
+from garden.services import (
+    create_area,
+    create_crop,
+    create_planting,
+    create_planting_event,
+    create_variety,
+)
 from planner import services
 from planner.models import MonthNote, PlannedTask
+from planner.queries import month_items
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -67,6 +78,40 @@ def test_a_retried_new_task_returns_the_same_task(client, user):
     assert PlannedTask.objects.count() == 1
 
 
+@pytest.mark.parametrize("editing", [False, True])
+def test_htmx_task_saves_and_retries_confirm_the_key_before_redirecting(client, user, editing):
+    client.force_login(user)
+    payload = task_payload()
+    if editing:
+        task = services.create_task(
+            actor=user, planned_date=date(2026, 5, 10), title="Original task"
+        ).task
+        url = reverse("planner:task-edit", args=[task.pk])
+        payload["expected_updated_at"] = task.updated_at.isoformat()
+    else:
+        url = reverse("planner:task-new", args=[2026, 5])
+    for _attempt in range(2):
+        response = client.post(url, payload, HTTP_HX_REQUEST="true")
+        task = PlannedTask.objects.get()
+        assert response.status_code == 204
+        assert response["HX-Redirect"] == f"/calendar/2026/5/?item=task-{task.pk}"
+        assert response["X-Growbook-Saved-Key"] == payload["submission_key"]
+    assert task.title == payload["title"]
+
+
+def test_a_failed_htmx_task_save_returns_field_errors_without_replacing_the_form(client, user):
+    client.force_login(user)
+    response = client.post(
+        reverse("planner:task-new", args=[2026, 5]),
+        task_payload(planned_date="1999-05-12"),
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 422
+    assert b'data-field-errors="planned_date"' in response.content
+    assert b"<form" not in response.content
+    assert not PlannedTask.objects.exists()
+
+
 def test_a_task_form_needs_a_title_or_a_note(client, user):
     client.force_login(user)
     response = client.post(
@@ -96,6 +141,65 @@ def test_a_previous_year_item_prefills_the_new_task_form(client, user, garden):
     assert response.status_code == 200
     assert b'value="2026-05-04"' in response.content
     assert b"Synthetic batch" in response.content
+
+
+@pytest.mark.parametrize("kind", ["area", "crop", "variety", "planting"])
+def test_copying_an_observations_single_link_keeps_the_task_in_its_filter(
+    client, user, garden, kind
+):
+    target = (
+        create_variety(actor=user, crop=garden.crop, name="Synthetic variety").record
+        if kind == "variety"
+        else getattr(garden, kind)
+    )
+    entry = create_entry(
+        author=user,
+        date=date(2025, 5, 4),
+        title="Synthetic linked observation",
+        body="Synthetic work to repeat",
+        uploads=(),
+        submission_key=uuid4(),
+        show_in_calendar=True,
+        links=(target,),
+    ).entry
+    client.force_login(user)
+    url = reverse("planner:task-new", args=[2026, 5])
+    page = client.get(url, {"from": f"entry-{entry.pk}"})
+    assert page.status_code == 200
+    form = page.context["form"]
+    assert form["link"].value() == f"{kind}-{target.pk}"
+    assert form.initial["planned_date"] == date(2026, 5, 4)
+    response = client.post(
+        url,
+        task_payload(
+            planned_date="2026-05-04",
+            title=form["title"].value(),
+            note=form["note"].value(),
+            link=form["link"].value(),
+        ),
+    )
+    assert response.status_code == 302
+    task = PlannedTask.objects.get()
+    assert getattr(task.links.get(), f"{kind}_id") == target.pk
+    assert [item.task.pk for item in month_items(2026, 5, **{kind: target})] == [task.pk]
+
+
+def test_copying_an_observation_with_several_non_planting_tags_does_not_guess_a_link(
+    client, user, garden
+):
+    entry = create_entry(
+        author=user,
+        date=date(2025, 5, 4),
+        body="Synthetic shared work",
+        uploads=(),
+        submission_key=uuid4(),
+        show_in_calendar=True,
+        links=(garden.area, garden.crop),
+    ).entry
+    client.force_login(user)
+    page = client.get(reverse("planner:task-new", args=[2026, 5]), {"from": f"entry-{entry.pk}"})
+    assert page.status_code == 200
+    assert not page.context["form"]["link"].value()
 
 
 def test_an_unknown_previous_year_item_is_not_found(client, user):
@@ -252,6 +356,40 @@ def test_a_note_retry_is_idempotent(client, user):
     assert client.post(url, payload).status_code == 302
     assert client.post(url, payload).status_code == 302
     assert MonthNote.objects.count() == 1
+
+
+@pytest.mark.parametrize("failure", ["conflict", "database"])
+def test_failed_note_pages_keep_item_and_language_return_links_readable(
+    client, user, monkeypatch, failure
+):
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+
+    def failed_save(**kwargs):
+        if failure == "conflict":
+            raise services.PlannerConflict("Synthetic note conflict")
+        raise OperationalError("Synthetic database contention")
+
+    monkeypatch.setattr(services, "save_month_note", failed_save)
+    client.force_login(user)
+    url = reverse("planner:note", args=[2026, 5], query=[("type", "task"), ("type", "event")])
+    failed = client.post(
+        url, {"note-submission_key": str(uuid4()), "note-body": "Preserved synthetic writing"}
+    )
+    assert failed.status_code == (409 if failure == "conflict" else 503)
+    assert b"Preserved synthetic writing" in failed.content
+    item_link = unescape(re.search(r'href="([^"]*item=task-\d+[^"]*)"', failed.text).group(1))
+    opened = client.get(urljoin(url, item_link), follow=True)
+    assert opened.status_code == 200
+    assert opened.context["panel"]["item"].task.pk == task.pk
+    assert opened.wsgi_request.GET.getlist("type") == ["task", "event"]
+    language_next = unescape(re.search(r'name="next" value="([^"]*)"', failed.text).group(1))
+    returned = client.get(language_next, follow=True)
+    assert returned.status_code == 200
+    assert returned.wsgi_request.path == reverse("planner:month", args=[2026, 5])
+    assert returned.wsgi_request.GET.getlist("type") == ["task", "event"]
+    assert not MonthNote.objects.exists()
 
 
 def test_an_out_of_range_month_has_no_task_form(client, user):

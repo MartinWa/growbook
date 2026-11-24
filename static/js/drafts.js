@@ -23,6 +23,7 @@
     event,
     cycle,
     "cycle-transition": ["date"],
+    task: ["planned_date", "title", "note", "link"],
     expense: ["description", "purchased_on", "total_price", "category", "purchased_quantity", "unit", "crop", "variety", "useful_life_years"],
     allocation: ["growing_year", "amount", "share", "quantity_used", "scope", "cycle_ids", "method"],
     sale: ["description", "sold_on", "quantity", "unit_price", "total_price", "cycle", "variety"],
