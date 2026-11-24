@@ -18,6 +18,11 @@
         <p class="field-help">{% translate 'These optional photos belong to the planting. Diary photos stay with the observation.' %}</p>
         {% for field in planting_form.note_fields %}{% include 'components/field.html' with planting_photos=True %}{% endfor %}
       {% endwith %}
+      <fieldset class="disclosure-fields">
+        <legend>{% translate 'First event' %}</legend>
+        <p class="field-help">{% translate 'Optionally record the first event for this planting. The observation date is used when no actual date is chosen.' %}</p>
+        {% for field in form.first_event_form %}{% include 'components/field.html' %}{% endfor %}
+      </fieldset>
     </section>
     <section data-capture-action="event">
       {% for field in form.event_form %}{% include 'components/field.html' %}{% endfor %}

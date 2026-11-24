@@ -75,7 +75,10 @@ Observation pages show compact previews; select one to open the larger image.
 - **Start a new planting** needs a crop, or derives it from the selected variety. Variety
   and area are optional. It defaults to Ongoing with the observation's date as the actual
   start date, and the initial status, label, quantity, lifespan, end year, categories,
-  notes, evaluation and planting photos stay editable.
+  notes, evaluation and planting photos stay editable. **First event** records the event
+  that starts the planting in the same save: choose its type, dates and note, or leave it
+  as **No first event**. The observation date is the default actual date, and the
+  observation is linked to the event it records.
 - **Add an event** accepts a planting in any status and year. The picker shows crop,
   variety, area, year, status and batch. The actual date defaults to the observation's
   date; planned and actual dates stay independent, and repeated event types are allowed.

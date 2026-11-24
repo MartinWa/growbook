@@ -4,13 +4,14 @@ import re
 from pathlib import Path
 
 import polib
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_every_marked_source_message_has_a_swedish_translation():
     messages = set()
-    for folder in ("core", "diary", "garden", "economy", "growbook"):
+    for folder in ("core", "diary", "garden", "economy", "growbook", "planner"):
         for path in (ROOT / folder).rglob("*.py"):
             if "migrations" in path.parts:
                 continue
@@ -30,6 +31,32 @@ def test_every_marked_source_message_has_a_swedish_translation():
     catalog = polib.pofile(str(ROOT / "locale" / "sv" / "LC_MESSAGES" / "django.po"))
     translated = {entry.msgid for entry in catalog if entry.translated()}
     assert messages <= translated, f"Missing Swedish translations: {messages - translated}"
+
+
+def test_month_vignettes_are_committed_webp_within_budget():
+    """One 2:1 picture per month, small enough to stay decorative."""
+    names = [
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    ]
+    folder = ROOT / "static" / "images" / "calendar"
+    for name in names:
+        path = folder / f"{name}.webp"
+        assert path.exists(), name
+        assert path.stat().st_size <= 120 * 1024, name
+        with Image.open(path) as image:
+            assert image.format == "WEBP", name
+            assert image.size == (720, 360), name
 
 
 def test_vendored_htmx_matches_its_documented_checksum():

@@ -4,13 +4,14 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.media import media_operation
 from core.models import Photo
 from core.photo_storage import discard_unreferenced_bundles, photo_bundles
 from core.writes import validated_write
 
 from ..models import CropCategory, GrowingArea, Planting, PlantingCategory, Variety
-from ._shared import _active_actor, _current, _identifier, _outside_transaction, _version
+from ._shared import _active_actor, _current, _identifier, _outside_transaction
 
 
 def _garden_photo_owner(photo, expected_updated_at):
@@ -32,7 +33,7 @@ def _garden_photo_owner(photo, expected_updated_at):
 def edit_register_photo(*, actor, pk, caption, position, expected_updated_at):
     """Edit caption/order only; owner/file reassignment is deliberately not supported."""
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     if not isinstance(caption, str):
         raise ValidationError({"caption": _("Enter text, or leave this field blank.")})
     with transaction.atomic(), validated_write():
@@ -50,7 +51,7 @@ def edit_register_photo(*, actor, pk, caption, position, expected_updated_at):
 
 def delete_register_photo(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     with media_operation():
         folders = []
         try:

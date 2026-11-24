@@ -16,7 +16,7 @@ from core.forms import (
     describe_fields,
 )
 from garden.forms import CycleEditForm, PlantingEventForm, PlantingForm, RecordIDChoiceField
-from garden.models import Crop, GrowingArea, Planting, Variety
+from garden.models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 from garden.queries import area_paths
 
 from .actions import CycleStatusAction, NewPlantingAction, PlantingEventAction
@@ -32,6 +32,28 @@ CALENDAR_HELP = _(
     "Planting events appear in the calendar automatically. "
     "Tick this to show an entry that has no planting event."
 )
+
+
+class FirstEventForm(PlantingEventForm):
+    """The optional first event recorded while starting a planting from the diary."""
+
+    requires_a_date = False
+    kind = forms.ChoiceField(
+        label=_("Event type"),
+        choices=[("", _("No first event")), *PlantingEvent.Kind.choices],
+        required=False,
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("kind"):
+            # Fields left behind by another choice must not reach the receipt.
+            cleaned["planned_date"] = None
+            cleaned["actual_date"] = None
+            cleaned["note"] = ""
+        elif not cleaned.get("actual_date"):
+            cleaned["actual_date"] = self.initial.get("actual_date")
+        return cleaned
 
 
 class TagIdsField(forms.TypedMultipleChoiceField):
@@ -307,7 +329,12 @@ class CaptureForm(TaggedForm):
                 previous_default = None
             overridden = set(data.get("date_overrides", "").split(","))
             if previous_default is not None:
-                for name in ("planting-started_on", "planting-completed_on", "event-actual_date"):
+                for name in (
+                    "planting-started_on",
+                    "planting-completed_on",
+                    "event-actual_date",
+                    "first_event-actual_date",
+                ):
                     if name not in overridden and data.get(name) == previous_default.isoformat():
                         data[name] = observed.isoformat()
                 if "planting-start_year" not in overridden and data.get(
@@ -351,6 +378,14 @@ class CaptureForm(TaggedForm):
         )
         for name in ("submission_key", "expected_updated_at"):
             self.event_form.fields.pop(name)
+        self.first_event_form = FirstEventForm(
+            data,
+            prefix="first_event",
+            initial={"actual_date": observed},
+            use_required_attribute=False,
+        )
+        for name in ("submission_key", "expected_updated_at"):
+            self.first_event_form.fields.pop(name)
         try:
             selected = int(self["action_planting"].value() or 0)
         except TypeError, ValueError:
@@ -379,6 +414,8 @@ class CaptureForm(TaggedForm):
             for name, subform in self.action_forms.items():
                 if name != self.data.get("planting_action"):
                     subform._errors = ErrorDict()
+            if self.data.get("planting_action") != "new":
+                self.first_event_form._errors = ErrorDict()
         if quick:
             self.fields["body"].widget.attrs["rows"] = 3
 
@@ -396,11 +433,22 @@ class CaptureForm(TaggedForm):
             else:
                 if action != "new" and not cleaned.get("action_planting"):
                     self.add_error("action_planting", _("Choose a valid record."))
+                elif action == "new" and not self.first_event_form.is_valid():
+                    self.add_error(None, _("Check the planting action fields."))
                 elif action == "new":
                     values = selected_form.cleaned_data.copy()
                     values.pop("generated_label")
                     cleaned["planting_uploads"] = values.pop("photos")
-                    cleaned["action"] = NewPlantingAction(**values)
+                    event = self.first_event_form.cleaned_data
+                    event_values = {}
+                    if event.get("kind"):
+                        event_values = {
+                            "event_kind": event["kind"],
+                            "event_planned_date": event.get("planned_date"),
+                            "event_actual_date": event.get("actual_date"),
+                            "event_note": event.get("note", ""),
+                        }
+                    cleaned["action"] = NewPlantingAction(**values, **event_values)
                 elif action == "event":
                     cleaned["action"] = PlantingEventAction(
                         planting=cleaned["action_planting"], **selected_form.cleaned_data
@@ -420,10 +468,14 @@ class CaptureForm(TaggedForm):
         from core.forms import form_error
 
         action = self.data.get("planting_action")
-        target = self.action_forms.get(action)
-        if target is not None and hasattr(error, "error_dict"):
+        targets = [self.action_forms.get(action)]
+        if action == "new":
+            targets.append(self.first_event_form)
+        targets = [target for target in targets if target is not None]
+        if targets and hasattr(error, "error_dict"):
             for field, errors in error.error_dict.items():
-                if field in target.fields:
+                target = next((item for item in targets if field in item.fields), None)
+                if target is not None:
                     target.add_error(field, errors)
                     self.add_error(None, _("Check the planting action fields."))
                 else:
@@ -434,6 +486,14 @@ class CaptureForm(TaggedForm):
     @property
     def selected_action_form(self):
         return self.action_forms.get(self["planting_action"].value())
+
+    @property
+    def selected_action_forms(self):
+        """Every subform the chosen action validates, for the error summary."""
+        forms_ = [self.selected_action_form]
+        if self["planting_action"].value() == "new":
+            forms_.append(self.first_event_form)
+        return [form for form in forms_ if form is not None]
 
     @property
     def action_open(self):

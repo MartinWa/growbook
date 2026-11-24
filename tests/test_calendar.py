@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from django.utils import translation
 
-from diary.actions import PlantingEventAction
+from diary.actions import NewPlantingAction, PlantingEventAction
 from diary.models import DiaryEntry
 from diary.queries import filter_entries
 from diary.services import create_entry, delete_entry, payload_fingerprint, update_entry
@@ -17,6 +17,7 @@ from garden.services import (
     create_crop,
     create_planting,
     create_planting_event,
+    create_variety,
     delete_planting_event,
 )
 from planner.queries import (
@@ -30,6 +31,7 @@ from planner.queries import (
     previous_year_items,
     weekday_names,
 )
+from planner.services import create_task
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -75,6 +77,10 @@ def make_entry(
         show_in_calendar=show_in_calendar,
         action=action,
     ).entry
+
+
+def make_task(user, *, day=date(2026, 5, 10), title="Synthetic task", links=()):
+    return create_task(actor=user, planned_date=day, title=title, links=links).task
 
 
 def test_month_bounds_include_the_leap_day():
@@ -435,9 +441,29 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
             make_entry(user, day=date(2026, 5, day), show_in_calendar=True),
             garden.planting,
         )
-    with django_assert_num_queries(3):
+    for day in (4, 11, 21):
+        make_task(user, day=date(2026, 5, day), links=(("planting", garden.planting.pk),))
+    variety = create_variety(actor=user, crop=garden.crop, name="Synthetic variety").record
+    for day in (5, 12, 22):
+        make_task(user, day=date(2026, 5, day), links=(("variety", variety.pk),))
+    # Events, entries, tasks, and one link query for entries and one for tasks; the
+    # linked variety and planting labels load their crop with the same query.
+    with django_assert_num_queries(5):
         items = month_items(2026, 5)
-    assert len(items) == 5
+        # Rendering every label must not re-fetch a linked variety's crop.
+        labels = [item.meta for item in items]
+    assert len(items) == len(labels) == 11
+
+
+def test_a_first_event_from_a_new_planting_is_one_calendar_item(user, garden):
+    make_entry(
+        user,
+        title="New sowing",
+        show_in_calendar=True,
+        action=NewPlantingAction(crop=garden.crop.pk, event_kind="sowing"),
+    )
+    items = month_items(2026, 5)
+    assert [item.kind for item in items] == ["combined"]
 
 
 def test_a_recorded_link_wins_over_an_inferred_pair(user, garden):

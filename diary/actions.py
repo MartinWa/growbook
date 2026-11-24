@@ -7,8 +7,9 @@ from typing import Literal
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
+from core.receipts import version_token
 from garden.models import Planting, PlantingCycle, PlantingEvent, Variety
-from garden.services._shared import _current, _identifier, _version
+from garden.services._shared import _current, _identifier
 from garden.services.cycles import (
     evaluation_payload,
     normalize_category_ids,
@@ -35,6 +36,11 @@ class NewPlantingAction:
     started_on: date | None | Literal["diary"] = "diary"
     completed_on: date | None = None
     category_ids: tuple[int, ...] = ()
+    # The optional first event recorded with the new planting; no kind means none.
+    event_kind: str | None = None
+    event_planned_date: date | None = None
+    event_actual_date: date | None = None
+    event_note: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -97,7 +103,17 @@ def normalize_action(action, observed):
             completed_on=action.completed_on,
             category_ids=normalize_category_ids(action.category_ids),
         )
-        return {"kind": "new", "values": values}
+        normalized = {"kind": "new", "values": values}
+        if action.event_kind:
+            if not isinstance(action.event_note, str):
+                raise ValidationError(_("Enter text, or leave this field blank."))
+            normalized["event"] = {
+                "kind": action.event_kind,
+                "planned_date": action.event_planned_date,
+                "actual_date": action.event_actual_date or observed,
+                "note": action.event_note.strip(),
+            }
+        return normalized
     if isinstance(action, PlantingEventAction):
         if not isinstance(action.kind, str) or not isinstance(action.note, str):
             raise ValidationError(_("Enter text, or leave this field blank."))
@@ -112,7 +128,7 @@ def normalize_action(action, observed):
             },
         }
     if isinstance(action, CycleStatusAction):
-        _version(action.expected_updated_at)
+        version_token(action.expected_updated_at)
         evaluations, versions = normalize_evaluations(
             action.evaluations, action.expected_member_versions
         )
@@ -142,7 +158,18 @@ def action_payload(action, photos):
         key: value.isoformat() if isinstance(value, (date, datetime)) else value
         for key, value in action["values"].items()
     }
-    return {"kind": action["kind"], "values": values, "photos": [photo.sha256 for photo in photos]}
+    payload = {
+        "kind": action["kind"],
+        "values": values,
+        "photos": [photo.sha256 for photo in photos],
+    }
+    # Only a new planting can carry a first event; its absence keeps older receipts valid.
+    if action.get("event") is not None:
+        payload["event"] = {
+            key: value.isoformat() if isinstance(value, (date, datetime)) else value
+            for key, value in action["event"].items()
+        }
+    return payload
 
 
 def execute_action(action, rows):
@@ -158,7 +185,16 @@ def execute_action(action, rows):
             if variety is None:
                 raise ValidationError({"crop": _("Choose a crop or a variety.")})
             values["crop_id"] = variety.crop_id
-        return ActionResult(planting=write_planting(None, values, rows))
+        planting = write_planting(None, values, rows)
+        event = None
+        if action.get("event") is not None:
+            event_values = action["event"].copy()
+            for field in ("planned_date", "actual_date"):
+                value = event_values.get(field)
+                if value is not None and type(value) is not date:
+                    raise ValidationError({field: _("Enter a valid date.")})
+            event = write_event({"planting_id": planting.pk, **event_values})
+        return ActionResult(planting=planting, event=event)
     planting = _current(Planting, values.pop("planting_id"))
     if action["kind"] == "event":
         event = write_event({"planting_id": planting.pk, **values})

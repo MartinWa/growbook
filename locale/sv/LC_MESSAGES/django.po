@@ -2505,3 +2505,162 @@ msgstr ""
 
 msgid "No calendar items match these filters."
 msgstr "Inga kalenderposter matchar dessa filter."
+
+msgid "A completed task moves to the day it was done. The planned date stays visible when the task is opened."
+msgstr "En avklarad uppgift flyttas till dagen då den gjordes. Det planerade datumet syns när uppgiften öppnas."
+
+msgid "A short heading. Leave it blank and write a note instead."
+msgstr "En kort rubrik. Lämna den tom och skriv en anteckning i stället."
+
+msgid "Add to this year"
+msgstr "Lägg till i år"
+
+msgid "Calendar submission"
+msgstr "Kalenderinskick"
+
+msgid "Calendar submissions"
+msgstr "Kalenderinskick"
+
+msgid "Choose a valid month."
+msgstr "Välj en giltig månad."
+
+msgid "Choose a valid task."
+msgstr "Välj en giltig uppgift."
+
+msgid "Completed on"
+msgstr "Avklarad den"
+
+msgid "Delete task"
+msgstr "Ta bort uppgift"
+
+msgid "Deletion could not be confirmed. Reload the calendar before retrying."
+msgstr "Borttagningen kunde inte bekräftas. Ladda om kalendern innan du försöker igen."
+
+msgid "Edit task"
+msgstr "Redigera uppgift"
+
+msgid "Enter a title or a note for this task."
+msgstr "Ange en rubrik eller en anteckning för uppgiften."
+
+msgid "Linked record"
+msgstr "Kopplad post"
+
+msgid "Mark done"
+msgstr "Markera som klar"
+
+msgid "Month"
+msgstr "Månad"
+
+msgid "Month note"
+msgstr "Månadsanteckning"
+
+msgid "Month notes"
+msgstr "Månadsanteckningar"
+
+msgid "New task"
+msgstr "Ny uppgift"
+
+msgid "No linked record"
+msgstr "Ingen kopplad post"
+
+msgid "Note already saved."
+msgstr "Anteckningen är redan sparad."
+
+msgid "Note for this month"
+msgstr "Anteckning för den här månaden"
+
+msgid "Note saved."
+msgstr "Anteckningen sparad."
+
+msgid "One note is shared by everyone who reads this month."
+msgstr "En anteckning delas av alla som läser den här månaden."
+
+msgid "Planned for %(planned)s"
+msgstr "Planerad till %(planned)s"
+
+msgid "Planned task"
+msgstr "Planerad uppgift"
+
+msgid "Planned tasks"
+msgstr "Planerade uppgifter"
+
+msgid "Reopen task"
+msgstr "Återöppna uppgift"
+
+msgid "Save note"
+msgstr "Spara anteckning"
+
+msgid "Save task"
+msgstr "Spara uppgift"
+
+msgid "Task"
+msgstr "Uppgift"
+
+msgid "Task actions"
+msgstr "Uppgiftsåtgärder"
+
+msgid "Task already done."
+msgstr "Uppgiften är redan klar."
+
+msgid "Task already reopened."
+msgstr "Uppgiften är redan återöppnad."
+
+msgid "Task already saved."
+msgstr "Uppgiften är redan sparad."
+
+msgid "Task deleted."
+msgstr "Uppgiften borttagen."
+
+msgid "Task done."
+msgstr "Uppgiften klar."
+
+msgid "Task link"
+msgstr "Uppgiftskoppling"
+
+msgid "Task links"
+msgstr "Uppgiftskopplingar"
+
+msgid "Task reopened."
+msgstr "Uppgiften återöppnad."
+
+msgid "Task saved."
+msgstr "Uppgiften sparad."
+
+msgid "The change could not be completed. Reload the calendar and try again."
+msgstr "Ändringen kunde inte genomföras. Ladda om kalendern och försök igen."
+
+msgid "The note could not be saved. Keep this page open and retry the same submission."
+msgstr "Anteckningen kunde inte sparas. Håll sidan öppen och försök igen med samma inskick."
+
+msgid "The task was not changed. Reload the calendar and try again."
+msgstr "Uppgiften ändrades inte. Ladda om kalendern och försök igen."
+
+msgid "This note changed while the form was open. Reload it before saving again."
+msgstr "Anteckningen ändrades medan formuläret var öppet. Ladda om den innan du sparar igen."
+
+msgid "This note no longer exists. Reload the calendar."
+msgstr "Anteckningen finns inte längre. Ladda om kalendern."
+
+msgid "This permanently removes the task. Linked records and diary entries are kept."
+msgstr "Detta tar bort uppgiften permanent. Kopplade poster och dagboksinlägg behålls."
+
+msgid "This task changed while the form was open. Reload it before saving again."
+msgstr "Uppgiften ändrades medan formuläret var öppet. Ladda om den innan du sparar igen."
+
+msgid "This task no longer exists. Reload the calendar."
+msgstr "Uppgiften finns inte längre. Ladda om kalendern."
+
+msgid "First event"
+msgstr "Första händelse"
+
+msgid "No first event"
+msgstr "Ingen första händelse"
+
+msgid "Optionally record the first event for this planting. The observation date is used when no actual date is chosen."
+msgstr "Du kan ange den första händelsen för planteringen. Observationsdatumet används när inget faktiskt datum väljs."
+
+msgid "Choose a date in the calendar's year range."
+msgstr "Välj ett datum inom kalenderns årsintervall."
+
+msgid "Done on"
+msgstr "Avklarad den"

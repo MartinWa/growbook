@@ -1,6 +1,7 @@
 """Tab-session writing recovery and authoritative save confirmation in Chromium."""
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from uuid import uuid4
@@ -23,6 +24,8 @@ from garden.services import (
     delete_planting,
     edit_planting,
 )
+from planner import services as planner_services
+from planner.models import PlannedTask
 
 pytestmark = [pytest.mark.browser, pytest.mark.django_db(transaction=True)]
 
@@ -73,6 +76,74 @@ def page(browser_endpoint, live_server, user, other_user):
         ready(page)
         yield page
         assert errors == []
+
+
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("attempted", [False, True])
+def test_task_writing_links_and_receipts_survive_language_reload_and_clear_after_save(
+    page, live_server, user, editing, attempted
+):
+    def seed():
+        area = create_area(actor=user, name="Synthetic task area").record
+        task = (
+            planner_services.create_task(
+                actor=user,
+                planned_date=date(2026, 5, 10),
+                title="Original task",
+                note="Original note",
+            ).task
+            if editing
+            else None
+        )
+        return area, task
+
+    area, task = database(seed)
+    path = f"/calendar/tasks/{task.pk}/edit/" if editing else "/calendar/2026/5/tasks/new/"
+    page.goto(live_server.url + path)
+    ready(page)
+    page.on("dialog", lambda dialog: dialog.accept())
+    planned_date = "1999-05-14" if attempted else "2026-05-14"
+    page.locator("#id_planned_date").fill(planned_date)
+    page.locator("#id_title").fill("Synthetic recovered task")
+    page.locator("#id_note").fill(WRITING)
+    page.locator("#id_link").select_option(f"area-{area.pk}")
+    key = token(page)
+    version = page.locator('[name="expected_updated_at"]').input_value()
+    if attempted:
+        page.locator('#task-form button[type="submit"]').click()
+        expect(page.locator("#task-errors")).to_contain_text("year range")
+        expect(page.locator("#task-errors")).to_be_focused()
+        expect(page.locator("#id_planned_date")).to_have_attribute("aria-invalid", "true")
+        expect(page.locator("[data-draft-status]")).to_contain_text("kept")
+    page.locator("#account-menu > summary").click()
+    page.locator("#language").select_option("sv")
+    expect(page.locator("html")).to_have_attribute("lang", "sv")
+    ready(page)
+    expect(page.locator("#id_title")).to_have_value("Synthetic recovered task")
+    expect(page.locator("#id_note")).to_have_value(WRITING)
+    expect(page.locator("#id_planned_date")).to_have_value(planned_date)
+    expect(page.locator("#id_link")).to_have_value(f"area-{area.pk}")
+    assert token(page) == key
+    assert page.locator('[name="expected_updated_at"]').input_value() == version
+    page.reload()
+    ready(page)
+    expect(page.locator("#id_note")).to_have_value(WRITING)
+    expect(page.locator("#id_link")).to_have_value(f"area-{area.pk}")
+    assert token(page) == key
+    page.locator("#id_planned_date").fill("2026-05-14")
+    page.locator('#task-form button[type="submit"]').click()
+    expect(page).to_have_url(re.compile(r"/calendar/2026/5/\?item=task-\d+$"))
+    assert drafts(page) == {}
+    saved = database(lambda: PlannedTask.objects.get())
+    assert page.url == live_server.url + f"/calendar/2026/5/?item=task-{saved.pk}"
+    if editing:
+        assert saved.pk == task.pk
+    assert saved.note.replace("\r\n", "\n") == WRITING
+    assert database(lambda: saved.links.get().area_id) == area.pk
+    page.goto(live_server.url + path)
+    ready(page)
+    expect(page.locator("[data-draft-notice]")).to_be_hidden()
+    expect(page.locator("#id_title")).to_have_value("Synthetic recovered task" if editing else "")
 
 
 def test_immediate_paste_reload_unicode_key_recovery_and_keyboard_discard(page):

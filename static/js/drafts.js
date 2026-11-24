@@ -13,7 +13,8 @@
   const tags = "link_areas link_crops link_varieties link_plantings".split(" ");
   const fields = {
     capture: ["date", "title", "body", "show_in_calendar", "date_overrides", "default_date", "planting_action", "action_planting", ...tags,
-      ...planting.map(name => `planting-${name}`), ...event.map(name => `event-${name}`), ...cycle.map(name => `cycle-${name}`)],
+      ...planting.map(name => `planting-${name}`), ...event.map(name => `event-${name}`), ...event.map(name => `first_event-${name}`),
+      ...cycle.map(name => `cycle-${name}`)],
     entry: ["date", "title", "body", "show_in_calendar", "remove_photos", ...tags],
     crop: ["name", "notes", "category"],
     variety: ["crop", "name", "description", "source", "experiences"],
@@ -22,6 +23,7 @@
     event,
     cycle,
     "cycle-transition": ["date"],
+    task: ["planned_date", "title", "note", "link"],
     expense: ["description", "purchased_on", "total_price", "category", "purchased_quantity", "unit", "crop", "variety", "useful_life_years"],
     allocation: ["growing_year", "amount", "share", "quantity_used", "scope", "cycle_ids", "method"],
     sale: ["description", "sold_on", "quantity", "unit_price", "total_price", "cycle", "variety"],

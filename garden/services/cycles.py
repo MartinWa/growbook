@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.media import media_operation
 from core.models import Photo
 from core.photo_storage import (
@@ -31,10 +32,8 @@ from ._shared import (
     _active_actor,
     _current,
     _identifier,
-    _key,
     _outside_transaction,
     _planting_fingerprint,
-    _version,
 )
 
 
@@ -137,10 +136,10 @@ def edit_cycle(
     expected_member_versions=None,
 ):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     pk = cycle_id(pk)
     ids = normalize_category_ids(category_ids)
-    key = _key(submission_key)
+    key = receipts.submission_key(submission_key)
     values = {
         "status": status,
         "started_on": started_on,
@@ -180,11 +179,11 @@ def transition_cycle(
     expected_member_versions=None,
 ):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     pk = cycle_id(pk)
     if action not in ("start", "complete") or type(date) is not Date:
         raise ValidationError(_("Choose a valid action and date."))
-    key = _key(submission_key)
+    key = receipts.submission_key(submission_key)
     evaluations, versions = normalize_evaluations(evaluations, expected_member_versions)
     fingerprint = _planting_fingerprint(
         "cycle",
@@ -219,7 +218,7 @@ def normalize_evaluations(evaluations, expected_member_versions):
         text[pk] = value.strip()
     for pk, version in expected_member_versions.items():
         pk = _identifier(pk, "evaluations")
-        _version(version)
+        receipts.version_token(version)
         versions[pk] = version
     if not text.keys() <= versions.keys():
         raise ValidationError(_("Reload the cycle evaluations before saving."))
@@ -315,7 +314,7 @@ def edit_planting_category(
 ):
     _outside_transaction(actor)
     pk = _identifier(pk, "id")
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     return _save_planting_category(
         actor=actor,
         pk=pk,
@@ -340,8 +339,8 @@ def _save_planting_category(
     _outside_transaction(actor)
     if pk is not None:
         pk = _identifier(pk, "id")
-        _version(expected_updated_at)
-    key = _key(submission_key)
+        receipts.version_token(expected_updated_at)
+    key = receipts.submission_key(submission_key)
     if type(remove_image) is not bool:
         raise ValidationError({"remove_image": _("Choose whether to remove the image.")})
     uploads = list(uploads)
@@ -410,7 +409,7 @@ def _write_planting_category(
 
 def delete_planting_category(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     pk = _identifier(pk, "id")
     with media_operation():
         folders = []

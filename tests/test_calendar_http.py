@@ -269,8 +269,9 @@ def test_the_month_page_needs_no_per_item_queries(client, user, garden, django_a
     for day in (3, 9, 20):
         make_entry(user, day=date(2026, 5, day), show_in_calendar=True)
     client.force_login(user)
-    # Session, user, events, entries, their links and one query per filter choice.
-    with django_assert_num_queries(12):
+    # Session, user, events, entries and tasks with their links, the month note
+    # and one query per filter choice.
+    with django_assert_num_queries(15):
         response = client.get(month_url())
     assert response.status_code == 200
 
@@ -374,6 +375,43 @@ def test_an_opened_item_outranks_an_opened_day(client, user, garden):
     assert 'data-return-focus="calendar-item-event-' + str(event.pk) + '"' in response.text
 
 
+@pytest.mark.parametrize(
+    "month,name",
+    [
+        (1, "january"),
+        (2, "february"),
+        (3, "march"),
+        (4, "april"),
+        (5, "may"),
+        (6, "june"),
+        (7, "july"),
+        (8, "august"),
+        (9, "september"),
+        (10, "october"),
+        (11, "november"),
+        (12, "december"),
+    ],
+)
+def test_each_month_renders_its_own_decorative_vignette(client, user, month, name):
+    client.force_login(user)
+    page = client.get(month_url(2026, month))
+    assert page.status_code == 200
+    assert f"images/calendar/{name}.webp" in page.text
+    assert 'class="calendar-vignette"' in page.text
+    assert 'alt=""' in page.text
+    assert 'aria-hidden="true"' in page.text
+
+
+def test_the_day_panel_does_not_repeat_item_ids(client, user, garden):
+    for number in range(3):
+        make_entry(user, day=date(2026, 5, 9), title=f"Synthetic day {number}")
+    client.force_login(user)
+    page = client.get(month_url() + "?day=9")
+    assert page.status_code == 200
+    ids = re.findall(r'id="(calendar-item-[^"]+)"', page.text)
+    assert len(ids) == len(set(ids)) == 3
+
+
 def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
     records = [
         make_event(user, garden, kind=kind, planned=date(2026, 5, 10))
@@ -387,8 +425,10 @@ def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
     assert "+1 more" in cell
     day = client.get(f"{month_url()}?day=10")
     assert day.status_code == 200
+    # The day list addresses the same items without repeating their element ids.
+    panel_items = re.search(r'class="calendar-panel-items">(.*?)</ul>', day.text, re.S).group(1)
     for record in records:
-        assert item_id("event", record.pk) in day.text
+        assert f"item=event-{record.pk}" in panel_items
 
 
 def test_a_day_without_items_and_unknown_addresses_are_not_found(client, user, garden):

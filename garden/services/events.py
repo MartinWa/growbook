@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.writes import validated_write
 
 from ..models import Planting, PlantingEvent, PlantingSubmission
@@ -14,11 +15,9 @@ from ._shared import (
     _active_actor,
     _current,
     _identifier,
-    _key,
     _outside_transaction,
     _planting_fingerprint,
     _planting_receipt,
-    _version,
 )
 
 
@@ -42,7 +41,7 @@ def _save_event(
     _outside_transaction(actor)
     planting_id = _identifier(planting, "planting", model=Planting)
     if pk is not None:
-        _version(expected_updated_at)
+        receipts.version_token(expected_updated_at)
         pk = _identifier(pk, "id")
     for field, value in (("planned_date", planned_date), ("actual_date", actual_date)):
         if value is not None and type(value) is not date:
@@ -56,7 +55,7 @@ def _save_event(
         "actual_date": actual_date,
         "note": note.strip(),
     }
-    key = _key(submission_key)
+    key = receipts.submission_key(submission_key)
     fingerprint = _planting_fingerprint("event", pk, expected_updated_at, values)
     with transaction.atomic(), validated_write():
         _active_actor(actor)
@@ -107,7 +106,7 @@ def edit_planting_event(
 
 def delete_planting_event(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     with transaction.atomic(), validated_write():
         _active_actor(actor)
         event = _current(PlantingEvent, _identifier(pk, "id"), expected_updated_at)

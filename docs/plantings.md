@@ -82,6 +82,8 @@ and other milestones. Each member of a batch has its own events.
   deletion.
 - Events appear in the [calendar](calendar.md): an event with only a planned date shows as
   planned on that date, and an event with an actual date moves there and shows as done.
+- Starting a planting while writing a diary observation can record its first event in the
+  same save; see [Diary](diary.md#planting-actions-while-writing).
 
 ## Filtering and history
 

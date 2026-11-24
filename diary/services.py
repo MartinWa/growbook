@@ -1,18 +1,14 @@
 """The only supported diary writer: all photos and the entry commit together."""
 
-import hashlib
-import json
 from dataclasses import dataclass
 from datetime import date as Date
-from datetime import datetime
-from uuid import UUID, uuid4
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, transaction
-from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.media import media_operation
 from core.models import Photo, User
 from core.photo_storage import (
@@ -68,25 +64,25 @@ def payload_fingerprint(
     # Hidden entries preserve receipts issued before calendar visibility existed.
     if show_in_calendar:
         payload["show_in_calendar"] = True
-    return hashlib.sha256(
-        json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    return receipts.fingerprint(payload, sort_keys=False)
 
 
 def check_receipt(key, author_id, fingerprint):
     receipt = DiarySubmission.objects.select_related("entry").filter(key=key).first()
-    if receipt is None:
-        return None
-    if receipt.author_id != author_id or receipt.payload_sha256 != fingerprint:
-        raise SubmissionConflict(
+    entry = receipts.accepted_target(
+        receipt,
+        author_id,
+        digest=fingerprint,
+        target="entry",
+        conflict=SubmissionConflict(
             _(
                 "This save key belongs to a different submission. "
                 "Start a new entry instead; nothing was overwritten."
             )
-        )
-    if receipt.entry_id is None:
-        raise SubmissionDeleted(_("This entry was already deleted. It was not recreated."))
-    return CaptureResult(receipt.entry, created=False)
+        ),
+        deleted=SubmissionDeleted(_("This entry was already deleted. It was not recreated.")),
+    )
+    return CaptureResult(entry, created=False) if entry is not None else None
 
 
 def _normalize_title(title):
@@ -169,10 +165,9 @@ def create_entry(
         raise PermissionDenied
     if not isinstance(date, Date):
         raise ValidationError(_("Choose a valid entry date."))
-    try:
-        key = UUID(str(submission_key))
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValidationError(_("The save key is invalid. Reload the capture form.")) from exc
+    key = receipts.submission_key(
+        submission_key, message=_("The save key is invalid. Reload the capture form.")
+    )
     title = _normalize_title(title)
     body = body.strip()
     links = _normalize_links(links)
@@ -274,12 +269,6 @@ def _positive_id(value, message=None):
     message = message or _("Choose a valid record.")
     if type(value) is not int or value <= 0:
         raise ValidationError(message)
-    return value
-
-
-def _version(value):
-    if not isinstance(value, datetime) or timezone.is_naive(value):
-        raise ValidationError(_("Reload the edit form before saving."))
     return value
 
 
@@ -387,25 +376,27 @@ def _edit_fingerprint(
     # Hidden entries preserve edit receipts issued before calendar visibility existed.
     if show_in_calendar:
         payload["show_in_calendar"] = True
-    return hashlib.sha256(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
-    ).hexdigest()
+    return receipts.fingerprint(payload)
 
 
 def _check_edit_receipt(key, actor, fingerprint):
     receipt = DiaryEditSubmission.objects.select_related("entry__author").filter(key=key).first()
     if receipt is None:
         return None
-    if receipt.author_id != actor.pk or receipt.payload_sha256 != fingerprint:
-        raise EntryConflict(
+    entry = receipts.accepted_target(
+        receipt,
+        actor.pk,
+        digest=fingerprint,
+        target="entry",
+        conflict=EntryConflict(
             _("This save key was already used with different content. Nothing was overwritten.")
-        )
-    if receipt.entry_id is None:
-        raise EntryConflict(_("This entry was already deleted. It was not recreated."))
-    _fresh_editor(actor, receipt.entry)
-    return receipt.entry
+        ),
+        deleted=EntryConflict(_("This entry was already deleted. It was not recreated.")),
+    )
+    if entry is None:
+        return None
+    _fresh_editor(actor, entry)
+    return entry
 
 
 def _write_entry_edit(
@@ -507,11 +498,8 @@ def update_entry(
         raise ValidationError(_("Enter text, or leave the note blank."))
     title = _normalize_title(title)
     body = body.strip()
-    expected_updated_at = _version(expected_updated_at)
-    try:
-        key = UUID(str(submission_key)) if submission_key is not None else uuid4()
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValidationError(_("The save key is invalid. Reload the form.")) from exc
+    expected_updated_at = receipts.version_token(expected_updated_at)
+    key = receipts.submission_key(submission_key)
     links = _normalize_links(links)
     remove_photo_ids = _normalize_photo_ids(remove_photo_ids)
     uploads = list(uploads)
@@ -594,7 +582,7 @@ def update_entry(
 def delete_entry(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
     pk = _positive_id(pk)
-    expected_updated_at = _version(expected_updated_at)
+    expected_updated_at = receipts.version_token(expected_updated_at)
     _entry_for_editor(actor, pk)
     folders = []
     with media_operation():
@@ -622,7 +610,7 @@ def _entry_photo(pk):
 def update_entry_photo(*, actor, pk, caption, position, expected_updated_at):
     _outside_transaction(actor)
     pk = _positive_id(pk)
-    expected_updated_at = _version(expected_updated_at)
+    expected_updated_at = receipts.version_token(expected_updated_at)
     if not isinstance(caption, str):
         raise ValidationError(_("Enter a caption, or leave it blank."))
     if type(position) is not int or position < 0:
@@ -652,7 +640,7 @@ def update_entry_photo(*, actor, pk, caption, position, expected_updated_at):
 def delete_entry_photo(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
     pk = _positive_id(pk)
-    expected_updated_at = _version(expected_updated_at)
+    expected_updated_at = receipts.version_token(expected_updated_at)
     photo = _entry_photo(pk)
     if not can_edit_entry(actor, photo.entry):
         raise PermissionDenied

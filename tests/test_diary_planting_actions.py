@@ -781,3 +781,122 @@ def test_native_date_defaults_follow_backdated_diary_date(
         assert planting.start_year == 2025 and planting.cycle.started_on == expected
     else:
         assert PlantingEvent.objects.get().actual_date == expected
+
+
+def test_a_new_planting_can_carry_its_first_event(user, planting_catalog):
+    crop = planting_catalog[0]
+    action = NewPlantingAction(
+        crop=crop.pk, event_kind="sowing", event_note="Synthetic first event"
+    )
+    result = capture(user, action)
+    planting = Planting.objects.get()
+    event = planting.events.get()
+    assert (event.kind, event.actual_date, event.note) == (
+        "sowing",
+        date(2026, 1, 2),
+        "Synthetic first event",
+    )
+    assert result.entry.event_id == event.pk
+
+
+def test_a_retried_first_event_is_neither_duplicated_nor_relinked(user, planting_catalog):
+    crop = planting_catalog[0]
+    action = NewPlantingAction(
+        crop=crop.pk, event_kind="sowing", event_planned_date=date(2026, 1, 5)
+    )
+    key = uuid4()
+    first = capture(user, action, submission_key=key)
+    replay = capture(user, action, submission_key=key)
+    assert first.created is True and replay.created is False
+    assert replay.entry.pk == first.entry.pk
+    assert Planting.objects.count() == PlantingEvent.objects.count() == 1
+    assert DiaryEntry.objects.get().event_id == PlantingEvent.objects.get().pk
+
+
+def test_a_first_event_keeps_the_older_action_fingerprint_when_absent(user, planting_catalog):
+    from diary.actions import action_payload, normalize_action
+
+    crop = planting_catalog[0]
+    without = normalize_action(NewPlantingAction(crop=crop.pk), date(2026, 1, 2))
+    assert "event" not in action_payload(without, ())
+    with_event = normalize_action(
+        NewPlantingAction(crop=crop.pk, event_kind="sowing"), date(2026, 1, 2)
+    )
+    assert action_payload(with_event, ())["event"]["kind"] == "sowing"
+
+
+def test_capture_accepts_a_first_event_for_a_new_planting(client, user, planting_catalog):
+    client.force_login(user)
+    response = client.post(
+        reverse("diary:capture"),
+        {
+            "submission_key": str(uuid4()),
+            "date": "2026-01-02",
+            "body": "Synthetic first sowing",
+            "capture_mode": "quick",
+            "planting_action": "new",
+            "planting-crop": planting_catalog[0].pk,
+            "planting-start_year": 2026,
+            "planting-status": "ongoing",
+            "planting-started_on": "2026-01-02",
+            "planting-lifespan": "annual",
+            "first_event-kind": "sowing",
+            "first_event-note": "Synthetic first event",
+        },
+    )
+    assert response.status_code == 302
+    event = PlantingEvent.objects.get()
+    assert event.note == "Synthetic first event"
+    assert DiaryEntry.objects.get().event_id == event.pk
+
+
+@pytest.mark.parametrize("override", [False, True])
+def test_a_first_event_follows_the_backdated_diary_date(client, user, planting_catalog, override):
+    client.force_login(user)
+    actual = "2025-12-15" if override else "2026-01-10"
+    response = client.post(
+        reverse("diary:capture"),
+        {
+            "submission_key": uuid4(),
+            "date": "2025-12-31",
+            "default_date": "2026-01-10",
+            "body": "Backdated sowing",
+            "capture_mode": "quick",
+            "planting_action": "new",
+            "planting-crop": planting_catalog[0].pk,
+            "planting-status": "ongoing",
+            "planting-start_year": "2026",
+            "planting-started_on": "2026-01-10",
+            "planting-lifespan": "annual",
+            "first_event-kind": "sowing",
+            "first_event-actual_date": actual,
+        },
+    )
+    assert response.status_code == 302
+    expected = date(2025, 12, 15) if override else date(2025, 12, 31)
+    assert PlantingEvent.objects.get().actual_date == expected
+
+
+def test_an_invalid_first_event_names_the_field_in_the_summary(client, user, planting_catalog):
+    client.force_login(user)
+    response = client.post(
+        reverse("diary:capture"),
+        {
+            "submission_key": str(uuid4()),
+            "date": "2026-01-02",
+            "body": "Synthetic first sowing",
+            "capture_mode": "quick",
+            "planting_action": "new",
+            "planting-crop": planting_catalog[0].pk,
+            "planting-start_year": 2026,
+            "planting-status": "ongoing",
+            "planting-started_on": "2026-01-02",
+            "planting-lifespan": "annual",
+            "first_event-kind": "sowing",
+            "first_event-actual_date": "not-a-date",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 422
+    assert b'data-field-errors="first_event-actual_date"' in response.content
+    assert Planting.objects.count() == 0

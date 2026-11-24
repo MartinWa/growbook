@@ -1,16 +1,12 @@
 """Shared garden identity, version and immutable receipt checks; no domain writes."""
 
-import hashlib
-import json
 from dataclasses import dataclass
-from datetime import date, datetime
-from uuid import UUID, uuid4
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection
-from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.models import User
 
 from ..models import Planting, PlantingEvent, PlantingSubmission
@@ -43,27 +39,18 @@ def _identifier(value, field, *, optional=False, model=None):
     return value
 
 
-def _key(value):
-    try:
-        return UUID(str(value)) if value is not None else uuid4()
-    except (ValueError, TypeError, AttributeError) as exc:
-        raise ValidationError(_("The save key is invalid. Reload the form.")) from exc
-
-
 def _fingerprint(kind, pk, expected_updated_at, values, photos):
-    payload = {
-        "version": 1,
-        "kind": kind,
-        "pk": pk,
-        "expected_updated_at": expected_updated_at.isoformat() if expected_updated_at else None,
-        "values": values,
-        "photos": [photo.sha256 for photo in photos],
-    }
-    return hashlib.sha256(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
-    ).hexdigest()
+    """This app's receipt payload; the digest itself comes from ``core.receipts``."""
+    return receipts.fingerprint(
+        {
+            "version": 1,
+            "kind": kind,
+            "pk": pk,
+            "expected_updated_at": expected_updated_at.isoformat() if expected_updated_at else None,
+            "values": values,
+            "photos": [photo.sha256 for photo in photos],
+        }
+    )
 
 
 def _current(model, pk, expected_updated_at=None):
@@ -86,20 +73,16 @@ class PlantingResult:
 
 def _accept_receipt(receipt, actor, kind, fingerprint):
     """Accept immutable content before callers validate the target's current state."""
-    if receipt is None:
-        return None
-    if (
-        receipt.author_id != actor.pk
-        or receipt.kind != kind
-        or receipt.payload_sha256 != fingerprint
-    ):
-        raise RegisterConflict(
+    return receipts.accepted_target(
+        receipt,
+        actor.pk,
+        digest=fingerprint,
+        kind=kind,
+        conflict=RegisterConflict(
             _("This save key was already used with different content. Nothing was overwritten.")
-        )
-    record = getattr(receipt, kind)
-    if record is None:
-        raise RegisterConflict(_("This record was deleted. It was not recreated."))
-    return record
+        ),
+        deleted=RegisterConflict(_("This record was deleted. It was not recreated.")),
+    )
 
 
 def _planting_receipt(key, actor, kind, fingerprint):
@@ -113,13 +96,4 @@ def _planting_receipt(key, actor, kind, fingerprint):
 
 
 def _planting_fingerprint(kind, pk, expected_updated_at, values, photos=()):
-    canonical = {
-        field: value.isoformat() if isinstance(value, date) else value
-        for field, value in values.items()
-    }
-    return _fingerprint(kind, pk, expected_updated_at, canonical, photos)
-
-
-def _version(value):
-    if not isinstance(value, datetime) or timezone.is_naive(value):
-        raise ValidationError(_("Reload the edit form before saving."))
+    return _fingerprint(kind, pk, expected_updated_at, receipts.canonical(values), photos)

@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.utils.translation import gettext as _
 
+from core import receipts
 from core.media import media_operation
 from core.models import Photo
 from core.photo_storage import (
@@ -22,11 +23,9 @@ from ._shared import (
     _active_actor,
     _current,
     _identifier,
-    _key,
     _outside_transaction,
     _planting_fingerprint,
     _planting_receipt,
-    _version,
 )
 from .cycles import (
     normalize_category_ids,
@@ -204,9 +203,9 @@ def _write_planting(actor, pk, values, key, fingerprint, rows, expected_updated_
 def _save_planting(actor, pk, values, uploads, submission_key, expected_updated_at):
     _outside_transaction(actor)
     if pk is not None:
-        _version(expected_updated_at)
+        receipts.version_token(expected_updated_at)
         pk = _identifier(pk, "id")
-    key = _key(submission_key)
+    key = receipts.submission_key(submission_key)
     uploads = list(uploads)
     if not uploads:
         fingerprint = _planting_fingerprint("planting", pk, expected_updated_at, values)
@@ -291,7 +290,7 @@ def edit_planting(
 
 def delete_planting(*, actor, pk, expected_updated_at):
     _outside_transaction(actor)
-    _version(expected_updated_at)
+    receipts.version_token(expected_updated_at)
     with media_operation():
         folders = []
         try:

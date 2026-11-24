@@ -588,6 +588,7 @@ class PlantingForm(CycleFieldsForm):
 
 
 class PlantingEventForm(forms.Form):
+    requires_a_date = True
     submission_key = forms.UUIDField(label=_("Save key"), widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField(required=False)
     kind = forms.ChoiceField(label=_("Event type"), choices=PlantingEvent.Kind.choices)
@@ -611,7 +612,7 @@ class PlantingEventForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        if not data.get("planned_date") and not data.get("actual_date"):
+        if self.requires_a_date and not data.get("planned_date") and not data.get("actual_date"):
             raise forms.ValidationError(_("Set a planned date, an actual date, or both."))
         return data
 

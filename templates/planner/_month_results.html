@@ -27,7 +27,7 @@
                 {% for item in value.items|slice:cell_limit %}<li>{% include 'planner/_item.html' with item=item panel_link=True %}</li>{% endfor %}
               </ul>
               {% if value.items|length > cell_limit %}
-              <a class="calendar-more" id="calendar-more-{{ value.day|date:'j' }}" data-calendar-open href="{% querystring day=value.day.day item=None %}">{% blocktranslate with number=value.items|length|add:"-3" %}+{{ number }} more{% endblocktranslate %}</a>
+              <a class="calendar-more" id="calendar-more-{{ value.day|date:'j' }}" data-calendar-open href="{% querystring day=value.day.day item=None %}">{% blocktranslate with number=value.hidden_count %}+{{ number }} more{% endblocktranslate %}</a>
               {% endif %}
               {% endif %}
             </td>
@@ -43,11 +43,30 @@
       {% if previous_year_label %}<p class="calendar-side-period">{{ previous_year_label }}</p>{% endif %}
       {% if previous_year_items %}
       <ul class="calendar-year-items">
-        {% for item in previous_year_items %}<li>{% include 'planner/_item.html' with item=item panel_link=False %}</li>{% endfor %}
+        {% for item in previous_year_items %}
+        <li>
+          {% include 'planner/_item.html' with item=item panel_link=False %}
+          <a class="calendar-add" href="{% url 'planner:task-new' year month %}?from={{ item.item_param }}">{% translate 'Add to this year' %}</a>
+        </li>
+        {% endfor %}
       </ul>
       {% else %}
       <p class="field-help">{% translate 'Nothing recorded in this month a year ago.' %}</p>
       {% endif %}
+      <details class="calendar-note"{% if note_form.errors or not month_note %} open{% endif %}>
+        <summary class="calendar-side-title">{% translate 'Month note' %}</summary>
+        {% if month_note.body %}<div class="calendar-note-text">{{ month_note.body|linebreaks }}</div>{% endif %}
+        <form class="calendar-note-form" method="post" action="{{ note_action }}">
+          {% csrf_token %}
+          {{ note_form.submission_key }}{{ note_form.expected_updated_at }}
+          {% include 'planner/form_errors.html' with form=note_form %}
+          <div class="field">
+            {{ note_form.body.label_tag }}{{ note_form.body }}
+          </div>
+          <p class="field-help">{% translate 'One note is shared by everyone who reads this month.' %}</p>
+          <div class="form-actions"><button class="btn btn-outline" type="submit">{% translate 'Save note' %}</button></div>
+        </form>
+      </details>
     </aside>
   </div>
   {% include 'planner/_panel.html' %}
