@@ -761,6 +761,11 @@ def test_release_workflow_builds_checks_and_publishes_each_platform():
         "- name: Update latest for the current stable release"
     )
     assert "if: ${{ steps.github-release.outputs.latest == 'true' }}" in workflow
+    # The publishing job runs tools/publish_release.py, so it needs a checkout of its own.
+    publish_job = workflow[workflow.index("  publish:") :]
+    assert publish_job.index("uses: actions/checkout@") < publish_job.index(
+        "- name: Create or publish the GitHub Release"
+    )
     assert (
         'docker buildx imagetools create --tag "$IMAGE:$VERSION" "$IMAGE@$AMD64" "$IMAGE@$ARM64"'
         in workflow
