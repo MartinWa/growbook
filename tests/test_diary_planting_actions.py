@@ -875,3 +875,28 @@ def test_a_first_event_follows_the_backdated_diary_date(client, user, planting_c
     assert response.status_code == 302
     expected = date(2025, 12, 15) if override else date(2025, 12, 31)
     assert PlantingEvent.objects.get().actual_date == expected
+
+
+def test_an_invalid_first_event_names_the_field_in_the_summary(client, user, planting_catalog):
+    client.force_login(user)
+    response = client.post(
+        reverse("diary:capture"),
+        {
+            "submission_key": str(uuid4()),
+            "date": "2026-01-02",
+            "body": "Synthetic first sowing",
+            "capture_mode": "quick",
+            "planting_action": "new",
+            "planting-crop": planting_catalog[0].pk,
+            "planting-start_year": 2026,
+            "planting-status": "ongoing",
+            "planting-started_on": "2026-01-02",
+            "planting-lifespan": "annual",
+            "first_event-kind": "sowing",
+            "first_event-actual_date": "not-a-date",
+        },
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 422
+    assert b'data-field-errors="first_event-actual_date"' in response.content
+    assert Planting.objects.count() == 0

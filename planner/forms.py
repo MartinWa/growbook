@@ -137,6 +137,19 @@ class CalendarFilterForm(forms.Form):
         }
 
 
+class TaskLinkField(forms.ChoiceField):
+    """Accept a well-formed address; the service checks the task's current state.
+
+    A retry must reach its receipt even when the linked record was archived after
+    the first save, so the choices only guide the picker.
+    """
+
+    def validate(self, value):
+        forms.Field.validate(self, value)
+        if value:
+            parse_link(value)
+
+
 class TaskForm(forms.Form):
     """One planned task with optional text and at most one linked record."""
 
@@ -157,7 +170,7 @@ class TaskForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
     )
-    link = forms.ChoiceField(label=_("Linked record"), required=False, choices=())
+    link = TaskLinkField(label=_("Linked record"), required=False, choices=())
 
     def __init__(self, *args, current_link=None, **kwargs):
         super().__init__(*args, **kwargs)

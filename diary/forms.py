@@ -488,6 +488,14 @@ class CaptureForm(TaggedForm):
         return self.action_forms.get(self["planting_action"].value())
 
     @property
+    def selected_action_forms(self):
+        """Every subform the chosen action validates, for the error summary."""
+        forms_ = [self.selected_action_form]
+        if self["planting_action"].value() == "new":
+            forms_.append(self.first_event_form)
+        return [form for form in forms_ if form is not None]
+
+    @property
     def action_open(self):
         return bool(self["planting_action"].value())
 

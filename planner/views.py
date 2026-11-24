@@ -115,7 +115,11 @@ def _month_page(request, year, month, *, note_form=None, status=200):
                 "expected_updated_at": note.updated_at if note else None,
             },
         )
-    note_query = request.GET.urlencode()
+    # The note belongs to the month; carrying item/day would reopen a dismissed panel.
+    note_parameters = request.GET.copy()
+    for key in ("item", "day"):
+        note_parameters.pop(key, None)
+    note_query = note_parameters.urlencode()
     note_action = reverse("planner:note", args=[year, month])
     context.update(
         {

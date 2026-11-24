@@ -1,5 +1,6 @@
 """Calendar task and month-note writes over HTTP: forms, receipts and permissions."""
 
+import re
 from datetime import date
 from types import SimpleNamespace
 from uuid import uuid4
@@ -291,3 +292,46 @@ def test_the_edit_form_preselects_the_current_link(client, user, garden):
     page = client.get(reverse("planner:task-edit", args=[task.pk]))
     assert page.status_code == 200
     assert f'value="planting-{garden.planting.pk}" selected'.encode() in page.content
+
+
+def test_a_retry_survives_archiving_the_linked_record(client, user, garden):
+    from garden.services import archive_area
+
+    client.force_login(user)
+    payload = {
+        "submission_key": str(uuid4()),
+        "planned_date": "2026-05-12",
+        "title": "Synthetic task",
+        "note": "",
+        "link": f"area-{garden.area.pk}",
+    }
+    url = reverse("planner:task-new", args=[2026, 5])
+    first = client.post(url, payload)
+    assert first.status_code == 302
+    archive_area(actor=user, pk=garden.area.pk)
+    retry = client.post(url, payload)
+    assert retry.status_code == 302
+    assert retry["Location"] == first["Location"]
+    assert PlannedTask.objects.count() == 1
+    assert PlannedTask.objects.get().links.get().area_id == garden.area.pk
+
+
+def test_the_note_form_addresses_the_month_not_an_opened_item(client, user):
+    task = services.create_task(
+        actor=user, planned_date=date(2026, 5, 10), title="Synthetic task"
+    ).task
+    client.force_login(user)
+    page_url = reverse("planner:month", args=[2026, 5]) + f"?area=&item=task-{task.pk}"
+    page = client.get(page_url)
+    assert page.status_code == 200
+    action = re.search(r'action="(/calendar/2026/5/note/[^"]*)"', page.text).group(1)
+    assert "item=" not in action and "day=" not in action
+    saved = client.post(
+        action,
+        {"note-submission_key": str(uuid4()), "note-body": "Synthetic note"},
+    )
+    assert saved.status_code == 302
+    assert saved["Location"] == f"{reverse('planner:month', args=[2026, 5])}?area="
+    reopened = client.get(saved["Location"])
+    assert b"<dialog" not in reopened.content
+    assert MonthNote.objects.get().body == "Synthetic note"

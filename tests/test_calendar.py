@@ -17,6 +17,7 @@ from garden.services import (
     create_crop,
     create_planting,
     create_planting_event,
+    create_variety,
     delete_planting_event,
 )
 from planner.queries import (
@@ -442,10 +443,16 @@ def test_month_query_count_is_fixed_for_a_full_month(user, garden, django_assert
         )
     for day in (4, 11, 21):
         make_task(user, day=date(2026, 5, day), links=(("planting", garden.planting.pk),))
-    # Events, entries, tasks, and one link query for entries and one for tasks.
+    variety = create_variety(actor=user, crop=garden.crop, name="Synthetic variety").record
+    for day in (5, 12, 22):
+        make_task(user, day=date(2026, 5, day), links=(("variety", variety.pk),))
+    # Events, entries, tasks, and one link query for entries and one for tasks; the
+    # linked variety and planting labels load their crop with the same query.
     with django_assert_num_queries(5):
         items = month_items(2026, 5)
-    assert len(items) == 8
+        # Rendering every label must not re-fetch a linked variety's crop.
+        labels = [item.meta for item in items]
+    assert len(items) == len(labels) == 11
 
 
 def test_a_first_event_from_a_new_planting_is_one_calendar_item(user, garden):

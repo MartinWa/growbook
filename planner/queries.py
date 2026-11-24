@@ -23,7 +23,8 @@ EXCERPT_LENGTH = 80
 # Only planting links can pair an entry with an event; prefetch nothing else.
 ENTRY_LINKS = Prefetch("links", queryset=DiaryLink.objects.filter(planting__isnull=False))
 TASK_LINKS = Prefetch(
-    "links", queryset=TaskLink.objects.select_related("area", "crop", "variety", "planting")
+    "links",
+    queryset=TaskLink.objects.select_related("area", "crop", "variety__crop", "planting__crop"),
 )
 
 
