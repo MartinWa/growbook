@@ -375,6 +375,16 @@ def test_an_opened_item_outranks_an_opened_day(client, user, garden):
     assert 'data-return-focus="calendar-item-event-' + str(event.pk) + '"' in response.text
 
 
+def test_the_day_panel_does_not_repeat_item_ids(client, user, garden):
+    for number in range(3):
+        make_entry(user, day=date(2026, 5, 9), title=f"Synthetic day {number}")
+    client.force_login(user)
+    page = client.get(month_url() + "?day=9")
+    assert page.status_code == 200
+    ids = re.findall(r'id="(calendar-item-[^"]+)"', page.text)
+    assert len(ids) == len(set(ids)) == 3
+
+
 def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
     records = [
         make_event(user, garden, kind=kind, planned=date(2026, 5, 10))
@@ -388,8 +398,10 @@ def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
     assert "+1 more" in cell
     day = client.get(f"{month_url()}?day=10")
     assert day.status_code == 200
+    # The day list addresses the same items without repeating their element ids.
+    panel_items = re.search(r'class="calendar-panel-items">(.*?)</ul>', day.text, re.S).group(1)
     for record in records:
-        assert item_id("event", record.pk) in day.text
+        assert f"item=event-{record.pk}" in panel_items
 
 
 def test_a_day_without_items_and_unknown_addresses_are_not_found(client, user, garden):

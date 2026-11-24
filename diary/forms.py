@@ -39,7 +39,7 @@ class FirstEventForm(PlantingEventForm):
 
     requires_a_date = False
     kind = forms.ChoiceField(
-        label=_("First event"),
+        label=_("Event type"),
         choices=[("", _("No first event")), *PlantingEvent.Kind.choices],
         required=False,
     )
@@ -329,7 +329,12 @@ class CaptureForm(TaggedForm):
                 previous_default = None
             overridden = set(data.get("date_overrides", "").split(","))
             if previous_default is not None:
-                for name in ("planting-started_on", "planting-completed_on", "event-actual_date"):
+                for name in (
+                    "planting-started_on",
+                    "planting-completed_on",
+                    "event-actual_date",
+                    "first_event-actual_date",
+                ):
                     if name not in overridden and data.get(name) == previous_default.isoformat():
                         data[name] = observed.isoformat()
                 if "planting-start_year" not in overridden and data.get(

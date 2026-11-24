@@ -79,7 +79,7 @@ def test_the_month_page_offers_the_new_task_link_and_the_note_form(client, user)
     response = client.get(reverse("planner:month", args=[2026, 5]) + "?area=")
     assert response.status_code == 200
     assert reverse("planner:task-new", args=[2026, 5]).encode() in response.content
-    assert b'name="body"' in response.content
+    assert b'name="note-body"' in response.content
     assert reverse("planner:note", args=[2026, 5]).encode() in response.content
 
 
@@ -219,7 +219,7 @@ def test_the_month_note_is_saved_and_a_stale_save_keeps_the_text(client, user):
     url = reverse("planner:note", args=[2026, 5])
     response = client.post(
         url,
-        {"submission_key": str(uuid4()), "body": "Synthetic note"},
+        {"note-submission_key": str(uuid4()), "note-body": "Synthetic note"},
     )
     assert response.status_code == 302
     note = MonthNote.objects.get(year=2026, month=5)
@@ -227,9 +227,9 @@ def test_the_month_note_is_saved_and_a_stale_save_keeps_the_text(client, user):
     stale = client.post(
         url,
         {
-            "submission_key": str(uuid4()),
-            "body": "Stale text",
-            "expected_updated_at": "2026-05-01T10:00:00+00:00",
+            "note-submission_key": str(uuid4()),
+            "note-body": "Stale text",
+            "note-expected_updated_at": "2026-05-01T10:00:00+00:00",
         },
     )
     assert stale.status_code == 409
@@ -241,7 +241,7 @@ def test_the_month_note_is_saved_and_a_stale_save_keeps_the_text(client, user):
 def test_a_note_retry_is_idempotent(client, user):
     client.force_login(user)
     url = reverse("planner:note", args=[2026, 5])
-    payload = {"submission_key": str(uuid4()), "body": "Synthetic note"}
+    payload = {"note-submission_key": str(uuid4()), "note-body": "Synthetic note"}
     assert client.post(url, payload).status_code == 302
     assert client.post(url, payload).status_code == 302
     assert MonthNote.objects.count() == 1
@@ -253,7 +253,7 @@ def test_an_out_of_range_month_has_no_task_form(client, user):
     assert (
         client.post(
             reverse("planner:note", args=[1999, 5]),
-            {"submission_key": str(uuid4()), "body": "Synthetic note"},
+            {"note-submission_key": str(uuid4()), "note-body": "Synthetic note"},
         ).status_code
         == 404
     )
@@ -278,3 +278,16 @@ def test_an_inactive_account_cannot_write(client, user):
     assert response.status_code == 302 and "/login/" in response["Location"]
     task.refresh_from_db()
     assert task.completed_on is None
+
+
+def test_the_edit_form_preselects_the_current_link(client, user, garden):
+    task = services.create_task(
+        actor=user,
+        planned_date=date(2026, 5, 10),
+        title="Synthetic task",
+        links=(garden.planting,),
+    ).task
+    client.force_login(user)
+    page = client.get(reverse("planner:task-edit", args=[task.pk]))
+    assert page.status_code == 200
+    assert f'value="planting-{garden.planting.pk}" selected'.encode() in page.content

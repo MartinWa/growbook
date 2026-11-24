@@ -107,11 +107,13 @@ def _month_page(request, year, month, *, note_form=None, status=200):
             )
     if note_form is None:
         note = context["month_note"]
+        # A prefix keeps the note fields' ids unique beside the panel's task form.
         note_form = MonthNoteForm(
+            prefix="note",
             initial={
                 "body": note.body if note else "",
                 "expected_updated_at": note.updated_at if note else None,
-            }
+            },
         )
     note_query = request.GET.urlencode()
     note_action = reverse("planner:note", args=[year, month])
@@ -409,7 +411,7 @@ def task_delete(request, pk):
 @require_POST
 def note_save(request, year, month):
     _valid_month(year, month)
-    form = MonthNoteForm(request.POST)
+    form = MonthNoteForm(request.POST, prefix="note")
     status = 422
     if valid_post(request, form):
         try:

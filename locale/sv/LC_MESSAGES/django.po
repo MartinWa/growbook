@@ -2658,3 +2658,6 @@ msgstr "Ingen första händelse"
 
 msgid "Optionally record the first event for this planting. The observation date is used when no actual date is chosen."
 msgstr "Du kan ange den första händelsen för planteringen. Observationsdatumet används när inget faktiskt datum väljs."
+
+msgid "Choose a date in the calendar's year range."
+msgstr "Välj ett datum inom kalenderns årsintervall."

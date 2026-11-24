@@ -13,9 +13,8 @@ from core.models import User
 from core.writes import validated_write
 from garden.models import Crop, GrowingArea, Planting, Variety
 
+from . import queries
 from .models import MonthNote, PlannedTask, PlannerSubmission, TaskLink
-
-TASK_KINDS = ("task", "note")
 
 
 class PlannerConflict(ValidationError):
@@ -64,6 +63,8 @@ def _positive_id(value, message=None):
 def _date_value(value, field):
     if not isinstance(value, date) or type(value) is not date:
         raise ValidationError({field: _("Enter a valid date.")})
+    if not queries.year_is_valid(value.year):
+        raise ValidationError({field: _("Choose a date in the calendar's year range.")})
     return value
 
 
@@ -77,7 +78,7 @@ def _current(model, pk, expected_updated_at, *, missing, changed):
     return record
 
 
-def _fingerprint(kind, action, pk, expected_updated_at, values):
+def _fingerprint(kind, action, pk, expected_updated_at, values, links=None):
     """This app's receipt payload; the digest itself comes from ``core.receipts``."""
     return receipts.fingerprint(
         {
@@ -87,6 +88,8 @@ def _fingerprint(kind, action, pk, expected_updated_at, values):
             "pk": pk,
             "expected_updated_at": expected_updated_at.isoformat() if expected_updated_at else None,
             "values": receipts.canonical(values),
+            # The link is part of what was saved, so a changed retry is a conflict.
+            "links": sorted(f"{field}:{pk}" for field, pk in (links or {})),
         }
     )
 
@@ -183,7 +186,7 @@ def _save_task(*, actor, action, pk, values, links, submission_key, expected_upd
         receipts.version_token(expected_updated_at)
     normalized_links = _normalize_links(links) if links is not None else None
     key = receipts.submission_key(submission_key)
-    fingerprint = _fingerprint("task", action, pk, expected_updated_at, values)
+    fingerprint = _fingerprint("task", action, pk, expected_updated_at, values, normalized_links)
     with transaction.atomic(), validated_write():
         _active_actor(actor)
         retry = _receipt(key, actor, "task", fingerprint)

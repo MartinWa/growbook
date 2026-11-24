@@ -100,7 +100,9 @@ the current year automatically.
 Below **This time last year** is one shared note for the shown month. It is saved with
 **Save note** and is visible to everyone who reads that month. A note saved in two tabs,
 or a first note that appears while the form is open, is not overwritten: the save explains
-that the note changed and keeps the text you wrote so it can be retried.
+that the note changed and keeps the text you wrote, so nothing is lost while you reload
+to read the newer note. Changing a filter or moving to another month reloads the side
+column too, so save a note before you leave the month.
 
 ## Read-only records
 

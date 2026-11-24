@@ -13,7 +13,7 @@
       {% if panel.item.event_note %}<div class="calendar-panel-note">{{ panel.item.event_note|linebreaks }}</div>{% endif %}
       {% if panel.item.task_note %}<div class="calendar-panel-note">{{ panel.item.task_note|linebreaks }}</div>{% endif %}
       {% if panel.item.task %}
-      {% if panel.item.task_planned_date %}<p class="calendar-panel-meta">{% blocktranslate with planned=panel.item.task_planned_date|date:'DATE_FORMAT' %}Planned for {{ planned }}{% endblocktranslate %}</p>{% endif %}
+      {% if panel.item.task.completed_on %}<p class="calendar-panel-meta">{% blocktranslate with planned=panel.item.task_planned_date|date:'DATE_FORMAT' %}Planned for {{ planned }}{% endblocktranslate %}</p>{% endif %}
       <nav class="calendar-panel-links" aria-label="{% translate 'Task actions' %}">
         <a class="btn btn-outline" href="{{ panel.item.task_url }}">{% translate 'Edit task' %}</a>
         {% if panel.item.planned %}
@@ -40,7 +40,7 @@
     {% else %}
       {% if panel.items %}
       <ul class="calendar-panel-items">
-        {% for item in panel.items %}<li>{% include 'planner/_item.html' with item=item panel_link=True %}</li>{% endfor %}
+        {% for item in panel.items %}<li>{% include 'planner/_item.html' with item=item panel_link=True in_panel=True %}</li>{% endfor %}
       </ul>
       {% else %}
       <p class="field-help">{% translate 'Nothing on this day with the current filters.' %}</p>

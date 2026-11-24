@@ -848,3 +848,30 @@ def test_capture_accepts_a_first_event_for_a_new_planting(client, user, planting
     event = PlantingEvent.objects.get()
     assert event.note == "Synthetic first event"
     assert DiaryEntry.objects.get().event_id == event.pk
+
+
+@pytest.mark.parametrize("override", [False, True])
+def test_a_first_event_follows_the_backdated_diary_date(client, user, planting_catalog, override):
+    client.force_login(user)
+    actual = "2025-12-15" if override else "2026-01-10"
+    response = client.post(
+        reverse("diary:capture"),
+        {
+            "submission_key": uuid4(),
+            "date": "2025-12-31",
+            "default_date": "2026-01-10",
+            "body": "Backdated sowing",
+            "capture_mode": "quick",
+            "planting_action": "new",
+            "planting-crop": planting_catalog[0].pk,
+            "planting-status": "ongoing",
+            "planting-start_year": "2026",
+            "planting-started_on": "2026-01-10",
+            "planting-lifespan": "annual",
+            "first_event-kind": "sowing",
+            "first_event-actual_date": actual,
+        },
+    )
+    assert response.status_code == 302
+    expected = date(2025, 12, 15) if override else date(2025, 12, 31)
+    assert PlantingEvent.objects.get().actual_date == expected

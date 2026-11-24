@@ -339,3 +339,33 @@ def test_a_task_and_an_event_on_one_day_are_separate_items(user, garden):
     )
     kinds = sorted(item.kind for item in month_items(2026, 5))
     assert kinds == ["event", "task"]
+
+
+def test_a_changed_link_conflicts_with_the_same_submission_key(user, garden):
+    key = receipts.submission_key(None)
+    values = {
+        "actor": user,
+        "planned_date": date(2026, 5, 10),
+        "title": "Synthetic task",
+        "submission_key": key,
+        "links": (garden["child"],),
+    }
+    first = services.create_task(**values)
+    replay = services.create_task(**values)
+    assert replay.replayed and replay.task.pk == first.task.pk
+    with pytest.raises(services.PlannerConflict, match="different content"):
+        services.create_task(**{**values, "links": (("planting", garden["planting"].pk),)})
+    assert list(first.task.links.values_list("area_id", flat=True)) == [garden["child"].pk]
+
+
+def test_a_date_outside_the_calendar_year_range_is_rejected(user):
+    with pytest.raises(ValidationError, match="year range"):
+        services.create_task(actor=user, planned_date=date(1999, 5, 10), title="Synthetic task")
+    task = make_task(user)
+    with pytest.raises(ValidationError, match="year range"):
+        services.complete_task(
+            actor=user,
+            pk=task.pk,
+            completed_on=date(1999, 5, 10),
+            expected_updated_at=task.updated_at,
+        )

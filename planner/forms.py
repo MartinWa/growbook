@@ -162,6 +162,8 @@ class TaskForm(forms.Form):
     def __init__(self, *args, current_link=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.current_link = current_link or ()
+        if not self.is_bound and self.current_link:
+            self.initial["link"] = f"{self.current_link[0]}-{self.current_link[1]}"
         self.fields["link"].choices = [
             ("", _("No linked record")),
             *link_choices({self.current_link} if self.current_link else ()),

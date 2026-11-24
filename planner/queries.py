@@ -74,8 +74,8 @@ def entry_label(entry):
 ITEM_SEPARATOR = "-"
 ITEM_KINDS = ("event", "entry", "task")
 CELL_LIMIT = 3
-# A day is at most two digits and a 64-bit primary key at most nineteen; a longer run of
-# digits is not an address, and Python's own int() rejects more than 4,300 of them.
+# A day is at most two digits and a signed 64-bit primary key at most nineteen; eighteen
+# keeps every real address short, and Python's own int() rejects more than 4,300 digits.
 MAX_ADDRESS_DIGITS = 18
 
 
@@ -236,6 +236,11 @@ class CalendarDay:
     in_month: bool
     is_today: bool
     items: list = field(default_factory=list)
+
+    @property
+    def hidden_count(self):
+        """How many labels the truncated cell leaves to the day panel."""
+        return max(len(self.items) - CELL_LIMIT, 0)
 
 
 def _area_ids(area):
