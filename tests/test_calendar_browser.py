@@ -228,3 +228,19 @@ def test_a_task_panel_states_its_controls_and_keeps_focus_order(
         page.keyboard.press("Escape")
         expect(panel).to_be_hidden()
         expect(link).to_be_focused()
+
+
+def test_the_month_vignette_is_decorative_and_desktop_only(browser_endpoint, live_server, user):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        vignette = page.locator(".calendar-vignette")
+        expect(vignette).to_be_visible()
+        expect(vignette).to_have_attribute("alt", "")
+        expect(vignette).to_have_attribute("aria-hidden", "true")
+        assert vignette.evaluate("image => image.naturalWidth") == 720
+        expect(page.locator(".calendar-heading-side .btn-primary")).to_be_visible()
+    with browser_page(browser_endpoint, viewport={"width": 390, "height": 844}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        expect(page.locator(".calendar-vignette")).to_be_hidden()

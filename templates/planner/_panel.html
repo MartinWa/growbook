@@ -14,23 +14,28 @@
       {% if panel.item.task_note %}<div class="calendar-panel-note">{{ panel.item.task_note|linebreaks }}</div>{% endif %}
       {% if panel.item.task %}
       {% if panel.item.task.completed_on %}<p class="calendar-panel-meta">{% blocktranslate with planned=panel.item.task_planned_date|date:'DATE_FORMAT' %}Planned for {{ planned }}{% endblocktranslate %}</p>{% endif %}
+      {% if panel.item.planned %}
+      <form class="calendar-panel-done" method="post" action="{% url 'planner:task-complete' panel.item.task.pk %}">
+        {% csrf_token %}
+        {{ panel.action_form.submission_key }}{{ panel.action_form.expected_updated_at }}
+        {% include 'components/field.html' with field=panel.action_form.completed_on %}
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">{% translate 'Mark done' %}</button>
+          <a class="btn btn-outline" href="{{ panel.item.task_url }}">{% translate 'Edit task' %}</a>
+          <a class="btn btn-ghost" href="{% url 'planner:task-delete' panel.item.task.pk %}">{% translate 'Delete task' %}</a>
+        </div>
+      </form>
+      {% else %}
       <nav class="calendar-panel-links" aria-label="{% translate 'Task actions' %}">
         <a class="btn btn-outline" href="{{ panel.item.task_url }}">{% translate 'Edit task' %}</a>
-        {% if panel.item.planned %}
-        <form method="post" action="{% url 'planner:task-complete' panel.item.task.pk %}">
-          {% csrf_token %}
-          {{ panel.action_form.submission_key }}{{ panel.action_form.expected_updated_at }}{{ panel.action_form.completed_on }}
-          <button class="btn btn-primary" type="submit">{% translate 'Mark done' %}</button>
-        </form>
-        {% else %}
         <form method="post" action="{% url 'planner:task-reopen' panel.item.task.pk %}">
           {% csrf_token %}
           {{ panel.action_form.submission_key }}{{ panel.action_form.expected_updated_at }}
           <button class="btn btn-outline" type="submit">{% translate 'Reopen task' %}</button>
         </form>
-        {% endif %}
         <a class="btn btn-ghost" href="{% url 'planner:task-delete' panel.item.task.pk %}">{% translate 'Delete task' %}</a>
       </nav>
+      {% endif %}
       {% else %}
       <nav class="calendar-panel-links" aria-label="{% translate 'Record links' %}">
         {% if panel.item.entry_url %}<a class="btn btn-outline" href="{{ panel.item.entry_url }}">{% translate 'Open observation' %}</a>{% endif %}

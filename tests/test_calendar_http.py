@@ -375,6 +375,33 @@ def test_an_opened_item_outranks_an_opened_day(client, user, garden):
     assert 'data-return-focus="calendar-item-event-' + str(event.pk) + '"' in response.text
 
 
+@pytest.mark.parametrize(
+    "month,name",
+    [
+        (1, "january"),
+        (2, "february"),
+        (3, "march"),
+        (4, "april"),
+        (5, "may"),
+        (6, "june"),
+        (7, "july"),
+        (8, "august"),
+        (9, "september"),
+        (10, "october"),
+        (11, "november"),
+        (12, "december"),
+    ],
+)
+def test_each_month_renders_its_own_decorative_vignette(client, user, month, name):
+    client.force_login(user)
+    page = client.get(month_url(2026, month))
+    assert page.status_code == 200
+    assert f"images/calendar/{name}.webp" in page.text
+    assert 'class="calendar-vignette"' in page.text
+    assert 'alt=""' in page.text
+    assert 'aria-hidden="true"' in page.text
+
+
 def test_the_day_panel_does_not_repeat_item_ids(client, user, garden):
     for number in range(3):
         make_entry(user, day=date(2026, 5, 9), title=f"Synthetic day {number}")

@@ -512,6 +512,7 @@ def month_context(year, month, *, today=None, filters=None, address=None, day=No
         if year - 1 >= FIRST_YEAR
         else "",
         "month_note": MonthNote.objects.filter(year=year, month=month).first(),
+        "vignette": f"images/calendar/{calendar.month_name[month].lower()}.webp",
         "new_task_date": today if (today.year, today.month) == (year, month) else start,
         "panel": _panel(year, month, items, address, day),
     }

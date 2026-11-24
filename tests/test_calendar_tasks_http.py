@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from core import receipts
 from garden.services import create_area, create_crop, create_planting, create_planting_event
@@ -145,6 +146,8 @@ def test_the_panel_completes_and_reopens_a_task(client, user):
     ).task
     panel = client.get(reverse("planner:month", args=[2026, 5]) + f"?item=task-{task.pk}")
     assert reverse("planner:task-complete", args=[task.pk]).encode() in panel.content
+    assert b'name="completed_on"' in panel.content
+    assert f'value="{timezone.localdate().isoformat()}"'.encode() in panel.content
     response = client.post(
         reverse("planner:task-complete", args=[task.pk]),
         {
@@ -156,6 +159,9 @@ def test_the_panel_completes_and_reopens_a_task(client, user):
     assert response.status_code == 302
     task.refresh_from_db()
     assert task.completed_on == date(2026, 5, 12)
+    day = client.get(reverse("planner:month", args=[2026, 5]))
+    cell = re.search(r'data-date="2026-05-12">(.*?)</td>', day.text, re.S).group(1)
+    assert f"item=task-{task.pk}" in cell
     panel = client.get(reverse("planner:month", args=[2026, 5]) + f"?item=task-{task.pk}")
     assert reverse("planner:task-reopen", args=[task.pk]).encode() in panel.content
     response = client.post(

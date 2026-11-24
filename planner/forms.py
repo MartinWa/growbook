@@ -205,10 +205,15 @@ class TaskActionForm(forms.Form):
     submission_key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid4)
     expected_updated_at = VersionField()
     completed_on = forms.DateField(
+        label=_("Done on"),
         required=False,
-        widget=forms.HiddenInput(attrs={"format": "%Y-%m-%d"}),
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         initial=timezone.localdate,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        describe_fields(self)
 
 
 class MonthNoteForm(forms.Form):

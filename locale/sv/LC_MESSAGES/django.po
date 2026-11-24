@@ -2661,3 +2661,6 @@ msgstr "Du kan ange den första händelsen för planteringen. Observationsdatume
 
 msgid "Choose a date in the calendar's year range."
 msgstr "Välj ett datum inom kalenderns årsintervall."
+
+msgid "Done on"
+msgstr "Avklarad den"

@@ -1868,6 +1868,23 @@
     @apply mb-4;
   }
 
+  .calendar-heading-side {
+    @apply flex items-center gap-4;
+    margin-inline-start: auto;
+  }
+
+  .calendar-vignette {
+    @apply rounded-box border border-base-300 object-cover;
+    width: clamp(9rem, 21vw, 16rem);
+    height: auto;
+  }
+
+  @media (max-width: 700px) {
+    .calendar-vignette {
+      display: none;
+    }
+  }
+
   .calendar-layout {
     @apply grid gap-3;
   }
@@ -1949,6 +1966,10 @@
 
   .calendar-panel-links form {
     @apply contents;
+  }
+
+  .calendar-panel-done {
+    @apply mt-4;
   }
 
   .calendar-grid {

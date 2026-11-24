@@ -104,6 +104,13 @@ that the note changed and keeps the text you wrote, so nothing is lost while you
 to read the newer note. Changing a filter or moving to another month reloads the side
 column too, so save a note before you leave the month.
 
+## Month pictures
+
+Each month carries one small decorative picture beside the heading. It is hidden, not
+replaced by a placeholder, on narrow screens, and it carries no text for assistive
+technology. The pictures are original artwork made for GrowBook and are committed as
+720 × 360 WebP files, one per month.
+
 ## Read-only records
 
 Planting events and diary observations are written where they belong: in
