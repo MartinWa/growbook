@@ -1,15 +1,17 @@
 {% load i18n %}
-<div id="{{ results_id }}">
+<div id="{{ results_id }}" class="calendar-results">
+  <h2 class="calendar-month-label" data-result-focus tabindex="-1">{{ month_label }}</h2>
   <nav class="month-navigation" aria-label="{% translate 'Month navigation' %}">
-    {% if previous %}<a class="btn btn-ghost" rel="prev" href="{{ previous.url }}{% querystring item=None day=None %}">← <span>{{ previous.label }}</span></a>{% endif %}
+    {% if previous %}<a class="btn btn-ghost" rel="prev" href="{{ previous.url }}{% querystring item=None day=None %}" aria-label="{% blocktranslate with label=previous.label %}Previous month, {{ label }}{% endblocktranslate %}"><span aria-hidden="true">←</span><span class="month-navigation-label">{{ previous.label }}</span></a>{% endif %}
     <a class="btn btn-ghost" href="{% url 'planner:current' %}{% querystring item=None day=None %}">{% translate 'Current month' %}</a>
-    {% if following %}<a class="btn btn-ghost" rel="next" href="{{ following.url }}{% querystring item=None day=None %}"><span>{{ following.label }}</span> →</a>{% endif %}
+    {% if following %}<a class="btn btn-ghost" rel="next" href="{{ following.url }}{% querystring item=None day=None %}" aria-label="{% blocktranslate with label=following.label %}Next month, {{ label }}{% endblocktranslate %}"><span class="month-navigation-label">{{ following.label }}</span><span aria-hidden="true">→</span></a>{% endif %}
   </nav>
   <div class="calendar-columns">
     <div class="calendar-main">
       {% include 'components/filter_chips.html' %}
+      {% if not has_items and active_filters %}<p class="calendar-empty muted">{% translate 'No calendar items match these filters.' %}</p>{% endif %}
       <table class="calendar-grid">
-        <caption class="calendar-caption" data-result-focus tabindex="-1">{{ month_label }}</caption>
+        <caption class="visually-hidden">{{ month_label }}</caption>
         <thead>
           <tr>{% for name in weekdays %}<th scope="col">{{ name }}</th>{% endfor %}</tr>
         </thead>
@@ -36,37 +38,40 @@
           {% endfor %}
         </tbody>
       </table>
-      {% if not has_items %}<p class="calendar-empty muted">{% if active_filters %}{% translate 'No calendar items match these filters.' %}{% else %}{% translate 'No calendar items this month.' %}{% endif %}</p>{% endif %}
     </div>
-    <aside class="calendar-side" aria-labelledby="calendar-side-title">
-      <h2 id="calendar-side-title" class="calendar-side-title">{% translate 'This time last year' %}</h2>
-      {% if previous_year_label %}<p class="calendar-side-period">{{ previous_year_label }}</p>{% endif %}
-      {% if previous_year_items %}
-      <ul class="calendar-year-items">
-        {% for item in previous_year_items %}
-        <li>
-          {% include 'planner/_item.html' with item=item panel_link=False %}
-          <a class="calendar-add" href="{% url 'planner:task-new' year month %}?from={{ item.item_param }}">{% translate 'Add to this year' %}</a>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="field-help">{% translate 'Nothing recorded in this month a year ago.' %}</p>
-      {% endif %}
-      <details class="calendar-note"{% if note_form.errors or not month_note %} open{% endif %}>
-        <summary class="calendar-side-title">{% translate 'Month note' %}</summary>
-        {% if month_note.body %}<div class="calendar-note-text">{{ month_note.body|linebreaks }}</div>{% endif %}
-        <form class="calendar-note-form" method="post" action="{{ note_action }}">
-          {% csrf_token %}
-          {{ note_form.submission_key }}{{ note_form.expected_updated_at }}
-          {% include 'planner/form_errors.html' with form=note_form %}
-          <div class="field">
-            {{ note_form.body.label_tag }}{{ note_form.body }}
-          </div>
-          <p class="field-help">{% translate 'One note is shared by everyone who reads this month.' %}</p>
-          <div class="form-actions"><button class="btn btn-outline" type="submit">{% translate 'Save note' %}</button></div>
-        </form>
-      </details>
+    <aside class="calendar-side">
+      <section class="calendar-card" aria-labelledby="calendar-year-title">
+        <h2 id="calendar-year-title" class="calendar-side-title">{% translate 'This time last year' %}</h2>
+        {% if previous_year_label %}<p class="calendar-side-period">{{ previous_year_label }}</p>{% endif %}
+        {% if previous_year_items %}
+        <ul class="calendar-year-items">
+          {% for item in previous_year_items %}
+          <li>
+            {% include 'planner/_item.html' with item=item panel_link=False %}
+            <a class="calendar-add" href="{% url 'planner:task-new' year month %}?from={{ item.item_param }}">{% translate 'Add to this year' %}</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="field-help">{% translate 'Nothing recorded in this month a year ago.' %}</p>
+        {% endif %}
+      </section>
+      <section class="calendar-card" aria-labelledby="calendar-note-title">
+        <details class="calendar-note"{% if note_form.errors or not month_note %} open{% endif %}>
+          <summary><h2 id="calendar-note-title" class="calendar-side-title">{% translate 'Month note' %}</h2><span class="filter-arrow" aria-hidden="true"></span></summary>
+          {% if month_note.body %}<div class="calendar-note-text">{{ month_note.body|linebreaks }}</div>{% endif %}
+          <form class="calendar-note-form" method="post" action="{{ note_action }}">
+            {% csrf_token %}
+            {{ note_form.submission_key }}{{ note_form.expected_updated_at }}
+            {% include 'planner/form_errors.html' with form=note_form %}
+            <div class="field">
+              {{ note_form.body.label_tag }}{{ note_form.body }}
+            </div>
+            <p class="field-help">{% translate 'One note is shared by everyone who reads this month.' %}</p>
+            <div class="form-actions"><button class="btn btn-outline" type="submit">{% translate 'Save note' %}</button></div>
+          </form>
+        </details>
+      </section>
     </aside>
   </div>
   {% include 'planner/_panel.html' %}

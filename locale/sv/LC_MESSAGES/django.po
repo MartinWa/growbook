@@ -2440,11 +2440,14 @@ msgstr "Månadsnavigering"
 msgid "Current month"
 msgstr "Aktuell månad"
 
+msgid "Next month, %(label)s"
+msgstr "Nästa månad, %(label)s"
+
+msgid "Previous month, %(label)s"
+msgstr "Föregående månad, %(label)s"
+
 msgid "Today"
 msgstr "I dag"
-
-msgid "No calendar items this month."
-msgstr "Inga kalenderposter den här månaden."
 
 msgid "Show in calendar"
 msgstr "Visa i kalendern"

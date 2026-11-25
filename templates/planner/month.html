@@ -5,21 +5,21 @@
 {% block content %}
 <div class="page-heading calendar-heading">
   <h1>{% translate 'Calendar' %}</h1>
-  <div class="calendar-heading-side">
-    {% include 'planner/_vignette.html' %}
-    <a class="btn btn-primary" href="{{ new_task_url }}">{% translate 'New task' %}</a>
-  </div>
-</div>
-<div class="calendar-layout" data-filter-page data-results-id="{{ results_id }}"
+  {% include 'planner/_vignette.html' %}
+  <div class="calendar-layout" data-filter-page data-results-id="{{ results_id }}"
      data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
      data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
      data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this page.' %}">
-  <details class="filter-disclosure" data-filter-disclosure id="calendar-filters"{% if form.errors %} open{% endif %}>
-    {% translate 'Filters' as filter_label %}
-    {% include 'components/filter_summary.html' %}
-    {% include 'planner/_filters.html' %}
-  </details>
+  <div class="calendar-controls-end">
+    <details class="filter-disclosure" data-filter-disclosure id="calendar-filters"{% if form.errors %} open{% endif %}>
+      {% translate 'Filters' as filter_label %}
+      {% include 'components/filter_summary.html' %}
+    </details>
+    <a class="btn btn-primary calendar-new-task" href="{{ new_task_url }}">{% translate 'New task' %}</a>
+  </div>
+  {% include 'planner/_filters.html' %}
   <p id="filter-status" class="field-errors" role="alert" tabindex="-1"></p>
   {% include 'planner/_month_results.html' %}
+  </div>
 </div>
 {% endblock %}

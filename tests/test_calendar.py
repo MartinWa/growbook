@@ -120,6 +120,17 @@ def test_event_with_only_a_planned_date_is_planned(user, garden):
         assert "Planerad" in item.meta
 
 
+def test_cell_tag_prefers_the_state_and_falls_back_to_the_entry_category(user, garden):
+    make_task(user, day=date(2026, 5, 10))
+    make_event(user, garden, planned=date(2026, 5, 11), actual=date(2026, 5, 20))
+    make_entry(user, day=date(2026, 5, 9), show_in_calendar=True, title="Synthetic note")
+    by_kind = {item.kind: item for item in month_items(2026, 5)}
+    with translation.override("sv"):
+        assert by_kind["task"].cell_tag == "Planerad"
+        assert by_kind["event"].cell_tag == "Klart"
+        assert by_kind["entry"].cell_tag == "Dagbok"
+
+
 def test_entry_and_event_render_once_on_the_event_date(user, garden):
     entry = make_entry(
         user,

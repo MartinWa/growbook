@@ -1,9 +1,8 @@
 {% load i18n %}
 <article class="calendar-item calendar-item-{{ item.kind }}{% if item.planned %} is-planned{% endif %}">
-  {% if item.meta %}<span class="calendar-item-meta">{{ item.meta }}</span>{% endif %}
   {% if panel_link %}
-  <a class="calendar-item-title"{% if not in_panel %} id="{{ item.element_id }}"{% endif %} data-calendar-open href="{% querystring item=item.item_param day=None %}">{{ item.title }}</a>
+  <a class="calendar-item-title"{% if not in_panel %} id="{{ item.element_id }}"{% endif %} data-calendar-open href="{% querystring item=item.item_param day=None %}">{% if item.cell_tag %}<span class="calendar-item-tag">{{ item.cell_tag }}</span>{% endif %}<span class="calendar-item-text">{{ item.title }}</span></a>
   {% else %}
-  <a class="calendar-item-title" href="{{ item.primary_url }}">{{ item.title }}</a>
+  <a class="calendar-item-title" href="{{ item.primary_url }}">{% if item.cell_tag %}<span class="calendar-item-tag">{{ item.cell_tag }}</span>{% endif %}<span class="calendar-item-text">{{ item.title }}</span></a>
   {% endif %}
 </article>

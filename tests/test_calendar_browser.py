@@ -152,7 +152,55 @@ def test_the_month_stacks_on_a_narrow_screen(browser_endpoint, live_server, user
         login(page, live_server, user, "en")
         page.goto(live_server.url + month_url())
         expect(page.locator(".calendar-grid thead")).to_be_visible()
-        expect(page.locator(".calendar-grid caption")).to_be_visible()
+        expect(page.locator(".calendar-month-label")).to_be_visible()
+
+
+def test_the_control_row_holds_the_pager_the_filter_trigger_and_new_task(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        nav_box = page.locator(".month-navigation").bounding_box()
+        trigger_box = page.locator("[data-filter-disclosure] > summary").bounding_box()
+        task_box = page.locator(".calendar-new-task").bounding_box()
+        assert nav_box is not None and trigger_box is not None and task_box is not None
+        row_top = min(nav_box["y"], trigger_box["y"], task_box["y"])
+        row_bottom = max(
+            nav_box["y"] + nav_box["height"],
+            trigger_box["y"] + trigger_box["height"],
+            task_box["y"] + task_box["height"],
+        )
+        # All three controls share one row.
+        assert row_bottom - row_top < trigger_box["height"] * 1.5
+        # The row's right edge lines up with the side column ("This time last year"),
+        # and the Filter trigger sits directly next to New task.
+        side_box = page.locator(".calendar-side").bounding_box()
+        assert side_box is not None
+        assert abs(task_box["x"] + task_box["width"] - (side_box["x"] + side_box["width"])) < 2
+        assert 0 <= task_box["x"] - (trigger_box["x"] + trigger_box["width"]) < 20
+
+
+def test_opening_the_filters_keeps_the_trigger_in_place(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        trigger = page.locator("[data-filter-disclosure] > summary")
+        columns = page.locator(".calendar-columns")
+        before = trigger.bounding_box()
+        columns_before = columns.bounding_box()
+        trigger.click()
+        after = trigger.bounding_box()
+        columns_after = columns.bounding_box()
+        assert before is not None and after is not None
+        assert after["x"] == before["x"] and after["y"] == before["y"]
+        expect(page.locator(".filter-panel")).to_be_visible()
+        # The panel is in flow like the diary's filters: it pushes the grid down
+        # instead of overlaying it.
+        assert columns_before is not None and columns_after is not None
+        assert columns_after["y"] > columns_before["y"]
 
 
 def test_removing_a_filter_chip_keeps_focus_in_the_results(
@@ -163,7 +211,7 @@ def test_removing_a_filter_chip_keeps_focus_in_the_results(
         page.goto(live_server.url + month_url() + "?type=event")
         page.get_by_role("link", name=re.compile("Remove filter: Item type")).click()
         expect(page).to_have_url(re.compile(r"/calendar/2026/5/$"))
-        expect(page.locator("caption[data-result-focus]")).to_be_focused()
+        expect(page.locator(".calendar-month-label[data-result-focus]")).to_be_focused()
 
 
 def test_a_dismissed_panel_does_not_return_after_a_language_change(
@@ -239,7 +287,14 @@ def test_the_month_vignette_is_decorative_and_desktop_only(browser_endpoint, liv
         expect(vignette).to_have_attribute("alt", "")
         expect(vignette).to_have_attribute("aria-hidden", "true")
         assert vignette.evaluate("image => image.naturalWidth") == 720
-        expect(page.locator(".calendar-heading-side .btn-primary")).to_be_visible()
+        expect(page.locator(".calendar-new-task")).to_be_visible()
+        # The picture spans the title row and reaches the end of the month-name row.
+        vignette_box = vignette.bounding_box()
+        label_box = page.locator(".calendar-month-label").bounding_box()
+        assert vignette_box is not None and label_box is not None
+        image_bottom = vignette_box["y"] + vignette_box["height"]
+        label_bottom = label_box["y"] + label_box["height"]
+        assert abs(image_bottom - label_bottom) < 2
     with browser_page(browser_endpoint, viewport={"width": 390, "height": 844}) as page:
         login(page, live_server, user, "en")
         page.goto(live_server.url + month_url())

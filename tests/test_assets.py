@@ -34,7 +34,7 @@ def test_every_marked_source_message_has_a_swedish_translation():
 
 
 def test_month_vignettes_are_committed_webp_within_budget():
-    """One 2:1 picture per month, small enough to stay decorative."""
+    """One 3:2 picture per month, small enough to stay decorative."""
     names = [
         "january",
         "february",
@@ -56,7 +56,7 @@ def test_month_vignettes_are_committed_webp_within_budget():
         assert path.stat().st_size <= 120 * 1024, name
         with Image.open(path) as image:
             assert image.format == "WEBP", name
-            assert image.size == (720, 360), name
+            assert image.size == (720, 480), name
 
 
 def test_vendored_htmx_matches_its_documented_checksum():

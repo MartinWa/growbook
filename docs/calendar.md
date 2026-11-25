@@ -77,8 +77,8 @@ cannot read is not found rather than silently ignored.
 
 ## Writing a task
 
-**New task** in the heading opens a form with a date, an optional title, an optional note
-and an optional linked record. One of the title or the note is required. **Edit task** in
+**New task** in the control row, beside the month navigation and the filters, opens a
+form with a date, an optional title, an optional note and an optional linked record. One of the title or the note is required. **Edit task** in
 the panel changes the same fields, and **Delete task** asks for confirmation. A completed
 task keeps its completion day when it is edited.
 
@@ -112,10 +112,9 @@ column too, so save a note before you leave the month.
 
 ## Month pictures
 
-Each month carries one small decorative picture beside the heading. It is hidden, not
-replaced by a placeholder, on narrow screens, and it carries no text for assistive
-technology. The pictures are original artwork made for GrowBook and are committed as
-720 × 360 WebP files, one per month.
+Each month has its own decorative picture beside the heading and the month name. Narrow
+screens hide it rather than folding it into the layout, and it carries no text for
+assistive technology. The pictures are original artwork made for GrowBook.
 
 ## Read-only records
 

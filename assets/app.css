@@ -1863,41 +1863,131 @@
     }
   }
 
-  /* Calendar: one grid that stacks into day sections on narrow screens. */
+  /* Calendar: the heading, the month controls and the month picture share one grid,
+     so the picture spans the title row and the month-name row, and the Filter and
+     New task buttons sit right-aligned above the side column. The layout and results
+     wrappers are layout-neutral; their children join the heading grid directly. */
   .calendar-heading {
-    @apply mb-4;
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, auto);
+    /* Keep single spaces inside the area strings: the minifier collapses runs and
+       would glue "." tokens to their neighbours, breaking the named areas. */
+    grid-template-areas:
+      "title title title title image"
+      "label label label label image"
+      "nav empty empty empty action"
+      "fpanel fpanel fpanel fpanel fpanel"
+      "status status status status status"
+      "body body body body body";
+    align-items: center;
+    column-gap: 1rem;
+    row-gap: 0.5rem;
   }
 
-  .calendar-heading-side {
-    @apply flex items-center gap-4;
-    margin-inline-start: auto;
+  .calendar-heading > h1 {
+    grid-area: title;
+  }
+
+  /* 22rem keeps the 720 px artwork crisp on a 2× screen. The cell sizes the column;
+     the absolutely positioned image fills the spanned rows without sizing them. */
+  .calendar-vignette-cell {
+    grid-area: image;
+    position: relative;
+    align-self: stretch;
+    inline-size: clamp(12rem, 26vw, 22rem);
   }
 
   .calendar-vignette {
-    @apply rounded-box border border-base-300 object-cover;
-    width: clamp(9rem, 21vw, 16rem);
-    height: auto;
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
   }
 
-  @media (max-width: 700px) {
-    .calendar-vignette {
+  .calendar-layout,
+  .calendar-results {
+    display: contents;
+  }
+
+  /* The pager is one segmented control so the row never reads as loose text links. */
+  .month-navigation {
+    grid-area: nav;
+    @apply flex items-center gap-0.5 rounded-full border border-control-border bg-base-100 p-0.5;
+  }
+
+  .month-navigation .btn {
+    @apply rounded-full border-0 px-3 font-medium text-secondary;
+  }
+
+  .month-navigation .btn:is(:hover, :active, :focus-visible) {
+    @apply bg-control-hover text-base-content;
+  }
+
+  /* The Filter trigger and New task share the row's right end, side by side and
+     right-aligned above the side column. */
+  .calendar-controls-end {
+    grid-area: action;
+    justify-self: end;
+    @apply flex items-center gap-2;
+  }
+
+  /* The trigger keeps its place when the filters open. The panel is a sibling of the
+     controls, shown in a full-width row below — in flow like the diary's filters, so
+     neither the button nor an overlay moves. */
+  .calendar-heading .filter-disclosure[open] > summary {
+    margin-bottom: 0;
+  }
+
+  .calendar-heading .filter-panel {
+    display: none;
+    grid-area: fpanel;
+  }
+
+  .calendar-heading .calendar-controls-end:has(.filter-disclosure[open]) ~ .filter-panel {
+    display: block;
+  }
+
+  .calendar-heading #filter-status {
+    grid-area: status;
+  }
+
+  .calendar-columns {
+    grid-area: body;
+    @apply grid min-w-0 gap-4;
+  }
+
+  @media (max-width: 1150px) {
+    .calendar-heading {
+      grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, auto);
+      grid-template-areas:
+        "title title image"
+        "label label image"
+        "nav action action"
+        "fpanel fpanel fpanel"
+        "status status status"
+        "body body body";
+    }
+  }
+
+  @media (max-width: 950px) {
+    .calendar-heading {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title title"
+        "label label"
+        "nav action"
+        "fpanel fpanel"
+        "status status"
+        "body body";
+    }
+
+    .calendar-vignette-cell {
       display: none;
     }
   }
 
-  .calendar-layout {
-    @apply grid gap-3;
-  }
-
-  .month-navigation {
-    @apply flex flex-wrap items-center gap-2;
-  }
-
-  .calendar-columns {
-    @apply mt-3 grid gap-4;
-  }
-
-  @media (min-width: 900px) {
+  @media (min-width: 1180px) {
     .calendar-columns {
       grid-template-columns: minmax(0, 1fr) 16rem;
       align-items: start;
@@ -1909,11 +1999,16 @@
   }
 
   .calendar-side {
-    @apply rounded-box border border-base-300 bg-base-100 p-3 shadow-notebook;
+    @apply grid gap-4;
+  }
+
+  .calendar-card {
+    @apply rounded-box border border-base-300 bg-base-100 p-4 shadow-notebook;
   }
 
   .calendar-side-title {
     @apply m-0 text-lg font-semibold;
+    text-transform: none;
   }
 
   .calendar-side-period {
@@ -1925,31 +2020,41 @@
   }
 
   .calendar-year-items > li {
-    @apply my-2 min-w-0;
+    @apply my-3 min-w-0;
   }
 
   .calendar-more {
-    @apply mt-1 inline-block text-xs font-medium text-secondary underline underline-offset-2;
+    @apply mt-1 ms-1 inline-flex min-h-7 items-center rounded-full bg-secondary px-2 text-xs font-semibold text-secondary-content no-underline transition-colors;
   }
 
   .calendar-more:hover {
-    @apply bg-base-200/70;
+    @apply bg-base-content;
   }
 
   .calendar-add {
-    @apply mt-1 inline-block text-xs font-medium text-secondary underline underline-offset-2;
+    @apply mt-1 inline-flex min-h-7 items-center text-xs font-medium text-secondary underline decoration-secondary/40 underline-offset-2;
   }
 
   .calendar-add:hover {
-    @apply bg-base-200/70;
+    @apply decoration-secondary;
   }
 
-  .calendar-note {
-    @apply mt-4 border-t border-base-300 pt-3;
-  }
-
+  /* The heading is the affordance; the native marker would sit above it on its own line. */
   .calendar-note > summary {
-    @apply cursor-pointer text-lg font-semibold;
+    @apply flex cursor-pointer items-center justify-between gap-2;
+    list-style: none;
+  }
+
+  .calendar-note > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .calendar-note[open] > summary .filter-arrow {
+    transform: translateY(2px) rotate(225deg);
+  }
+
+  .calendar-note[open] > summary {
+    @apply mb-2;
   }
 
   .calendar-note-text {
@@ -1964,6 +2069,14 @@
     @apply w-full;
   }
 
+  .calendar-note .field-help {
+    @apply mt-1.5 text-xs;
+  }
+
+  .calendar-card .field-help {
+    color: var(--color-muted);
+  }
+
   .calendar-panel-links form {
     @apply contents;
   }
@@ -1973,39 +2086,77 @@
   }
 
   .calendar-grid {
-    @apply w-full border-collapse overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-notebook;
+    /* separate + spacing 0 keeps the radius: with collapse Chromium ignores it, and
+       overflow-hidden clips the corner cells' backgrounds to the rounded border. */
+    @apply w-full overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-notebook;
+    border-collapse: separate;
+    border-spacing: 0;
     table-layout: fixed;
   }
 
-  .calendar-caption {
-    @apply px-3 py-3 text-xl font-semibold text-base-content;
+  /* The table border is the outer frame; cells draw only the internal lines. */
+  .calendar-grid th,
+  .calendar-grid td {
+    @apply border-b border-e border-base-300;
+  }
+
+  .calendar-grid th:last-child,
+  .calendar-grid td:last-child {
+    border-inline-end: 0;
+  }
+
+  .calendar-grid tbody tr:last-child td {
+    border-block-end: 0;
+  }
+
+  /* The month name leads the controls, beside the picture rather than over the grid. */
+  .calendar-month-label {
+    @apply m-0 pb-1 text-base-content;
+    grid-area: label;
     font-family: "Barlow Condensed", var(--font-sans);
-    text-align: start;
+    font-size: clamp(1.9rem, 3.4vw, 2.75rem);
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
   }
 
   .calendar-grid th {
-    @apply border border-base-300 bg-base-200/60 px-2 py-2 text-sm font-semibold text-secondary;
+    @apply bg-base-200/60 px-2 py-2 text-xs font-semibold tracking-wide text-secondary uppercase;
   }
 
   .calendar-grid td {
-    @apply border border-base-300 p-2 align-top;
-    height: 6.5rem;
+    @apply p-2 align-top;
+    height: 7rem;
   }
 
   .calendar-day.is-outside {
-    @apply bg-base-200/40 text-base-content/50;
+    background: color-mix(in srgb, var(--color-base-300) 55%, var(--color-base-100));
+  }
+
+  /* Adjacent months stay readable: muted text and a softer surface, never transparency. */
+  .calendar-day.is-outside .calendar-day-label,
+  .calendar-day.is-outside .calendar-item-title {
+    color: var(--color-muted);
   }
 
   .calendar-day.is-today {
-    box-shadow: inset 0 0 0 2px var(--color-accent);
+    background: color-mix(in srgb, var(--color-primary) 7%, var(--color-base-100));
   }
 
   .calendar-day-label {
-    @apply m-0 flex flex-wrap items-baseline gap-x-2 text-sm font-semibold;
+    @apply m-0 flex flex-wrap items-center gap-x-2 text-sm font-semibold;
   }
 
   .calendar-day-number {
     font-variant-numeric: tabular-nums;
+  }
+
+  .calendar-day.is-today .calendar-day-number {
+    @apply inline-grid place-items-center rounded-full font-semibold;
+    min-inline-size: 1.75rem;
+    block-size: 1.75rem;
+    background: var(--color-primary);
+    color: var(--color-primary-content);
   }
 
   .calendar-day-date {
@@ -2013,11 +2164,12 @@
   }
 
   .calendar-day-today {
-    @apply text-xs font-normal text-accent;
+    @apply text-xs font-medium;
+    color: var(--color-secondary);
   }
 
   .calendar-items {
-    @apply m-0 mt-1 list-none p-0;
+    @apply m-0 mt-1.5 list-none p-0;
   }
 
   .calendar-items > li {
@@ -2028,30 +2180,36 @@
     @apply min-w-0;
   }
 
-  .calendar-item-meta,
-  .calendar-item-title,
-  .calendar-item-link {
-    @apply block truncate text-sm;
-  }
-
-  .calendar-item-meta {
-    @apply text-xs text-base-content/70;
-  }
-
   .calendar-item-title {
-    @apply font-medium text-primary underline decoration-primary/60 underline-offset-2;
+    @apply flex min-w-0 flex-wrap items-baseline gap-x-1.5 rounded-md px-1 py-0.5 text-sm font-medium text-base-content no-underline transition-colors;
   }
 
   .calendar-item-title:hover {
-    @apply bg-base-200/70 decoration-primary;
+    @apply bg-base-200/70;
   }
 
-  .calendar-item-link {
-    @apply text-xs text-secondary underline underline-offset-2;
+  /* Below this the badge would leave no room for the title, so the title takes its own line. */
+  .calendar-item-text {
+    @apply min-w-0 flex-1 truncate;
+    min-inline-size: 4.5rem;
   }
 
-  .calendar-item.is-planned .calendar-item-title {
-    @apply italic;
+  .calendar-item-tag {
+    @apply shrink-0 rounded-full px-1.5 text-[0.7rem] font-semibold text-secondary;
+    background: color-mix(in srgb, var(--color-base-200) 80%, transparent);
+    line-height: 1.6;
+  }
+
+  /* A recorded state reads as done; an entry's own category stays neutral. */
+  .calendar-item:not(.is-planned):not(.calendar-item-entry) .calendar-item-tag {
+    background: var(--color-success);
+    color: var(--color-success-content);
+  }
+
+  /* An adjacent month's badge follows that cell's dimming, whatever its state. */
+  .calendar-day.is-outside .calendar-item .calendar-item-tag {
+    background: color-mix(in srgb, var(--color-base-300) 45%, transparent);
+    color: var(--color-muted);
   }
 
   .calendar-empty {
@@ -2107,6 +2265,13 @@
     @apply my-2;
   }
 
+  /* A panel title is read in full, so it wraps instead of truncating. */
+  .calendar-panel-items .calendar-item-text {
+    @apply whitespace-normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+  }
+
   .filter-toggles > div {
     @apply flex flex-wrap gap-x-4 gap-y-1;
   }
@@ -2116,6 +2281,27 @@
   }
 
   @media (max-width: 700px) {
+    .calendar-heading {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title title"
+        "label label"
+        "nav empty"
+        "action action"
+        "fpanel fpanel"
+        "status status"
+        "body body";
+    }
+
+    .month-navigation {
+      padding: 0;
+    }
+
+    /* The arrows keep their accessible names; the month names are the first thing to go. */
+    .month-navigation-label {
+      display: none;
+    }
+
     .calendar-grid,
     .calendar-grid tbody,
     .calendar-grid tr,
@@ -2128,12 +2314,9 @@
       display: none;
     }
 
-    .calendar-grid caption {
-      @apply px-2;
-    }
-
     .calendar-grid td {
       @apply border-0 border-b border-base-300 px-1 py-3;
+      border-inline-end: 0;
       height: auto;
     }
 
@@ -2146,22 +2329,34 @@
       display: none;
     }
 
+    /* A day is a row here, so the date carries the today marker instead of the number. */
     .calendar-day-date {
       display: inline;
+    }
+
+    .calendar-day.is-today .calendar-day-label time {
+      @apply rounded-full px-2 font-semibold;
+      padding-block: 0.1rem;
+      background: var(--color-primary);
+      color: var(--color-primary-content);
     }
 
     .calendar-items > li {
       @apply my-2;
     }
 
-    .calendar-item-meta,
-    .calendar-item-title,
-    .calendar-item-link {
-      @apply text-base;
-      overflow: visible;
-      text-overflow: clip;
+    .calendar-item-title {
+      @apply min-h-11 text-base;
+    }
+
+    .calendar-item-text {
       white-space: normal;
+      overflow: visible;
       overflow-wrap: anywhere;
+    }
+
+    .calendar-more {
+      @apply min-h-11 px-3 text-sm;
     }
   }
 }
