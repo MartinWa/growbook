@@ -268,6 +268,19 @@ def test_a_removed_chip_keeps_the_other_filters_in_the_month_pager(
         ).to_be_focused()
 
 
+def test_removing_the_last_chip_focuses_the_one_before_it(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url() + f"?type=event&area={garden.area.pk}")
+        page.get_by_role("link", name=re.compile("Remove filter: Growing area")).click()
+        # The removed chip was the last one, so focus moves back to its neighbour.
+        expect(
+            page.get_by_role("link", name=re.compile("Remove filter: Item type"))
+        ).to_be_focused()
+
+
 def test_a_dismissed_panel_does_not_return_after_a_language_change(
     browser_endpoint, live_server, user, garden
 ):

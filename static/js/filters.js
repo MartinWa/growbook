@@ -85,7 +85,8 @@
   }
   function focusChip(index) {
     // A removed chip hands the keyboard to its neighbour; the last one falls
-    // back to the results heading.
+    // back to the results heading. Every results page renders one chip row, so
+    // the position found in the old row applies to the row swapped in.
     const chips = [...page.querySelectorAll(".filter-chips a.filter-chip")];
     const target = chips[Math.min(index, chips.length - 1)];
     if (target) target.focus();
