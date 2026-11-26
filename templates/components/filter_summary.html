@@ -1,1 +1,1 @@
-<summary class="btn btn-outline"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-search"/></svg>{{ filter_label }}<span class="filter-arrow" aria-hidden="true"></span></summary>
+<summary class="btn btn-outline"{% if filter_panel_id %} aria-controls="{{ filter_panel_id }}"{% endif %}><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-search"/></svg>{{ filter_label }}<span class="filter-arrow" aria-hidden="true"></span></summary>

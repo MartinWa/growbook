@@ -9,8 +9,9 @@
   const status = document.getElementById("filter-status");
   const retry = form.querySelector("[data-filter-retry]");
   const capture = document.getElementById("capture-form");
-  disclosure?.addEventListener("keydown", event => {
-    if (event.key !== "Escape" || !disclosure.open) return;
+  page.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !disclosure?.open) return;
+    if (!disclosure.contains(event.target) && !form.contains(event.target)) return;
     // Preserve a search input's value when closing the filters.
     event.preventDefault();
     disclosure.open = false;
@@ -148,7 +149,7 @@
       if (document.activeElement === focusOrigin ||
           (!focusOrigin.isConnected && document.activeElement === document.body)) {
         if (focusEntry) document.getElementById(`entry-${focusEntry}`)?.querySelector("h2").focus();
-        else if (focusResults) results.querySelector("[data-result-focus]")?.focus();
+        else if (focusResults) page.querySelector("[data-result-focus]")?.focus();
       }
     } catch (error) {
       if (!request.signal.aborted && error.name !== "AbortError") {

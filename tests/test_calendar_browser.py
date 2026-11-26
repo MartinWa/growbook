@@ -148,6 +148,9 @@ def test_the_month_stacks_on_a_narrow_screen(browser_endpoint, live_server, user
         expect(page.locator(".calendar-grid thead")).to_be_hidden()
         expect(page.locator(".calendar-items .calendar-item-title").first).to_be_visible()
         expect(page.locator(".calendar-side")).to_be_visible()
+        today = page.locator(".calendar-day.is-today")
+        expect(today.locator(".calendar-day-number")).to_be_hidden()
+        expect(today.locator(".calendar-day-date")).to_be_visible()
     with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
         login(page, live_server, user, "en")
         page.goto(live_server.url + month_url())
@@ -189,9 +192,12 @@ def test_opening_the_filters_keeps_the_trigger_in_place(
         page.goto(live_server.url + month_url())
         trigger = page.locator("[data-filter-disclosure] > summary")
         columns = page.locator(".calendar-columns")
+        page.locator('.month-navigation [rel="next"]').focus()
+        page.keyboard.press("Tab")
+        expect(trigger).to_be_focused()
         before = trigger.bounding_box()
         columns_before = columns.bounding_box()
-        trigger.click()
+        page.keyboard.press("Enter")
         after = trigger.bounding_box()
         columns_after = columns.bounding_box()
         assert before is not None and after is not None
@@ -201,6 +207,13 @@ def test_opening_the_filters_keeps_the_trigger_in_place(
         # instead of overlaying it.
         assert columns_before is not None and columns_after is not None
         assert columns_after["y"] > columns_before["y"]
+        page.keyboard.press("Tab")
+        expect(page.get_by_role("link", name="New task")).to_be_focused()
+        page.keyboard.press("Tab")
+        expect(page.get_by_role("checkbox", name="Planting events")).to_be_focused()
+        page.keyboard.press("Escape")
+        expect(page.locator(".filter-panel")).to_be_hidden()
+        expect(trigger).to_be_focused()
 
 
 def test_removing_a_filter_chip_keeps_focus_in_the_results(
@@ -212,6 +225,9 @@ def test_removing_a_filter_chip_keeps_focus_in_the_results(
         page.get_by_role("link", name=re.compile("Remove filter: Item type")).click()
         expect(page).to_have_url(re.compile(r"/calendar/2026/5/$"))
         expect(page.locator(".calendar-month-label[data-result-focus]")).to_be_focused()
+        expect(page.locator('.month-navigation [rel="next"]')).to_have_attribute(
+            "href", re.compile(r"/calendar/2026/6/$")
+        )
 
 
 def test_a_dismissed_panel_does_not_return_after_a_language_change(

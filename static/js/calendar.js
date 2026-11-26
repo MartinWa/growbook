@@ -53,6 +53,14 @@
   document.querySelectorAll("[data-calendar-panel]").forEach(initialize);
   document.addEventListener("growbook:results", event => {
     const root = event.detail?.root || document;
+    const query = root.dataset?.calendarNavigationQuery;
+    if (query !== undefined) {
+      for (const link of document.querySelectorAll(".month-navigation a")) {
+        const url = new URL(link.href);
+        url.search = query;
+        link.href = url.href;
+      }
+    }
     root.querySelectorAll("[data-calendar-panel]").forEach(initialize);
   });
 })();

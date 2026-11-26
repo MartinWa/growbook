@@ -3,23 +3,27 @@
 {% block title %}{{ month_label }} · {% translate 'Calendar' %} · GrowBook{% endblock %}
 {% block page_class %}page calendar-page{% endblock %}
 {% block content %}
-<div class="page-heading calendar-heading">
-  <h1>{% translate 'Calendar' %}</h1>
-  {% include 'planner/_vignette.html' %}
-  <div class="calendar-layout" data-filter-page data-results-id="{{ results_id }}"
+<div class="page-heading calendar-heading" data-filter-page data-results-id="{{ results_id }}"
      data-filter-error="{% translate 'Filters could not be updated. Retry, or reload this page.' %}"
      data-invalid-filters="{% translate 'Choose a valid value, or clear the filters and try again.' %}"
      data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this page.' %}">
+  <h1>{% translate 'Calendar' %}</h1>
+  <h2 class="calendar-month-label" data-result-focus tabindex="-1">{{ month_label }}</h2>
+  {% include 'planner/_vignette.html' %}
+  <nav class="month-navigation" aria-label="{% translate 'Month navigation' %}">
+    {% if previous %}<a class="btn btn-ghost" rel="prev" href="{{ previous.url }}{% querystring item=None day=None %}" aria-label="{% blocktranslate with label=previous.label %}Previous month, {{ label }}{% endblocktranslate %}"><span aria-hidden="true">←</span><span class="month-navigation-label">{{ previous.label }}</span></a>{% endif %}
+    <a class="btn btn-ghost" href="{% url 'planner:current' %}{% querystring item=None day=None %}">{% translate 'Current month' %}</a>
+    {% if following %}<a class="btn btn-ghost" rel="next" href="{{ following.url }}{% querystring item=None day=None %}" aria-label="{% blocktranslate with label=following.label %}Next month, {{ label }}{% endblocktranslate %}"><span class="month-navigation-label">{{ following.label }}</span><span aria-hidden="true">→</span></a>{% endif %}
+  </nav>
   <div class="calendar-controls-end">
     <details class="filter-disclosure" data-filter-disclosure id="calendar-filters"{% if form.errors %} open{% endif %}>
       {% translate 'Filters' as filter_label %}
-      {% include 'components/filter_summary.html' %}
+      {% include 'components/filter_summary.html' with filter_panel_id='calendar-filter-panel' %}
     </details>
     <a class="btn btn-primary calendar-new-task" href="{{ new_task_url }}">{% translate 'New task' %}</a>
   </div>
   {% include 'planner/_filters.html' %}
   <p id="filter-status" class="field-errors" role="alert" tabindex="-1"></p>
   {% include 'planner/_month_results.html' %}
-  </div>
 </div>
 {% endblock %}

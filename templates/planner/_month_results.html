@@ -1,11 +1,5 @@
 {% load i18n %}
-<div id="{{ results_id }}" class="calendar-results">
-  <h2 class="calendar-month-label" data-result-focus tabindex="-1">{{ month_label }}</h2>
-  <nav class="month-navigation" aria-label="{% translate 'Month navigation' %}">
-    {% if previous %}<a class="btn btn-ghost" rel="prev" href="{{ previous.url }}{% querystring item=None day=None %}" aria-label="{% blocktranslate with label=previous.label %}Previous month, {{ label }}{% endblocktranslate %}"><span aria-hidden="true">←</span><span class="month-navigation-label">{{ previous.label }}</span></a>{% endif %}
-    <a class="btn btn-ghost" href="{% url 'planner:current' %}{% querystring item=None day=None %}">{% translate 'Current month' %}</a>
-    {% if following %}<a class="btn btn-ghost" rel="next" href="{{ following.url }}{% querystring item=None day=None %}" aria-label="{% blocktranslate with label=following.label %}Next month, {{ label }}{% endblocktranslate %}"><span class="month-navigation-label">{{ following.label }}</span><span aria-hidden="true">→</span></a>{% endif %}
-  </nav>
+<div id="{{ results_id }}" class="calendar-results" data-calendar-navigation-query="{% querystring item=None day=None %}">
   <div class="calendar-columns">
     <div class="calendar-main">
       {% include 'components/filter_chips.html' %}
@@ -26,7 +20,7 @@
               </h2>
               {% if value.items %}
               <ul class="calendar-items">
-                {% for item in value.items|slice:cell_limit %}<li>{% include 'planner/_item.html' with item=item panel_link=True %}</li>{% endfor %}
+                {% for item in value.items|slice:cell_limit %}<li>{% include 'planner/_item.html' with item=item panel_link=True in_cell=True %}</li>{% endfor %}
               </ul>
               {% if value.items|length > cell_limit %}
               <a class="calendar-more" id="calendar-more-{{ value.day|date:'j' }}" data-calendar-open href="{% querystring day=value.day.day item=None %}">{% blocktranslate with number=value.hidden_count %}+{{ number }} more{% endblocktranslate %}</a>

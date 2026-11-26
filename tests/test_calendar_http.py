@@ -413,11 +413,13 @@ def test_a_full_day_caps_the_cell_and_lists_every_item(client, user, garden):
     month = client.get(month_url())
     cell = re.search(r'data-date="2026-05-10">(.*?)</td>', month.text, re.S).group(1)
     assert cell.count('class="calendar-item-title"') == 3
+    assert garden.area.name not in cell
     assert "+1 more" in cell
     day = client.get(f"{month_url()}?day=10")
     assert day.status_code == 200
     # The day list addresses the same items without repeating their element ids.
     panel_items = re.search(r'class="calendar-panel-items">(.*?)</ul>', day.text, re.S).group(1)
+    assert f"{garden.planting.label} · {garden.area.name}" in panel_items
     for record in records:
         assert f"item=event-{record.pk}" in panel_items
 
@@ -447,6 +449,7 @@ def test_previous_year_items_link_their_records(client, user, garden):
     assert response.status_code == 200
     side = re.search(r'<aside class="calendar-side".*?</aside>', response.text, re.S).group(0)
     assert f'href="{last_year.get_absolute_url()}"' in side
+    assert f"{garden.planting.label} · {garden.area.name}" in side
 
 
 def test_the_htmx_request_returns_only_the_results(client, user, garden):
