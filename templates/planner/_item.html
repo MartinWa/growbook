@@ -1,5 +1,5 @@
 <article class="calendar-item calendar-item-{{ item.kind }}{% if item.planned %} is-planned{% endif %}">
-  <a class="calendar-item-title"{% if in_cell %} id="{{ item.element_id }}"{% endif %}{% if panel_link %} data-calendar-open{% endif %} href="{% if panel_link %}{% querystring item=item.item_param day=None %}{% else %}{{ item.primary_url }}{% endif %}">
+  <a class="calendar-item-title"{% if in_cell %} id="{{ item.element_id }}"{% endif %} href="{% if panel_link %}{% querystring item=item.item_param day=None %}{% else %}{{ item.primary_url }}{% endif %}">
     {% if in_cell and item.cell_tag %}<span class="calendar-item-tag">{{ item.cell_tag }}</span>{% endif %}
     <span class="calendar-item-text">{{ item.title }}</span>
     {% if not in_cell and item.meta %}<span class="calendar-item-meta">{{ item.meta }}</span>{% endif %}

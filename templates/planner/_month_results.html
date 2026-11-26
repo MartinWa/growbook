@@ -23,7 +23,7 @@
                 {% for item in value.items|slice:cell_limit %}<li>{% include 'planner/_item.html' with item=item panel_link=True in_cell=True %}</li>{% endfor %}
               </ul>
               {% if value.items|length > cell_limit %}
-              <a class="calendar-more" id="calendar-more-{{ value.day|date:'j' }}" data-calendar-open href="{% querystring day=value.day.day item=None %}">{% blocktranslate with number=value.hidden_count %}+{{ number }} more{% endblocktranslate %}</a>
+              <a class="calendar-more" id="calendar-more-{{ value.day|date:'j' }}" href="{% querystring day=value.day.day item=None %}">{% blocktranslate with number=value.hidden_count %}+{{ number }} more{% endblocktranslate %}</a>
               {% endif %}
               {% endif %}
             </td>

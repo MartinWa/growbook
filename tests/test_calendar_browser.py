@@ -230,6 +230,22 @@ def test_removing_a_filter_chip_keeps_focus_in_the_results(
         )
 
 
+def test_a_removed_chip_keeps_the_other_filters_in_the_month_pager(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url() + f"?type=event&area={garden.area.pk}")
+        page.get_by_role("link", name=re.compile("Remove filter: Item type")).click()
+        expect(page).to_have_url(re.compile(rf"\?area={garden.area.pk}$"))
+        # The month pager sits outside the swapped results, so its filter query is
+        # rewritten from the swapped root instead of being re-rendered.
+        expect(page.locator('.month-navigation [rel="next"]')).to_have_attribute(
+            "href", re.compile(rf"/calendar/2026/6/\?area={garden.area.pk}$")
+        )
+        expect(page.locator(".calendar-month-label[data-result-focus]")).to_be_focused()
+
+
 def test_a_dismissed_panel_does_not_return_after_a_language_change(
     browser_endpoint, live_server, user, garden
 ):
