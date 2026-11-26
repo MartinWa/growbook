@@ -67,3 +67,14 @@ def test_vendored_htmx_matches_its_documented_checksum():
     ).hexdigest()
     assert actual == expected
     assert (ROOT / "third_party" / "htmx" / "LICENSE").exists()
+
+
+def test_the_stylesheet_is_generated_from_frontend_sources_only():
+    """A word in a guide, test or Python identifier must never change shipped CSS."""
+    source = (ROOT / "assets" / "app.css").read_text(encoding="utf-8")
+
+    assert '@import "tailwindcss" source(none);' in source
+    declared = re.findall(r'@source\s+"([^"]+)"', source)
+    assert declared
+    assert all(entry.startswith(("../templates/", "../static/")) for entry in declared), declared
+    assert "@source not" not in source
