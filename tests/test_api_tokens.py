@@ -13,6 +13,7 @@ from django.utils import timezone
 from api.auth import resolve_token
 from core.api_tokens import (
     ALREADY_REVOKED,
+    GONE,
     NAME_TAKEN,
     OWNER_REQUIRED,
     STILL_ACTIVE,
@@ -352,3 +353,33 @@ def test_the_page_marks_expired_and_revoked_tokens(client, user):
     assert page.text.count(reverse("api-token-delete", args=[expired.pk])) == 1
     assert page.text.count(reverse("api-token-delete", args=[revoked.pk])) == 1
     assert reverse("api-token-revoke", args=[revoked.pk]) not in page.text
+
+
+def test_a_stale_instance_cannot_revoke_twice(user):
+    record, _ = create_token(user)
+    stale = ApiToken.objects.get(pk=record.pk)
+    revoke_token(actor=user, token=record)
+
+    with pytest.raises(ValidationError) as error:
+        revoke_token(actor=user, token=stale)
+    assert ALREADY_REVOKED in error.value.messages
+
+
+def test_revoking_a_token_another_request_deleted_reports_it(user):
+    record, _ = create_token(user, name="laptop")
+    revoke_token(actor=user, token=record)
+    delete_token(actor=user, token=record)
+
+    with pytest.raises(ValidationError) as error:
+        revoke_token(actor=user, token=record)
+    assert GONE in error.value.messages
+
+
+def test_deleting_a_token_another_request_deleted_reports_it(user):
+    record, _ = create_token(user, name="laptop")
+    revoke_token(actor=user, token=record)
+    delete_token(actor=user, token=record)
+
+    with pytest.raises(ValidationError) as error:
+        delete_token(actor=user, token=record)
+    assert GONE in error.value.messages

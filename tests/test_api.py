@@ -1072,3 +1072,29 @@ def test_document_declares_bearer_authentication_for_every_operation():
     assert document["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
     for path, operations in document["paths"].items():
         assert list(operations) == ["get"], path
+
+
+def test_search_folds_case_beyond_ascii_like_the_interface(client, user, token):
+    crop = create_crop(actor=user, name="Ärtor").record
+    variety = create_variety(actor=user, crop=crop, name="Örtagård").record
+    area = create_area(actor=user, name="Södra bäddet").record
+
+    assert identifiers(read(client, token, f"{API}/crops/", search="ärtor")) == [crop.pk]
+    assert identifiers(read(client, token, f"{API}/crops/", search="ÄRTOR")) == [crop.pk]
+    assert identifiers(read(client, token, f"{API}/varieties/", search="örtagård")) == [variety.pk]
+    assert identifiers(read(client, token, f"{API}/areas/", search="södra")) == [area.pk]
+
+
+def test_a_write_with_an_unusable_filter_is_still_a_405(client, token):
+    response = client.post(f"{API}/crops/?archived=nonsense", headers=bearer(token))
+
+    assert response.status_code == 405
+
+
+def test_a_format_parameter_does_not_answer_before_authentication(client, token):
+    anonymous = client.get(f"{API}/crops/?format=xml")
+    assert anonymous.status_code == 401
+
+    served = read(client, token, f"{API}/crops/", format="xml")
+    assert served.status_code == 200
+    assert served["Content-Type"].startswith("application/json")

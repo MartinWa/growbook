@@ -167,6 +167,13 @@ def _not_found(name):
     }
 
 
+def _page_not_found():
+    return {
+        "description": "The requested page is outside the available results.",
+        "content": _content({"$ref": "#/components/schemas/Error"}),
+    }
+
+
 def _list_operation(name, view):
     responses = {
         "200": {
@@ -174,6 +181,7 @@ def _list_operation(name, view):
             "content": _content({"$ref": f"#/components/schemas/{name}Page"}),
         },
         "401": _authentication_failure(),
+        "404": _page_not_found(),
         "405": _method_not_allowed(),
     }
     if view.filters:

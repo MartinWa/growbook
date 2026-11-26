@@ -81,7 +81,8 @@ an unusable value returns `400`. Detail endpoints ignore filters.
 | Observations | `from=<date>`, `to=<date>`, `year=<1-9999>`, `area=<id>`, `crop=<id>`, `variety=<id>`, `planting=<id>`, `calendar=true\|false`, `q=<text>` |
 
 An `area` filter covers that growing area and its descendants, matching the filters in
-the interface. `year` means the growing year that belongs to the resource: for plantings and
+the interface. A `search` value is compared with the interface's normalized name key, so
+case is ignored for Swedish letters too: `ärtor` finds `Ärtor`. `year` means the growing year that belongs to the resource: for plantings and
 evaluations an annual planting belongs to its start year and a persistent one to every year
 it was grown, for events it selects the year of the planned or actual date, and for
 observations it selects the diary date.
@@ -120,7 +121,7 @@ stable order per resource, so a client can page without duplicates.
 |---|---|---|
 | `400` | `{"detail": "...", "parameter": "year"}` | A filter value cannot be used |
 | `401` | `{"detail": "A valid bearer token is required."}` | Missing, malformed, unknown, revoked or expired token, or an inactive account |
-| `404` | `{"detail": "No Crop matches the given query."}` | Unknown identifier on a detail endpoint |
+| `404` | `{"detail": "No Crop matches the given query."}` | Unknown identifier on a detail endpoint, or a `page` past the last one |
 | `405` | `{"detail": "Method \"POST\" not allowed."}` | A write method was attempted |
 
 ## Documented schema

@@ -2766,3 +2766,6 @@ msgstr "Ta bort token"
 
 msgid "Deletion removes the record permanently and the name can be used again. The secret is already unusable; deletion does not change what any client could read."
 msgstr "Borttagningen tar bort posten permanent och namnet kan användas igen. Hemligheten är redan oanvändbar; borttagningen ändrar inte vad någon klient kunde läsa."
+
+msgid "That token no longer exists."
+msgstr "Den token finns inte längre."

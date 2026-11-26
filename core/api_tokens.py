@@ -9,6 +9,7 @@ import secrets
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -24,6 +25,7 @@ ACCOUNT_REQUIRED = _("Sign in with an active account to manage API tokens.")
 OWNER_REQUIRED = _("That token belongs to another account.")
 ALREADY_REVOKED = _("That token is already revoked.")
 STILL_ACTIVE = _("Revoke the token first; a working token cannot be deleted.")
+GONE = _("That token no longer exists.")
 SECRET_BYTES = 32
 
 
@@ -86,24 +88,42 @@ def issue_token(*, actor, name, expires_at=None):
     return record, secret
 
 
+def _refusal(pk, user_id):
+    """Why a conditional write matched no row: gone, already done, or still active."""
+    current = ApiToken.objects.filter(pk=pk, user_id=user_id).first()
+    if current is None:
+        return GONE
+    return ALREADY_REVOKED if current.revoked_at is not None else STILL_ACTIVE
+
+
 def revoke_token(*, actor, token):
     """Stop one credential permanently; clients using it fail on their next request."""
-    _owned(actor, token)
-    if token.revoked_at is not None:
-        raise ValidationError(ALREADY_REVOKED)
+    user_id = _owned(actor, token)
+    revoked_at = timezone.now()
     with validated_write(), transaction.atomic():
-        token.revoked_at = timezone.now()
-        token.save(update_fields=["revoked_at"])
+        # The condition decides, so a concurrent revoke or delete cannot turn into a
+        # failed save on a row that another request already changed.
+        revoked = ApiToken.objects.filter(
+            pk=token.pk, user_id=user_id, revoked_at__isnull=True
+        ).update(revoked_at=revoked_at)
+        if not revoked:
+            raise ValidationError(_refusal(token.pk, user_id))
+    token.revoked_at = revoked_at
     return token
 
 
 def delete_token(*, actor, token):
     """Remove a revoked or expired credential so its name can be used again."""
-    _owned(actor, token)
-    if token.is_active:
-        raise ValidationError(STILL_ACTIVE)
+    user_id = _owned(actor, token)
+    now = timezone.now()
     with validated_write(), transaction.atomic():
-        token.delete()
+        removed, _ = (
+            ApiToken.objects.filter(pk=token.pk, user_id=user_id)
+            .filter(Q(revoked_at__isnull=False) | Q(expires_at__lte=now))
+            .delete()
+        )
+        if not removed:
+            raise ValidationError(_refusal(token.pk, user_id))
     return token
 
 

@@ -193,6 +193,10 @@ The committed `static/css/app.css` is built from `assets/app.css` with the pinne
 CSS and daisyUI versions in `package.json`. Node.js and pnpm are needed only to rebuild
 styles; the application and container use the compiled file.
 
+Automatic source detection is disabled: `assets/app.css` names `templates/` and `static/js/`
+as its only sources, so a word in a guide, a test fixture or a Python identifier cannot add
+or remove shipped CSS. CI rebuilds the stylesheet and fails when the committed file differs.
+
 ```sh
 pnpm install --frozen-lockfile
 pnpm run build:css

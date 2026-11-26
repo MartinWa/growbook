@@ -8,8 +8,9 @@ This is an **operational backup** for disaster recovery, not a portable export o
 garden data. It contains accounts and password hashes, sessions, garden records,
 API token hashes, private originals and operator-selected recovery configuration: treat
 it as sensitive. There is no portable import/export feature. A restore also restores token
-rows, so review **API tokens** afterwards and revoke what the account no longer uses;
-see [API access](api.md).
+rows, including credentials revoked or deleted after the snapshot: open **API tokens** and
+revoke anything the account no longer uses *before* clients are pointed at the restored
+instance; see [API access](api.md).
 
 ## Create and verify
 

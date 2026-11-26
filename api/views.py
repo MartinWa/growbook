@@ -27,6 +27,7 @@ from garden.models import (
     PlantingEvent,
     Variety,
 )
+from garden.names import normalize_name
 from garden.queries import descendant_ids, planting_history
 
 from .serializers import (
@@ -165,6 +166,10 @@ class ListView(ReadOnlyView, generics.ListAPIView):
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
         self.parameters = {}
+        # Parse after the method is known to be answered here: a write must be a 405,
+        # not a 400 about a filter it never reads.
+        if request.method.lower() not in self.http_method_names:
+            return
         for parameter in self.filters:
             raw = request.query_params.get(parameter.name)
             if raw is not None:
@@ -218,7 +223,7 @@ class CropList(ListView):
         if "category" in values:
             records = records.filter(categories__pk=values["category"])
         if "search" in values:
-            records = records.filter(name__icontains=values["search"])
+            records = records.filter(name_key__contains=normalize_name(values["search"])[1])
         return records.prefetch_related("categories")
 
 
@@ -245,7 +250,7 @@ class VarietyList(ListView):
         if "archived" in values:
             records = records.filter(is_archived=values["archived"])
         if "search" in values:
-            records = records.filter(name__icontains=values["search"])
+            records = records.filter(name_key__contains=normalize_name(values["search"])[1])
         return records
 
 
@@ -285,7 +290,7 @@ class AreaList(ListView):
         if "area_type" in values:
             records = records.filter(area_type=values["area_type"])
         if "search" in values:
-            records = records.filter(name__icontains=values["search"])
+            records = records.filter(name_key__contains=normalize_name(values["search"])[1])
         return records
 
 

@@ -131,6 +131,8 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_PAGINATION_CLASS": "api.pagination.BoundedPageNumberPagination",
     "PAGE_SIZE": 50,
+    # JSON only, and never selected by a query parameter before authentication.
+    "URL_FORMAT_OVERRIDE": None,
 }
 TIME_ZONE = environment_time_zone()
 USE_I18N = True
