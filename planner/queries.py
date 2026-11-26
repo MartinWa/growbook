@@ -181,6 +181,13 @@ class CalendarItem:
         return " · ".join(part for part in parts if part)
 
     @property
+    def cell_tag(self):
+        """The short badge in a month cell: the state first, then the entry category."""
+        if self.state_label:
+            return self.state_label
+        return _("Diary") if self.entry is not None else ""
+
+    @property
     def entry_url(self):
         return self.entry.get_absolute_url() if self.entry is not None else ""
 

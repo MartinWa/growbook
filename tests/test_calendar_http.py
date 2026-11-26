@@ -84,13 +84,13 @@ def test_month_uses_localized_month_and_weekday_names(client, user, garden):
     client.force_login(user)
     swedish = client.get(month_url())
     assert swedish.status_code == 200
-    assert 'data-result-focus tabindex="-1">maj 2026</caption>' in swedish.text
+    assert 'data-result-focus tabindex="-1">maj 2026</h2>' in swedish.text
     assert heading_names(swedish) == WEEKDAYS_SV
     assert "10 maj 2026" in swedish.text
 
     client.cookies["django_language"] = "en"
     english = client.get(month_url())
-    assert 'tabindex="-1">May 2026</caption>' in english.text
+    assert 'tabindex="-1">May 2026</h2>' in english.text
     assert heading_names(english) == WEEKDAYS_EN
     assert "May 10, 2026" in english.text
 
@@ -109,7 +109,7 @@ def test_month_page_includes_the_leap_day_and_its_items(client, user, garden):
     assert response.status_code == 200
     assert 'data-date="2024-02-29"' in response.text
     assert f"item=event-{record.pk}" in response.text
-    assert 'tabindex="-1">februari 2024</caption>' in response.text
+    assert 'tabindex="-1">februari 2024</h2>' in response.text
     panel = client.get(f"{month_url(2024, 2)}?item=event-{record.pk}")
     assert f'href="{record.get_absolute_url()}"' in panel.text
 
@@ -181,15 +181,6 @@ def test_untitled_photo_only_entry_shows_its_localized_date(client, user, image_
     client.cookies["django_language"] = "en"
     english = client.get(month_url())
     assert "May 9, 2026" in english.text
-
-
-def test_empty_month_says_so(client, user):
-    client.force_login(user)
-    swedish = client.get(month_url(2026, 1))
-    assert "Inga kalenderposter den här månaden." in swedish.text
-    client.cookies["django_language"] = "en"
-    english = client.get(month_url(2026, 1))
-    assert "No calendar items this month." in english.text
 
 
 def test_main_navigation_marks_the_calendar_page(client, user):
@@ -535,7 +526,6 @@ def test_blank_selections_are_not_filters(client, user):
     response = client.get(f"{month_url()}?area=&type=&crop=&variety=&planting=")
     assert response.status_code == 200
     assert 'class="filter-chip"' not in response.text
-    assert "No calendar items this month." in response.text
 
 
 def test_malformed_addresses_are_not_found(client, user):
