@@ -15,7 +15,7 @@
     </div>
     <details class="filter-disclosure" data-filter-disclosure{% if form.errors %} open{% endif %}>
       {% translate 'Planting filters' as filter_label %}
-      {% include 'components/filter_summary.html' %}
+      {% include 'components/filter_summary.html' with filter_panel_id='filter-panel' %}
       {% include 'garden/planting_filters.html' %}
     </details>
   </div>

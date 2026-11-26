@@ -9,8 +9,9 @@
   const status = document.getElementById("filter-status");
   const retry = form.querySelector("[data-filter-retry]");
   const capture = document.getElementById("capture-form");
-  disclosure?.addEventListener("keydown", event => {
-    if (event.key !== "Escape" || !disclosure.open) return;
+  page.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !disclosure?.open) return;
+    if (!disclosure.contains(event.target) && !form.contains(event.target)) return;
     // Preserve a search input's value when closing the filters.
     event.preventDefault();
     disclosure.open = false;
@@ -82,7 +83,21 @@
     }
     return url;
   }
-  async function load(url, { push = true, replace = false, focusEntry, focusResults = false } = {}) {
+  function focusChip(index) {
+    // A removed chip hands the keyboard to its neighbour; the last one falls
+    // back to the results heading. Every results page renders one chip row, so
+    // the position found in the old row applies to the row swapped in.
+    const chips = [...page.querySelectorAll(".filter-chips a.filter-chip")];
+    const target = chips[Math.min(index, chips.length - 1)];
+    if (target) target.focus();
+    else page.querySelector("[data-result-focus]")?.focus();
+  }
+  function chipPosition(link) {
+    const chips = link.closest(".filter-chips");
+    if (!chips || !link.classList.contains("filter-chip")) return -1;
+    return [...chips.querySelectorAll("a.filter-chip")].indexOf(link);
+  }
+  async function load(url, { push = true, replace = false, focusEntry, focusResults = false, chipIndex = -1 } = {}) {
     clearTimeout(debounce);
     controller?.abort();
     const request = new AbortController();
@@ -148,7 +163,8 @@
       if (document.activeElement === focusOrigin ||
           (!focusOrigin.isConnected && document.activeElement === document.body)) {
         if (focusEntry) document.getElementById(`entry-${focusEntry}`)?.querySelector("h2").focus();
-        else if (focusResults) results.querySelector("[data-result-focus]")?.focus();
+        else if (chipIndex > -1) focusChip(chipIndex);
+        else if (focusResults) page.querySelector("[data-result-focus]")?.focus();
       }
     } catch (error) {
       if (!request.signal.aborted && error.name !== "AbortError") {
@@ -212,7 +228,7 @@
     event.preventDefault();
     setFields(url);
     const fromResults = !!link.closest("#" + resultsId);
-    load(url, { focusResults: fromResults });
+    load(url, { focusResults: fromResults, chipIndex: chipPosition(link) });
   });
   window.addEventListener("popstate", () => {
     const url = new URL(location.href);

@@ -45,7 +45,7 @@
     {% else %}
       {% if panel.items %}
       <ul class="calendar-panel-items">
-        {% for item in panel.items %}<li>{% include 'planner/_item.html' with item=item panel_link=True in_panel=True %}</li>{% endfor %}
+        {% for item in panel.items %}<li>{% include 'planner/_item.html' with item=item panel_link=True %}</li>{% endfor %}
       </ul>
       {% else %}
       <p class="field-help">{% translate 'Nothing on this day with the current filters.' %}</p>

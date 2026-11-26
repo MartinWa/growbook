@@ -11,7 +11,7 @@
      data-session-error="{% translate 'Your session expired. Log in in another tab, then retry without closing this form.' %}">
   <details class="filter-disclosure" data-filter-disclosure id="diary-filters"{% if form.errors %} open{% endif %}>
     {% translate 'Search and filters' as filter_label %}
-    {% include 'components/filter_summary.html' %}
+    {% include 'components/filter_summary.html' with filter_panel_id='filter-panel' %}
     {% include 'diary/_filters.html' %}
   </details>
   <div class="diary-stream">

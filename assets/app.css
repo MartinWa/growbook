@@ -1865,8 +1865,8 @@
 
   /* Calendar: the heading, the month controls and the month picture share one grid,
      so the picture spans the title row and the month-name row, and the Filter and
-     New task buttons sit right-aligned above the side column. The layout and results
-     wrappers are layout-neutral; their children join the heading grid directly. */
+     New task buttons sit right-aligned above the side column. The replaceable
+     results wrapper lets its children join the heading grid directly. */
   .calendar-heading {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, auto);
@@ -1905,7 +1905,6 @@
     object-fit: cover;
   }
 
-  .calendar-layout,
   .calendar-results {
     display: contents;
   }
@@ -2194,6 +2193,11 @@
     min-inline-size: 4.5rem;
   }
 
+  .calendar-item-meta {
+    @apply w-full text-xs text-secondary;
+    overflow-wrap: anywhere;
+  }
+
   .calendar-item-tag {
     @apply shrink-0 rounded-full px-1.5 text-[0.7rem] font-semibold text-secondary;
     background: color-mix(in srgb, var(--color-base-200) 80%, transparent);
@@ -2265,7 +2269,7 @@
     @apply my-2;
   }
 
-  /* A panel title is read in full, so it wraps instead of truncating. */
+  .calendar-year-items .calendar-item-text,
   .calendar-panel-items .calendar-item-text {
     @apply whitespace-normal;
     overflow: visible;
@@ -2325,7 +2329,8 @@
       display: none;
     }
 
-    .calendar-day-number {
+    .calendar-day-number,
+    .calendar-day.is-today .calendar-day-number {
       display: none;
     }
 
