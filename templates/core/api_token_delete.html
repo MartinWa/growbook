@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'Delete API token' %} · GrowBook{% endblock %}
+{% block content %}
+<section class="panel register-form-panel">
+  <h1>{% translate 'Delete API token' %}: {{ token.name }}</h1>
+  <p>{% translate 'Deletion removes the record permanently and the name can be used again. The secret is already unusable; deletion does not change what any client could read.' %}</p>
+  <form method="post">
+    {% csrf_token %}
+    <div role="alert" tabindex="-1">{% include 'garden/form_errors.html' %}</div>
+    {% for field in form %}{% include 'components/field.html' %}{% endfor %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-error">{% translate 'Delete token' %}</button>
+      <a href="{% url 'api-tokens' %}">{% translate 'Cancel' %}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

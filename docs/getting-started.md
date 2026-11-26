@@ -16,8 +16,8 @@ garden: every active account can read everything and add records.
 There are no seeded credentials: an administrator creates accounts in **Operator**
 (`/operator/`). After signing in, the main menu opens **Diary**, **Calendar**,
 **Growing areas**, **Crops and varieties**, **Plantings** and **Economy**; `/garden/`
-redirects to Growing areas. The account menu holds **Language**, **Season**, **Operator**
-for administrators and **Log out**.
+redirects to Growing areas. The account menu holds **Language**, **Season**, **API tokens**,
+**Operator** for administrators and **Log out**.
 
 The interface is in Swedish by default; **English** is available in the account menu.
 Language changes apply immediately and keep the current page and filters. Changing

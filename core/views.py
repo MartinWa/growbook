@@ -1,6 +1,8 @@
 from pathlib import Path
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_not_required
+from django.core.exceptions import ValidationError
 from django.http import (
     FileResponse,
     Http404,
@@ -13,16 +15,23 @@ from django.templatetags.static import static
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET, require_POST, require_safe
+from django.views.decorators.http import (
+    require_GET,
+    require_http_methods,
+    require_POST,
+    require_safe,
+)
 from django.views.decorators.vary import vary_on_headers
 
 from diary.permissions import can_edit_entry
 from garden.views._shared import return_url
 
+from .api_tokens import delete_token, issue_token, revoke_token, tokens_for
 from .appearance import SEASON_COOKIE, SEASON_COOKIE_AGE, SEASON_MODES
+from .forms import ApiTokenForm, ConfirmForm, form_error
 from .images import FORMATS
 from .media import private_path
-from .models import Photo
+from .models import ApiToken, Photo
 from .releases import update_available
 
 
@@ -113,3 +122,82 @@ def photo_file(request, pk, variant):
 
 def csrf_failure(request, reason=""):
     return render(request, "errors/csrf.html", status=403)
+
+
+@require_http_methods(["GET", "POST"])
+def api_tokens(request):
+    """Create a named credential and show its secret once; list the account's tokens."""
+    form = ApiTokenForm(request.POST if request.method == "POST" else None, user=request.user)
+    secret = None
+    created_name = ""
+    status = 200
+    if request.method == "POST":
+        status = 422
+        if form.is_valid():
+            try:
+                record, secret = issue_token(
+                    actor=request.user,
+                    name=form.cleaned_data["name"],
+                    expires_at=form.cleaned_data["expires_at"],
+                )
+            except ValidationError as error:
+                form_error(form, error)
+                status = 409
+            else:
+                created_name = record.name
+                form = ApiTokenForm(user=request.user)
+                status = 200
+    return render(
+        request,
+        "core/api_tokens.html",
+        {
+            "form": form,
+            "tokens": tokens_for(request.user),
+            "secret": secret,
+            "created_name": created_name,
+        },
+        status=status,
+    )
+
+
+@require_POST
+def api_token_revoke(request, pk):
+    token = get_object_or_404(ApiToken.objects.filter(user=request.user), pk=pk)
+    try:
+        revoke_token(actor=request.user, token=token)
+    except ValidationError as error:
+        messages.error(request, error.messages[0])
+    else:
+        messages.success(
+            request,
+            _("Revoked %(name)s. Clients using it stop working now.") % {"name": token.name},
+        )
+    return redirect("api-tokens")
+
+
+@require_http_methods(["GET", "POST"])
+def api_token_delete(request, pk):
+    """Confirm before removing a credential, like every other destructive action."""
+    token = get_object_or_404(ApiToken.objects.filter(user=request.user), pk=pk)
+    form = ConfirmForm(request.POST if request.method == "POST" else None)
+    status = 200
+    if request.method == "POST":
+        status = 422
+        if form.is_valid():
+            name = token.name
+            try:
+                delete_token(actor=request.user, token=token)
+            except ValidationError as error:
+                messages.error(request, error.messages[0])
+            else:
+                messages.success(
+                    request,
+                    _("Deleted %(name)s. That name can be used again.") % {"name": name},
+                )
+            return redirect("api-tokens")
+    return render(
+        request,
+        "core/api_token_delete.html",
+        {"token": token, "form": form},
+        status=status,
+    )

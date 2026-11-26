@@ -23,6 +23,10 @@ The garden is shared within one installation. Every active account reads all ent
 records, photos and original downloads; only the author or an administrator may change an
 entry. There are no per-user gardens and no read-only member roles.
 
+An account also manages its own API tokens in **API tokens** in the account menu: it can
+create, revoke and delete them, and cannot see another account's tokens. A token reads the
+same shared data as the account that created it; see [API access](api.md).
+
 Create the first account before signing in:
 
 ```sh

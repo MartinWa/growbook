@@ -6,8 +6,10 @@ guides; accounts and access are in the [administration guide](administration.md)
 
 This is an **operational backup** for disaster recovery, not a portable export of
 garden data. It contains accounts and password hashes, sessions, garden records,
-private originals and operator-selected recovery configuration: treat it as
-sensitive. There is no portable import/export feature.
+API token hashes, private originals and operator-selected recovery configuration: treat
+it as sensitive. There is no portable import/export feature. A restore also restores token
+rows, so review **API tokens** afterwards and revoke what the account no longer uses;
+see [API access](api.md).
 
 ## Create and verify
 

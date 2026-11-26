@@ -28,11 +28,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
     "core.apps.CoreConfig",
     "diary.apps.DiaryConfig",
     "garden.apps.GardenConfig",
     "economy.apps.EconomyConfig",
     "planner.apps.PlannerConfig",
+    "api.apps.ApiConfig",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -121,6 +123,15 @@ def environment_currency():
 
 
 CURRENCY_LABEL = environment_currency()
+REST_FRAMEWORK = {
+    # Bearer access tokens only: browser sessions never authenticate API calls.
+    "DEFAULT_AUTHENTICATION_CLASSES": ("api.auth.ApiTokenAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    # JSON only: no browsable API pages are rendered inside the private installation.
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
+    "DEFAULT_PAGINATION_CLASS": "api.pagination.BoundedPageNumberPagination",
+    "PAGE_SIZE": 50,
+}
 TIME_ZONE = environment_time_zone()
 USE_I18N = True
 USE_TZ = True

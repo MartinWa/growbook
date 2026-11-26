@@ -1,7 +1,9 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .writes import ValidatedModel
@@ -9,6 +11,48 @@ from .writes import ValidatedModel
 
 class User(AbstractUser):
     """Django's standard user, defined before the first migration."""
+
+
+# The stored prefix narrows a lookup; the hash comparison decides. Both the issuer and
+# the resolver use this one value, so raising it cannot silently orphan issued tokens.
+PREFIX_LENGTH = 8
+
+
+class ApiToken(ValidatedModel):
+    """A named API credential; only a hash and a lookup prefix are stored.
+
+    The secret itself is shown once when it is created and cannot be recovered.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="api_tokens"
+    )
+    name = models.CharField(_("Name"), max_length=255)
+    key_hash = models.CharField(max_length=64, unique=True)
+    prefix = models.CharField(max_length=16, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(_("Expiry"), null=True, blank=True)
+    revoked_at = models.DateTimeField(_("Revoked"), null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = _("API token")
+        verbose_name_plural = _("API tokens")
+        constraints = [
+            models.CheckConstraint(condition=~Q(name=""), name="api_token_name_not_blank"),
+            models.UniqueConstraint(fields=["user", "name"], name="api_token_user_name_unique"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_expired(self):
+        return self.expires_at is not None and self.expires_at <= timezone.now()
+
+    @property
+    def is_active(self):
+        return self.revoked_at is None and not self.is_expired
 
 
 class Photo(ValidatedModel):

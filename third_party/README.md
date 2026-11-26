@@ -15,6 +15,7 @@ text is included in that installed license file.
 | Dependency | License / packaging note |
 |---|---|
 | Django, asgiref, sqlparse | BSD licenses; retain installed license files. Django admin also bundles independently licensed frontend assets. |
+| Django REST Framework | BSD-3-Clause; retain the installed license file. Serves the read-only JSON API. |
 | Pillow | MIT-CMU and bundled codec notices in its distribution. |
 | pillow-heif source | BSD-3-Clause wrapper. **Prebuilt wheels bundle x265 (GPLv2)** and must not be redistributed as the project's production dependency bundle. |
 | libheif, libde265 | LGPLv3 native libraries, dynamically linked in the decoder-only image. Included corresponding source archives and original licenses remain separately licensed. |

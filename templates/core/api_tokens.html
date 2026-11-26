@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'API tokens' %} · GrowBook{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <h1>{% translate 'API tokens' %}</h1>
+</div>
+<p class="muted">{% translate 'The API is read-only and uses a bearer token. GrowBook stores only a hash and an eight-character prefix of each token.' %}</p>
+{% if secret %}
+<div class="panel save-confirmation" role="status" aria-live="polite" tabindex="-1" autofocus>
+  <p>{% blocktranslate with name=created_name %}Secret for {{ name }} — shown only once{% endblocktranslate %}</p>
+  <p><code id="token-secret">{{ secret }}</code></p>
+  <p class="field-help">{% translate 'Copy it now. It cannot be recovered; replace a lost secret with a new token.' %}</p>
+</div>
+{% endif %}
+<section class="panel">
+  <h2>{% translate 'Your tokens' %}</h2>
+  {% if tokens %}
+  <ul class="record-list">
+    {% for token in tokens %}
+    <li id="token-{{ token.pk }}">
+      <div class="page-heading">
+        <span>{{ token.name }}</span>
+        <span class="muted"><code>{{ token.prefix }}…</code></span>
+        {% if token.revoked_at %}
+        <span class="archive-label">{% translate 'Revoked' %}</span>
+        {% elif token.is_expired %}
+        <span class="archive-label">{% translate 'Expired' %}</span>
+        {% else %}
+        <span>{% translate 'Active' %}</span>
+        {% endif %}
+        <div class="related-actions">
+          {% if token.is_active %}
+          <form method="post" action="{% url 'api-token-revoke' token.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline" aria-describedby="token-warning-{{ token.pk }}">{% translate 'Revoke' %}</button>
+            <span class="visually-hidden" id="token-warning-{{ token.pk }}">{% blocktranslate with name=token.name %}Clients using {{ name }} stop working immediately.{% endblocktranslate %}</span>
+          </form>
+          {% else %}
+          <a class="btn btn-outline" href="{% url 'api-token-delete' token.pk %}" aria-describedby="token-delete-{{ token.pk }}">{% translate 'Delete' %}</a>
+          <span class="visually-hidden" id="token-delete-{{ token.pk }}">{% blocktranslate with name=token.name %}Removes {{ name }} permanently; the name can be used again.{% endblocktranslate %}</span>
+          {% endif %}
+        </div>
+      </div>
+      <p class="muted">
+        {% blocktranslate with created=token.created_at|date:'Y-m-d H:i' %}Created {{ created }}{% endblocktranslate %}
+        · {% if token.expires_at %}{% blocktranslate with expiry=token.expires_at|date:'Y-m-d H:i' %}Expires {{ expiry }}{% endblocktranslate %}{% else %}{% translate 'No expiry' %}{% endif %}
+      </p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>{% translate 'No tokens yet.' %}</p>
+  {% endif %}
+</section>
+<section class="panel register-form-panel">
+  <h2>{% translate 'Create a token' %}</h2>
+  <form method="post" action="{% url 'api-tokens' %}">
+    {% csrf_token %}
+    <div role="alert" tabindex="-1">
+      {% include 'garden/form_errors.html' %}
+    </div>
+    {% for field in form %}
+      {% include 'components/field.html' %}
+    {% endfor %}
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% translate 'Create token' %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

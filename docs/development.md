@@ -116,8 +116,9 @@ images, covering text-only, photo-only and multi-photo entries, photo failures a
 upload limits, capture, observation editing and deletion, permissions, links and derived
 filters, Unicode search, authorization for pages, media and downloads, economy spending and
 growing-year summaries, exact allocation rounding, pending groups, equipment schedules,
-plant sales, overlapping writes and clean-instance restore. Browser tests are excluded from
-the default run.
+plant sales, overlapping writes, clean-instance restore, API token storage and revocation,
+and the read-only JSON API with its authentication failures and keep-in-sync OpenAPI
+document. Browser tests are excluded from the default run.
 
 For UI-copy changes, update the English source messages and
 `locale/sv/LC_MESSAGES/django.po`, then recompile with `tools/compile_translations.py`.

@@ -5,6 +5,9 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
 
+from .api_tokens import EXPIRY_NAIVE, EXPIRY_PAST, NAME_REQUIRED, NAME_TAKEN
+from .models import ApiToken
+
 
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
@@ -56,6 +59,47 @@ class AreaPathChoiceField(forms.ModelChoiceField):
 class DeleteForm(forms.Form):
     expected_updated_at = VersionField()
     confirm = forms.BooleanField(label=_("I confirm this deletion."))
+
+
+class ConfirmForm(forms.Form):
+    """A confirmation without a version token, for records nothing else edits."""
+
+    confirm = forms.BooleanField(label=_("I confirm this deletion."))
+
+
+class ApiTokenForm(forms.Form):
+    name = forms.CharField(label=_("Name"), max_length=255)
+    expires_at = forms.DateTimeField(
+        label=_("Expiry"),
+        required=False,
+        # A datetime-local input sends a T separator; Django's defaults only parse a space.
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"],
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+        help_text=_("Optional. The token stops working after this time."),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        describe_fields(self)
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        if not name:
+            raise forms.ValidationError(NAME_REQUIRED)
+        if self.user is not None and ApiToken.objects.filter(user=self.user, name=name).exists():
+            raise forms.ValidationError(NAME_TAKEN)
+        return name
+
+    def clean_expires_at(self):
+        value = self.cleaned_data["expires_at"]
+        if value is None:
+            return None
+        if timezone.is_naive(value):
+            raise forms.ValidationError(EXPIRY_NAIVE)
+        if value <= timezone.now():
+            raise forms.ValidationError(EXPIRY_PAST)
+        return value
 
 
 def describe_fields(form):
