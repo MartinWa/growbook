@@ -216,6 +216,25 @@ def test_opening_the_filters_keeps_the_trigger_in_place(
         expect(trigger).to_be_focused()
 
 
+def test_escape_in_the_filters_leaves_the_account_menu_open(
+    browser_endpoint, live_server, user, garden
+):
+    with browser_page(browser_endpoint, viewport={"width": 1280, "height": 900}) as page:
+        login(page, live_server, user, "en")
+        page.goto(live_server.url + month_url())
+        trigger = page.locator("[data-filter-disclosure] > summary")
+        trigger.click()
+        menu = page.locator("#account-menu")
+        menu.locator("summary").click()
+        expect(menu).to_have_attribute("open", "")
+        page.get_by_role("checkbox", name="Planting events").focus()
+        page.keyboard.press("Escape")
+        expect(page.locator(".filter-panel")).to_be_hidden()
+        expect(trigger).to_be_focused()
+        # The site-wide Escape handler must not also close the account menu.
+        expect(menu).to_have_attribute("open", "")
+
+
 def test_removing_a_filter_chip_keeps_focus_in_the_results(
     browser_endpoint, live_server, user, garden
 ):
@@ -243,7 +262,10 @@ def test_a_removed_chip_keeps_the_other_filters_in_the_month_pager(
         expect(page.locator('.month-navigation [rel="next"]')).to_have_attribute(
             "href", re.compile(rf"/calendar/2026/6/\?area={garden.area.pk}$")
         )
-        expect(page.locator(".calendar-month-label[data-result-focus]")).to_be_focused()
+        # The removed chip hands focus to the surviving one, not to the month heading.
+        expect(
+            page.get_by_role("link", name=re.compile("Remove filter: Growing area"))
+        ).to_be_focused()
 
 
 def test_a_dismissed_panel_does_not_return_after_a_language_change(

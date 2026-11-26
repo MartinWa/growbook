@@ -83,7 +83,20 @@
     }
     return url;
   }
-  async function load(url, { push = true, replace = false, focusEntry, focusResults = false } = {}) {
+  function focusChip(index) {
+    // A removed chip hands the keyboard to its neighbour; the last one falls
+    // back to the results heading.
+    const chips = [...page.querySelectorAll(".filter-chips a.filter-chip")];
+    const target = chips[Math.min(index, chips.length - 1)];
+    if (target) target.focus();
+    else page.querySelector("[data-result-focus]")?.focus();
+  }
+  function chipPosition(link) {
+    const chips = link.closest(".filter-chips");
+    if (!chips || !link.classList.contains("filter-chip")) return -1;
+    return [...chips.querySelectorAll("a.filter-chip")].indexOf(link);
+  }
+  async function load(url, { push = true, replace = false, focusEntry, focusResults = false, chipIndex = -1 } = {}) {
     clearTimeout(debounce);
     controller?.abort();
     const request = new AbortController();
@@ -149,6 +162,7 @@
       if (document.activeElement === focusOrigin ||
           (!focusOrigin.isConnected && document.activeElement === document.body)) {
         if (focusEntry) document.getElementById(`entry-${focusEntry}`)?.querySelector("h2").focus();
+        else if (chipIndex > -1) focusChip(chipIndex);
         else if (focusResults) page.querySelector("[data-result-focus]")?.focus();
       }
     } catch (error) {
@@ -213,7 +227,7 @@
     event.preventDefault();
     setFields(url);
     const fromResults = !!link.closest("#" + resultsId);
-    load(url, { focusResults: fromResults });
+    load(url, { focusResults: fromResults, chipIndex: chipPosition(link) });
   });
   window.addEventListener("popstate", () => {
     const url = new URL(location.href);

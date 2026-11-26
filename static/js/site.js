@@ -35,7 +35,8 @@
     }
   });
   document.addEventListener("keydown", event => {
-    if (event.key !== "Escape") return;
+    // A panel that already handled Escape keeps the focus it restored.
+    if (event.key !== "Escape" || event.defaultPrevented) return;
     for (const menu of menus) {
       if (menu.open) {
         menu.open = false;
