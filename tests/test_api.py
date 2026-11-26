@@ -1098,3 +1098,30 @@ def test_a_format_parameter_does_not_answer_before_authentication(client, token)
     served = read(client, token, f"{API}/crops/", format="xml")
     assert served.status_code == 200
     assert served["Content-Type"].startswith("application/json")
+
+
+@pytest.mark.parametrize("resource", ["crops", "varieties", "areas"])
+def test_a_blank_search_is_ignored_rather_than_refused(client, garden, token, resource):
+    unfiltered = read(client, token, f"{API}/{resource}/").json()["count"]
+    assert unfiltered > 0
+
+    for blank in ("", "   "):
+        response = read(client, token, f"{API}/{resource}/", search=blank)
+        assert response.status_code == 200, response.content
+        assert response.json()["count"] == unfiltered
+
+
+def test_a_blank_diary_search_is_ignored(client, garden, token):
+    unfiltered = read(client, token, f"{API}/observations/").json()["count"]
+
+    for blank in ("", "   "):
+        response = read(client, token, f"{API}/observations/", q=blank)
+        assert response.status_code == 200, response.content
+        assert response.json()["count"] == unfiltered
+
+
+def test_a_blank_area_type_is_ignored_rather_than_meaning_no_type(client, garden, token):
+    unfiltered = read(client, token, f"{API}/areas/").json()["count"]
+
+    assert read(client, token, f"{API}/areas/", area_type="").json()["count"] == unfiltered
+    assert read(client, token, f"{API}/areas/", area_type="bed").json()["count"] == 1

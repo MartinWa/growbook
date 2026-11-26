@@ -89,7 +89,8 @@ def parse_flag(parameter, raw):
 
 
 def parse_text(parameter, raw):
-    return raw
+    """Trimmed text. A blank value filters nothing, like an empty form field."""
+    return str(raw).strip() or None
 
 
 def parse_date(parameter, raw):
@@ -124,6 +125,12 @@ def parse_parent(parameter, raw):
     if str(raw).strip().lower() == "none":
         return None
     return parse_identifier(parameter, raw)
+
+
+def name_search_key(values):
+    """The normalized key for a name search, or None when nothing was typed."""
+    text = values.get("search")
+    return normalize_name(text)[1] if text else None
 
 
 ID_SCHEMA = {"type": "integer", "minimum": 1}
@@ -222,8 +229,9 @@ class CropList(ListView):
             records = records.filter(is_archived=values["archived"])
         if "category" in values:
             records = records.filter(categories__pk=values["category"])
-        if "search" in values:
-            records = records.filter(name_key__contains=normalize_name(values["search"])[1])
+        key = name_search_key(values)
+        if key is not None:
+            records = records.filter(name_key__contains=key)
         return records.prefetch_related("categories")
 
 
@@ -249,8 +257,9 @@ class VarietyList(ListView):
             records = records.filter(crop_id=values["crop"])
         if "archived" in values:
             records = records.filter(is_archived=values["archived"])
-        if "search" in values:
-            records = records.filter(name_key__contains=normalize_name(values["search"])[1])
+        key = name_search_key(values)
+        if key is not None:
+            records = records.filter(name_key__contains=key)
         return records
 
 
@@ -287,10 +296,12 @@ class AreaList(ListView):
             )
         if "archived" in values:
             records = records.filter(is_archived=values["archived"])
-        if "area_type" in values:
+        # A blank area_type filters nothing; None would otherwise mean "no type stored".
+        if values.get("area_type"):
             records = records.filter(area_type=values["area_type"])
-        if "search" in values:
-            records = records.filter(name_key__contains=normalize_name(values["search"])[1])
+        key = name_search_key(values)
+        if key is not None:
+            records = records.filter(name_key__contains=key)
         return records
 
 

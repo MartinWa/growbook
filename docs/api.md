@@ -67,8 +67,9 @@ sort and search keys.
 
 ### Filters
 
-Filters are query parameters on the list endpoints. Unknown parameter names are ignored;
-an unusable value returns `400`. Detail endpoints ignore filters.
+Filters are query parameters on the list endpoints. Unknown parameter names are ignored,
+a blank value filters nothing, and an unusable value returns `400`. Detail endpoints ignore
+filters.
 
 | Resource | Parameters |
 |---|---|
