@@ -29,3 +29,6 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+# Development only: revalidate static files on every request instead of letting the
+# browser heuristically cache a rebuilt stylesheet (Last-Modified alone).
+WHITENOISE_MAX_AGE = 0
