@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% translate 'API tokens' %} · GrowBook{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <h1>{% translate 'API tokens' %}</h1>
+  <div class="related-actions">
+    <a class="btn btn-outline" href="{% url 'api-docs' %}">{% translate 'API documentation' %}</a>
+  </div>
+</div>
+{% if secret %}
+<div class="panel save-confirmation" role="status" aria-live="polite" tabindex="-1" autofocus>
+  <p>{% blocktranslate with name=created_name %}Secret for {{ name }} — shown only once{% endblocktranslate %}</p>
+  <p><code id="token-secret">{{ secret }}</code></p>
+  <p class="field-help">{% translate 'Copy it now. It cannot be recovered; replace a lost secret with a new token.' %}</p>
+</div>
+{% endif %}
+<section class="panel">
+  <div class="panel-header token-panel-header">
+    <h2>{% translate 'Your tokens' %}</h2>
+    <span class="token-count" aria-label="{% translate 'Token count' %}">{{ tokens|length }}</span>
+  </div>
+  {% if tokens %}
+  <div class="table-scroll">
+    <table class="register-table token-table table table-sm">
+      <caption class="visually-hidden">{% translate 'Your tokens' %}</caption>
+      <thead><tr>
+        <th scope="col">{% translate 'Name' %}</th>
+        <th scope="col">{% translate 'Prefix' %}</th>
+        <th scope="col">{% translate 'Created' %}</th>
+        <th scope="col">{% translate 'Expires' %}</th>
+        <th scope="col">{% translate 'Status' %}</th>
+        <th scope="col">{% translate 'Actions' %}</th>
+      </tr></thead>
+      <tbody>
+        {% for token in tokens %}
+        <tr id="token-{{ token.pk }}">
+          <th scope="row">{{ token.name }}</th>
+          <td><code class="token-prefix">{{ token.prefix }}…</code></td>
+          <td>{{ token.created_at|date:'Y-m-d H:i' }}</td>
+          <td>{% if token.expires_at %}{{ token.expires_at|date:'Y-m-d H:i' }}{% else %}—{% endif %}</td>
+          <td>
+            {% if token.revoked_at %}
+            <span class="archive-label">{% translate 'Revoked' %}</span>
+            {% elif token.is_expired %}
+            <span class="archive-label">{% translate 'Expired' %}</span>
+            {% else %}
+            <span class="badge badge-success badge-sm">{% translate 'Active' %}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if token.is_active %}
+            <form method="post" action="{% url 'api-token-revoke' token.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline btn-sm" aria-describedby="token-warning-{{ token.pk }}">{% translate 'Revoke' %}</button>
+              <span class="visually-hidden" id="token-warning-{{ token.pk }}">{% blocktranslate with name=token.name %}Clients using {{ name }} stop working immediately.{% endblocktranslate %}</span>
+            </form>
+            {% else %}
+            <a class="btn btn-outline btn-sm" href="{% url 'api-token-delete' token.pk %}" aria-describedby="token-delete-{{ token.pk }}">{% translate 'Delete' %}</a>
+            <span class="visually-hidden" id="token-delete-{{ token.pk }}">{% blocktranslate with name=token.name %}Removes {{ name }} permanently; the name can be used again.{% endblocktranslate %}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p>{% translate 'No tokens yet.' %}</p>
+  {% endif %}
+</section>
+<section class="panel">
+  <h2>{% translate 'Create a token' %}</h2>
+  <form method="post" action="{% url 'api-tokens' %}">
+    {% csrf_token %}
+    <div role="alert" tabindex="-1">
+      {% include 'garden/form_errors.html' %}
+    </div>
+    {% for field in form %}
+      {% include 'components/field.html' %}
+    {% endfor %}
+    <p class="field-help">{% translate 'A token has the same access as your account: it can read, change and delete the garden records. Create one only for a client you trust with that access.' %}</p>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{% translate 'Create token' %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

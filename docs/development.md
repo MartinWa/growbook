@@ -116,8 +116,9 @@ images, covering text-only, photo-only and multi-photo entries, photo failures a
 upload limits, capture, observation editing and deletion, permissions, links and derived
 filters, Unicode search, authorization for pages, media and downloads, economy spending and
 growing-year summaries, exact allocation rounding, pending groups, equipment schedules,
-plant sales, overlapping writes and clean-instance restore. Browser tests are excluded from
-the default run.
+plant sales, overlapping writes, clean-instance restore, API token storage and revocation,
+and the JSON API with its authentication failures and keep-in-sync OpenAPI
+document. Browser tests are excluded from the default run.
 
 For UI-copy changes, update the English source messages and
 `locale/sv/LC_MESSAGES/django.po`, then recompile with `tools/compile_translations.py`.
@@ -133,7 +134,9 @@ the cycle version, and category deletion advances linked cycles. Read saved stat
 before a dependent edit rather than reusing a stale token.
 
 Archive operations (`archive_crop`, `archive_variety` and `archive_area`) take the explicit
-desired `archived` state without an `expected_updated_at` token.
+desired `archived` state without an `expected_updated_at` token. The register create and
+edit operations instead take an optional `archived` value, which is validated, versioned and
+retried with the rest of the write rather than applied afterwards.
 
 Create/edit saves with submission receipts retry the original payload, version token and
 `submission_key`. Writers check the active actor and matching receipt before current
@@ -191,6 +194,10 @@ intended devices and installation.
 The committed `static/css/app.css` is built from `assets/app.css` with the pinned Tailwind
 CSS and daisyUI versions in `package.json`. Node.js and pnpm are needed only to rebuild
 styles; the application and container use the compiled file.
+
+Automatic source detection is disabled: `assets/app.css` names `templates/` and `static/js/`
+as its only sources, so a word in a guide, a test fixture or a Python identifier cannot add
+or remove shipped CSS. CI rebuilds the stylesheet and fails when the committed file differs.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -301,11 +308,16 @@ The application check job is named **Checks (Linux)**. GitHub required status ch
 job names exactly; keep the `main` ruleset aligned when renaming a required job.
 
 Weekly scheduled and manually dispatched CI runs build every image variant without the
-build cache, refreshing Debian package upgrades and installed system dependencies. Pull
-requests and pushes to `main` reuse the cache. A passing scheduled build refreshes CI caches; it does not
-publish an image or update a running installation. Translation compilation uses a separate
+build cache, refreshing Debian package upgrades and installed system dependencies. They
+write the production caches and publish no image. Translation compilation uses a separate
 production build stage, so catalog changes preserve cached application dependencies and
 Chromium installation layers.
+
+Only those runs and pushes to `main` write the production caches; a pull request restores
+them and writes nothing of its own. It therefore builds what `main` last built instead of
+keeping a package layer that the refresh cannot replace. A security update that lands
+between refreshes leaves both container jobs failing the Trivy audit until the next
+refresh, and dispatching CI on `main` is what refreshes the cache the pull requests read.
 
 Unexpected deployment-check issues fail CI; W005/W021 remain visible. Python audits check
 locked application, development and build-only dependencies with `pip-audit`. Trivy checks

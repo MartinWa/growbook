@@ -67,3 +67,36 @@ def test_vendored_htmx_matches_its_documented_checksum():
     ).hexdigest()
     assert actual == expected
     assert (ROOT / "third_party" / "htmx" / "LICENSE").exists()
+
+
+SWAGGER_DIR = "vendor/swagger-ui-5.36.0"
+SWAGGER_FILES = ("swagger-ui-bundle.js", "swagger-ui.css")
+
+
+def test_vendored_swagger_ui_matches_its_documented_checksums():
+    notice = (ROOT / "third_party" / "swagger-ui" / "README.md").read_text(encoding="utf-8")
+    for name in SWAGGER_FILES:
+        expected = re.search(rf"`{name}` SHA-256: `([0-9a-f]{{64}})`", notice).group(1)
+        actual = hashlib.sha256((ROOT / "static" / SWAGGER_DIR / name).read_bytes()).hexdigest()
+        assert actual == expected, name
+    assert (ROOT / "third_party" / "swagger-ui" / "LICENSE").exists()
+
+
+def test_vendored_swagger_ui_references_only_files_it_ships():
+    """A missing target makes collectstatic fail once WhiteNoise rewrites the reference."""
+    folder = ROOT / "static" / SWAGGER_DIR
+    for name in SWAGGER_FILES:
+        source = (folder / name).read_text(encoding="utf-8")
+        for reference in re.findall(r"sourceMappingURL=([^\s*]+)", source):
+            assert (folder / reference).exists(), f"{name} references {reference}"
+
+
+def test_the_stylesheet_is_generated_from_frontend_sources_only():
+    """A word in a guide, test or Python identifier must never change shipped CSS."""
+    source = (ROOT / "assets" / "app.css").read_text(encoding="utf-8")
+
+    assert '@import "tailwindcss" source(none);' in source
+    declared = re.findall(r'@source\s+"([^"]+)"', source)
+    assert declared
+    assert all(entry.startswith(("../templates/", "../static/")) for entry in declared), declared
+    assert "@source not" not in source

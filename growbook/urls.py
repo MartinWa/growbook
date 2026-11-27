@@ -4,7 +4,15 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import include, path
 from django.views.i18n import set_language
 
-from core.views import favicon, release_status, set_season
+from api import views as api_views
+from core.views import (
+    api_token_delete,
+    api_token_revoke,
+    api_tokens,
+    favicon,
+    release_status,
+    set_season,
+)
 
 urlpatterns = [
     path("favicon.ico", favicon, name="favicon"),
@@ -13,7 +21,12 @@ urlpatterns = [
     path("accounts/logout/", LogoutView.as_view(), name="logout"),
     path("accounts/language/", login_not_required(set_language), name="set_language"),
     path("accounts/season/", set_season, name="set_season"),
+    path("accounts/tokens/", api_tokens, name="api-tokens"),
+    path("accounts/tokens/<int:pk>/revoke/", api_token_revoke, name="api-token-revoke"),
+    path("accounts/tokens/<int:pk>/delete/", api_token_delete, name="api-token-delete"),
     path("operator/", admin.site.urls),
+    path("api/v1/", include("api.urls")),
+    path("api/docs/", login_not_required(api_views.docs_page), name="api-docs"),
     path("photos/", include("core.urls")),
     path("garden/", include("garden.urls")),
     path("economy/", include("economy.urls")),

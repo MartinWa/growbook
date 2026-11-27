@@ -182,7 +182,7 @@ jobs:
           tags: growbook:ci
           no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=ci-production-amd64
-          cache-to: type=gha,scope=ci-production-amd64,mode=max
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,scope=ci-production-amd64,mode=max' || '' }}
           github-token: ""
       - name: Check the production image as its runtime user
         run: |
@@ -217,7 +217,7 @@ jobs:
           tags: growbook:ci
           no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           cache-from: type=gha,scope=ci-production-arm64
-          cache-to: type=gha,scope=ci-production-arm64,mode=max
+          cache-to: ${{ github.event_name != 'pull_request' && 'type=gha,scope=ci-production-arm64,mode=max' || '' }}
           github-token: ""
       - name: Check the production image as its runtime user
         run: |

@@ -2667,3 +2667,116 @@ msgstr "Välj ett datum inom kalenderns årsintervall."
 
 msgid "Done on"
 msgstr "Avklarad den"
+
+msgid "API tokens"
+msgstr "API-token"
+
+msgid "API token"
+msgstr "API-token"
+
+msgid "Secret for %(name)s — shown only once"
+msgstr "Hemligheten för %(name)s — visas bara en gång"
+
+msgid "A token has the same access as your account: it can read, change and delete the garden records. Create one only for a client you trust with that access."
+msgstr "En token har samma behörighet som ditt konto: den kan läsa, ändra och radera trädgårdsposterna. Skapa bara en till en klient som du anförtror den behörigheten."
+
+msgid "Copy it now. It cannot be recovered; replace a lost secret with a new token."
+msgstr "Kopiera den nu. Den kan inte återställas; ersätt en förlorad hemlighet med en ny token."
+
+msgid "Your tokens"
+msgstr "Dina token"
+
+msgid "Revoked"
+msgstr "Återkallad"
+
+msgid "Expired"
+msgstr "Utgången"
+
+msgid "Revoke"
+msgstr "Återkalla"
+
+msgid "Clients using %(name)s stop working immediately."
+msgstr "Klienter som använder %(name)s slutar fungera direkt."
+
+msgid "Removes %(name)s permanently; the name can be used again."
+msgstr "Tar bort %(name)s permanent; namnet kan användas igen."
+
+msgid "No expiry"
+msgstr "Inget utgångsdatum"
+
+msgid "No tokens yet."
+msgstr "Inga token ännu."
+
+msgid "Create a token"
+msgstr "Skapa en token"
+
+msgid "Create token"
+msgstr "Skapa token"
+
+msgid "Expiry"
+msgstr "Utgångsdatum"
+
+msgid "Optional. The token stops working after this time."
+msgstr "Valfritt. Token slutar fungera efter denna tidpunkt."
+
+msgid "Give the token a name."
+msgstr "Ge token ett namn."
+
+msgid "Use at most 255 characters for the token name."
+msgstr "Använd högst 255 tecken för tokennamnet."
+
+msgid "A token with this name already exists."
+msgstr "Det finns redan en token med detta namn."
+
+msgid "Choose an expiry in the future."
+msgstr "Välj ett utgångsdatum i framtiden."
+
+msgid "Sign in with an active account to manage API tokens."
+msgstr "Logga in med ett aktivt konto för att hantera API-token."
+
+msgid "That token belongs to another account."
+msgstr "Den token tillhör ett annat konto."
+
+msgid "That token is already revoked."
+msgstr "Den token är redan återkallad."
+
+msgid "Revoke the token first; a working token cannot be deleted."
+msgstr "Återkalla token först; en fungerande token kan inte tas bort."
+
+msgid "Revoked %(name)s. Clients using it stop working now."
+msgstr "Återkallade %(name)s. Klienter som använder den slutar fungera nu."
+
+msgid "Deleted %(name)s. That name can be used again."
+msgstr "Tog bort %(name)s. Namnet kan användas igen."
+
+msgid "Choose an expiry with a time zone."
+msgstr "Välj ett utgångsdatum med tidszon."
+
+msgid "Delete API token"
+msgstr "Ta bort API-token"
+
+msgid "Delete token"
+msgstr "Ta bort token"
+
+msgid "Deletion removes the record permanently and the name can be used again. The secret is already unusable; deletion does not change what any client could read."
+msgstr "Borttagningen tar bort posten permanent och namnet kan användas igen. Hemligheten är redan oanvändbar; borttagningen ändrar inte vad någon klient kunde läsa."
+
+msgid "That token no longer exists."
+msgstr "Den token finns inte längre."
+
+msgid "API documentation"
+msgstr "API-dokumentation"
+
+
+msgid "Prefix"
+msgstr "Prefix"
+
+msgid "Created"
+msgstr "Skapad"
+
+msgid "Expires"
+msgstr "Går ut"
+
+msgid "Token count"
+msgstr "Antal token"
+
