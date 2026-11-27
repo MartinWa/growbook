@@ -117,7 +117,7 @@ upload limits, capture, observation editing and deletion, permissions, links and
 filters, Unicode search, authorization for pages, media and downloads, economy spending and
 growing-year summaries, exact allocation rounding, pending groups, equipment schedules,
 plant sales, overlapping writes, clean-instance restore, API token storage and revocation,
-and the read-only JSON API with its authentication failures and keep-in-sync OpenAPI
+and the JSON API with its authentication failures and keep-in-sync OpenAPI
 document. Browser tests are excluded from the default run.
 
 For UI-copy changes, update the English source messages and

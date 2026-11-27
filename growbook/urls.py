@@ -4,6 +4,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import include, path
 from django.views.i18n import set_language
 
+from api import views as api_views
 from core.views import (
     api_token_delete,
     api_token_revoke,
@@ -25,6 +26,7 @@ urlpatterns = [
     path("accounts/tokens/<int:pk>/delete/", api_token_delete, name="api-token-delete"),
     path("operator/", admin.site.urls),
     path("api/v1/", include("api.urls")),
+    path("api/docs/", login_not_required(api_views.docs_page), name="api-docs"),
     path("photos/", include("core.urls")),
     path("garden/", include("garden.urls")),
     path("economy/", include("economy.urls")),

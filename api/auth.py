@@ -1,4 +1,4 @@
-"""Bearer credentials for the read-only API.
+"""Bearer credentials for the API.
 
 One resolver keeps API authentication and the token page in step: the presented secret
 is hashed and compared in constant time, and only an active, unexpired token of an

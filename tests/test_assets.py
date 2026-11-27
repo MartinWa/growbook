@@ -69,6 +69,19 @@ def test_vendored_htmx_matches_its_documented_checksum():
     assert (ROOT / "third_party" / "htmx" / "LICENSE").exists()
 
 
+SWAGGER_DIR = "vendor/swagger-ui-5.36.0"
+SWAGGER_FILES = ("swagger-ui-bundle.js", "swagger-ui.css")
+
+
+def test_vendored_swagger_ui_matches_its_documented_checksums():
+    notice = (ROOT / "third_party" / "swagger-ui" / "README.md").read_text(encoding="utf-8")
+    for name in SWAGGER_FILES:
+        expected = re.search(rf"`{name}` SHA-256: `([0-9a-f]{{64}})`", notice).group(1)
+        actual = hashlib.sha256((ROOT / "static" / SWAGGER_DIR / name).read_bytes()).hexdigest()
+        assert actual == expected, name
+    assert (ROOT / "third_party" / "swagger-ui" / "LICENSE").exists()
+
+
 def test_the_stylesheet_is_generated_from_frontend_sources_only():
     """A word in a guide, test or Python identifier must never change shipped CSS."""
     source = (ROOT / "assets" / "app.css").read_text(encoding="utf-8")

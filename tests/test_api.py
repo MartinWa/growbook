@@ -680,19 +680,17 @@ def test_unknown_detail_is_a_json_404(client, token, collection):
     assert response.json()["detail"]
 
 
-@pytest.mark.parametrize("collection", LISTS)
-def test_write_methods_are_refused_without_writing(client, garden, token, collection):
-    url = f"{API}/{collection}/"
-    before = (Crop.objects.count(), Planting.objects.count())
+def test_evaluations_are_read_only_and_refuse_writes(client, garden, token):
+    url = f"{API}/evaluations/"
+    before = Planting.objects.count()
 
     for method in (client.post, client.put, client.patch, client.delete):
         response = method(url, {}, content_type="application/json", headers=bearer(token))
         assert response.status_code == 405, method
         assert response["Content-Type"].startswith("application/json")
-        assert "GET" in response["Allow"]
         assert response.json()["detail"]
 
-    assert (Crop.objects.count(), Planting.objects.count()) == before
+    assert Planting.objects.count() == before
 
 
 def test_head_and_options_are_answered_on_a_list_and_a_detail(client, garden, token):
@@ -1070,8 +1068,14 @@ def test_document_declares_bearer_authentication_for_every_operation():
     assert document["openapi"] == "3.1.0"
     assert document["security"] == [{"bearerAuth": []}]
     assert document["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
-    for path, operations in document["paths"].items():
-        assert list(operations) == ["get"], path
+    expected = {"/": ["get"], "/schema/": ["get"]}
+    for name, _, detail_view, _ in schema.ENDPOINTS:
+        expected[f"/{name}/"] = ["get", "post"] if name in schema.WRITABLE else ["get"]
+        if detail_view is not None:
+            expected[f"/{name}/{{pk}}/"] = (
+                ["get", "put", "patch", "delete"] if name in schema.WRITABLE else ["get"]
+            )
+    assert {path: list(operations) for path, operations in document["paths"].items()} == expected
 
 
 def test_search_folds_case_beyond_ascii_like_the_interface(client, user, token):
@@ -1085,10 +1089,17 @@ def test_search_folds_case_beyond_ascii_like_the_interface(client, user, token):
     assert identifiers(read(client, token, f"{API}/areas/", search="södra")) == [area.pk]
 
 
-def test_a_write_with_an_unusable_filter_is_still_a_405(client, token):
-    response = client.post(f"{API}/crops/?archived=nonsense", headers=bearer(token))
+def test_a_write_ignores_an_unusable_filter(client, token):
+    # Filters apply to reads only; a write is never refused over a filter it does not read.
+    response = client.post(
+        f"{API}/crops/?archived=nonsense",
+        {"name": "Synthetic filter-ignored crop"},
+        content_type="application/json",
+        headers=bearer(token),
+    )
 
-    assert response.status_code == 405
+    assert response.status_code == 201
+    assert response.json()["name"] == "Synthetic filter-ignored crop"
 
 
 def test_a_format_parameter_does_not_answer_before_authentication(client, token):

@@ -1,9 +1,10 @@
 # API access
 
-GrowBook can serve a read-only JSON copy of the garden to another tool on the same
-private network, authenticated with a bearer token that you create and revoke yourself.
-Nothing in the API writes: there is no endpoint that creates, changes or deletes a
-record, and a token never authenticates a browser page.
+GrowBook can serve the garden as JSON to another tool on the same private network,
+authenticated with a bearer token that you create and revoke yourself. Reads return
+the stored data unchanged, and writes go through the same validated operations as the
+interface, so the API cannot bypass a rule the screens enforce. A token never
+authenticates a browser page.
 
 The API is served by the same installation on the same private origin described in
 [Deployment](deployment.md); it adds no port, hostname or outbound connection.
@@ -47,23 +48,50 @@ any other signed-in account sees.
 
 ## Endpoints
 
-All paths are under `/api/v1/` and accept `GET`, `HEAD` and `OPTIONS`; any other method
-returns `405` without changing data. Authentication is checked first, so an unauthenticated
-write is answered with `401` rather than `405`.
+All paths are under `/api/v1/`. List endpoints accept `GET`, `HEAD`, `OPTIONS` and `POST`;
+detail endpoints also accept `PUT`, `PATCH` and `DELETE`. Any other method returns `405`
+without changing data. Authentication is checked first, so an unauthenticated request is
+answered with `401` rather than `405`.
 
 | Path | Returns |
 |---|---|
 | `/api/v1/` | The version, the authentication scheme and a link to each resource |
+| `/api/v1/schema/` | This API's OpenAPI document as JSON; public, like the docs page |
 | `/api/v1/crops/`, `/api/v1/crops/<id>/` | Crops with their categories |
 | `/api/v1/varieties/`, `/api/v1/varieties/<id>/` | Varieties with their crop |
 | `/api/v1/areas/`, `/api/v1/areas/<id>/` | Growing areas with their parent |
 | `/api/v1/plantings/`, `/api/v1/plantings/<id>/` | Plantings with cycle, crop, variety and area |
 | `/api/v1/events/`, `/api/v1/events/<id>/` | Planting events, including the linked diary entry |
-| `/api/v1/evaluations/` | Plantings whose stored evaluation is not empty |
+| `/api/v1/evaluations/` | Plantings whose stored evaluation is not empty (read-only) |
 | `/api/v1/observations/`, `/api/v1/observations/<id>/` | Diary observations and what each one links to |
 
-Photos are not exposed, and neither are accounts, submission receipts or the internal
-sort and search keys.
+Photos are not exposed or uploaded through the API, and neither are accounts, submission
+receipts or the internal sort and search keys.
+
+### Writes
+
+`POST` on a list endpoint creates a record and answers `201` with it; `PUT` replaces a
+record and `PATCH` changes only the given fields, both answering `200`; `DELETE` answers
+`204`. Writes are validated by the same service operations the forms use, so the same
+rules apply: names are unique per register scope, references must exist, and a record
+that is still referenced cannot be deleted (archive it instead).
+
+`PUT`, `PATCH` and `DELETE` require an `If-Match` header with the record's current
+`updated_at` value, so a lost update is refused with `409` instead of overwriting a
+newer change; without the header they answer `428`. A `409` also answers a save that was
+already applied differently. The request bodies and every response are described by the
+[OpenAPI document](#documented-schema).
+
+The writable fields are the ones the read endpoint returns, minus `id`, `created_at`,
+`updated_at`, `url` and computed references: `name`, `notes` and `archived` for crops;
+`crop`, `name`, `description`, `source`, `experiences` and `archived` for varieties;
+`name`, `parent`, `area_type`, `length_cm`, `width_cm`, `description`, `notes` and
+`archived` for areas; `crop`, `start_year`, `variety`, `area`, `lifespan`, `end_year`,
+`label`, `quantity`, `notes` and `evaluation` for plantings; `planting`, `kind`,
+`planned_date`, `actual_date` and `note` for events; and `date`, `body`, `title`,
+`links` and `show_in_calendar` for observations, where `links` is a list of
+`{"type": "area"|"crop"|"variety"|"planting", "id": <id>}`. Evaluations are part of a
+planting's cycle and stay read-only here.
 
 ### Filters
 
@@ -120,14 +148,21 @@ stable order per resource, so a client can page without duplicates.
 
 | Status | Body | Meaning |
 |---|---|---|
-| `400` | `{"detail": "...", "parameter": "year"}` | A filter value cannot be used |
+| `400` | `{"detail": "...", "parameter": "year"}` or `{"name": ["..."]}` | A filter value cannot be used, or a write body failed validation |
 | `401` | `{"detail": "A valid bearer token is required."}` | Missing, malformed, unknown, revoked or expired token, or an inactive account |
 | `404` | `{"detail": "No Crop matches the given query."}` | Unknown identifier on a detail endpoint, or a `page` past the last one |
-| `405` | `{"detail": "Method \"POST\" not allowed."}` | A write method was attempted |
+| `405` | `{"detail": "Method \"POST\" not allowed."}` | The method is not allowed on this endpoint (for example any write on `/evaluations/`) |
+| `409` | `{"detail": "..."}` | The record changed since it was read (stale `If-Match`) |
+| `428` | `{"detail": "Send If-Match with the record's current updated_at value."}` | A write without the `If-Match` header |
 
 ## Documented schema
 
-[`openapi.json`](openapi.json) is the OpenAPI 3.1 description of version 1: every path,
+The same OpenAPI 3.1 description is served live: `/api/docs/` renders it in the browser
+with the self-hosted Swagger UI as a standalone page with no site chrome (no account or
+token is needed — the page is public), and `GET /api/v1/schema/` returns the document
+itself as JSON.
+
+[`openapi.json`](openapi.json) is the committed copy of that document: every path,
 its filters and the JSON schema of each response. It is generated from the same
 serializers the API uses, and a test fails when the committed file and the code disagree.
 Regenerate it after changing the API:

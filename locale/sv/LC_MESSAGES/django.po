@@ -2674,9 +2674,6 @@ msgstr "API-token"
 msgid "API token"
 msgstr "API-token"
 
-msgid "The API is read-only and uses a bearer token. GrowBook stores only a hash and an eight-character prefix of each token."
-msgstr "API:t är skrivskyddat och använder en bearer-token. GrowBook lagrar bara en hash och ett åttateckensprefix av varje token."
-
 msgid "Secret for %(name)s — shown only once"
 msgstr "Hemligheten för %(name)s — visas bara en gång"
 
@@ -2700,12 +2697,6 @@ msgstr "Klienter som använder %(name)s slutar fungera direkt."
 
 msgid "Removes %(name)s permanently; the name can be used again."
 msgstr "Tar bort %(name)s permanent; namnet kan användas igen."
-
-msgid "Created %(created)s"
-msgstr "Skapad %(created)s"
-
-msgid "Expires %(expiry)s"
-msgstr "Går ut %(expiry)s"
 
 msgid "No expiry"
 msgstr "Inget utgångsdatum"
@@ -2769,3 +2760,20 @@ msgstr "Borttagningen tar bort posten permanent och namnet kan användas igen. H
 
 msgid "That token no longer exists."
 msgstr "Den token finns inte längre."
+
+msgid "API documentation"
+msgstr "API-dokumentation"
+
+
+msgid "Prefix"
+msgstr "Prefix"
+
+msgid "Created"
+msgstr "Skapad"
+
+msgid "Expires"
+msgstr "Går ut"
+
+msgid "Token count"
+msgstr "Antal token"
+

@@ -1272,6 +1272,10 @@
   .crop-maintenance > summary { @apply min-h-11 cursor-pointer py-2 font-semibold text-primary; }
   .record-list { @apply m-0 list-none p-0; }
   .record-list > li { @apply my-1 min-w-0; }
+  .token-panel-header { @apply flex items-center justify-between gap-3; }
+  .token-count { @apply inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-base-200 px-1.5 text-sm font-semibold text-secondary; }
+  .token-table thead th { @apply px-3 py-2 text-xs font-semibold tracking-wide text-secondary uppercase; }
+  .token-table .token-prefix { @apply rounded bg-base-200 px-2 py-0.5 text-xs; }
   .record-name {
     @apply inline-flex min-h-11 min-w-0 max-w-full items-center gap-3 rounded-lg px-3 py-2 text-primary underline decoration-primary/60 underline-offset-4;
     overflow-wrap: anywhere;

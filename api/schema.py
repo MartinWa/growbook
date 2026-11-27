@@ -13,14 +13,30 @@ from . import views
 from .pagination import BoundedPageNumberPagination
 from .serializers import (
     AreaSerializer,
+    AreaWriteSerializer,
     CropSerializer,
+    CropWriteSerializer,
     DocumentedField,
     EvaluationSerializer,
     EventSerializer,
+    EventWriteSerializer,
     ObservationSerializer,
+    ObservationWriteSerializer,
     PlantingSerializer,
+    PlantingWriteSerializer,
     VarietySerializer,
+    VarietyWriteSerializer,
 )
+
+# Collections that accept writes, with the request-body serializer each one validates.
+WRITABLE = {
+    "crops": CropWriteSerializer,
+    "varieties": VarietyWriteSerializer,
+    "areas": AreaWriteSerializer,
+    "plantings": PlantingWriteSerializer,
+    "events": EventWriteSerializer,
+    "observations": ObservationWriteSerializer,
+}
 
 # (path segment, list view, detail view or None, serializer) for each collection.
 ENDPOINTS = (
@@ -47,6 +63,10 @@ PARAMETER_ERROR_SCHEMA = {
     "properties": {"detail": {"type": "string"}, "parameter": {"type": "string"}},
     "required": ["detail", "parameter"],
     "additionalProperties": False,
+}
+FIELD_ERROR_SCHEMA = {
+    "type": "object",
+    "additionalProperties": {"type": "array", "items": {"type": "string"}},
 }
 DISCOVERY_SCHEMA = {
     "type": "object",
@@ -99,6 +119,12 @@ def _field_schema(field):
         schema = {"type": "string", "format": "date"}
     elif isinstance(field, serializers.UUIDField):
         schema = {"type": "string", "format": "uuid"}
+    elif isinstance(field, serializers.ChoiceField):
+        schema = {"type": "string", "enum": [str(choice) for choice in field.choices]}
+    elif isinstance(field, serializers.ListField):
+        schema = {"type": "array", "items": _field_schema(field.child)}
+    elif isinstance(field, serializers.Serializer):
+        schema = object_schema(type(field), all_required=False)
     elif isinstance(field, serializers.CharField):
         schema = {"type": "string"}
     else:
@@ -112,15 +138,24 @@ def component_name(serializer_class):
     return serializer_class.__name__.removesuffix("Serializer")
 
 
-def object_schema(serializer_class):
-    """One response object: the serializer's fields, in declaration order."""
-    properties = {
-        field.field_name: _field_schema(field) for field in serializer_class().fields.values()
-    }
+def object_schema(serializer_class, *, all_required=True):
+    """One object schema: the serializer's fields, in declaration order.
+
+    Response serializers mark every field as required; a write serializer only
+    requires the fields the service actually needs.
+    """
+    fields = serializer_class().fields
+    properties = {name: _field_schema(field) for name, field in fields.items()}
+    if all_required:
+        required = list(properties)
+    else:
+        required = [
+            name for name, field in fields.items() if field.required and not field.read_only
+        ]
     return {
         "type": "object",
         "properties": properties,
-        "required": list(properties),
+        "required": required,
         "additionalProperties": False,
     }
 
@@ -155,7 +190,55 @@ def _authentication_failure():
 
 def _method_not_allowed():
     return {
-        "description": "The endpoint is read-only: only GET, HEAD and OPTIONS are allowed.",
+        "description": "The method is not allowed on this endpoint.",
+        "content": _content({"$ref": "#/components/schemas/Error"}),
+    }
+
+
+IF_MATCH_PARAMETER = {
+    "name": "If-Match",
+    "in": "header",
+    "required": True,
+    "schema": {"type": "string", "format": "date-time"},
+    "description": (
+        "The record's current updated_at, so a lost update is refused instead of "
+        "overwriting a newer change."
+    ),
+}
+
+
+def _validation_failure():
+    return {
+        "description": (
+            "The request body failed validation, or a supported filter was given an "
+            "unusable value. Unsupported parameter names are ignored instead."
+        ),
+        "content": _content(
+            {
+                "oneOf": [
+                    {"$ref": "#/components/schemas/Error"},
+                    {"$ref": "#/components/schemas/FieldError"},
+                ]
+            }
+        ),
+    }
+
+
+def _conflict():
+    return {
+        "description": (
+            "The record changed since it was read (the If-Match version no longer "
+            "matches), or the save was already applied differently."
+        ),
+        "content": _content({"$ref": "#/components/schemas/Error"}),
+    }
+
+
+def _precondition_required():
+    return {
+        "description": (
+            "PUT, PATCH and DELETE require an If-Match header with the current updated_at."
+        ),
         "content": _content({"$ref": "#/components/schemas/Error"}),
     }
 
@@ -257,18 +340,124 @@ def _discovery_operation():
     }
 
 
+def _schema_operation():
+    return {
+        "summary": "This document as JSON, without authentication",
+        "operationId": "schema",
+        "tags": ["discovery"],
+        "parameters": [],
+        "security": [],
+        "responses": {
+            "200": {
+                "description": "The OpenAPI document that describes this API.",
+                "content": _content({"type": "object"}),
+            },
+            "405": {
+                "description": "The document is read-only: only GET and HEAD are allowed.",
+                "content": _content({"$ref": "#/components/schemas/Error"}),
+            },
+        },
+    }
+
+
+def _create_operation(name):
+    singular = name.removesuffix("s")
+    return {
+        "summary": f"Create a {singular}",
+        "operationId": f"create-{singular}",
+        "tags": [name],
+        "parameters": [],
+        "requestBody": {
+            "required": True,
+            "content": _content({"$ref": f"#/components/schemas/{name}Write"}),
+        },
+        "responses": {
+            "201": {
+                "description": f"The created {singular}.",
+                "content": _content({"$ref": f"#/components/schemas/{name}"}),
+            },
+            "400": _validation_failure(),
+            "401": _authentication_failure(),
+            "409": _conflict(),
+        },
+    }
+
+
+def _update_operation(name, method):
+    singular = name.removesuffix("s")
+    return {
+        "summary": (
+            f"Replace a {singular}" if method == "put" else f"Update parts of a {singular}"
+        ),
+        "operationId": f"{method}-{singular}",
+        "tags": [name],
+        "parameters": [IF_MATCH_PARAMETER],
+        "requestBody": {
+            "required": True,
+            "content": _content({"$ref": f"#/components/schemas/{name}Write"}),
+        },
+        "responses": {
+            "200": {
+                "description": f"The updated {singular}.",
+                "content": _content({"$ref": f"#/components/schemas/{name}"}),
+            },
+            "400": _validation_failure(),
+            "401": _authentication_failure(),
+            "404": _not_found(singular),
+            "409": _conflict(),
+            "428": _precondition_required(),
+        },
+    }
+
+
+def _delete_operation(name):
+    singular = name.removesuffix("s")
+    return {
+        "summary": f"Delete a {singular}",
+        "operationId": f"delete-{singular}",
+        "tags": [name],
+        "parameters": [IF_MATCH_PARAMETER],
+        "responses": {
+            "204": {"description": f"The {singular} was deleted."},
+            "400": {
+                "description": "The If-Match header is not an ISO 8601 timestamp.",
+                "content": _content({"$ref": "#/components/schemas/Error"}),
+            },
+            "401": _authentication_failure(),
+            "404": _not_found(singular),
+            "409": _conflict(),
+            "428": _precondition_required(),
+        },
+    }
+
+
 def build_document():
     schemas = {
         "Error": ERROR_SCHEMA,
         "ParameterError": PARAMETER_ERROR_SCHEMA,
+        "FieldError": FIELD_ERROR_SCHEMA,
     }
-    paths = {"/": {"get": _discovery_operation()}}
+    paths = {
+        "/": {"get": _discovery_operation()},
+        "/schema/": {"get": _schema_operation()},
+    }
     for name, list_view, detail_view, serializer_class in ENDPOINTS:
         schemas[name] = object_schema(serializer_class)
         schemas[f"{name}Page"] = paginated_schema(name)
-        paths[f"/{name}/"] = {"get": _list_operation(name, list_view)}
+        write_serializer = WRITABLE.get(name)
+        if write_serializer is not None:
+            schemas[f"{name}Write"] = object_schema(write_serializer, all_required=False)
+        list_operations = {"get": _list_operation(name, list_view)}
+        if write_serializer is not None:
+            list_operations["post"] = _create_operation(name)
+        paths[f"/{name}/"] = list_operations
         if detail_view is not None:
-            paths[f"/{name}/{{pk}}/"] = {"get": _detail_operation(name)}
+            detail_operations = {"get": _detail_operation(name)}
+            if write_serializer is not None:
+                detail_operations["put"] = _update_operation(name, "put")
+                detail_operations["patch"] = _update_operation(name, "patch")
+                detail_operations["delete"] = _delete_operation(name)
+            paths[f"/{name}/{{pk}}/"] = detail_operations
     return {
         "openapi": "3.1.0",
         "info": {
@@ -276,9 +465,11 @@ def build_document():
             "version": "1.0.0",
             "summary": "Read-only, paginated access to the garden registers, plantings and diary.",
             "description": (
-                "Every endpoint is read-only and requires a bearer token issued to the "
-                "account that owns it. Text is returned exactly as it was stored, and a "
-                "null value means it was never recorded."
+                "Every request requires a bearer token issued to the account that owns it, "
+                "except this schema. Text is returned exactly as it was stored, and a null "
+                "value means it was never recorded. Writes go through the same validated "
+                "operations as the interface, with If-Match optimistic locking; evaluations "
+                "are read-only. A browsable rendering of this document is served at /api/docs/."
             ),
             "license": {"name": "PolyForm Noncommercial 1.0.0"},
         },

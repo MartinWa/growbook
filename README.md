@@ -86,7 +86,7 @@ For using the garden:
   search, archive and deletion rules
 - [Plantings](docs/plantings.md) — batches, statuses, growing years, events, histories
 - [Economy](docs/economy.md) — purchases, allocations, equipment, cost per plant, sales
-- [API](docs/api.md) — read-only JSON access with a bearer token you create and revoke
+- [API](docs/api.md) — JSON access (reads and validated writes) with a bearer token you create and revoke
   yourself
 
 For running an installation:

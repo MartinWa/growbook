@@ -23,6 +23,7 @@ text is included in that installed license file.
 | tzdata | Apache-2.0 and timezone-data notices in its distribution. |
 | Waitress | Zope Public License 2.1. |
 | HTMX | 0BSD, original license in [`htmx/LICENSE`](htmx/LICENSE). |
+| Swagger UI, 5.36.0 | Apache-2.0; pinned source and checksums in [`swagger-ui/README.md`](swagger-ui/README.md), original license in [`swagger-ui/LICENSE`](swagger-ui/LICENSE). |
 | Tailwind CSS, 4.3.4 | MIT, original copyright and permission notice in [`tailwindcss/LICENSE`](tailwindcss/LICENSE). |
 | daisyUI, 5.7.50 | MIT, original copyright and permission notice in [`daisyui/LICENSE`](daisyui/LICENSE). |
 | Lucide icon subset, 0.468.0 | Free ISC-licensed icons; original SVGs and attribution in [`lucide/README.md`](lucide/README.md) and [`lucide/LICENSE`](lucide/LICENSE). |

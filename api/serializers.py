@@ -1,8 +1,10 @@
-"""Serializers for the read-only version 1 JSON API.
+"""Serializers for the version 1 JSON API.
 
 Only the listed fields are exposed: stored user text is returned unchanged and a
 nullable value keeps its meaning, so an unrecorded quantity stays ``null`` and never
-becomes an invented zero or an empty display label.
+becomes an invented zero or an empty display label. The ``*WriteSerializer`` classes
+are the request bodies; the views hand them to the same validated service operations
+the interface uses.
 """
 
 from django.urls import reverse
@@ -249,3 +251,65 @@ class ObservationSerializer(serializers.Serializer):
 
     def get_url(self, entry):
         return absolute(self, entry.get_absolute_url())
+
+
+class LinkWriteSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=["area", "crop", "variety", "planting"])
+    id = serializers.IntegerField()
+
+
+class CropWriteSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    notes = serializers.CharField(required=False, allow_blank=True)
+    archived = serializers.BooleanField(required=False)
+
+
+class VarietyWriteSerializer(serializers.Serializer):
+    crop = serializers.IntegerField()
+    name = serializers.CharField()
+    description = serializers.CharField(required=False, allow_blank=True)
+    source = serializers.CharField(required=False, allow_blank=True)
+    experiences = serializers.CharField(required=False, allow_blank=True)
+    archived = serializers.BooleanField(required=False)
+
+
+class AreaWriteSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    parent = serializers.IntegerField(required=False, allow_null=True)
+    area_type = serializers.CharField(required=False, allow_blank=True)
+    length_cm = serializers.IntegerField(required=False, allow_null=True)
+    width_cm = serializers.IntegerField(required=False, allow_null=True)
+    description = serializers.CharField(required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    archived = serializers.BooleanField(required=False)
+
+
+class PlantingWriteSerializer(serializers.Serializer):
+    crop = serializers.IntegerField()
+    start_year = serializers.IntegerField()
+    variety = serializers.IntegerField(required=False, allow_null=True)
+    area = serializers.IntegerField(required=False, allow_null=True)
+    lifespan = serializers.ChoiceField(choices=["annual", "persistent"], required=False)
+    end_year = serializers.IntegerField(required=False, allow_null=True)
+    label = serializers.CharField(required=False, allow_blank=True)
+    quantity = serializers.IntegerField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    evaluation = serializers.CharField(required=False, allow_blank=True)
+
+
+class EventWriteSerializer(serializers.Serializer):
+    planting = serializers.IntegerField()
+    kind = serializers.ChoiceField(
+        choices=["sowing", "transplant", "replanting", "harvest_start", "harvest_end", "other"]
+    )
+    planned_date = serializers.DateField(required=False, allow_null=True)
+    actual_date = serializers.DateField(required=False, allow_null=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+
+
+class ObservationWriteSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    body = serializers.CharField()
+    title = serializers.CharField(required=False, allow_blank=True)
+    links = serializers.ListField(child=LinkWriteSerializer(), required=False)
+    show_in_calendar = serializers.BooleanField(required=False)

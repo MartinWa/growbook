@@ -1,4 +1,4 @@
-"""Bounded page-number pagination for the read-only API."""
+"""Bounded page-number pagination for the API."""
 
 from rest_framework.pagination import PageNumberPagination
 

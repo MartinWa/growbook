@@ -1,4 +1,4 @@
-"""URLs for the version 1 read-only API.
+"""URLs for the version 1 API.
 
 Every view is wrapped in ``login_not_required`` because Django's login-required
 middleware runs before Django REST Framework: without the wrap an anonymous caller
@@ -14,6 +14,7 @@ app_name = "api"
 
 urlpatterns = [
     path("", login_not_required(views.DiscoveryView.as_view()), name="discovery"),
+    path("schema/", login_not_required(views.schema_document), name="schema"),
     path("crops/", login_not_required(views.CropList.as_view()), name="crop-list"),
     path("crops/<int:pk>/", login_not_required(views.CropDetail.as_view()), name="crop-detail"),
     path("varieties/", login_not_required(views.VarietyList.as_view()), name="variety-list"),
