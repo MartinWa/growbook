@@ -306,11 +306,18 @@ The application check job is named **Checks (Linux)**. GitHub required status ch
 job names exactly; keep the `main` ruleset aligned when renaming a required job.
 
 Weekly scheduled and manually dispatched CI runs build every image variant without the
-build cache, refreshing Debian package upgrades and installed system dependencies. Pull
-requests and pushes to `main` reuse the cache. A passing scheduled build refreshes CI caches; it does not
-publish an image or update a running installation. Translation compilation uses a separate
+build cache, refreshing Debian package upgrades and installed system dependencies. Pushes
+to `main` reuse the cache, and a passing scheduled build refreshes it; that refresh does
+not publish an image or update a running installation. Translation compilation uses a separate
 production build stage, so catalog changes preserve cached application dependencies and
 Chromium installation layers.
+
+A pull request keeps cache entries of its own, which the scheduled refresh does not replace:
+when Debian publishes a security update between refreshes, the pull request keeps reusing
+its cached package layer instead of upgrading, so both container jobs fail the Trivy audit
+while `main` passes. Delete that pull request's entries under **Actions → Caches** (they are
+scoped to `refs/pull/<n>/merge`) and re-run the failed jobs; the rebuild installs the
+published fix.
 
 Unexpected deployment-check issues fail CI; W005/W021 remain visible. Python audits check
 locked application, development and build-only dependencies with `pip-audit`. Trivy checks
