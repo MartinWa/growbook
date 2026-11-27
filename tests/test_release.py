@@ -792,7 +792,13 @@ def test_ci_builds_and_audits_a_production_image_on_each_architecture():
         # The release workflow reads exactly these scopes; neither may be dropped or
         # renamed without updating release.yml and its test.
         assert f"cache-from: type=gha,scope=ci-production-{suffix}" in workflow
-        assert f"cache-to: type=gha,scope=ci-production-{suffix},mode=max" in workflow
+        # Every event except a pull request writes them. A pull request that wrote its own
+        # copy shadowed the default branch's cache, so a package that Debian had since
+        # fixed stayed in the image and the audit failed while main passed.
+        assert (
+            f"cache-to: ${{{{ github.event_name != 'pull_request' && "
+            f"'type=gha,scope=ci-production-{suffix},mode=max' || '' }}}}"
+        ) in workflow
     assert workflow.count("run: bash tools/audit_image.sh growbook:ci") == 2
     assert workflow.count("growbook:ci python tools/check_image.py") == 2
     assert "type=gha,scope=ci-production\n" not in workflow
