@@ -82,6 +82,15 @@ def test_vendored_swagger_ui_matches_its_documented_checksums():
     assert (ROOT / "third_party" / "swagger-ui" / "LICENSE").exists()
 
 
+def test_vendored_swagger_ui_references_only_files_it_ships():
+    """A missing target makes collectstatic fail once WhiteNoise rewrites the reference."""
+    folder = ROOT / "static" / SWAGGER_DIR
+    for name in SWAGGER_FILES:
+        source = (folder / name).read_text(encoding="utf-8")
+        for reference in re.findall(r"sourceMappingURL=([^\s*]+)", source):
+            assert (folder / reference).exists(), f"{name} references {reference}"
+
+
 def test_the_stylesheet_is_generated_from_frontend_sources_only():
     """A word in a guide, test or Python identifier must never change shipped CSS."""
     source = (ROOT / "assets" / "app.css").read_text(encoding="utf-8")
