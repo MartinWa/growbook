@@ -12,7 +12,6 @@
 <div class="panel save-confirmation" role="status" aria-live="polite" tabindex="-1" autofocus>
   <p>{% blocktranslate with name=created_name %}Secret for {{ name }} — shown only once{% endblocktranslate %}</p>
   <p><code id="token-secret">{{ secret }}</code></p>
-  <p class="field-help">{% translate 'This token has the same access as your account and can read and write the garden records; only a hash is stored, so the secret is shown once.' %}</p>
   <p class="field-help">{% translate 'Copy it now. It cannot be recovered; replace a lost secret with a new token.' %}</p>
 </div>
 {% endif %}
@@ -80,6 +79,7 @@
     {% for field in form %}
       {% include 'components/field.html' %}
     {% endfor %}
+    <p class="field-help">{% translate 'A token has the same access as your account: it can read, change and delete the garden records. Create one only for a client you trust with that access.' %}</p>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{% translate 'Create token' %}</button>
     </div>

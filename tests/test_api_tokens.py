@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext
 
 from api.auth import resolve_token
 from core.api_tokens import (
@@ -177,6 +178,21 @@ def test_the_page_lists_metadata_without_any_secret_or_hash(client, user):
     assert secret not in page.text
     assert record.key_hash not in page.text
     assert reverse("api-tokens") in page.text
+
+
+def test_the_page_discloses_what_a_token_can_do_before_one_is_created(client, user):
+    client.force_login(user)
+
+    page = client.get(reverse("api-tokens"))
+
+    notice = gettext(
+        "A token has the same access as your account: it can read, change and delete the "
+        "garden records. Create one only for a client you trust with that access."
+    )
+    assert page.status_code == 200
+    assert notice in page.text
+    # Read before the credential exists, not after it has been issued.
+    assert page.text.index(notice) < page.text.index('type="submit" class="btn btn-primary"')
 
 
 def test_creating_a_token_shows_the_secret_once(client, user):
