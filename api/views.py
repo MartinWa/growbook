@@ -532,7 +532,8 @@ class ListView(BaseView, generics.ListAPIView):
             return
         for parameter in self.filters:
             raw = request.query_params.get(parameter.name)
-            if raw is not None:
+            # A blank value is an empty form field: it filters nothing, whatever its type.
+            if raw is not None and raw.strip():
                 self.parameters[parameter.name] = parameter.parse(parameter.name, raw)
 
     def post(self, request):

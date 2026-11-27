@@ -1136,3 +1136,27 @@ def test_a_blank_area_type_is_ignored_rather_than_meaning_no_type(client, garden
 
     assert read(client, token, f"{API}/areas/", area_type="").json()["count"] == unfiltered
     assert read(client, token, f"{API}/areas/", area_type="bed").json()["count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("collection", "parameter"),
+    (
+        ("crops", "archived"),
+        ("crops", "category"),
+        ("areas", "parent"),
+        ("plantings", "year"),
+        ("plantings", "status"),
+        ("events", "kind"),
+        ("observations", "from"),
+    ),
+)
+def test_a_blank_typed_filter_is_ignored_rather_than_refused(
+    client, garden, token, collection, parameter
+):
+    unfiltered = read(client, token, f"{API}/{collection}/").json()["count"]
+    assert unfiltered > 0
+
+    for blank in ("", "   "):
+        response = read(client, token, f"{API}/{collection}/", **{parameter: blank})
+        assert response.status_code == 200, response.content
+        assert response.json()["count"] == unfiltered
