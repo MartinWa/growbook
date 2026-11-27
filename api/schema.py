@@ -160,6 +160,11 @@ def object_schema(serializer_class, *, all_required=True):
     }
 
 
+def partial_schema(schema):
+    """The same object with every field optional, for a PATCH request body."""
+    return {**schema, "required": []}
+
+
 def paginated_schema(name):
     reference = f"#/components/schemas/{name}"
     return {
@@ -203,6 +208,17 @@ IF_MATCH_PARAMETER = {
     "description": (
         "The record's current updated_at, so a lost update is refused instead of "
         "overwriting a newer change."
+    ),
+}
+IDEMPOTENCY_KEY_PARAMETER = {
+    "name": "Idempotency-Key",
+    "in": "header",
+    "required": False,
+    "schema": {"type": "string", "format": "uuid"},
+    "description": (
+        "A UUID that identifies this create attempt. Sending the same key again answers "
+        "with the record the first attempt created instead of a duplicate, and a value "
+        "that is not a UUID is a 400."
     ),
 }
 
@@ -366,7 +382,7 @@ def _create_operation(name):
         "summary": f"Create a {singular}",
         "operationId": f"create-{singular}",
         "tags": [name],
-        "parameters": [],
+        "parameters": [IDEMPOTENCY_KEY_PARAMETER],
         "requestBody": {
             "required": True,
             "content": _content({"$ref": f"#/components/schemas/{name}Write"}),
@@ -385,6 +401,8 @@ def _create_operation(name):
 
 def _update_operation(name, method):
     singular = name.removesuffix("s")
+    # A replacement sends every required field; a partial update sends only the ones it changes.
+    variant = "Write" if method == "put" else "Patch"
     return {
         "summary": (
             f"Replace a {singular}" if method == "put" else f"Update parts of a {singular}"
@@ -394,7 +412,7 @@ def _update_operation(name, method):
         "parameters": [IF_MATCH_PARAMETER],
         "requestBody": {
             "required": True,
-            "content": _content({"$ref": f"#/components/schemas/{name}Write"}),
+            "content": _content({"$ref": f"#/components/schemas/{name}{variant}"}),
         },
         "responses": {
             "200": {
@@ -447,6 +465,7 @@ def build_document():
         write_serializer = WRITABLE.get(name)
         if write_serializer is not None:
             schemas[f"{name}Write"] = object_schema(write_serializer, all_required=False)
+            schemas[f"{name}Patch"] = partial_schema(schemas[f"{name}Write"])
         list_operations = {"get": _list_operation(name, list_view)}
         if write_serializer is not None:
             list_operations["post"] = _create_operation(name)
@@ -463,13 +482,16 @@ def build_document():
         "info": {
             "title": "GrowBook garden API",
             "version": "1.0.0",
-            "summary": "Read-only, paginated access to the garden registers, plantings and diary.",
+            "summary": (
+                "Paginated reads and validated writes on the garden registers, plantings and diary."
+            ),
             "description": (
-                "Every request requires a bearer token issued to the account that owns it, "
-                "except this schema. Text is returned exactly as it was stored, and a null "
-                "value means it was never recorded. Writes go through the same validated "
-                "operations as the interface, with If-Match optimistic locking; evaluations "
-                "are read-only. A browsable rendering of this document is served at /api/docs/."
+                "Reads are paginated, and writes go through the same validated operations "
+                "as the interface, with If-Match optimistic locking; evaluations stay "
+                "read-only. A bearer token carries the same permissions as its owner, so it "
+                "can create, change and delete records. Text is returned exactly as it was "
+                "stored, and a null value means it was never recorded. A browsable "
+                "rendering of this document is served at /api/docs/."
             ),
             "license": {"name": "PolyForm Noncommercial 1.0.0"},
         },

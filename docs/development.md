@@ -134,7 +134,9 @@ the cycle version, and category deletion advances linked cycles. Read saved stat
 before a dependent edit rather than reusing a stale token.
 
 Archive operations (`archive_crop`, `archive_variety` and `archive_area`) take the explicit
-desired `archived` state without an `expected_updated_at` token.
+desired `archived` state without an `expected_updated_at` token. The register create and
+edit operations instead take an optional `archived` value, which is validated, versioned and
+retried with the rest of the write rather than applied afterwards.
 
 Create/edit saves with submission receipts retry the original payload, version token and
 `submission_key`. Writers check the active actor and matching receipt before current

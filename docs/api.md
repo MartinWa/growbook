@@ -1,10 +1,11 @@
 # API access
 
 GrowBook can serve the garden as JSON to another tool on the same private network,
-authenticated with a bearer token that you create and revoke yourself. Reads return
-the stored data unchanged, and writes go through the same validated operations as the
-interface, so the API cannot bypass a rule the screens enforce. A token never
-authenticates a browser page.
+authenticated with a bearer token that you create and revoke yourself. A bearer token
+carries the same permissions as its owner: it reads the garden like the screens and also
+creates, changes, archives and deletes records through the same validated operations, so
+the API cannot bypass a rule the interface enforces. Reads return the stored data
+unchanged. A token never authenticates a browser page.
 
 The API is served by the same installation on the same private origin described in
 [Deployment](deployment.md); it adds no port, hostname or outbound connection.
@@ -76,10 +77,15 @@ record and `PATCH` changes only the given fields, both answering `200`; `DELETE`
 rules apply: names are unique per register scope, references must exist, and a record
 that is still referenced cannot be deleted (archive it instead).
 
-`PUT`, `PATCH` and `DELETE` require an `If-Match` header with the record's current
-`updated_at` value, so a lost update is refused with `409` instead of overwriting a
-newer change; without the header they answer `428`. A `409` also answers a save that was
-already applied differently. The request bodies and every response are described by the
+A create may send an `Idempotency-Key` header with a UUID that identifies the attempt:
+sending the same key again answers with the record the first attempt created instead of
+making a duplicate, and a value that is not a UUID is a `400`.
+
+`PUT`, `PATCH` and `DELETE` require an `If-Match` header carrying the record's current
+`updated_at` value in full, time zone included: a timestamp without an offset is refused
+with `400`. The header turns a lost update into a `409` instead of overwriting a newer
+change; without it the answer is `428`. A `409` also answers a save that was already
+applied differently. The request bodies and every response are described by the
 [OpenAPI document](#documented-schema).
 
 The writable fields are the ones the read endpoint returns, minus `id`, `created_at`,
@@ -92,6 +98,11 @@ The writable fields are the ones the read endpoint returns, minus `id`, `created
 `links` and `show_in_calendar` for observations, where `links` is a list of
 `{"type": "area"|"crop"|"variety"|"planting", "id": <id>}`. Evaluations are part of a
 planting's cycle and stay read-only here.
+
+A crop, variety or area created with `archived: true` is created archived, and `archived`
+on `PUT` or `PATCH` is applied in the same validated write as the other fields. An
+observation may be written with an empty `body` when it keeps at least one photo, which
+the [diary rule](diary.md#writing-an-observation) already allows.
 
 ### Filters
 
@@ -148,7 +159,7 @@ stable order per resource, so a client can page without duplicates.
 
 | Status | Body | Meaning |
 |---|---|---|
-| `400` | `{"detail": "...", "parameter": "year"}` or `{"name": ["..."]}` | A filter value cannot be used, or a write body failed validation |
+| `400` | `{"detail": "...", "parameter": "year"}` or `{"name": ["..."]}` | A filter value cannot be used, a write body failed validation, an `Idempotency-Key` is not a UUID, or `If-Match` has no time zone |
 | `401` | `{"detail": "A valid bearer token is required."}` | Missing, malformed, unknown, revoked or expired token, or an inactive account |
 | `404` | `{"detail": "No Crop matches the given query."}` | Unknown identifier on a detail endpoint, or a `page` past the last one |
 | `405` | `{"detail": "Method \"POST\" not allowed."}` | The method is not allowed on this endpoint (for example any write on `/evaluations/`) |
@@ -174,9 +185,9 @@ docker compose -f compose.development.yaml run --rm app \
 
 ## Operational notes
 
-- Treat a secret like a password: it grants read access to the garden registers,
-  plantings and diary. Keep it in the client's own private configuration, never in a
-  shared file or a URL.
+- Treat a secret like a password: it opens the garden registers, plantings and diary for
+  both reading and writing, with the same access as its account. Keep it in the client's
+  own private configuration, never in a shared file or a URL.
 - Revocation is immediate and per token, so rotate a credential by creating the new one,
   switching the client, then revoking the old one.
 - A backup contains only token hashes, not usable secrets; restoring a database restores

@@ -2677,6 +2677,9 @@ msgstr "API-token"
 msgid "Secret for %(name)s — shown only once"
 msgstr "Hemligheten för %(name)s — visas bara en gång"
 
+msgid "This token has the same access as your account and can read and write the garden records; only a hash is stored, so the secret is shown once."
+msgstr "Den här token har samma behörighet som ditt konto och kan läsa och skriva trädgårdsposterna; bara en hash lagras, så hemligheten visas en gång."
+
 msgid "Copy it now. It cannot be recovered; replace a lost secret with a new token."
 msgstr "Kopiera den nu. Den kan inte återställas; ersätt en förlorad hemlighet med en ny token."
 

@@ -3,8 +3,8 @@
   "info": {
     "title": "GrowBook garden API",
     "version": "1.0.0",
-    "summary": "Read-only, paginated access to the garden registers, plantings and diary.",
-    "description": "Every request requires a bearer token issued to the account that owns it, except this schema. Text is returned exactly as it was stored, and a null value means it was never recorded. Writes go through the same validated operations as the interface, with If-Match optimistic locking; evaluations are read-only. A browsable rendering of this document is served at /api/docs/.",
+    "summary": "Paginated reads and validated writes on the garden registers, plantings and diary.",
+    "description": "Reads are paginated, and writes go through the same validated operations as the interface, with If-Match optimistic locking; evaluations stay read-only. A bearer token carries the same permissions as its owner, so it can create, change and delete records. Text is returned exactly as it was stored, and a null value means it was never recorded. A browsable rendering of this document is served at /api/docs/.",
     "license": {
       "name": "PolyForm Noncommercial 1.0.0"
     }
@@ -233,7 +233,18 @@
         "tags": [
           "crops"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A UUID that identifies this create attempt. Sending the same key again answers with the record the first attempt created instead of a duplicate, and a value that is not a UUID is a 400."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -478,7 +489,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/cropsWrite"
+                "$ref": "#/components/schemas/cropsPatch"
               }
             }
           }
@@ -745,7 +756,18 @@
         "tags": [
           "varieties"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A UUID that identifies this create attempt. Sending the same key again answers with the record the first attempt created instead of a duplicate, and a value that is not a UUID is a 400."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -990,7 +1012,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/varietiesWrite"
+                "$ref": "#/components/schemas/varietiesPatch"
               }
             }
           }
@@ -1269,7 +1291,18 @@
         "tags": [
           "areas"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A UUID that identifies this create attempt. Sending the same key again answers with the record the first attempt created instead of a duplicate, and a value that is not a UUID is a 400."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1514,7 +1547,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/areasWrite"
+                "$ref": "#/components/schemas/areasPatch"
               }
             }
           }
@@ -1831,7 +1864,18 @@
         "tags": [
           "plantings"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A UUID that identifies this create attempt. Sending the same key again answers with the record the first attempt created instead of a duplicate, and a value that is not a UUID is a 400."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2076,7 +2120,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/plantingsWrite"
+                "$ref": "#/components/schemas/plantingsPatch"
               }
             }
           }
@@ -2373,7 +2417,18 @@
         "tags": [
           "events"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A UUID that identifies this create attempt. Sending the same key again answers with the record the first attempt created instead of a duplicate, and a value that is not a UUID is a 400."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2618,7 +2673,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/eventsWrite"
+                "$ref": "#/components/schemas/eventsPatch"
               }
             }
           }
@@ -3081,7 +3136,18 @@
         "tags": [
           "observations"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "A UUID that identifies this create attempt. Sending the same key again answers with the record the first attempt created instead of a duplicate, and a value that is not a UUID is a 400."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3326,7 +3392,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/observationsWrite"
+                "$ref": "#/components/schemas/observationsPatch"
               }
             }
           }
@@ -3633,6 +3699,22 @@
         ],
         "additionalProperties": false
       },
+      "cropsPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
       "varieties": {
         "type": "object",
         "properties": {
@@ -3763,6 +3845,31 @@
           "crop",
           "name"
         ],
+        "additionalProperties": false
+      },
+      "varietiesPatch": {
+        "type": "object",
+        "properties": {
+          "crop": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "experiences": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
         "additionalProperties": false
       },
       "areas": {
@@ -3926,6 +4033,46 @@
         "required": [
           "name"
         ],
+        "additionalProperties": false
+      },
+      "areasPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "parent": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "area_type": {
+            "type": "string"
+          },
+          "length_cm": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "width_cm": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
         "additionalProperties": false
       },
       "plantings": {
@@ -4191,6 +4338,59 @@
         ],
         "additionalProperties": false
       },
+      "plantingsPatch": {
+        "type": "object",
+        "properties": {
+          "crop": {
+            "type": "integer"
+          },
+          "start_year": {
+            "type": "integer"
+          },
+          "variety": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "area": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lifespan": {
+            "type": "string",
+            "enum": [
+              "annual",
+              "persistent"
+            ]
+          },
+          "end_year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "evaluation": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
       "events": {
         "type": "object",
         "properties": {
@@ -4332,6 +4532,44 @@
           "planting",
           "kind"
         ],
+        "additionalProperties": false
+      },
+      "eventsPatch": {
+        "type": "object",
+        "properties": {
+          "planting": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sowing",
+              "transplant",
+              "replanting",
+              "harvest_start",
+              "harvest_end",
+              "other"
+            ]
+          },
+          "planned_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "actual_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [],
         "additionalProperties": false
       },
       "evaluations": {
@@ -4653,6 +4891,51 @@
           "date",
           "body"
         ],
+        "additionalProperties": false
+      },
+      "observationsPatch": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "body": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "area",
+                    "crop",
+                    "variety",
+                    "planting"
+                  ]
+                },
+                "id": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "type",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "show_in_calendar": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
         "additionalProperties": false
       }
     },
