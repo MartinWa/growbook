@@ -186,10 +186,13 @@ def _save(actor, model, kind, pk, values, uploads, submission_key, expected_upda
             "category_id",
             "crop_ids",
             "remove_image",
+            "is_archived",
             "length_cm",
             "width_cm",
         } and not isinstance(value, str):
             raise ValidationError({field: _("Enter text, or leave this field blank.")})
+    if "is_archived" in values and type(values["is_archived"]) is not bool:
+        raise ValidationError({"archived": _("Choose a valid archive state.")})
     for field in ("length_cm", "width_cm"):
         value = values.get(field)
         if value is not None and (type(value) is not int or value <= 0):
@@ -232,11 +235,24 @@ def _save(actor, model, kind, pk, values, uploads, submission_key, expected_upda
             discard_unreferenced_bundles(folders)
 
 
-def create_crop(*, actor, name, notes="", category=None, submission_key=None):
+def _with_archive(values, archived):
+    """The same write values, plus the archive flag when the caller sent one.
+
+    The flag travels in the receipt payload, so it is validated, versioned and
+    replayed with the rest of the write rather than applied afterwards.
+    """
+    if archived is not None:
+        values["is_archived"] = archived
+    return values
+
+
+def create_crop(*, actor, name, notes="", category=None, archived=None, submission_key=None):
     values = {"name": name, "notes": notes}
     if category is not None:
         values["category_id"] = _identifier(category, "category", model=CropCategory)
-    return _save(actor, Crop, "crop", None, values, [], submission_key, None)
+    return _save(
+        actor, Crop, "crop", None, _with_archive(values, archived), [], submission_key, None
+    )
 
 
 def _category_values(name, crops, remove_image):
@@ -285,13 +301,15 @@ def edit_category(
     )
 
 
-def edit_crop(*, actor, pk, name, notes="", submission_key=None, expected_updated_at):
+def edit_crop(
+    *, actor, pk, name, notes="", archived=None, submission_key=None, expected_updated_at
+):
     return _save(
         actor,
         Crop,
         "crop",
         _identifier(pk, "id"),
-        {"name": name, "notes": notes},
+        _with_archive({"name": name, "notes": notes}, archived),
         [],
         submission_key,
         expected_updated_at,
@@ -307,6 +325,7 @@ def create_variety(
     source="",
     experiences="",
     uploads=(),
+    archived=None,
     submission_key=None,
 ):
     values = {
@@ -316,7 +335,16 @@ def create_variety(
         "source": source,
         "experiences": experiences,
     }
-    return _save(actor, Variety, "variety", None, values, uploads, submission_key, None)
+    return _save(
+        actor,
+        Variety,
+        "variety",
+        None,
+        _with_archive(values, archived),
+        uploads,
+        submission_key,
+        None,
+    )
 
 
 def edit_variety(
@@ -329,6 +357,7 @@ def edit_variety(
     source="",
     experiences="",
     uploads=(),
+    archived=None,
     submission_key=None,
     expected_updated_at,
 ):
@@ -344,7 +373,7 @@ def edit_variety(
         Variety,
         "variety",
         _identifier(pk, "id"),
-        values,
+        _with_archive(values, archived),
         uploads,
         submission_key,
         expected_updated_at,
@@ -362,6 +391,7 @@ def create_area(
     description="",
     notes="",
     uploads=(),
+    archived=None,
     submission_key=None,
 ):
     values = {
@@ -373,7 +403,16 @@ def create_area(
         "description": description,
         "notes": notes,
     }
-    return _save(actor, GrowingArea, "area", None, values, uploads, submission_key, None)
+    return _save(
+        actor,
+        GrowingArea,
+        "area",
+        None,
+        _with_archive(values, archived),
+        uploads,
+        submission_key,
+        None,
+    )
 
 
 def edit_area(
@@ -388,6 +427,7 @@ def edit_area(
     description="",
     notes="",
     uploads=(),
+    archived=None,
     submission_key=None,
     expected_updated_at,
 ):
@@ -405,7 +445,7 @@ def edit_area(
         GrowingArea,
         "area",
         _identifier(pk, "id"),
-        values,
+        _with_archive(values, archived),
         uploads,
         submission_key,
         expected_updated_at,

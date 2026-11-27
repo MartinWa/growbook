@@ -4,10 +4,15 @@ Every write goes through the same validated service operations the interface use
 with If-Match optimistic locking on updates and deletes.
 """
 
+from datetime import date
+from uuid import uuid4
+
 import pytest
+from django.utils.translation import gettext
 
 from core.api_tokens import issue_token
 from diary.models import DiaryEntry
+from diary.services import create_entry
 from garden.models import Crop, GrowingArea, Planting, PlantingEvent, Variety
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -32,15 +37,16 @@ def bearer(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def write(client, token, method, path, payload=None, if_match=None):
-    headers = bearer(token)
+def write(client, token, method, path, payload=None, if_match=None, headers=None):
+    sent = bearer(token)
     if if_match is not None:
-        headers["If-Match"] = if_match
+        sent["If-Match"] = if_match
+    sent.update(headers or {})
     return getattr(client, method)(
         path,
         payload if payload is not None else {},
         content_type="application/json",
-        headers=headers,
+        headers=sent,
     )
 
 
@@ -243,6 +249,214 @@ def test_evaluations_are_read_only(client, token):
     response = write(client, token, "post", f"{API}/evaluations/", {})
     assert response.status_code == 405
     assert response.json()["detail"]
+
+
+# The archived flag is part of the validated write
+
+
+def test_archiving_by_patch_changes_the_record_and_its_version(client, crop, token):
+    detail = f"{API}/crops/{crop.pk}/"
+    before = version_of(client, token, detail)
+
+    archived = write(client, token, "patch", detail, {"archived": True}, if_match=before)
+
+    assert archived.status_code == 200, archived.content
+    assert archived.json()["archived"] is True
+    assert archived.json()["updated_at"] != before
+    assert Crop.objects.get(pk=crop.pk).is_archived is True
+
+
+def test_a_refused_archive_write_leaves_the_stored_record_current(client, crop, token):
+    taken = write(client, token, "post", f"{API}/crops/", {"name": "Synthetic taken name"})
+    assert taken.status_code == 201, taken.content
+    detail = f"{API}/crops/{crop.pk}/"
+    before = version_of(client, token, detail)
+
+    refused = write(
+        client,
+        token,
+        "patch",
+        detail,
+        {"name": "Synthetic taken name", "archived": True},
+        if_match=before,
+    )
+
+    assert refused.status_code == 400, refused.content
+    assert refused.json()["name"]
+    assert Crop.objects.get(pk=crop.pk).is_archived is False
+    assert version_of(client, token, detail) == before
+
+
+@pytest.mark.parametrize(
+    ("collection", "model", "payload"),
+    (
+        ("crops", Crop, lambda crop: {"name": "Synthetic arch crop", "archived": True}),
+        (
+            "varieties",
+            Variety,
+            lambda crop: {"crop": crop.pk, "name": "Synthetic arch variety", "archived": True},
+        ),
+        ("areas", GrowingArea, lambda crop: {"name": "Synthetic arch area", "archived": True}),
+    ),
+    ids=("crops", "varieties", "areas"),
+)
+def test_creating_an_archived_record_writes_the_flag_with_the_insert(
+    client, crop, token, collection, model, payload
+):
+    created = write(client, token, "post", f"{API}/{collection}/", payload(crop))
+
+    assert created.status_code == 201, created.content
+    assert created.json()["archived"] is True
+    assert model.objects.get(pk=created.json()["id"]).is_archived is True
+
+
+# If-Match
+
+
+@pytest.mark.parametrize("method", ("put", "patch", "delete"))
+def test_if_match_without_a_time_zone_is_a_400(client, crop, token, method):
+    detail = f"{API}/crops/{crop.pk}/"
+
+    response = write(
+        client, token, method, detail, {"name": "Synthetic sent"}, if_match="2026-01-01T00:00:00"
+    )
+
+    assert response.status_code == 400, response.content
+    assert "time zone" in response.json()["detail"]
+    assert Crop.objects.get(pk=crop.pk).name == crop.name
+
+
+def test_a_quoted_if_match_is_still_accepted(client, crop, token):
+    response = write(
+        client,
+        token,
+        "patch",
+        f"{API}/crops/{crop.pk}/",
+        {"notes": "Quoted version"},
+        if_match='"2020-01-01T00:00:00+01:00"',
+    )
+
+    assert response.status_code == 409, response.content
+    assert response.json()["detail"]
+
+
+# Idempotent creates
+
+
+def test_a_create_retried_with_the_same_key_creates_one_record(client, token):
+    key = str(uuid4())
+    payload = {"name": "Synthetic retried crop"}
+
+    first = write(client, token, "post", f"{API}/crops/", payload, headers={"Idempotency-Key": key})
+    second = write(
+        client, token, "post", f"{API}/crops/", payload, headers={"Idempotency-Key": key}
+    )
+
+    assert first.status_code == 201, first.content
+    assert second.status_code == 201, second.content
+    assert second.json()["id"] == first.json()["id"]
+    assert Crop.objects.filter(name="Synthetic retried crop").count() == 1
+
+    other = write(
+        client,
+        token,
+        "post",
+        f"{API}/crops/",
+        {"name": "Synthetic other crop"},
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+
+    assert other.status_code == 201, other.content
+    assert other.json()["id"] != first.json()["id"]
+    assert Crop.objects.count() == 2
+
+
+def test_a_create_retried_with_the_same_key_creates_one_observation(client, token):
+    key = str(uuid4())
+    payload = {"date": "2026-04-02", "body": "Synthetic retried note"}
+    path = f"{API}/observations/"
+
+    first = write(client, token, "post", path, payload, headers={"Idempotency-Key": key})
+    second = write(client, token, "post", path, payload, headers={"Idempotency-Key": key})
+
+    assert first.status_code == 201, first.content
+    assert second.status_code == 201, second.content
+    assert second.json()["id"] == first.json()["id"]
+    assert DiaryEntry.objects.filter(body="Synthetic retried note").count() == 1
+
+
+@pytest.mark.parametrize(
+    ("collection", "model", "payload"),
+    (
+        ("crops", Crop, {"name": "Synthetic bad key crop"}),
+        ("observations", DiaryEntry, {"date": "2026-04-03", "body": "Synthetic bad key note"}),
+    ),
+)
+def test_a_malformed_idempotency_key_is_a_400(client, token, collection, model, payload):
+    response = write(
+        client, token, "post", f"{API}/{collection}/", payload, headers={"Idempotency-Key": "bad"}
+    )
+
+    assert response.status_code == 400, response.content
+    assert response.json()["detail"]
+    assert model.objects.count() == 0
+
+
+# Photo-only observations
+
+
+def test_an_observation_with_a_photo_keeps_an_empty_note(client, user, token, image_upload):
+    entry = create_entry(
+        author=user,
+        date=date(2026, 5, 9),
+        body="",
+        uploads=[image_upload()],
+        submission_key=uuid4(),
+    ).entry
+    detail = f"{API}/observations/{entry.pk}/"
+
+    replaced = write(
+        client,
+        token,
+        "put",
+        detail,
+        {"date": "2026-05-09", "body": ""},
+        if_match=version_of(client, token, detail),
+    )
+    assert replaced.status_code == 200, replaced.content
+    assert replaced.json()["body"] == ""
+
+    cleared = write(
+        client,
+        token,
+        "patch",
+        detail,
+        {"body": ""},
+        if_match=version_of(client, token, detail),
+    )
+
+    assert cleared.status_code == 200, cleared.content
+    assert cleared.json()["body"] == ""
+    assert DiaryEntry.objects.get(pk=entry.pk).photos.count() == 1
+
+
+def test_an_observation_without_a_photo_still_needs_a_note(client, token):
+    created = write(
+        client,
+        token,
+        "post",
+        f"{API}/observations/",
+        {"date": "2026-05-10", "body": "Synthetic note"},
+    )
+    assert created.status_code == 201, created.content
+    detail = f"{API}/observations/{created.json()['id']}/"
+
+    cleared = write(
+        client, token, "patch", detail, {"body": ""}, if_match=version_of(client, token, detail)
+    )
+
+    assert cleared.status_code == 400, cleared.content
+    assert cleared.json()["detail"] == gettext("Write a note or keep at least one photo.")
 
 
 # The document describes the writes

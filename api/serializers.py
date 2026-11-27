@@ -309,7 +309,8 @@ class EventWriteSerializer(serializers.Serializer):
 
 class ObservationWriteSerializer(serializers.Serializer):
     date = serializers.DateField()
-    body = serializers.CharField()
+    # A photo-only entry has an empty note; the diary service decides whether that is enough.
+    body = serializers.CharField(allow_blank=True)
     title = serializers.CharField(required=False, allow_blank=True)
     links = serializers.ListField(child=LinkWriteSerializer(), required=False)
     show_in_calendar = serializers.BooleanField(required=False)

@@ -53,9 +53,6 @@ from garden.services.events import (
 )
 from garden.services.plantings import create_planting, delete_planting, edit_planting
 from garden.services.registers import (
-    archive_area,
-    archive_crop,
-    archive_variety,
     create_area,
     create_crop,
     create_variety,
@@ -237,8 +234,13 @@ def expected_version(request):
     except ValueError:
         return None, Response({"detail": "If-Match must be an ISO 8601 timestamp."}, status=400)
     if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed, datetime.UTC)
+        return None, Response({"detail": "If-Match must include a time zone."}, status=400)
     return parsed, None
+
+
+def retry_key(request):
+    """The client's own create key, so a retry after a lost response replays one record."""
+    return request.headers.get("Idempotency-Key")
 
 
 def _result_record(result):
@@ -249,16 +251,14 @@ def _result_record(result):
     return result
 
 
-def _apply_archive(actor, record, archived, archive):
-    """Apply an archived flag after the edit, and return the refreshed record."""
-    if archived is not None and archived != record.is_archived:
-        archive(actor=actor, pk=record.pk, archived=archived)
-        record.refresh_from_db()
-    return record
-
-
 def create_crop_record(request, data):
-    return create_crop(actor=request.user, name=data["name"], notes=data.get("notes", "")).record
+    return create_crop(
+        actor=request.user,
+        name=data["name"],
+        notes=data.get("notes", ""),
+        archived=data.get("archived"),
+        submission_key=retry_key(request),
+    ).record
 
 
 def crop_defaults(record):
@@ -266,15 +266,14 @@ def crop_defaults(record):
 
 
 def edit_crop_record(request, record, data, expected):
-    archived = data.pop("archived", None)
-    result = edit_crop(
+    return edit_crop(
         actor=request.user,
         pk=record.pk,
         name=data["name"],
         notes=data.get("notes", ""),
+        archived=data.get("archived"),
         expected_updated_at=expected,
-    )
-    return _apply_archive(request.user, result.record, archived, archive_crop)
+    ).record
 
 
 def delete_crop_record(request, record, expected):
@@ -289,6 +288,8 @@ def create_variety_record(request, data):
         description=data.get("description", ""),
         source=data.get("source", ""),
         experiences=data.get("experiences", ""),
+        archived=data.get("archived"),
+        submission_key=retry_key(request),
     ).record
 
 
@@ -303,8 +304,7 @@ def variety_defaults(record):
 
 
 def edit_variety_record(request, record, data, expected):
-    archived = data.pop("archived", None)
-    result = edit_variety(
+    return edit_variety(
         actor=request.user,
         pk=record.pk,
         crop=data["crop"],
@@ -312,9 +312,9 @@ def edit_variety_record(request, record, data, expected):
         description=data.get("description", ""),
         source=data.get("source", ""),
         experiences=data.get("experiences", ""),
+        archived=data.get("archived"),
         expected_updated_at=expected,
-    )
-    return _apply_archive(request.user, result.record, archived, archive_variety)
+    ).record
 
 
 def delete_variety_record(request, record, expected):
@@ -331,6 +331,8 @@ def create_area_record(request, data):
         width_cm=data.get("width_cm"),
         description=data.get("description", ""),
         notes=data.get("notes", ""),
+        archived=data.get("archived"),
+        submission_key=retry_key(request),
     ).record
 
 
@@ -347,8 +349,7 @@ def area_defaults(record):
 
 
 def edit_area_record(request, record, data, expected):
-    archived = data.pop("archived", None)
-    result = edit_area(
+    return edit_area(
         actor=request.user,
         pk=record.pk,
         name=data["name"],
@@ -358,9 +359,9 @@ def edit_area_record(request, record, data, expected):
         width_cm=data.get("width_cm"),
         description=data.get("description", ""),
         notes=data.get("notes", ""),
+        archived=data.get("archived"),
         expected_updated_at=expected,
-    )
-    return _apply_archive(request.user, result.record, archived, archive_area)
+    ).record
 
 
 def delete_area_record(request, record, expected):
@@ -395,6 +396,7 @@ def create_planting_record(request, data):
         quantity=data.get("quantity"),
         notes=data.get("notes", ""),
         evaluation=data.get("evaluation", ""),
+        submission_key=retry_key(request),
     ).record
 
 
@@ -439,6 +441,7 @@ def create_event_record(request, data):
             planned_date=data.get("planned_date"),
             actual_date=data.get("actual_date"),
             note=data.get("note", ""),
+            submission_key=retry_key(request),
         )
     )
 
@@ -488,7 +491,7 @@ def create_observation_record(request, data):
         date=data["date"],
         body=data["body"],
         uploads=[],
-        submission_key=None,
+        submission_key=retry_key(request),
         links=_link_tuples(data.get("links", [])),
         title=data.get("title", ""),
         show_in_calendar=data.get("show_in_calendar", False),
