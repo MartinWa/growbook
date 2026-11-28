@@ -101,8 +101,26 @@ belong in source control.
 docker compose -f compose.development.yaml run --rm app python tools/run_tests.py -q
 docker compose -f compose.development.yaml run --rm app ruff check .
 docker compose -f compose.development.yaml run --rm app ruff format --check .
+docker compose -f compose.development.yaml run --rm app python tools/check_no_private_data.py
 docker compose -f compose.development.yaml run --rm app python manage.py check --database default
 docker compose -f compose.development.yaml run --rm app python manage.py makemigrations --check --dry-run
+```
+
+`tools/check_no_private_data.py` fails when a tracked file name or a tracked file's text
+looks like private data: a `planning/` or `reference/` directory, dumps, databases, exports,
+archives and `.pdf` files by name, and private keys, tokens, assigned secrets, email
+addresses, absolute host paths and image metadata by content. The content scan skips only the
+vendored copy that `tests/test_assets.py` hashes (`static/vendor/swagger-ui-*`) and the
+generated `*.LICENSE.txt` notice bundles. It reads text and PNG/JPEG metadata, skips an image
+larger than its scan limit without loading it, and does not inspect WebP or HEIC metadata,
+which is the format of the illustrations and image fixtures shipped here. A line that has to
+look like private data can carry `hygiene: allow` in its comment, and no tracked line needs
+that today. The check needs the repository's git work tree and stops with a message outside
+one. Add `--untracked` to also scan the files git reports as untracked and not ignored, which
+catches a new private file before it is added to the index:
+
+```powershell
+docker compose -f compose.development.yaml run --rm app python tools/check_no_private_data.py --untracked
 ```
 
 The two Ruff invocations may also run on the Windows editing host when the same pinned
@@ -290,7 +308,8 @@ planting categories. Nested event tables keep their own horizontal scrolling.
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on pull requests, pushes to `main`, manual
 dispatch and weekly. Linux jobs check lockfile consistency, Ruff, translations, database and
-migration checks, and the application and Chromium suites in the development image.
+migration checks, the private-data hygiene check, and the application and Chromium suites in
+the development image.
 Development and production share the same native builds and application dependencies. The
 container job validates workflow syntax and the Compose files (the default file, the
 optional host-port override and the development file), builds the production image, and
@@ -431,15 +450,15 @@ SBOM.
 The two platform builds run in parallel and hand their digest and SBOM to a publishing job
 through a short-lived workflow artifact.
 
-The release builds only read cache. GitHub scopes an Actions cache to the ref that wrote it:
-a run can restore the default branch, but not caches written under another tag, so a cache
-written during one release cannot be restored by the next. The CI container jobs on `main`
-therefore build the production image for both architectures and write `ci-production-amd64`
-and `ci-production-arm64` with `mode=max`, and each release leg restores its own scope. A
-tagged commit whose CI has passed brings a cache built from exactly that commit. Builds stay
-short until a pinned input (the SQLite, libde265 or libheif source) changes, which
-invalidates the compiled layers for both architectures and makes the next build a full
-compile; an arm64 image is never built under emulation, in CI or in a release.
+The release builds ignore the build cache: each step that builds a release image sets
+`no-cache: true`, so the published image installs the Debian packages that are current at
+release time instead of reusing an OS layer that an earlier run cached. Every release leg is
+therefore a full compile of the native layers, and a Debian security update that landed after
+CI last ran still reaches the released image. The CI container jobs on `main` continue to
+build the production image for both architectures and write `ci-production-amd64` and
+`ci-production-arm64` with `mode=max`, and the release steps declare those scopes as before,
+but a release no longer restores layers from them. An arm64 image is never built under
+emulation, in CI or in a release.
 
 The publishing job then composes the `X.Y.Z` index from the two checked digests, attests
 provenance against the index and each platform SBOM against its own manifest digest, and

@@ -116,13 +116,18 @@ import os
 os.environ['DJANGO_SETTINGS_MODULE'] = 'growbook.settings.development'
 import django
 django.setup()
-from django.test import Client
+from django.test import Client, RequestFactory
 from core.models import Photo
 from diary.models import DiaryEditSubmission, DiaryEntry
 from diary.services import update_entry
 from django.utils.dateparse import parse_date, parse_datetime
 from django.contrib.auth import authenticate
-user = authenticate(username='gardener', password='Synthetic-password-42')
+# The axes backend attributes a sign-in attempt to the request's client address.
+user = authenticate(
+    request=RequestFactory().post('/accounts/login/'),
+    username='gardener',
+    password='Synthetic-password-42',
+)
 assert user is not None
 client = Client(HTTP_HOST='localhost')
 client.force_login(user)

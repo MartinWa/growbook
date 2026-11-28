@@ -18,11 +18,12 @@ def server_options():
         "clear_untrusted_proxy_headers": True,
     }
     if os.environ.get("GROWBOOK_TRUST_PROXY", "false").lower() in {"true", "1"}:
-        # The private network and a proxy that replaces this header establish trust.
+        # The private network and a proxy that sets these headers establish trust.
+        # The client address is needed for the per-address sign-in limit.
         options.update(
             trusted_proxy="*",
             trusted_proxy_count=1,
-            trusted_proxy_headers={"x-forwarded-proto"},
+            trusted_proxy_headers={"x-forwarded-proto", "x-forwarded-for"},
         )
     return options
 

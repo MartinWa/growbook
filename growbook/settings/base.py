@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "economy.apps.EconomyConfig",
     "planner.apps.PlannerConfig",
     "api.apps.ApiConfig",
+    "axes",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -49,6 +50,11 @@ MIDDLEWARE = [
     "core.middleware.GardenLoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "axes.middleware.AxesMiddleware",
+]
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 ROOT_URLCONF = "growbook.urls"
 WSGI_APPLICATION = "growbook.wsgi.application"
@@ -175,9 +181,19 @@ CSRF_COOKIE_SAMESITE = "Lax"
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
+# Failed sign-ins are recorded in the database and locked out per username and client address.
+AXES_ENABLED = True
+AXES_FAILURE_LIMIT = 5
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+# The proxy sets X-Forwarded-For; without it the direct peer address is used.
+AXES_IPWARE_META_PRECEDENCE_ORDER = ("HTTP_X_FORWARDED_FOR", "REMOTE_ADDR")
+AXES_COOLOFF_TIME = 1
+AXES_RESET_ON_SUCCESS = True
+AXES_ENABLE_ACCESS_FAILURE_LOG = True
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {"axes": {"handlers": ["console"], "level": "INFO", "propagate": False}},
 }

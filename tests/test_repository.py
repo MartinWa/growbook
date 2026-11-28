@@ -62,3 +62,22 @@ def test_contributor_agreement_is_documented_and_does_not_use_an_archived_action
     assert not (ROOT / "signatures").exists()
     assert "CONTRIBUTING.md" in readme
     assert "CLA.md" in readme
+
+
+def test_release_builds_the_production_image_without_a_build_cache():
+    """A released image carries the OS packages that are current at release time."""
+    release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert release.count("docker/build-push-action@") == 1
+    assert release.count("no-cache: true") == 1
+    # Every CI build step, development and production, keeps its conditional cache setting.
+    conditional = (
+        "no-cache: ${{ github.event_name == 'schedule'"
+        " || github.event_name == 'workflow_dispatch' }}"
+    )
+    assert ci.count(conditional) == 4
+    assert "no-cache: true" not in ci
+    for text in (release, ci, dockerfile):
+        assert "OS_PACKAGE_DATE" not in text

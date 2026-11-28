@@ -60,6 +60,8 @@ jobs:
         run: |
           docker compose -f compose.development.yaml run --rm app ruff check .
           docker compose -f compose.development.yaml run --rm app ruff format --check .
+      - name: Check that no private data is tracked
+        run: docker compose -f compose.development.yaml run --rm app python tools/check_no_private_data.py
       - name: Check translations, database configuration, and migrations
         run: |
           docker compose -f compose.development.yaml run --rm app python tools/compile_translations.py

@@ -86,7 +86,7 @@ docker run --rm growbook:local python -c "import secrets; print(secrets.token_ur
 | `GROWBOOK_CURRENCY` | One display label for the whole instance: `SEK`, `EUR`, `USD`, `GBP`, `NOK` or `DKK`; defaults to `SEK`. An unknown label stops startup. |
 | `GROWBOOK_UPDATE_CHECK` | Check public stable release metadata; defaults to `true`. |
 | `GROWBOOK_MIGRATE_ON_START` | Apply pending migrations at startup; defaults to `true`. |
-| `GROWBOOK_TRUST_PROXY` | Set `true` behind a trusted HTTPS reverse proxy that replaces `X-Forwarded-Proto`; defaults to `false`. |
+| `GROWBOOK_TRUST_PROXY` | Set `true` behind a trusted HTTPS reverse proxy that sets `X-Forwarded-Proto` and `X-Forwarded-For`; defaults to `false`. |
 | `APP_UID`, `APP_GID` | Non-root numeric process IDs. |
 | `APP_DATA_PATH` | Absolute private directory on the application host's local filesystem. |
 | `PROXY_NETWORK` | Existing private Docker network used by the managed reverse proxy. |
@@ -100,9 +100,10 @@ the directory is not writable.
 
 Configure the existing reverse proxy to reach the application on container port `8000`
 over the private network, and set `GROWBOOK_TRUST_PROXY=true` when the proxy terminates
-HTTPS. The proxy must discard any visitor-supplied `X-Forwarded-Proto` value and set it to
-the original connection's scheme. Only that header is trusted; client address, host and
-port forwarding headers are removed.
+HTTPS. The proxy must discard any visitor-supplied `X-Forwarded-Proto` and
+`X-Forwarded-For` value and set both itself: the scheme decides secure cookies and HTTPS
+redirects, and the client address is what the sign-in limit counts. Host and port
+forwarding headers are removed.
 
 Proxy trust applies to every peer that can reach the application port. Keep the port
 private and limit access to the trusted proxy and trusted network peers. With proxy trust
@@ -111,6 +112,9 @@ cookies and HTTPS redirects stay enabled in either mode.
 
 There are **no published host ports or bundled proxy** in `compose.yaml`. Keep access
 private through LAN/VPN and HTTPS; never add public DNS exposure or router port forwarding.
+Sign-in attempts are limited by the application itself, per username and the client address
+the proxy forwards, so the proxy needs no rate limiting of its own; see
+[Access and privacy](administration.md#access-and-privacy).
 
 #### Proxy in a container (default)
 
@@ -132,7 +136,7 @@ For a proxy installed on the host, such as a NAS proxy package or a native nginx
 publish the port on loopback with the optional override:
 
 ```sh
-APP_UID=1000 APP_GID=1000 APP_DATA_PATH=/srv/growbook-data PROXY_NETWORK=proxy \
+APP_UID=1000 APP_GID=1000 APP_DATA_PATH=/var/lib/growbook-data PROXY_NETWORK=proxy \
   docker compose -f compose.yaml -f compose.host-port.yaml up -d
 ```
 

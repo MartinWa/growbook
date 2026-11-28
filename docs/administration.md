@@ -57,6 +57,25 @@ ownership settings are covered in
 - In production, sign-in sessions use secure cookies over HTTPS. Signing out clears the
   session and the browser's unsaved drafts where the browser supports logout
   notifications.
+- Repeated sign-in failures are limited in the application, not in the proxy: five failures
+  for the same username from the same client address lock that pair out of the sign-in page
+  and **Operator** for one hour, and a successful sign-in clears the count. Every client
+  address is counted separately, so a stranger failing sign-ins cannot lock the account owner
+  out. Behind the proxy the address is the `X-Forwarded-For` value the proxy sets, which
+  needs `GROWBOOK_TRUST_PROXY=true`; a proxy that forwards a visitor-supplied header
+  unchanged lets that visitor choose the address it is counted under, which evades the limit
+  and grants nothing else. While a username and address are locked out, a sign-in POST is
+  answered with a bare 429 page instead of the form. Failed attempts and lockouts are recorded
+  in the database and logged on the `axes` logger, so they appear in the container log.
+- Those records stay in the database. The failure log keeps at most 1000 entries per
+  username (`AXES_ACCESS_FAILURE_LOG_PER_USER_LIMIT`) and drops the oldest as it grows;
+  `axes_reset_logs --age 30` deletes recorded failures older than thirty days; and
+  `manage.py axes_reset` clears every attempt and lockout, while `axes_reset_username` and
+  `axes_reset_ip` clear one account or address.
+- The CSRF cookie stays readable by the application's own JavaScript
+  (`CSRF_COOKIE_HTTPONLY` stays `False`) because `static/js/capture-actions.js` and
+  `static/js/form-feedback.js` read the `csrftoken` cookie to send their requests. The
+  session cookie keeps `HttpOnly`, and the content security policy keeps other scripts out.
 - Uploaded media is served only to signed-in accounts. Originals are downloads, not public
   files, and there is no public media directory.
 - The only outbound request is the optional release check described in
