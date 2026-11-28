@@ -181,15 +181,16 @@ CSRF_COOKIE_SAMESITE = "Lax"
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
-# Failed sign-ins are recorded in the database and locked out per username and client address.
+# Failed sign-ins are locked out per username and connection address, and logged.
 AXES_ENABLED = True
 AXES_FAILURE_LIMIT = 5
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
-# The proxy sets X-Forwarded-For; without it the direct peer address is used.
-AXES_IPWARE_META_PRECEDENCE_ORDER = ("HTTP_X_FORWARDED_FOR", "REMOTE_ADDR")
 AXES_COOLOFF_TIME = 1
 AXES_RESET_ON_SUCCESS = True
-AXES_ENABLE_ACCESS_FAILURE_LOG = True
+# A blocked retry must not restart the cooloff and extend the lockout.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+# No per-attempt table of submitted usernames and addresses; the axes logger records them.
+AXES_ENABLE_ACCESS_FAILURE_LOG = False
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

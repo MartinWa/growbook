@@ -1,7 +1,7 @@
 """The private-data hygiene scanner keeps its name and content rules.
 
 The scanner also runs in CI, so these tests pin the rules that detect private data and the
-deliberate exemptions: the checksum-pinned vendored assets, generated license bundles,
+deliberate exemptions: the two checksum-pinned vendored files, generated license bundles,
 synthetic placeholder secrets and the ``hygiene: allow`` marker.
 """
 
@@ -55,7 +55,7 @@ def write(tmp_path, monkeypatch, name, content):
     else:
         path.write_text(content, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    return [name]
+    return hygiene.working_tree_sources([name])
 
 
 def png_with_metadata(chunk_type):
@@ -173,35 +173,49 @@ def test_the_allow_marker_exempts_one_deliberate_line(tmp_path, monkeypatch):
     assert findings == ["docs.md:2: email address"]
 
 
-def test_only_the_checksum_pinned_vendored_copy_skips_the_content_scan(tmp_path, monkeypatch):
-    findings = hygiene.content_violations(
-        write(
-            tmp_path,
-            monkeypatch,
-            "static/vendor/swagger-ui-5.36.0/notes.md",
-            f"maintainer at {PRIVATE_ADDRESS}\n",
+def test_only_the_checksum_pinned_vendored_files_skip_the_content_scan(tmp_path, monkeypatch):
+    for name in (
+        "static/vendor/swagger-ui-5.36.0/swagger-ui-bundle.js",
+        "static/vendor/swagger-ui-5.36.0/swagger-ui.css",
+    ):
+        findings = hygiene.content_violations(
+            write(tmp_path, monkeypatch, name, f"maintainer at {PRIVATE_ADDRESS}\n")
         )
-    )
-    assert findings == []
+        assert findings == [], name
 
-    for name in ("third_party/htmx/notes.md", "third_party/libheif/notes.md"):
+    for name in (
+        "static/vendor/swagger-ui-5.36.0/swagger-ui-bundle.js.map",
+        "third_party/htmx/notes.md",
+    ):
         findings = hygiene.content_violations(
             write(tmp_path, monkeypatch, name, f"contact {PRIVATE_ADDRESS}\n")
         )
         assert findings == [f"{name}:1: email address"], name
 
 
-def test_an_oversized_image_is_skipped_before_it_is_read(tmp_path, monkeypatch):
+def test_a_large_png_still_reports_its_metadata(tmp_path, monkeypatch):
     name = "screenshot.png"
     oversized = png_with_metadata(b"tEXt") + b"\0" * hygiene.MAX_SCAN_BYTES
     write(tmp_path, monkeypatch, name, oversized)
 
+    assert hygiene.content_violations(hygiene.working_tree_sources([name])) == [
+        "screenshot.png: PNG tEXt metadata chunk"
+    ]
+
+
+def test_a_large_jpeg_is_scanned_in_blocks(tmp_path, monkeypatch):
+    name = "photo.jpg"
+    oversized = b"\xff\xd8\xff" + b"\0" * hygiene.MAX_SCAN_BYTES + b"\xff\xe1Exif\0\0" + b"rest"
+    write(tmp_path, monkeypatch, name, oversized)
+
     def refuse(self):
-        raise AssertionError("an oversized image must not be read")
+        raise AssertionError("the file must be streamed, not read whole")
 
     monkeypatch.setattr(Path, "read_bytes", refuse)
 
-    assert hygiene.content_violations([name]) == []
+    assert hygiene.content_violations(hygiene.working_tree_sources([name])) == [
+        "photo.jpg: JPEG Exif metadata"
+    ]
 
 
 def test_a_generated_license_bundle_skips_the_content_scan(tmp_path, monkeypatch):
@@ -244,9 +258,15 @@ def test_the_tracked_files_of_this_repository_are_clean(monkeypatch):
         pytest.skip("The hygiene check needs Git.")
     monkeypatch.chdir(ROOT)
     files = hygiene.tracked_files()
+    reader = hygiene.IndexReader()
+    try:
+        sources = hygiene.index_sources(files, reader)
+        findings = hygiene.content_violations(sources)
+    finally:
+        reader.close()
 
     assert hygiene.find_violations(files) == []
-    assert hygiene.content_violations(files) == []
+    assert findings == []
 
 
 def test_the_check_fails_clearly_outside_a_git_work_tree(tmp_path, monkeypatch, capsys):
@@ -259,3 +279,40 @@ def test_the_check_fails_clearly_outside_a_git_work_tree(tmp_path, monkeypatch, 
     output = capsys.readouterr().out
     assert "git work tree" in output
     assert "Traceback" not in output
+
+
+def test_a_staged_file_deleted_from_the_working_tree_is_still_scanned(tmp_path, monkeypatch):
+    if not shutil.which("git"):
+        pytest.skip("The hygiene check needs Git.")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=30)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "notes.md").write_text(f"contact {PRIVATE_ADDRESS}\n", encoding="utf-8")
+    subprocess.run(["git", "add", "notes.md"], check=True, timeout=30)
+    (tmp_path / "notes.md").unlink()
+
+    reader = hygiene.IndexReader()
+    try:
+        findings = hygiene.content_violations(hygiene.index_sources(["notes.md"], reader))
+    finally:
+        reader.close()
+
+    assert findings == ["notes.md:1: email address"]
+
+
+def test_a_symlink_is_reported_and_never_read(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "private.md").write_text(f"contact {PRIVATE_ADDRESS}\n", encoding="utf-8")
+    (tmp_path / "link.md").symlink_to(tmp_path / "private.md")
+
+    findings = hygiene.content_violations(hygiene.working_tree_sources(["link.md"]))
+
+    assert findings == ["link.md: symbolic link not followed"]
+
+
+def test_a_fine_grained_github_token_is_reported(tmp_path, monkeypatch):
+    token = "github" + "_pat_" + "1" * 22 + "_" + "a" * 59
+    findings = hygiene.content_violations(
+        write(tmp_path, monkeypatch, "deploy.md", f"token: {token}\n")
+    )
+
+    assert findings == ["deploy.md:1: GitHub token"]

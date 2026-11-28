@@ -58,19 +58,18 @@ ownership settings are covered in
   session and the browser's unsaved drafts where the browser supports logout
   notifications.
 - Repeated sign-in failures are limited in the application, not in the proxy: five failures
-  for the same username from the same client address lock that pair out of the sign-in page
-  and **Operator** for one hour, and a successful sign-in clears the count. Every client
-  address is counted separately, so a stranger failing sign-ins cannot lock the account owner
-  out. Behind the proxy the address is the `X-Forwarded-For` value the proxy sets, which
-  needs `GROWBOOK_TRUST_PROXY=true`; a proxy that forwards a visitor-supplied header
-  unchanged lets that visitor choose the address it is counted under, which evades the limit
-  and grants nothing else. While a username and address are locked out, a sign-in POST is
-  answered with a bare 429 page instead of the form. Failed attempts and lockouts are recorded
-  in the database and logged on the `axes` logger, so they appear in the container log.
-- Those records stay in the database. The failure log keeps at most 1000 entries per
-  username (`AXES_ACCESS_FAILURE_LOG_PER_USER_LIMIT`) and drops the oldest as it grows;
-  `axes_reset_logs --age 30` deletes recorded failures older than thirty days; and
-  `manage.py axes_reset` clears every attempt and lockout, while `axes_reset_username` and
+  for the same username from the same connection address lock that pair out of the sign-in
+  page and **Operator** for one hour, and a successful sign-in clears the count. Every address
+  is counted separately, so a stranger failing sign-ins cannot lock the account owner out, and
+  a retry while locked out does not restart the hour. The address is the connection address:
+  behind the proxy the server resolves it from the `X-Forwarded-For` value the trusted proxy
+  sets when `GROWBOOK_TRUST_PROXY=true`, and the limit itself never reads a request header.
+  While a username and address are locked out, a sign-in POST is answered with a bare 429 page
+  instead of the form. Failed attempts and lockouts are logged on the `axes` logger, so they
+  appear in the rotating container log; no table of submitted usernames, addresses or user
+  agents is kept.
+- Lockout state is one counter row per username and address. It stops blocking when the hour
+  passes, and `manage.py axes_reset` removes it sooner, while `axes_reset_username` and
   `axes_reset_ip` clear one account or address.
 - The CSRF cookie stays readable by the application's own JavaScript
   (`CSRF_COOKIE_HTTPONLY` stays `False`) because `static/js/capture-actions.js` and

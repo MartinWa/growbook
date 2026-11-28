@@ -19,7 +19,8 @@ def server_options():
     }
     if os.environ.get("GROWBOOK_TRUST_PROXY", "false").lower() in {"true", "1"}:
         # The private network and a proxy that sets these headers establish trust.
-        # The client address is needed for the per-address sign-in limit.
+        # Waitress resolves REMOTE_ADDR from the client address header, which the
+        # per-address sign-in limit reads instead of trusting a request header itself.
         options.update(
             trusted_proxy="*",
             trusted_proxy_count=1,

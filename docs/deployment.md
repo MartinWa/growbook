@@ -102,8 +102,8 @@ Configure the existing reverse proxy to reach the application on container port 
 over the private network, and set `GROWBOOK_TRUST_PROXY=true` when the proxy terminates
 HTTPS. The proxy must discard any visitor-supplied `X-Forwarded-Proto` and
 `X-Forwarded-For` value and set both itself: the scheme decides secure cookies and HTTPS
-redirects, and the client address is what the sign-in limit counts. Host and port
-forwarding headers are removed.
+redirects, and the server resolves the connection address from the client address header
+for the sign-in limit. Host and port forwarding headers are removed.
 
 Proxy trust applies to every peer that can reach the application port. Keep the port
 private and limit access to the trusted proxy and trusted network peers. With proxy trust
@@ -112,9 +112,9 @@ cookies and HTTPS redirects stay enabled in either mode.
 
 There are **no published host ports or bundled proxy** in `compose.yaml`. Keep access
 private through LAN/VPN and HTTPS; never add public DNS exposure or router port forwarding.
-Sign-in attempts are limited by the application itself, per username and the client address
-the proxy forwards, so the proxy needs no rate limiting of its own; see
-[Access and privacy](administration.md#access-and-privacy).
+Sign-in attempts are limited by the application itself, per username and connection
+address, which the server resolves from the proxy header, so the proxy needs no rate
+limiting of its own; see [Access and privacy](administration.md#access-and-privacy).
 
 #### Proxy in a container (default)
 
