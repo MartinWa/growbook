@@ -8,6 +8,8 @@ from .base import DATABASES
 
 SECRET_KEY = "synthetic-test-secret-not-for-real-installations-" * 2
 DEBUG = False
+# Never throttle parallel or browser suites; the rate-limiting test enables it explicitly.
+AXES_ENABLED = False
 ALLOWED_HOSTS = ["testserver", "localhost", "127.0.0.1"]
 TEST_DATA_DIR = Path(os.environ.get("GROWBOOK_STATE_DIR", "/state")) / "test-state"
 if worker := os.environ.get("PYTEST_XDIST_WORKER"):

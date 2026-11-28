@@ -57,6 +57,31 @@ ownership settings are covered in
 - In production, sign-in sessions use secure cookies over HTTPS. Signing out clears the
   session and the browser's unsaved drafts where the browser supports logout
   notifications.
+- Repeated sign-in failures are limited in the application, not in the proxy: five failures
+  for the same username from the same connection address lock that pair out of the sign-in
+  page and **Operator** for up to one hour, and a successful sign-in clears the count. Every
+  address is counted separately, so a stranger failing sign-ins cannot lock the account owner
+  out, and a retry while locked out does not restart the cooloff. Counting keeps one row per
+  username, address and user agent: each counted failure updates that row's timestamp, every
+  failure in the row ages out together one hour after the row's most recent counted failure,
+  so a lockout can end sooner than the full hour. The address is the connection address:
+  behind the proxy the server resolves it from the `X-Forwarded-For` value the trusted proxy
+  sets when `GROWBOOK_TRUST_PROXY=true`, and the limit itself never reads a request header.
+  While a username and address are locked out, a sign-in POST is answered with a bare 429 page
+  instead of the form.
+- That row is the only authentication state in the database:
+  `AXES_ENABLE_ACCESS_FAILURE_LOG = False` keeps no per-attempt failure table, and
+  `AXES_DISABLE_ACCESS_LOG = True` leaves no row for a successful sign-in. The row holds the
+  failure count and the filtered request data Axes records; it is removed when it expires
+  during later authentication activity, or earlier with `manage.py axes_reset`
+  (`axes_reset_username` and `axes_reset_ip` for one account or address), so a backup taken
+  while a lockout is active can still contain it. Successful sign-ins are still logged: Axes
+  emits an INFO event that the `axes` logger writes to the rotating container log, where
+  failed attempts and lockouts appear as well.
+- The CSRF cookie stays readable by the application's own JavaScript
+  (`CSRF_COOKIE_HTTPONLY` stays `False`) because `static/js/capture-actions.js` and
+  `static/js/form-feedback.js` read the `csrftoken` cookie to send their requests. The
+  session cookie keeps `HttpOnly`, and the content security policy keeps other scripts out.
 - Uploaded media is served only to signed-in accounts. Originals are downloads, not public
   files, and there is no public media directory.
 - The only outbound request is the optional release check described in

@@ -125,11 +125,26 @@ CMD ["python", "tools/dev_server.py"]
 # Keep production last so plain docker build still produces the shipped image.
 FROM runtime-base AS production
 ARG GROWBOOK_VERSION=development
+LABEL org.opencontainers.image.licenses="LicenseRef-PolyForm-Noncommercial-1.0.0"
 RUN python -m pip uninstall --yes pip
 ENV GROWBOOK_VERSION=${GROWBOOK_VERSION} \
     GROWBOOK_DATA_DIR=/data \
     DJANGO_SETTINGS_MODULE=growbook.settings.production
-COPY . /app
+# Ship the application only: no docs, build inputs, tests beyond the HEIC fixture or tooling.
+COPY manage.py LICENSE NOTICE ./
+COPY growbook/ ./growbook/
+COPY core/ ./core/
+COPY diary/ ./diary/
+COPY garden/ ./garden/
+COPY economy/ ./economy/
+COPY planner/ ./planner/
+COPY api/ ./api/
+COPY templates/ ./templates/
+COPY static/ ./static/
+COPY third_party/ ./third_party/
+# Opened by the build-time HEIC check below and by tools/check_image.py at runtime.
+COPY tests/fixtures/synthetic.heic ./tests/fixtures/synthetic.heic
+COPY tools/check_image.py ./tools/check_image.py
 COPY --from=translations-build /tmp/translations/locale /app/locale
 RUN python -c 'import sqlite3; assert sqlite3.sqlite_version_info >= (3,51,3)' \
     && python -c 'import pillow_heif; info=pillow_heif.libheif_info(); assert "libde265" in info["decoders"]; assert "x265" not in info["encoders"]' \

@@ -207,7 +207,7 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'growbook.settings.development'
 import django
 django.setup()
 from django.contrib.auth import authenticate
-from django.test import Client
+from django.test import Client, RequestFactory
 from core.models import Photo
 from diary.models import DiaryEntry
 from diary.services import create_entry
@@ -215,7 +215,12 @@ from garden.models import Crop, Variety, GrowingArea, Planting, PlantingEvent, P
 from garden.queries import plantings_in_year
 from garden.services import create_area, create_crop, create_variety, create_planting, edit_area
 from django.core.exceptions import ValidationError
-user = authenticate(username='gardener', password='Synthetic-password-42')
+# The axes backend attributes a sign-in attempt to the request's client address.
+user = authenticate(
+    request=RequestFactory().post('/accounts/login/'),
+    username='gardener',
+    password='Synthetic-password-42',
+)
 assert user is not None
 client = Client(HTTP_HOST='localhost')
 for photo in Photo.objects.all():

@@ -364,12 +364,12 @@ def test_waitress_proxy_trust_is_off_by_default(monkeypatch):
     assert options["connection_limit"] == 20
 
 
-def test_waitress_only_trusts_proxy_scheme_header_without_a_proxy_ip(monkeypatch):
+def test_waitress_trusts_proxy_scheme_and_client_address_without_a_proxy_ip(monkeypatch):
     monkeypatch.setenv("GROWBOOK_TRUST_PROXY", "true")
     monkeypatch.delenv("GROWBOOK_TRUSTED_PROXY_IP", raising=False)
     options = server_options()
     assert options["trusted_proxy"] == "*"
-    assert options["trusted_proxy_headers"] == {"x-forwarded-proto"}
+    assert options["trusted_proxy_headers"] == {"x-forwarded-proto", "x-forwarded-for"}
     assert options["trusted_proxy_count"] == 1
     assert options["clear_untrusted_proxy_headers"] is True
 
@@ -442,8 +442,11 @@ try:
                     assert json.loads(body) == {
                         'secure': True,
                         'host': 'garden.example.internal',
-                        'peer': peer,
-                        'forwarding': {'HTTP_X_FORWARDED_PROTO': 'https'},
+                        'peer': '203.0.113.50',
+                        'forwarding': {
+                            'HTTP_X_FORWARDED_FOR': '203.0.113.50',
+                            'HTTP_X_FORWARDED_PROTO': 'https',
+                        },
                     }
                     assert response.getheader('Strict-Transport-Security')
                 else:

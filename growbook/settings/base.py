@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "economy.apps.EconomyConfig",
     "planner.apps.PlannerConfig",
     "api.apps.ApiConfig",
+    "axes",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -49,6 +50,11 @@ MIDDLEWARE = [
     "core.middleware.GardenLoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "axes.middleware.AxesMiddleware",
+]
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 ROOT_URLCONF = "growbook.urls"
 WSGI_APPLICATION = "growbook.wsgi.application"
@@ -175,9 +181,22 @@ CSRF_COOKIE_SAMESITE = "Lax"
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
+# Failed sign-ins are locked out per username and connection address, and logged.
+AXES_ENABLED = True
+AXES_FAILURE_LIMIT = 5
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_COOLOFF_TIME = 1
+AXES_RESET_ON_SUCCESS = True
+# A blocked retry must not restart the cooloff and extend the lockout.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+# No per-attempt table of submitted usernames and addresses; the axes logger records them.
+AXES_ENABLE_ACCESS_FAILURE_LOG = False
+# Successful sign-ins are not stored either; only the attempt counters below remain.
+AXES_DISABLE_ACCESS_LOG = True
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {"axes": {"handlers": ["console"], "level": "INFO", "propagate": False}},
 }
