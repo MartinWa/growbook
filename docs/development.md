@@ -110,16 +110,17 @@ docker compose -f compose.development.yaml run --rm app python manage.py makemig
 looks like private data: a `planning/` or `reference/` directory, dumps, databases, exports,
 archives and `.pdf` files by name, and private keys, classic and fine-grained GitHub tokens,
 assigned secrets, email addresses, absolute host paths and image metadata by content. Tracked
-content is read from the git index, so the check inspects what a commit would contain instead
-of the working tree, and a symbolic link is reported instead of followed. The content scan
-skips only the two vendored files that `tests/test_assets.py` hashes and the generated
-`*.LICENSE.txt` notice bundles. Text and PNG/JPEG metadata are read as a stream, so a large
-file is never loaded whole; WebP and HEIC metadata is not inspected, which is the format of
-the illustrations and image fixtures shipped here. A line that has to look like private data
-can carry `hygiene: allow` in its comment, and no tracked line needs that today. The check
-needs the repository's git work tree and stops with a message outside one. Add `--untracked`
-to also scan the files git reports as untracked and not ignored, which catches a new private
-file before it is added to the index:
+content is read from the git index by object id, so the check inspects what a commit would
+contain, a working-tree copy that differs from the index is scanned as well, and a symbolic
+link is reported instead of followed. Three exact paths are exempt: the two vendored files
+that `tests/test_assets.py` hashes and the generated notice bundle that quotes upstream
+authors. Text and PNG/JPEG metadata are read as a stream, so a large file is never buffered
+whole and a line longer than the scan limit is reported as unscannable; WebP and HEIC metadata
+is not inspected, which is the format of the illustrations and image fixtures shipped here. A
+line that has to look like private data can carry `hygiene: allow` in its comment, and no
+tracked line needs that today. The check needs the repository's git work tree and stops with a
+message outside one. Add `--untracked` to also scan the files git reports as untracked and not
+ignored, which catches a new private file before it is added to the index:
 
 ```powershell
 docker compose -f compose.development.yaml run --rm app python tools/check_no_private_data.py --untracked

@@ -218,12 +218,19 @@ def test_a_large_jpeg_is_scanned_in_blocks(tmp_path, monkeypatch):
     ]
 
 
-def test_a_generated_license_bundle_skips_the_content_scan(tmp_path, monkeypatch):
-    files = write(
+def test_only_the_pinned_notice_bundle_skips_the_content_scan(tmp_path, monkeypatch):
+    pinned = write(
+        tmp_path,
+        monkeypatch,
+        "third_party/swagger-ui/swagger-ui-bundle.js.LICENSE.txt",
+        f"author <{PRIVATE_ADDRESS}>\n",
+    )
+    assert hygiene.content_violations(pinned) == []
+
+    others = write(
         tmp_path, monkeypatch, "vendor/bundle.js.LICENSE.txt", f"author <{PRIVATE_ADDRESS}>\n"
     )
-
-    assert hygiene.content_violations(files) == []
+    assert hygiene.content_violations(others) == ["vendor/bundle.js.LICENSE.txt:1: email address"]
 
 
 def test_a_force_added_pdf_is_refused_by_name(tmp_path):
@@ -246,11 +253,11 @@ def test_the_untracked_mode_lists_unignored_files_and_reuses_the_name_rules(tmp_
     (tmp_path / "export.sqlite3").write_text("", encoding="utf-8")
 
     assert hygiene.tracked_files() == []
-    files = hygiene.candidate_files(untracked=True)
+    untracked = hygiene.untracked_files()
 
     # The ignored local directory stays out; the unignored database file is reported.
-    assert sorted(files) == [".gitignore", "export.sqlite3", "notes.md"]
-    assert hygiene.find_violations(files) == ["export.sqlite3"]
+    assert sorted(untracked) == [".gitignore", "export.sqlite3", "notes.md"]
+    assert hygiene.find_violations(untracked) == ["export.sqlite3"]
 
 
 def test_the_tracked_files_of_this_repository_are_clean(monkeypatch):
@@ -306,7 +313,7 @@ def test_a_symlink_is_reported_and_never_read(tmp_path, monkeypatch):
 
     findings = hygiene.content_violations(hygiene.working_tree_sources(["link.md"]))
 
-    assert findings == ["link.md: symbolic link not followed"]
+    assert findings == ["link.md: symbolic link not inspected"]
 
 
 def test_a_fine_grained_github_token_is_reported(tmp_path, monkeypatch):
@@ -316,3 +323,88 @@ def test_a_fine_grained_github_token_is_reported(tmp_path, monkeypatch):
     )
 
     assert findings == ["deploy.md:1: GitHub token"]
+
+
+def test_exemptions_match_exact_paths_only(tmp_path, monkeypatch):
+    nested = write(
+        tmp_path,
+        monkeypatch,
+        "docs/static/vendor/swagger-ui-5.36.0/swagger-ui.css",
+        f"maintainer at {PRIVATE_ADDRESS}\n",
+    )
+
+    assert hygiene.content_violations(nested) == [
+        "docs/static/vendor/swagger-ui-5.36.0/swagger-ui.css:1: email address"
+    ]
+
+
+def test_a_symlink_at_an_exempt_path_is_still_reported(tmp_path, monkeypatch, capsys):
+    if not shutil.which("git"):
+        pytest.skip("The hygiene check needs Git.")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=30)
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / "private.md"
+    target.write_text(f"contact {PRIVATE_ADDRESS}\n", encoding="utf-8")
+    pinned = tmp_path / "static" / "vendor" / "swagger-ui-5.36.0"
+    pinned.mkdir(parents=True)
+    (pinned / "swagger-ui.css").symlink_to(target)
+    subprocess.run(["git", "add", "static"], check=True, timeout=30)
+
+    assert hygiene.main([]) == 1
+    output = capsys.readouterr().out
+    assert "swagger-ui.css: symbolic link not inspected" in output
+    assert PRIVATE_ADDRESS not in output
+
+
+def test_a_working_tree_change_is_scanned_alongside_the_index(tmp_path, monkeypatch, capsys):
+    if not shutil.which("git"):
+        pytest.skip("The hygiene check needs Git.")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=30)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "notes.md").write_text("synthetic note\n", encoding="utf-8")
+    subprocess.run(["git", "add", "notes.md"], check=True, timeout=30)
+    (tmp_path / "notes.md").write_text(f"contact {PRIVATE_ADDRESS}\n", encoding="utf-8")
+
+    assert hygiene.main([]) == 1
+    assert "notes.md:1: email address" in capsys.readouterr().out
+
+
+def test_a_line_above_the_scan_limit_is_reported_as_unscannable(tmp_path, monkeypatch):
+    oversized = hygiene.MAX_SCAN_BYTES + hygiene.SCAN_BLOCK_BYTES + 1
+    content = "a" * oversized + f" {PRIVATE_ADDRESS}\n"
+
+    findings = hygiene.content_violations(write(tmp_path, monkeypatch, "notes.md", content))
+
+    assert findings == [f"notes.md:1: line longer than {hygiene.MAX_SCAN_BYTES} bytes"]
+
+
+def test_content_after_a_long_line_is_still_scanned(tmp_path, monkeypatch):
+    oversized = hygiene.MAX_SCAN_BYTES + hygiene.SCAN_BLOCK_BYTES + 1
+    content = "a" * oversized + f"\ncontact {PRIVATE_ADDRESS}\n"
+
+    findings = hygiene.content_violations(write(tmp_path, monkeypatch, "notes.md", content))
+
+    assert findings == [
+        f"notes.md:1: line longer than {hygiene.MAX_SCAN_BYTES} bytes",
+        "notes.md:2: email address",
+    ]
+
+
+def test_a_long_line_below_the_limit_is_fully_scanned(tmp_path, monkeypatch):
+    content = "a" * (4 * hygiene.SCAN_BLOCK_BYTES) + f" contact {PRIVATE_ADDRESS}\n"
+
+    findings = hygiene.content_violations(write(tmp_path, monkeypatch, "notes.md", content))
+
+    assert findings == ["notes.md:1: email address"]
+
+
+def test_an_unreadable_object_fails_the_check_instead_of_passing(monkeypatch):
+    if not shutil.which("git"):
+        pytest.skip("The hygiene check needs Git.")
+    monkeypatch.chdir(ROOT)
+    reader = hygiene.IndexReader()
+    try:
+        with pytest.raises(hygiene.GitWorkTreeError):
+            reader.open("0" * 40)
+    finally:
+        reader.close()

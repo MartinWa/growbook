@@ -191,6 +191,8 @@ AXES_RESET_ON_SUCCESS = True
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 # No per-attempt table of submitted usernames and addresses; the axes logger records them.
 AXES_ENABLE_ACCESS_FAILURE_LOG = False
+# Successful sign-ins are not stored either; only the attempt counters below remain.
+AXES_DISABLE_ACCESS_LOG = True
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

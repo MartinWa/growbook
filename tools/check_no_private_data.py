@@ -3,17 +3,19 @@
 A line that legitimately needs to look like private data can opt out of the content scan by
 carrying the marker ``hygiene: allow``; no tracked line needs it today.
 
-Tracked files are scanned by default, and their content is read from the git index, so the
-check inspects what a commit would contain rather than the working tree. ``--untracked``
-additionally scans the files that git reports as untracked and not ignored, reading them from
-disk, which catches private data before it is added to the index. The check needs the
-repository's git work tree and stops with a clear message when it runs outside one.
+Tracked files are scanned by default. Their content is read from the git index by object id,
+so the check inspects what a commit would contain, and a working-tree copy that differs from
+the index is scanned as well. ``--untracked`` additionally scans the files that git reports as
+untracked and not ignored, reading them from disk. A symbolic link is reported and never
+opened, in either mode. The check needs the repository's git work tree and stops with a clear
+message when it cannot read it.
 
-The two vendored files that ``tests/test_assets.py`` hashes by checksum are skipped by the
-content scan, and so are generated ``*.LICENSE.txt`` notice bundles, whose upstream authors'
-addresses must stay unedited. Text and PNG/JPEG metadata are inspected in a streamed read, so
-a large file is never loaded whole; WebP and HEIC files are not inspected at all, so metadata
-in those formats, which is this project's own asset format, is not detected here.
+Three paths are exempt from the content scan by exact name: the two vendored files that
+``tests/test_assets.py`` hashes by checksum, and the generated notice bundle that quotes
+upstream authors' addresses. Nothing else in those trees is exempt. Text and PNG/JPEG
+metadata are inspected as a stream, so a large file is never loaded whole and a single line
+above the scan limit is reported as unscannable. WebP and HEIC files are not inspected at all,
+so metadata in those formats, which is this project's own asset format, is not detected here.
 """
 
 from __future__ import annotations
@@ -46,15 +48,16 @@ BAD_SUFFIXES = (
     ".zip",
 )
 BAD_DIRECTORIES = frozenset({"planning", "reference"})
-# The checksum-pinned vendored files and nothing else in that tree.
-SKIP_CONTENT_PATHS = (
-    "static/vendor/swagger-ui-5.36.0/swagger-ui-bundle.js",
-    "static/vendor/swagger-ui-5.36.0/swagger-ui.css",
+# Exact paths: the checksum-pinned vendored files and a generated notice bundle.
+SKIP_CONTENT_PATHS = frozenset(
+    {
+        "static/vendor/swagger-ui-5.36.0/swagger-ui-bundle.js",
+        "static/vendor/swagger-ui-5.36.0/swagger-ui.css",
+        "third_party/swagger-ui/swagger-ui-bundle.js.LICENSE.txt",
+    }
 )
-# Generated license bundles quote upstream notices verbatim.
-SKIP_CONTENT_SUFFIXES = (".license.txt",)
 SYMLINK_MODE = "120000"
-# One block of streamed input, and the longest line inspected across blocks.
+# One block of streamed input, and the longest line inspected within a file.
 SCAN_BLOCK_BYTES = 64 * 1024
 MAX_SCAN_BYTES = 2 * 1024 * 1024
 ALLOW_MARKER = "hygiene: allow"
@@ -69,15 +72,19 @@ ASSIGNED_SECRET = re.compile(
 PLACEHOLDER_SECRET_MARKERS = ("synthetic", "test-only", "replace-with", "not-for-real")
 
 CONTENT_PATTERNS = (
-    ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("private key block", re.compile(r"-----BEGIN [A-Z ]{0,32}PRIVATE KEY-----")),
     ("AWS access key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("GitHub token", re.compile(r"(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})")),
-    ("Slack token", re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}")),
+    (
+        "GitHub token",
+        re.compile(r"(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{22,255})"),
+    ),
+    ("Slack token", re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,255}")),
     ("assigned secret", ASSIGNED_SECRET),
     (
         "email address",
         re.compile(
-            r"[A-Za-z0-9._%+-]+@(?!example\.(?:com|org|net|invalid)\b)[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+            r"[A-Za-z0-9._%+-]{1,64}@(?!example\.(?:com|org|net|invalid)\b)"
+            r"[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}"
         ),
     ),
     (
@@ -87,11 +94,24 @@ CONTENT_PATTERNS = (
         ),
     ),
 )
+# Cheap per-line guards so a very long line is not scanned by an expensive pattern.
+LINE_GATES = {"email address": lambda line: "@" in line}
+# A long line is scanned in overlapping windows so the work stays linear in its length.
+PATTERN_WINDOW_CHARS = 4096
+PATTERN_OVERLAP_CHARS = 256
 UNTRACKED_HELP = "also scan files that are untracked but not ignored by .gitignore"
 
 
 class GitWorkTreeError(RuntimeError):
     """The check cannot read the repository's git work tree."""
+
+
+@dataclass(frozen=True)
+class IndexEntry:
+    """One staged path: its index mode and the id of the object holding its content."""
+
+    mode: str
+    object_id: str
 
 
 @dataclass(frozen=True)
@@ -106,8 +126,9 @@ class Source:
 class BlobReader:
     """A bounded reader over one object that ``git cat-file --batch`` streams."""
 
-    def __init__(self, stream: BinaryIO, size: int) -> None:
+    def __init__(self, stream: BinaryIO, size: int, object_id: str) -> None:
         self.stream = stream
+        self.object_id = object_id
         self.remaining = size
         self.finished = False
 
@@ -119,13 +140,14 @@ class BlobReader:
         while wanted > 0:
             block = self.stream.read(wanted)
             if not block:
-                break
+                raise GitWorkTreeError(f"short read for git object {self.object_id}")
             blocks.append(block)
             wanted -= len(block)
             self.remaining -= len(block)
         if self.remaining == 0:
             self.finished = True
-            self.stream.read(1)
+            if self.stream.read(1) != b"\n":
+                raise GitWorkTreeError(f"unterminated response for git object {self.object_id}")
         return b"".join(blocks)
 
     def close(self) -> None:
@@ -133,7 +155,7 @@ class BlobReader:
 
 
 class IndexReader:
-    """Stream the staged content of tracked files, one blob at a time."""
+    """Stream staged blob content from one ``git cat-file --batch`` process."""
 
     def __init__(self) -> None:
         self.process = subprocess.Popen(
@@ -144,16 +166,22 @@ class IndexReader:
         )
 
     def open(self, object_id: str) -> BinaryIO:
+        """Request one object and read its header before its content is streamed."""
         self.process.stdin.write(object_id.encode() + b"\n")
         self.process.stdin.flush()
         header = self.process.stdout.readline().split()
         if len(header) != 3 or header[1] != b"blob":
             raise GitWorkTreeError(f"cannot read git object {object_id}")
-        return BlobReader(self.process.stdout, int(header[2]))
+        return BlobReader(self.process.stdout, int(header[2]), object_id)
 
     def close(self) -> None:
-        self.process.stdin.close()
-        self.process.wait(timeout=60)
+        if self.process.poll() is None:
+            self.process.stdin.close()
+            status = self.process.wait(timeout=60)
+        else:
+            status = self.process.returncode
+        if status != 0:
+            raise GitWorkTreeError(f"git cat-file exited with status {status}")
 
 
 def is_placeholder_secret(match: re.Match[str]) -> bool:
@@ -233,33 +261,62 @@ def jpeg_has_exif(stream: BinaryIO) -> bool:
     return False
 
 
+def line_windows(line: str) -> Iterable[str]:
+    """Yield the line in overlapping windows so a very long line is still scanned."""
+    if len(line) <= PATTERN_WINDOW_CHARS:
+        yield line
+        return
+    start = 0
+    while start < len(line):
+        yield line[start : start + PATTERN_WINDOW_CHARS + PATTERN_OVERLAP_CHARS]
+        start += PATTERN_WINDOW_CHARS
+
+
 def scan_line(path: str, number: int, line: str) -> list[str]:
     if ALLOW_MARKER in line:
         return []
     findings = []
-    for label, pattern in CONTENT_PATTERNS:
-        match = pattern.search(line)
-        if match and not PLACEHOLDER_CHECKS.get(label, lambda _match: False)(match):
-            findings.append(f"{path}:{number}: {label}")
+    for window in line_windows(line):
+        for label, pattern in CONTENT_PATTERNS:
+            gate = LINE_GATES.get(label)
+            if gate is not None and not gate(window):
+                continue
+            match = pattern.search(window)
+            if not match or PLACEHOLDER_CHECKS.get(label, lambda _match: False)(match):
+                continue
+            finding = f"{path}:{number}: {label}"
+            if finding not in findings:
+                findings.append(finding)
     return findings
 
 
 def scan_text(path: str, stream: BinaryIO) -> list[str]:
-    """Inspect a streamed text file line by line, holding at most one block plus one line."""
+    """Inspect streamed text line by line, never holding a whole file or dropping a line."""
     findings = []
     number = 0
     remainder = ""
+    skipping = False
     block = stream.read(SCAN_BLOCK_BYTES)
     if b"\0" in block:
         # Binary content is out of scope for the text rules; only PNG/JPEG are inspected.
-        return []
+        return findings
     while block:
-        lines = (remainder + block.decode("utf-8", errors="ignore")).split("\n")
-        remainder = lines.pop()
-        for line in lines:
+        segments = (remainder + block.decode("utf-8", errors="ignore")).split("\n")
+        remainder = ""
+        tail = segments.pop()
+        for segment in segments:
+            if skipping:
+                skipping = False
+                continue
             number += 1
-            findings.extend(scan_line(path, number, line))
-        remainder = remainder[:MAX_SCAN_BYTES]
+            findings.extend(scan_line(path, number, segment))
+        if not skipping:
+            if len(tail) > MAX_SCAN_BYTES:
+                number += 1
+                findings.append(f"{path}:{number}: line longer than {MAX_SCAN_BYTES} bytes")
+                skipping = True
+            else:
+                remainder = tail
         block = stream.read(SCAN_BLOCK_BYTES)
     if remainder:
         findings.extend(scan_line(path, number + 1, remainder))
@@ -279,9 +336,7 @@ def scan_source(path: str, stream: BinaryIO) -> list[str]:
 def content_violations(sources: Iterable[Source]) -> list[str]:
     findings = []
     for source in sources:
-        if source.path.endswith(SKIP_CONTENT_PATHS):
-            continue
-        if source.path.lower().endswith(SKIP_CONTENT_SUFFIXES):
+        if source.path in SKIP_CONTENT_PATHS:
             continue
         if source.open is None:
             findings.append(f"{source.path}: {source.note}")
@@ -309,77 +364,101 @@ def git_files(*arguments: str) -> list[str]:
     return [entry.decode() for entry in result.stdout.split(b"\0") if entry]
 
 
-def tracked_files() -> list[str]:
-    return git_files("ls-files", "-z")
-
-
-def untracked_files() -> list[str]:
-    return git_files("ls-files", "-z", "--others", "--exclude-standard")
-
-
-def candidate_files(*, untracked: bool = False) -> list[str]:
-    """Return the files to scan, refusing to guess outside a git work tree."""
-    files = tracked_files()
-    if untracked:
-        files += untracked_files()
-    return files
-
-
-def tracked_entries() -> dict[str, tuple[str, str]]:
-    """Map each tracked path to its index mode and blob id."""
+def index_entries() -> dict[str, IndexEntry]:
+    """Map each staged path to its index mode and object id."""
     entries = {}
-    for entry in git_files("ls-files", "-s", "-z"):
+    for entry in git_files("ls-files", "--stage", "-z"):
         metadata, _tab, path = entry.partition("\t")
         mode, object_id, _stage = metadata.split()
-        entries[path] = (mode, object_id)
+        entries[path] = IndexEntry(mode, object_id)
     return entries
 
 
+def tracked_files() -> list[str]:
+    return list(index_entries())
+
+
+def untracked_files() -> list[str]:
+    return git_files("ls-files", "--others", "--exclude-standard", "-z")
+
+
+def modified_tracked_paths(entries: dict[str, IndexEntry]) -> list[str]:
+    """Tracked paths whose working-tree content differs from the index."""
+    changed = []
+    for record in git_files("status", "--porcelain", "-z"):
+        status, path = record[:2], record[3:]
+        if status == "??" or status[1] in {" ", "D"}:
+            continue
+        if path in entries and Path(path).exists():
+            changed.append(path)
+    return changed
+
+
 def index_sources(paths: Iterable[str], reader: IndexReader) -> list[Source]:
-    """Read tracked content from the index, so a staged deletion cannot hide it."""
-    entries = tracked_entries()
+    """Read the staged content of the given paths by object id."""
+    entries = index_entries()
     sources = []
     for path in paths:
-        mode, object_id = entries.get(path, ("", ""))
-        if mode == SYMLINK_MODE:
-            sources.append(Source(path, note="symbolic link not followed"))
-        elif not object_id:
+        entry = entries.get(path)
+        if entry is None:
             sources.append(Source(path, note="not in the index"))
+        elif entry.mode == SYMLINK_MODE:
+            sources.append(Source(path, note="symbolic link not inspected"))
         else:
-            sources.append(Source(path, partial(reader.open, object_id)))
+            sources.append(Source(path, partial(reader.open, entry.object_id)))
     return sources
 
 
 def working_tree_sources(paths: Iterable[str]) -> list[Source]:
-    """Read untracked content from disk, refusing to follow a symbolic link."""
+    """Read content from disk, refusing to follow a symbolic link."""
     sources = []
     for path in paths:
         candidate = Path(path)
         if candidate.is_symlink():
-            sources.append(Source(path, note="symbolic link not followed"))
+            sources.append(Source(path, note="symbolic link not inspected"))
         else:
             sources.append(Source(path, partial(candidate.open, "rb")))
     return sources
+
+
+def planned_sources(
+    entries: dict[str, IndexEntry], extra_paths: Iterable[str], reader: IndexReader
+) -> tuple[list[Source], list[str]]:
+    """Plan the scan: index content, changed working-tree copies and untracked files."""
+    sources = []
+    findings = []
+    for path, entry in entries.items():
+        if entry.mode == SYMLINK_MODE:
+            findings.append(f"{path}: symbolic link not inspected")
+            continue
+        if path in SKIP_CONTENT_PATHS:
+            continue
+        sources.append(Source(path, partial(reader.open, entry.object_id)))
+    for path in modified_tracked_paths(entries):
+        if path in SKIP_CONTENT_PATHS:
+            continue
+        sources.extend(working_tree_sources([path]))
+    for path in extra_paths:
+        if path in SKIP_CONTENT_PATHS:
+            continue
+        sources.extend(working_tree_sources([path]))
+    return sources, findings
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--untracked", action="store_true", help=UNTRACKED_HELP)
     options = parser.parse_args(argv)
-    reader = IndexReader()
     try:
-        files = candidate_files(untracked=options.untracked)
-        tracked = tracked_files()
-        sources = index_sources(tracked, reader)
-        if options.untracked:
-            sources += working_tree_sources(untracked_files())
-        violations = find_violations(files)
-        findings = content_violations(sources)
+        entries = index_entries()
+        extra_paths = untracked_files() if options.untracked else []
+        violations = find_violations([*entries, *extra_paths])
+        with closing(IndexReader()) as reader:
+            sources, findings = planned_sources(entries, extra_paths, reader)
+            findings += content_violations(sources)
     except (GitWorkTreeError, OSError) as error:
-        print(f"Hygiene check needs the repository's git work tree: {error}")
+        print(f"Hygiene check could not read the repository's git work tree: {error}")
         return 2
-    finally:
-        reader.close()
     scope = "Tracked or untracked" if options.untracked else "Tracked"
     if violations:
         print(f"{scope} private-data files found:")
