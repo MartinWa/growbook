@@ -7,6 +7,7 @@ synthetic placeholder secrets and the ``hygiene: allow`` marker.
 
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -408,3 +409,67 @@ def test_an_unreadable_object_fails_the_check_instead_of_passing(monkeypatch):
             reader.open("0" * 40)
     finally:
         reader.close()
+
+
+def test_an_assigned_secret_spanning_a_window_is_reported(tmp_path, monkeypatch):
+    prefix = "p" * (hygiene.PATTERN_WINDOW_CHARS + 200)
+    line = f"{prefix} token = '{'s' * 200}'\n"
+
+    findings = hygiene.content_violations(write(tmp_path, monkeypatch, "settings.md", line))
+
+    assert findings == ["settings.md:1: assigned secret"]
+
+
+def test_a_long_line_with_one_stray_at_sign_scans_quickly(tmp_path, monkeypatch):
+    line = "a" * (hygiene.MAX_SCAN_BYTES - 100) + " @ stray\n"
+
+    started = time.monotonic()
+    findings = hygiene.content_violations(write(tmp_path, monkeypatch, "notes.md", line))
+    elapsed = time.monotonic() - started
+
+    assert findings == []
+    assert elapsed < 5, elapsed
+
+
+def test_a_dangling_symlink_at_an_exempt_path_is_reported(tmp_path, monkeypatch, capsys):
+    if not shutil.which("git"):
+        pytest.skip("The hygiene check needs Git.")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=30)
+    monkeypatch.chdir(tmp_path)
+    pinned = tmp_path / "static" / "vendor" / "swagger-ui-5.36.0" / "swagger-ui.css"
+    pinned.parent.mkdir(parents=True)
+    pinned.write_text("body { color: green; }\n", encoding="utf-8")
+    subprocess.run(["git", "add", "static"], check=True, timeout=30)
+    pinned.unlink()
+    pinned.symlink_to(tmp_path / "missing-target.css")
+
+    assert hygiene.main([]) == 1
+    assert "swagger-ui.css: symbolic link not inspected" in capsys.readouterr().out
+
+
+def test_a_renamed_file_is_scanned_after_it_is_edited(tmp_path, monkeypatch, capsys):
+    if not shutil.which("git"):
+        pytest.skip("The hygiene check needs Git.")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, timeout=30)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "notes.md").write_text("synthetic note\n", encoding="utf-8")
+    subprocess.run(["git", "add", "notes.md"], check=True, timeout=30)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Synthetic",
+            "-c",
+            "user.email=synthetic@example.invalid",
+            "commit",
+            "-m",
+            "synthetic baseline",
+        ],
+        check=True,
+        timeout=30,
+    )
+    subprocess.run(["git", "mv", "notes.md", "renamed.md"], check=True, timeout=30)
+    (tmp_path / "renamed.md").write_text(f"contact {PRIVATE_ADDRESS}\n", encoding="utf-8")
+
+    assert hygiene.main([]) == 1
+    assert "renamed.md:1: email address" in capsys.readouterr().out

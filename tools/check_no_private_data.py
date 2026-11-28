@@ -21,6 +21,7 @@ so metadata in those formats, which is this project's own asset format, is not d
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 from collections.abc import Callable, Iterable
@@ -79,14 +80,6 @@ CONTENT_PATTERNS = (
         re.compile(r"(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{22,255})"),
     ),
     ("Slack token", re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,255}")),
-    ("assigned secret", ASSIGNED_SECRET),
-    (
-        "email address",
-        re.compile(
-            r"[A-Za-z0-9._%+-]{1,64}@(?!example\.(?:com|org|net|invalid)\b)"
-            r"[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}"
-        ),
-    ),
     (
         "absolute host path",
         re.compile(
@@ -94,8 +87,12 @@ CONTENT_PATTERNS = (
         ),
     ),
 )
-# Cheap per-line guards so a very long line is not scanned by an expensive pattern.
-LINE_GATES = {"email address": lambda line: "@" in line}
+# The assigned value can be longer than a window, so this rule reads the whole line.
+WHOLE_LINE_PATTERNS = (("assigned secret", ASSIGNED_SECRET),)
+# RFC limits that bound the work done around each "@" instead of retrying the whole line.
+EMAIL_LOCAL_PART = re.compile(r"[A-Za-z0-9._%+-]{1,64}\Z")
+EMAIL_DOMAIN_PART = re.compile(r"[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}(?![A-Za-z0-9.-])")
+RESERVED_EMAIL_DOMAINS = frozenset({"example.com", "example.org", "example.net", "example.invalid"})
 # A long line is scanned in overlapping windows so the work stays linear in its length.
 PATTERN_WINDOW_CHARS = 4096
 PATTERN_OVERLAP_CHARS = 256
@@ -272,21 +269,39 @@ def line_windows(line: str) -> Iterable[str]:
         start += PATTERN_WINDOW_CHARS
 
 
+def has_email_address(line: str) -> bool:
+    """Check each "@" against its local part and domain instead of retrying the line."""
+    start = 0
+    while (at := line.find("@", start)) != -1:
+        start = at + 1
+        local = line[max(0, at - 64) : at]
+        if not EMAIL_LOCAL_PART.search(local):
+            continue
+        domain = EMAIL_DOMAIN_PART.match(line, at + 1)
+        if domain and domain.group(0).lower() not in RESERVED_EMAIL_DOMAINS:
+            return True
+    return False
+
+
 def scan_line(path: str, number: int, line: str) -> list[str]:
     if ALLOW_MARKER in line:
         return []
-    findings = []
+    labels = []
     for window in line_windows(line):
         for label, pattern in CONTENT_PATTERNS:
-            gate = LINE_GATES.get(label)
-            if gate is not None and not gate(window):
-                continue
-            match = pattern.search(window)
-            if not match or PLACEHOLDER_CHECKS.get(label, lambda _match: False)(match):
-                continue
-            finding = f"{path}:{number}: {label}"
-            if finding not in findings:
-                findings.append(finding)
+            if pattern.search(window):
+                labels.append(label)
+    for label, pattern in WHOLE_LINE_PATTERNS:
+        match = pattern.search(line)
+        if match and not PLACEHOLDER_CHECKS.get(label, lambda _match: False)(match):
+            labels.append(label)
+    if has_email_address(line):
+        labels.append("email address")
+    findings = []
+    for label in labels:
+        finding = f"{path}:{number}: {label}"
+        if finding not in findings:
+            findings.append(finding)
     return findings
 
 
@@ -384,12 +399,19 @@ def untracked_files() -> list[str]:
 
 def modified_tracked_paths(entries: dict[str, IndexEntry]) -> list[str]:
     """Tracked paths whose working-tree content differs from the index."""
+    records = git_files("status", "--porcelain", "-z")
     changed = []
-    for record in git_files("status", "--porcelain", "-z"):
+    position = 0
+    while position < len(records):
+        record = records[position]
+        position += 1
         status, path = record[:2], record[3:]
+        if "R" in status or "C" in status:
+            # A rename or copy carries its original path as the next NUL-separated field.
+            position += 1
         if status == "??" or status[1] in {" ", "D"}:
             continue
-        if path in entries and Path(path).exists():
+        if path in entries and os.path.lexists(path):
             changed.append(path)
     return changed
 
@@ -434,14 +456,13 @@ def planned_sources(
         if path in SKIP_CONTENT_PATHS:
             continue
         sources.append(Source(path, partial(reader.open, entry.object_id)))
-    for path in modified_tracked_paths(entries):
-        if path in SKIP_CONTENT_PATHS:
-            continue
-        sources.extend(working_tree_sources([path]))
-    for path in extra_paths:
-        if path in SKIP_CONTENT_PATHS:
-            continue
-        sources.extend(working_tree_sources([path]))
+    for path in [*modified_tracked_paths(entries), *extra_paths]:
+        # The entry type decides first: an exempt or dangling path can still be a link.
+        source = working_tree_sources([path])[0]
+        if source.open is None:
+            findings.append(f"{path}: {source.note}")
+        elif path not in SKIP_CONTENT_PATHS:
+            sources.append(source)
     return sources, findings
 
 
